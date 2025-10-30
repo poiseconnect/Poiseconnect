@@ -1,10 +1,11 @@
 "use client";
+
 import { useState } from "react";
 
-export default function Home() {
+export default function Page() {
   const [form, setForm] = useState({
+    name: "",
     vorname: "",
-    nachname: "",
     email: "",
     strasse_hausnr: "",
     plz_ort: "",
@@ -17,12 +18,12 @@ export default function Home() {
     wunschtherapeut: "",
     check_suizid: false,
     check_datenschutz: false,
-    bevorzugte_zeit: ""
+    bevorzugte_zeit: "",
   });
+
   const [sent, setSent] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [err, setErr] = useState(""); 
-  
+  const [err, setErr] = useState("");
 
   const team = [
     "Linda",
@@ -51,257 +52,77 @@ export default function Home() {
     "Keine Präferenz",
   ];
 
-  const leidensdruckOptionen = Array.from({ length: 10 }, (_, i) => i + 1);
+  const leidensdruckOptionen = [
+    "Gering",
+    "Mittel",
+    "Stark",
+    "Sehr stark"
+  ];
+
+  const handleChange = (e) => {
+    const { name, value, type, checked } = e.target;
+    setForm({
+      ...form,
+      [name]: type === "checkbox" ? checked : value,
+    });
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setErr("");
-    if (!form.check_datenschutz) {
-      setErr("Bitte stimmen Sie der Datenschutzerklärung zu.");
-      return;
-    }
     setLoading(true);
+    setErr("");
+
     try {
       const res = await fetch("/api/submit", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form)
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(form),
       });
-      const data = await res.json();
-      if (res.ok) {
-        setSent(true);
-        setForm({
-          vorname: "",
-          nachname: "",
-          email: "",
-          strasse_hausnr: "",
-          plz_ort: "",
-          geburtsdatum: "",
-          beschaeftigungsgrad: "",
-          leidensdruck: "",
-          anliegen: "",
-          verlauf: "",
-          ziel: "",
-          wunschtherapeut: "",
-          check_suizid: false,
-          check_datenschutz: false,
-          bevorzugte_zeit: ""
-        });
-      } else {
-        setErr(data.error || "Fehler beim Senden.");
-      }
+
+      if (!res.ok) throw new Error("Fehler beim Senden");
+
+      setSent(true);
     } catch (error) {
-      setErr("Netzwerkfehler.");
-    } finally {
-      setLoading(false);
+      setErr("Das hat leider nicht geklappt. Bitte später erneut versuchen.");
     }
+
+    setLoading(false);
   };
 
-  if (sent) {
-    return (
-      <main className="min-h-screen flex items-center justify-center p-8">
-        <div className="max-w-lg text-center">
-          <h1 className="text-2xl font-semibold mb-4">
-            Danke — deine Anfrage ist eingegangen
-          </h1>
-          <p>Wir melden uns innerhalb von 24 Stunden bei dir.</p>
-        </div>
-      </main>
-    );
-  }
-
   return (
-    <main className="min-h-screen flex items-center justify-center p-8 bg-gray-50">
-      <form
-        onSubmit={handleSubmit}
-        className="w-full max-w-2xl bg-white p-6 rounded shadow space-y-3"
-      >
-        <h1 className="text-xl font-bold mb-2">Kontaktformular — Poise Connect</h1>
+    <div style={{ maxWidth: "600px", margin: "40px auto" }}>
+      <h1>Poise Connect Anfrage</h1>
 
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="block mb-1">Vorname *</label>
-            <input
-              required
-              value={form.vorname}
-              onChange={(e) => setForm({ ...form, vorname: e.target.value })}
-              className="w-full p-2 border rounded"
-              placeholder="Vorname"
-            />
-          </div>
-          <div>
-            <label className="block mb-1">Nachname *</label>
-            <input
-              required
-              value={form.nachname}
-              onChange={(e) => setForm({ ...form, nachname: e.target.value })}
-              className="w-full p-2 border rounded"
-              placeholder="Nachname"
-            />
-          </div>
-        </div>
+      {sent ? (
+        <p>Danke! Wir melden uns bei dir.</p>
+      ) : (
+        <form onSubmit={handleSubmit}>
+          <label>Name</label>
+          <input name="name" value={form.name} onChange={handleChange} />
 
-        <label className="block mb-1">E-Mail *</label>
-        <input
-          required
-          type="email"
-          value={form.email}
-          onChange={(e) => setForm({ ...form, email: e.target.value })}
-          className="w-full p-2 border rounded"
-          placeholder="name@beispiel.de"
-        />
+          <label>Wunschtherapeut</label>
+          <select name="wunschtherapeut" value={form.wunschtherapeut} onChange={handleChange}>
+            {team.map((t) => (
+              <option key={t}>{t}</option>
+            ))}
+          </select>
 
-        <label className="block mb-1">Straße & Hausnummer</label>
-        <input
-          value={form.strasse_hausnr}
-          onChange={(e) => setForm({ ...form, strasse_hausnr: e.target.value })}
-          className="w-full p-2 border rounded"
-          placeholder="Musterstraße 1"
-        />
+          <label>Leidensdruck</label>
+          <select name="leidensdruck" value={form.leidensdruck} onChange={handleChange}>
+            {leidensdruckOptionen.map((l) => (
+              <option key={l}>{l}</option>
+            ))}
+          </select>
 
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="block mb-1">PLZ / Ort</label>
-            <input
-              value={form.plz_ort}
-              onChange={(e) => setForm({ ...form, plz_ort: e.target.value })}
-              className="w-full p-2 border rounded"
-              placeholder="1010 Wien"
-            />
-          </div>
-          <div>
-            <label className="block mb-1">Geburtsdatum</label>
-            <input
-              type="date"
-              value={form.geburtsdatum}
-              onChange={(e) =>
-                setForm({ ...form, geburtsdatum: e.target.value })
-              }
-              className="w-full p-2 border rounded"
-            />
-          </div>
-        </div>
+          <button type="submit" disabled={loading}>
+            {loading ? "Senden..." : "Absenden"}
+          </button>
 
-        <label className="block mb-1">
-          Beschäftigungsgrad / Berufstätig / in Ausbildung
-        </label>
-        <input
-          value={form.beschaeftigungsgrad}
-          onChange={(e) =>
-            setForm({ ...form, beschaeftigungsgrad: e.target.value })
-          }
-          className="w-full p-2 border rounded"
-          placeholder="z. B. Vollzeit, Teilzeit, in Ausbildung"
-        />
-
-        <label className="block mb-1">Wie hoch ist dein Leidensdruck (1–10)?</label>
-        <select
-          value={form.leidensdruck}
-          onChange={(e) => setForm({ ...form, leidensdruck: e.target.value })}
-          className="w-full p-2 border rounded"
-        >
-          <option value="">Bitte auswählen</option>
-          {leidensdruckOptionen.map((n) => (
-            <option key={n} value={n}>
-              {n}
-            </option>
-          ))}
-        </select>
-
-        <label className="block mb-1">
-          Anliegen (Beschreibung des Themas / psychisches Problem) *
-        </label>
-        <textarea
-          required
-          value={form.anliegen}
-          onChange={(e) => setForm({ ...form, anliegen: e.target.value })}
-          className="w-full p-2 border rounded"
-          rows="4"
-          placeholder="Beschreibe kurz dein Anliegen"
-        ></textarea>
-
-        <label className="block mb-1">Verlauf deines Problems</label>
-        <textarea
-          value={form.verlauf}
-          onChange={(e) => setForm({ ...form, verlauf: e.target.value })}
-          className="w-full p-2 border rounded"
-          rows="3"
-          placeholder="Wie hat sich das entwickelt?"
-        ></textarea>
-
-        <label className="block mb-1">Ziel / Wunsch für die Sitzung</label>
-        <textarea
-          value={form.ziel}
-          onChange={(e) => setForm({ ...form, ziel: e.target.value })}
-          className="w-full p-2 border rounded"
-          rows="2"
-          placeholder="Was möchtest du erreichen?"
-        ></textarea>
-
-        <label className="block mb-1">Wunschtherapeut:in</label>
-        <select
-          value={form.wunschtherapeut}
-          onChange={(e) =>
-            setForm({ ...form, wunschtherapeut: e.target.value })
-          }
-          className="w-full p-2 border rounded"
-        >
-          <option value="">Bitte auswählen</option>
-          {team.map((person) => (
-            <option key={person} value={person}>
-              {person}
-            </option>
-          ))}
-        </select>
-
-        <label className="block mb-1">Bevorzugte Zeit</label>
-        <input
-          value={form.bevorzugte_zeit}
-          onChange={(e) =>
-            setForm({ ...form, bevorzugte_zeit: e.target.value })
-          }
-          className="w-full p-2 border rounded"
-          placeholder="z. B. Montag Vormittag"
-        />
-
-        <div className="flex items-center gap-3">
-          <input
-            id="suizid"
-            type="checkbox"
-            checked={form.check_suizid}
-            onChange={(e) =>
-              setForm({ ...form, check_suizid: e.target.checked })
-            }
-          />
-          <label htmlFor="suizid">
-            Ich habe derzeit keine akuten Suizidgedanken
-          </label>
-        </div>
-
-        <div className="flex items-center gap-3">
-          <input
-            id="datenschutz"
-            type="checkbox"
-            checked={form.check_datenschutz}
-            onChange={(e) =>
-              setForm({ ...form, check_datenschutz: e.target.checked })
-            }
-          />
-          <label htmlFor="datenschutz">
-            Ich stimme der Datenschutzerklärung zu *
-          </label>
-        </div>
-
-        {err && <p className="text-red-600">{err}</p>}
-
-        <button
-          type="submit"
-          disabled={loading}
-          className="bg-black text-white px-4 py-2 rounded"
-        >
-          {loading ? "Sende..." : "Absenden"}
-        </button>
-      </form>
-    </main>
+          {err && <p style={{ color: "red" }}>{err}</p>}
+        </form>
+      )}
+    </div>
   );
 }
