@@ -21,7 +21,7 @@ export default function Home() {
   });
   const [sent, setSent] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [err, setErr] = useState("");
+  const [err, setErr] = useState(""); //
 
   const team = [
     "Linda",
