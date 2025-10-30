@@ -34,7 +34,7 @@ export default function Home() {
     "Elena",
     "Franziska",
     "Gerhard",
-    "Gesine"
+    "Gesine",
     "Isabella",
     "Jenny",
     "Judith",
