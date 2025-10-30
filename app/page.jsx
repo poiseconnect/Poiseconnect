@@ -28,26 +28,26 @@ export default function Home() {
     "Ann",
     "Anna",
     "Anja",
-    "Babette"
-    "Carolin"
-    "Caroline"
-    "Elena"
-    "Franziska"
-    "Gerhard"
+    "Babette",
+    "Carolin",
+    "Caroline",
+    "Elena",
+    "Franziska",
+    "Gerhard",
     "Gesine"
-    "Isabella"
-    "Jenny"
-    "Judith"
-    "Julius"
-    "Kristin"
-    "Kristin-Sofie"
-    "Livia"
-    "Magdalena"
-    "Marisa"
-    "Marleen"
-    "Sophie"
-    "Yanina"
-    "Keine Präferenz"
+    "Isabella",
+    "Jenny",
+    "Judith",
+    "Julius",
+    "Kristin",
+    "Kristin-Sofie",
+    "Livia",
+    "Magdalena",
+    "Marisa",
+    "Marleen",
+    "Sophie",
+    "Yanina",
+    "Keine Präferenz",
   ];
 
   const leidensdruckOptionen = Array.from({ length: 10 }, (_, i) => i + 1);
