@@ -1,27 +1,22 @@
+import { NextResponse } from "next/server";
 import { Resend } from "resend";
 import { createClient } from "@supabase/supabase-js";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
-
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY,
-  {
-    auth: {
-      persistSession: false
-    }
-  }
+  process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
 export async function POST(request) {
   try {
-    const data = await request.json();
+    const data = await request.json(); // ✅ richtig in Route Handler
 
-    // 1) SUPABASE SPEICHERN
+    // 1) Speichern in Supabase
     const { error } = await supabase.from("anfragen").insert([data]);
     if (error) throw error;
 
-    // 2) EMAIL SENDEN
+    // 2) Bestätigung an Nutzer senden
     await resend.emails.send({
       from: "Poise Connect <no-reply@mypoise.de>",
       to: data.email,
@@ -32,11 +27,10 @@ export async function POST(request) {
       `,
     });
 
-    // ✅ CORRECT RESPONSE
-    return Response.json({ ok: true });
+    return NextResponse.json({ ok: true }, { status: 200 });
 
   } catch (err) {
     console.error("API ERROR:", err);
-    return Response.json({ error: err.message }, { status: 500 });
+    return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }
