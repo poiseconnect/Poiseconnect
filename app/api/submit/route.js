@@ -11,13 +11,11 @@ const supabase = createClient(
 
 export async function POST(request) {
   try {
-    const data = await request.json(); // <- **richtig**
+    const data = await request.json(); // ✅ WICHTIG: request.json()
 
-    // Save to Supabase
     const { error } = await supabase.from("anfragen").insert(data);
     if (error) throw error;
 
-    // Send confirmation email
     await resend.emails.send({
       from: "Poise Connect <no-reply@mypoise.de>",
       to: data.email,
@@ -28,8 +26,7 @@ export async function POST(request) {
       `,
     });
 
-    return NextResponse.json({ ok: true }, { status: 200 });
-
+    return NextResponse.json({ ok: true });
   } catch (err) {
     console.error("SERVER ERROR:", err);
     return NextResponse.json({ error: err.message }, { status: 500 });
