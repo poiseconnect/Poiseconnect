@@ -9,15 +9,15 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
-export async function POST(req) {
+export async function POST(request) {
   try {
-    const data = await req.json();
+    const data = await request.json(); // <- **richtig**
 
-    // 1. Save to Supabase
-    const { error } = await supabase.from("anfragen").insert([data]);
+    // Save to Supabase
+    const { error } = await supabase.from("anfragen").insert(data);
     if (error) throw error;
 
-    // 2. Send email to client
+    // Send confirmation email
     await resend.emails.send({
       from: "Poise Connect <no-reply@mypoise.de>",
       to: data.email,
@@ -29,12 +29,13 @@ export async function POST(req) {
     });
 
     return NextResponse.json({ ok: true }, { status: 200 });
+
   } catch (err) {
     console.error("SERVER ERROR:", err);
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }
 
-export async function GET() {
+export function GET() {
   return NextResponse.json({ ok: true });
 }
