@@ -1,80 +1,92 @@
-/* -------------------- GLOBAL FONT -------------------- */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap');
-
-* {
+body {
+  font-family: "Lato", sans-serif;
+  background: #ffffff;
+  color: #333;
   margin: 0;
   padding: 0;
-  box-sizing: border-box;
-  font-family: "Inter", sans-serif;
 }
 
-body {
-  background: #fafafa;
-  color: #222;
-  padding: 40px 16px;
+h2 {
+  font-family: "Playfair Display", serif;
+  font-size: 26px;
+  font-weight: 600;
+  margin-bottom: 18px;
+  color: #d86f87; /* Poise-Pink */
 }
 
-/* -------------------- STEP CONTAINER -------------------- */
+.form-wrapper {
+  max-width: 540px;
+  margin: 0 auto;
+  padding: 48px 24px;
+}
+
 .step-container {
   display: flex;
   flex-direction: column;
-  gap: 18px;
-  animation: fadeIn 0.3s ease;
+  gap: 14px;
 }
 
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(4px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-/* -------------------- INPUTS -------------------- */
-
-input, textarea, select {
-  padding: 14px;
-  border-radius: 8px;
-  border: 1px solid #ddd;
-  font-size: 15px;
+textarea,
+input,
+select {
   width: 100%;
-  background: white;
-  transition: border 0.2s ease;
-}
-
-input:focus, textarea:focus, select:focus {
-  border-color: #111;
-  outline: none;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  padding: 14px;
+  font-size: 16px;
+  background: #fafafa;
 }
 
 textarea {
-  min-height: 120px;
+  min-height: 110px;
   resize: vertical;
 }
 
-/* -------------------- BUTTONS -------------------- */
-
 button {
-  background: black;
-  color: white;
+  background: #c9e6df; /* mint */
+  color: #1f4e79;
+  font-weight: 600;
   border: none;
   padding: 14px 22px;
-  border-radius: 8px;
+  border-radius: 6px;
   cursor: pointer;
-  font-weight: 500;
+  font-size: 16px;
   transition: 0.2s;
 }
 
-button:hover:not(:disabled) {
-  opacity: 0.85;
-}
-
 button:disabled {
-  opacity: 0.35;
+  opacity: 0.4;
   cursor: not-allowed;
 }
 
-/* -------------------- STEP FOOTER BUTTONS -------------------- */
+button:hover:not(:disabled) {
+  background: #b0d9d1;
+}
 
 .footer-buttons {
   display: flex;
   justify-content: space-between;
-  margin-top: 16px;
+  margin-top: 24px;
+}
+
+/* Step indicator */
+.step-indicator {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin-bottom: 36px;
+  margin-top: 12px;
+}
+
+.step-dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid #d86f87;
+  background: white;
+  transition: 0.2s;
+}
+
+.step-dot.active {
+  background: #d86f87;
 }
