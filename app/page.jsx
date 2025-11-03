@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import StepIndicator from "./components/StepIndicator";
 
 export default function Home() {
@@ -59,6 +60,17 @@ export default function Home() {
 
   return (
     <div className="form-wrapper">
+
+      <div style={{ textAlign: "center", marginBottom: "24px" }}>
+        <Image 
+          src="/IMG_7599.png"   // <— genau so, weil Datei in /public liegt
+          alt="Poise Logo"
+          width={160}
+          height={160}
+          priority
+        />
+      </div>
+
       <StepIndicator step={step} total={totalSteps} />
 
       {/* ---------- STEP 0 Anliegen ---------- */}
