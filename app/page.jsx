@@ -1,152 +1,199 @@
 "use client";
-
 import { useState } from "react";
+import StepIndicator from "./components/StepIndicator";
+import { createClient } from "./lib/supabase";
 
-export default function Home() {
+export default function Page() {
+  const supabase = createClient();
+
+  const totalSteps = 8;
+  const [step, setStep] = useState(0);
+
   const [form, setForm] = useState({
+    anliegen: "",
+    leidensdruck: "",
+    verlauf: "",
+    ziel: "",
+    wunschtherapeut: "",
     vorname: "",
     nachname: "",
     email: "",
-    anliegen: "",
-    wunschtherapeut: "",
-    check_datenschutz: false,
+    anschrift: "",
+    ort: "",
+    strasse: "",
+    geburtsdatum: "",
+    beschaeftigung: "",
+    disclaimer: false,
   });
 
-  const [sent, setSent] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [err, setErr] = useState("");
+  function updateField(key, value) {
+    setForm((prev) => ({ ...prev, [key]: value }));
+  }
 
-  const team = [
-    "Linda",
-    "Ann",
-    "Anna",
-    "Anja",
-    "Babette",
-    "Carolin",
-    "Caroline",
-    "Elena",
-    "Franziska",
-    "Gerhard",
-    "Gesine",
-    "Isabella",
-    "Jenny",
-    "Judith",
-    "Julius",
-    "Kristin",
-    "Kristin-Sofie",
-    "Livia",
-    "Magdalena",
-    "Marisa",
-    "Marleen",
-    "Sophie",
-    "Yanina",
-    "Keine Präferenz",
-  ];
+  function next() {
+    if (step < totalSteps - 1) setStep(step + 1);
+  }
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    setErr("");
+  function back() {
+    if (step > 0) setStep(step - 1);
+  }
 
-    try {
-      const res = await fetch("/api/submit", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
-      });
-
-      if (!res.ok) throw new Error("Fehler beim Absenden");
-
-      setSent(true);
-      setForm({
-        vorname: "",
-        nachname: "",
-        email: "",
-        anliegen: "",
-        wunschtherapeut: "",
-        check_datenschutz: false,
-      });
-    } catch (error) {
-      setErr("Es ist ein Fehler aufgetreten. Bitte versuche es erneut.");
-    } finally {
-      setLoading(false);
-    }
-  };
+  async function handleSubmit() {
+    const { error } = await supabase.from("anfragen").insert([form]);
+    if (!error) alert("Danke! Deine Anfrage wurde erfolgreich gesendet ✅");
+    else alert("Fehler beim Senden ❌");
+  }
 
   return (
-    <div style={{ maxWidth: "800px", margin: "0 auto", padding: "40px" }}>
-      <h1 style={{ marginBottom: "24px" }}>Poise Connect Anfrage</h1>
+    <div style={{ maxWidth: 600, margin: "0 auto", padding: 20 }}>
+      <h1 style={{ textAlign: "center", color: "#d97f8b" }}>Kontaktformular</h1>
 
-      {sent ? (
-        <p style={{ padding: "20px", background: "#e7ffe7", borderRadius: "8px" }}>
-          Danke! Deine Anfrage wurde erfolgreich gesendet.
-        </p>
-      ) : (
-        <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+      <StepIndicator currentStep={step} totalSteps={totalSteps} />
 
-          <input
-            placeholder="Vorname"
-            value={form.vorname}
-            onChange={(e) => setForm({ ...form, vorname: e.target.value })}
-          />
-
-          <input
-            placeholder="Nachname"
-            value={form.nachname}
-            onChange={(e) => setForm({ ...form, nachname: e.target.value })}
-          />
-
-          <input
-            type="email"
-            placeholder="E-Mail"
-            value={form.email}
-            onChange={(e) => setForm({ ...form, email: e.target.value })}
-          />
-
+      {/* --- STEP 0: Anliegen --- */}
+      {step === 0 && (
+        <>
+          <label>Anliegen *</label>
           <textarea
-            placeholder="Dein Anliegen"
             value={form.anliegen}
-            onChange={(e) => setForm({ ...form, anliegen: e.target.value })}
-            style={{ minHeight: "120px" }}
+            onChange={(e) => updateField("anliegen", e.target.value)}
+            placeholder="Wie können wir dir helfen?"
           />
+          <button onClick={next}>Weiter</button>
+        </>
+      )}
 
+      {/* --- STEP 1: Leidensdruck --- */}
+      {step === 1 && (
+        <>
+          <label>Wie hoch ist dein Leidensdruck von 1-10? *</label>
           <select
-            value={form.wunschtherapeut}
-            onChange={(e) => setForm({ ...form, wunschtherapeut: e.target.value })}
+            value={form.leidensdruck}
+            onChange={(e) => updateField("leidensdruck", e.target.value)}
           >
-            <option value="">Wunschtherapeut auswählen</option>
-            {team.map((t) => (
-              <option key={t} value={t}>{t}</option>
+            <option value="">Bitte auswählen</option>
+            {[...Array(10)].map((_, i) => (
+              <option key={i + 1}>{i + 1}</option>
             ))}
           </select>
 
-          <label style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+          <button onClick={back}>Zurück</button>
+          <button onClick={next}>Weiter</button>
+        </>
+      )}
+
+      {/* --- STEP 2: Verlauf --- */}
+      {step === 2 && (
+        <>
+          <label>Verlauf *</label>
+          <textarea
+            value={form.verlauf}
+            onChange={(e) => updateField("verlauf", e.target.value)}
+            placeholder="Wie lange leidest du schon an deinem Thema?"
+          />
+
+          <button onClick={back}>Zurück</button>
+          <button onClick={next}>Weiter</button>
+        </>
+      )}
+
+      {/* --- STEP 3: Ziel --- */}
+      {step === 3 && (
+        <>
+          <label>Ziel *</label>
+          <textarea
+            value={form.ziel}
+            onChange={(e) => updateField("ziel", e.target.value)}
+          />
+
+          <button onClick={back}>Zurück</button>
+          <button onClick={next}>Weiter</button>
+        </>
+      )}
+
+      {/* --- STEP 4: Wunschtherapeutin --- */}
+      {step === 4 && (
+        <>
+          <label>Wunschtherapeutin *</label>
+          <select
+            value={form.wunschtherapeut}
+            onChange={(e) => updateField("wunschtherapeut", e.target.value)}
+          >
+            <option value="">Bitte auswählen</option>
+            <option>Linda</option>
+            <option>Anna</option>
+            <option>Anja</option>
+            <option>Babette</option>
+          </select>
+
+          <button onClick={back}>Zurück</button>
+          <button onClick={next}>Weiter</button>
+        </>
+      )}
+
+      {/* --- STEP 5: Personendaten --- */}
+      {step === 5 && (
+        <>
+          <label>Vorname *</label>
+          <input value={form.vorname} onChange={(e) => updateField("vorname", e.target.value)} />
+
+          <label>Nachname *</label>
+          <input value={form.nachname} onChange={(e) => updateField("nachname", e.target.value)} />
+
+          <label>E-Mail *</label>
+          <input value={form.email} onChange={(e) => updateField("email", e.target.value)} />
+
+          <label>Anschrift *</label>
+          <input value={form.anschrift} onChange={(e) => updateField("anschrift", e.target.value)} />
+
+          <label>Ort *</label>
+          <input value={form.ort} onChange={(e) => updateField("ort", e.target.value)} />
+
+          <label>Straße *</label>
+          <input value={form.strasse} onChange={(e) => updateField("strasse", e.target.value)} />
+
+          <label>Geburtsdatum *</label>
+          <input value={form.geburtsdatum} onChange={(e) => updateField("geburtsdatum", e.target.value)} />
+
+          <button onClick={back}>Zurück</button>
+          <button onClick={next}>Weiter</button>
+        </>
+      )}
+
+      {/* --- STEP 6: Beschäftigung --- */}
+      {step === 6 && (
+        <>
+          <label>Beschäftigungsgrad *</label>
+          <select
+            value={form.beschaeftigung}
+            onChange={(e) => updateField("beschaeftigung", e.target.value)}
+          >
+            <option>Berufstätig</option>
+            <option>Studierend</option>
+            <option>Schüler/in</option>
+            <option>Arbeitslos</option>
+          </select>
+
+          <button onClick={back}>Zurück</button>
+          <button onClick={next}>Weiter</button>
+        </>
+      )}
+
+      {/* --- STEP 7: Disclaimer --- */}
+      {step === 7 && (
+        <>
+          <label>
             <input
               type="checkbox"
-              checked={form.check_datenschutz}
-              onChange={() => setForm({ ...form, check_datenschutz: !form.check_datenschutz })}
-              required
+              checked={form.disclaimer}
+              onChange={(e) => updateField("disclaimer", e.target.checked)}
             />
-            Datenschutz akzeptieren
+            Ich habe die Datenschutzerklärung gelesen und akzeptiere sie *
           </label>
 
-          {err && <p style={{ color: "red" }}>{err}</p>}
-
-          <button
-            type="submit"
-            disabled={loading}
-            style={{
-              background: "#000",
-              color: "#fff",
-              padding: "14px",
-              border: "none",
-              borderRadius: "6px",
-              cursor: "pointer",
-            }}
-          >
-            {loading ? "Senden..." : "Absenden"}
-          </button>
-        </form>
+          <button onClick={back}>Zurück</button>
+          <button onClick={handleSubmit}>Senden</button>
+        </>
       )}
     </div>
   );
