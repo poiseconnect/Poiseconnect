@@ -1,6 +1,6 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap');
 
-/* Hintergrund + Zentrierung */
+/* --- Grundlayout (Formular zentriert) --- */
 body {
   margin: 0;
   padding: 0;
@@ -14,7 +14,7 @@ body {
   min-height: 100vh;
 }
 
-/* Weißer Kartenbereich */
+/* --- Weiße Mittelpunkt-Karte --- */
 .form-wrapper {
   background: #ffffff;
   width: 100%;
@@ -22,72 +22,83 @@ body {
   padding: 48px 32px;
   border-radius: 22px;
   box-shadow: 0 8px 32px rgba(0,0,0,0.08);
+  text-align: center; /* Inhalte zentriert */
 }
 
-/* Titel & Texte */
+/* --- Überschriften weich --- */
 h1, h2 {
+  margin: 0 0 24px 0;
   font-weight: 500;
-  margin-bottom: 22px;
   color: #2e2d2c;
 }
 
-/* Inputs */
+/* --- Beschreibende Texte (zentriert) --- */
+.step-container p, .step-container label {
+  text-align: center;
+}
+
+/* --- Eingabefelder (ruhig, weich) --- */
 input, textarea, select {
   width: 100%;
   background: #fff;
   border-radius: 14px;
-  border: 1px solid #e6ddd9;
+  border: 1px solid #eadfdc;    /* sanft rosé/beige */
   padding: 14px 16px;
   font-size: 1rem;
   margin-top: 6px;
   margin-bottom: 20px;
+  color: #413f3e;
   transition: border 0.25s ease;
+  text-align: left;  /* wichtig für gute Lesbarkeit */
 }
 
 input:focus, textarea:focus, select:focus {
-  border-color: #d6b9ad;
+  border-color: #d5a9a0; /* rosé aktiv */
   outline: none;
 }
 
-/* Buttons */
+/* --- Buttons warm rosé --- */
 button {
   padding: 14px 22px;
   border-radius: 14px;
   border: none;
   cursor: pointer;
-  background: #d6b9ad;
+  background: #d5a9a0; /* rosé Hauptton */
   color: white;
   font-size: 1rem;
   font-weight: 500;
-  transition: background 0.2s;
+  transition: background 0.25s ease;
+  min-width: 120px;
 }
 
 button:hover:not(:disabled) {
-  background: #c7a497;
+  background: #c48e86; /* dunkler rosé beim Hover */
 }
 
 button:disabled {
-  background: #e6ddd9;
+  background: #eadfdc; /* passiv */
   cursor: not-allowed;
 }
 
-/* Footer Navigation */
+/* --- Button Bereich (zentriert) --- */
 .footer-buttons {
   display: flex;
-  justify-content: space-between;
+  justify-content: center;
+  gap: 14px;
+  margin-top: 30px;
 }
 
-/* Step Animation */
+/* --- Step Container Animation --- */
 .step-container {
   animation: fadeIn 0.35s ease;
 }
 
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(6px); }
-  to { opacity: 1; transform: translateY(0); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
-/* Step Punkte */
+/* --- Step-Indikator Punkte (Poise-Weich) --- */
 .step-indicator-wrapper {
   display: flex;
   justify-content: center;
@@ -99,7 +110,7 @@ button:disabled {
   width: 9px;
   height: 9px;
   border-radius: 50%;
-  background: #e6ddd9;
+  background: #eadfdc; /* passiv */
   transition: 0.25s;
   margin: 0 6px;
 }
@@ -107,5 +118,14 @@ button:disabled {
 .step-dot.active {
   width: 12px;
   height: 12px;
-  background: #d6b9ad;
+  background: #d5a9a0; /* active rosé */
+}
+
+/* --- Checkbox warm --- */
+.checkbox {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  font-size: 0.95rem;
+  margin-top: 16px;
 }
