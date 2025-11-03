@@ -1,3 +1,5 @@
+import "./globals.css";
+
 export const metadata = {
   title: "Poise Connect",
   description: "Poise Klientenanfrage System",
