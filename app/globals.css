@@ -1,131 +1,141 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap');
+/* ----- Schrift ----- */
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600&display=swap');
 
-/* --- Grundlayout (Formular zentriert) --- */
-body {
+* {
   margin: 0;
   padding: 0;
-  font-family: "Inter", sans-serif;
-  background: #faf9f7;
-  color: #413f3e;
+  box-sizing: border-box;
+}
 
+body {
+  font-family: "Montserrat", sans-serif;
+  background: #FAF7F5; /* warmes Creme wie mypoise.de */
+  color: #3D3D3D;
   display: flex;
   justify-content: center;
   align-items: center;
   min-height: 100vh;
+  padding: 2rem;
 }
 
-/* --- Weiße Mittelpunkt-Karte --- */
+/* ----- Layout ----- */
 .form-wrapper {
-  background: #ffffff;
+  background: #FFFFFF;
   width: 100%;
   max-width: 600px;
-  padding: 48px 32px;
-  border-radius: 22px;
-  box-shadow: 0 8px 32px rgba(0,0,0,0.08);
-  text-align: center; /* Inhalte zentriert */
-}
-
-/* --- Überschriften weich --- */
-h1, h2 {
-  margin: 0 0 24px 0;
-  font-weight: 500;
-  color: #2e2d2c;
-}
-
-/* --- Beschreibende Texte (zentriert) --- */
-.step-container p, .step-container label {
+  border-radius: 28px;
+  padding: 2.4rem 2rem;
   text-align: center;
+  box-shadow: 0 8px 38px rgba(0,0,0,0.08);
 }
 
-/* --- Eingabefelder (ruhig, weich) --- */
-input, textarea, select {
+/* ----- Titel / Text ----- */
+h2 {
+  font-weight: 600;
+  font-size: 1.6rem;
+  margin-bottom: 1.4rem;
+  color: #3D3D3D;
+}
+
+/* ----- Eingabefelder ----- */
+input,
+textarea,
+select {
   width: 100%;
-  background: #fff;
+  padding: 1rem;
   border-radius: 14px;
-  border: 1px solid #eadfdc;    /* sanft rosé/beige */
-  padding: 14px 16px;
   font-size: 1rem;
-  margin-top: 6px;
-  margin-bottom: 20px;
-  color: #413f3e;
-  transition: border 0.25s ease;
-  text-align: left;  /* wichtig für gute Lesbarkeit */
+  border: 2px solid #EADADA; /* weicher Rosa-Ton */
+  color: #3D3D3D;
+  background: #FFF;
+  transition: border 0.2s;
 }
 
-input:focus, textarea:focus, select:focus {
-  border-color: #d5a9a0; /* rosé aktiv */
+input:focus,
+textarea:focus,
+select:focus {
+  border-color: #D7A6A0; /* schöner Poise-Rosa Ton */
   outline: none;
 }
 
-/* --- Buttons warm rosé --- */
-button {
-  padding: 14px 22px;
-  border-radius: 14px;
-  border: none;
-  cursor: pointer;
-  background: #d5a9a0; /* rosé Hauptton */
-  color: white;
-  font-size: 1rem;
-  font-weight: 500;
-  transition: background 0.25s ease;
-  min-width: 120px;
+textarea {
+  min-height: 100px;
+  resize: none;
 }
 
-button:hover:not(:disabled) {
-  background: #c48e86; /* dunkler rosé beim Hover */
+/* ----- Step Indicator Punkte ----- */
+.step-indicator {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin: 1.2rem 0 2rem;
+}
+
+.step-indicator div {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #E8D3D0; /* Rosa hell */
+  transition: 0.3s;
+}
+
+.step-indicator div.active {
+  background: #D7A6A0; /* Rosa stärker */
+}
+
+/* ----- Buttons ----- */
+.footer-buttons {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 2rem;
+}
+
+button {
+  flex: 1;
+  padding: 1rem;
+  border-radius: 18px;
+  border: none;
+  font-size: 1rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: opacity 0.2s, transform 0.2s;
+}
+
+button:active {
+  transform: scale(0.97);
+}
+
+button:first-child {
+  margin-right: 0.6rem;
+  background: #D7A6A0; /* Rosa Hauptfarbe */
+  color: #FFF;
+}
+
+button:last-child {
+  margin-left: 0.6rem;
+  background: #EDE3E1;
+  color: #7F7F7F;
 }
 
 button:disabled {
-  background: #eadfdc; /* passiv */
-  cursor: not-allowed;
+  opacity: 0.35;
+  cursor: default;
 }
 
-/* --- Button Bereich (zentriert) --- */
-.footer-buttons {
-  display: flex;
-  justify-content: center;
-  gap: 14px;
-  margin-top: 30px;
+/* ----- Logo ----- */
+.logo {
+  display: block;
+  margin: 0 auto 1.4rem auto;
+  width: 120px;
 }
 
-/* --- Step Container Animation --- */
-.step-container {
-  animation: fadeIn 0.35s ease;
-}
+/* Mobile Optimierung */
+@media (max-width: 480px) {
+  .form-wrapper {
+    padding: 1.8rem 1.4rem;
+  }
 
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(6px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
-
-/* --- Step-Indikator Punkte (Poise-Weich) --- */
-.step-indicator-wrapper {
-  display: flex;
-  justify-content: center;
-  margin-bottom: 36px;
-  margin-top: -10px;
-}
-
-.step-dot {
-  width: 9px;
-  height: 9px;
-  border-radius: 50%;
-  background: #eadfdc; /* passiv */
-  transition: 0.25s;
-  margin: 0 6px;
-}
-
-.step-dot.active {
-  width: 12px;
-  height: 12px;
-  background: #d5a9a0; /* active rosé */
-}
-
-/* --- Checkbox warm --- */
-.checkbox {
-  display: flex;
-  justify-content: center;
-  gap: 10px;
-  font-size: 0.95rem;
-  margin-top: 16px;
+  h2 {
+    font-size: 1.4rem;
+  }
 }
