@@ -1,92 +1,111 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap');
+
+/* Hintergrund + Zentrierung */
 body {
-  font-family: "Lato", sans-serif;
-  background: #ffffff;
-  color: #333;
   margin: 0;
   padding: 0;
-}
+  font-family: "Inter", sans-serif;
+  background: #faf9f7;
+  color: #413f3e;
 
-h2 {
-  font-family: "Playfair Display", serif;
-  font-size: 26px;
-  font-weight: 600;
-  margin-bottom: 18px;
-  color: #d86f87; /* Poise-Pink */
-}
-
-.form-wrapper {
-  max-width: 540px;
-  margin: 0 auto;
-  padding: 48px 24px;
-}
-
-.step-container {
   display: flex;
-  flex-direction: column;
-  gap: 14px;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
 }
 
-textarea,
-input,
-select {
+/* Weißer Kartenbereich */
+.form-wrapper {
+  background: #ffffff;
   width: 100%;
-  border: 1px solid #ddd;
-  border-radius: 6px;
-  padding: 14px;
-  font-size: 16px;
-  background: #fafafa;
+  max-width: 600px;
+  padding: 48px 32px;
+  border-radius: 22px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.08);
 }
 
-textarea {
-  min-height: 110px;
-  resize: vertical;
+/* Titel & Texte */
+h1, h2 {
+  font-weight: 500;
+  margin-bottom: 22px;
+  color: #2e2d2c;
 }
 
+/* Inputs */
+input, textarea, select {
+  width: 100%;
+  background: #fff;
+  border-radius: 14px;
+  border: 1px solid #e6ddd9;
+  padding: 14px 16px;
+  font-size: 1rem;
+  margin-top: 6px;
+  margin-bottom: 20px;
+  transition: border 0.25s ease;
+}
+
+input:focus, textarea:focus, select:focus {
+  border-color: #d6b9ad;
+  outline: none;
+}
+
+/* Buttons */
 button {
-  background: #c9e6df; /* mint */
-  color: #1f4e79;
-  font-weight: 600;
-  border: none;
   padding: 14px 22px;
-  border-radius: 6px;
+  border-radius: 14px;
+  border: none;
   cursor: pointer;
-  font-size: 16px;
-  transition: 0.2s;
-}
-
-button:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
+  background: #d6b9ad;
+  color: white;
+  font-size: 1rem;
+  font-weight: 500;
+  transition: background 0.2s;
 }
 
 button:hover:not(:disabled) {
-  background: #b0d9d1;
+  background: #c7a497;
 }
 
+button:disabled {
+  background: #e6ddd9;
+  cursor: not-allowed;
+}
+
+/* Footer Navigation */
 .footer-buttons {
   display: flex;
   justify-content: space-between;
-  margin-top: 24px;
 }
 
-/* Step indicator */
-.step-indicator {
+/* Step Animation */
+.step-container {
+  animation: fadeIn 0.35s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Step Punkte */
+.step-indicator-wrapper {
   display: flex;
   justify-content: center;
-  gap: 10px;
   margin-bottom: 36px;
-  margin-top: 12px;
+  margin-top: -10px;
 }
 
 .step-dot {
-  width: 14px;
-  height: 14px;
+  width: 9px;
+  height: 9px;
   border-radius: 50%;
-  border: 2px solid #d86f87;
-  background: white;
-  transition: 0.2s;
+  background: #e6ddd9;
+  transition: 0.25s;
+  margin: 0 6px;
 }
 
 .step-dot.active {
-  background: #d86f87;
+  width: 12px;
+  height: 12px;
+  background: #d6b9ad;
 }
