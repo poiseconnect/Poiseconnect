@@ -1,21 +1,18 @@
-export default function StepIndicator({ step, total }) {
+"use client";
+
+export default function StepIndicator({ step, total = 9 }) {
+  const items = Array.from({ length: total });
   return (
-    <div style={{
-      display: "flex",
-      justifyContent: "center",
-      gap: "8px",
-      marginBottom: "32px"
-    }}>
-      {Array.from({ length: total }).map((_, i) => (
-        <div
+    <div className="steps">
+      {items.map((_, i) => (
+        <span
           key={i}
-          style={{
-            width: 10,
-            height: 10,
-            borderRadius: "50%",
-            background: i === step ? "black" : "#d9d9d9",
-            transition: "0.3s"
-          }}
+          className={[
+            "step-dot",
+            i < step ? "done" : "",
+            i === step ? "active" : "",
+          ].join(" ")}
+          aria-label={`Schritt ${i + 1} von ${total}`}
         />
       ))}
     </div>
