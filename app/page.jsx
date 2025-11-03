@@ -96,7 +96,7 @@ export default function Home() {
       {/* ------------------- STEP 2 --------------- */}
       {step === 2 && (
         <div className="step-container">
-          <h2>Wie sieht der bisherige Verlauf aus?</h2>
+          <h2>Verlauf?</h2>
           <textarea
             placeholder="Wie lange leidest du schon an deinem Thema?"
             value={form.verlauf}
