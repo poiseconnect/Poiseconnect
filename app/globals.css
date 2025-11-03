@@ -1,70 +1,80 @@
-@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600&display=swap');
-
-:root {
-  --mint: #C9E7DF;
-  --rosa: #EFAFB5;
-  --rosa-dark: #D97F8B;
-  --gelb: #E7D081;
-  --text: #555555;
-  --radius: 12px;
-}
+/* -------------------- GLOBAL FONT -------------------- */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap');
 
 * {
-  font-family: 'Montserrat', sans-serif;
   margin: 0;
   padding: 0;
   box-sizing: border-box;
+  font-family: "Inter", sans-serif;
 }
 
 body {
-  background: white;
-  color: var(--text);
-  padding: 36px 20px;
+  background: #fafafa;
+  color: #222;
+  padding: 40px 16px;
 }
 
-h1, h2 {
-  font-weight: 600;
-  margin-bottom: 18px;
-  color: var(--rosa-dark);
+/* -------------------- STEP CONTAINER -------------------- */
+.step-container {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  animation: fadeIn 0.3s ease;
 }
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* -------------------- INPUTS -------------------- */
 
 input, textarea, select {
-  width: 100%;
   padding: 14px;
-  border-radius: var(--radius);
-  border: 1.6px solid #ddd;
-  font-size: 16px;
+  border-radius: 8px;
+  border: 1px solid #ddd;
+  font-size: 15px;
+  width: 100%;
+  background: white;
+  transition: border 0.2s ease;
 }
+
+input:focus, textarea:focus, select:focus {
+  border-color: #111;
+  outline: none;
+}
+
+textarea {
+  min-height: 120px;
+  resize: vertical;
+}
+
+/* -------------------- BUTTONS -------------------- */
 
 button {
-  background: var(--mint);
-  padding: 14px;
-  border-radius: var(--radius);
+  background: black;
+  color: white;
   border: none;
-  font-weight: 500;
+  padding: 14px 22px;
+  border-radius: 8px;
   cursor: pointer;
-  font-size: 17px;
-  transition: 0.25s;
+  font-weight: 500;
+  transition: 0.2s;
 }
 
-button:hover {
-  background: #b6d9d1;
-}
-.step-container {
-  animation: fade 0.35s ease;
+button:hover:not(:disabled) {
+  opacity: 0.85;
 }
 
-@keyframes fade {
-  from { opacity: 0; transform: translateY(4px); }
-  to   { opacity: 1; transform: translateY(0); }
+button:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
 }
+
+/* -------------------- STEP FOOTER BUTTONS -------------------- */
 
 .footer-buttons {
   display: flex;
   justify-content: space-between;
-  margin-top: 30px;
-  position: sticky;
-  bottom: 0;
-  background: white;
-  padding: 16px 0;
+  margin-top: 16px;
 }
