@@ -50,3 +50,21 @@ button {
 button:hover {
   background: #b6d9d1;
 }
+.step-container {
+  animation: fade 0.35s ease;
+}
+
+@keyframes fade {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.footer-buttons {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 30px;
+  position: sticky;
+  bottom: 0;
+  background: white;
+  padding: 16px 0;
+}
