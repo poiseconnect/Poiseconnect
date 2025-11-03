@@ -1,18 +1,12 @@
 "use client";
 
-export default function StepIndicator({ step, total = 9 }) {
-  const items = Array.from({ length: total });
+export default function StepIndicator({ step, total }) {
   return (
-    <div className="steps">
-      {items.map((_, i) => (
-        <span
+    <div className="step-indicator">
+      {[...Array(total)].map((_, i) => (
+        <div
           key={i}
-          className={[
-            "step-dot",
-            i < step ? "done" : "",
-            i === step ? "active" : "",
-          ].join(" ")}
-          aria-label={`Schritt ${i + 1} von ${total}`}
+          className={`step-dot ${i === step ? "active" : ""}`}
         />
       ))}
     </div>
