@@ -6,17 +6,22 @@ import StepIndicator from "./components/StepIndicator";
 export default function Home() {
   const [step, setStep] = useState(0);
 
-  const totalSteps = 7;
+  // Jetzt 8 Schritte (0–7)
+  const totalSteps = 8;
 
   const [form, setForm] = useState({
     anliegen: "",
     leidensdruck: "",
     verlauf: "",
     ziel: "",
+    diagnose: "",
     wunschtherapeut: "",
     vorname: "",
     nachname: "",
     email: "",
+    plz: "",
+    ort: "",
+    strasse: "",
     beschaeftigungsgrad: "",
     check_datenschutz: false,
   });
@@ -91,7 +96,7 @@ export default function Home() {
       {/* ------------------- STEP 2 --------------- */}
       {step === 2 && (
         <div className="step-container">
-          <h2>Verlauf</h2>
+          <h2>Wie sieht der bisherige Verlauf aus?</h2>
           <textarea
             placeholder="Wie lange leidest du schon an deinem Thema?"
             value={form.verlauf}
@@ -107,9 +112,9 @@ export default function Home() {
       {/* ------------------- STEP 3 --------------- */}
       {step === 3 && (
         <div className="step-container">
-          <h2>Ziel?</h2>
+          <h2>Ziel</h2>
           <textarea
-            placeholder="Was wünscht du dir von einem Coaching?"
+            placeholder="Was wünschst du dir von einem Coaching?"
             value={form.ziel}
             onChange={(e) => setForm({ ...form, ziel: e.target.value })}
           />
@@ -120,10 +125,30 @@ export default function Home() {
         </div>
       )}
 
-      {/* ------------------- STEP 4 --------------- */}
+      {/* ------------------- STEP 4 (Diagnose) --------------- */}
       {step === 4 && (
         <div className="step-container">
-          <h2>Wunschtherapeut*in?</h2>
+          <h2>Gibt es bereits eine Diagnose?</h2>
+          <select
+            value={form.diagnose}
+            onChange={(e) => setForm({ ...form, diagnose: e.target.value })}
+          >
+            <option value="">Bitte auswählen…</option>
+            <option>Ja</option>
+            <option>Nein</option>
+          </select>
+
+          <div className="footer-buttons">
+            <button onClick={back}>Zurück</button>
+            <button onClick={next}>Weiter</button>
+          </div>
+        </div>
+      )}
+
+      {/* ------------------- STEP 5 --------------- */}
+      {step === 5 && (
+        <div className="step-container">
+          <h2>Wunschtherapeut*in</h2>
           <select
             value={form.wunschtherapeut}
             onChange={(e) => setForm({ ...form, wunschtherapeut: e.target.value })}
@@ -139,14 +164,17 @@ export default function Home() {
         </div>
       )}
 
-      {/* ------------------- STEP 5 --------------- */}
-      {step === 5 && (
+      {/* ------------------- STEP 6 Kontaktdaten --------------- */}
+      {step === 6 && (
         <div className="step-container">
           <h2>Deine Kontaktdaten</h2>
 
           <input placeholder="Vorname" value={form.vorname} onChange={(e) => setForm({ ...form, vorname: e.target.value })}/>
           <input placeholder="Nachname" value={form.nachname} onChange={(e) => setForm({ ...form, nachname: e.target.value })}/>
           <input type="email" placeholder="E-Mail" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })}/>
+          <input placeholder="Postleitzahl" value={form.plz} onChange={(e) => setForm({ ...form, plz: e.target.value })}/>
+          <input placeholder="Ort" value={form.ort} onChange={(e) => setForm({ ...form, ort: e.target.value })}/>
+          <input placeholder="Straße, Hausnummer" value={form.strasse} onChange={(e) => setForm({ ...form, strasse: e.target.value })}/>
 
           <select
             value={form.beschaeftigungsgrad}
@@ -166,12 +194,12 @@ export default function Home() {
         </div>
       )}
 
-      {/* ------------------- STEP 6 --------------- */}
-      {step === 6 && (
+      {/* ------------------- STEP 7 Datenschutz --------------- */}
+      {step === 7 && (
         <div className="step-container">
           <h2>Datenschutz</h2>
 
-          <p style={{ marginBottom: 14 }}>
+          <p>
             Deine Daten werden streng vertraulich behandelt und nicht an Dritte weitergegeben.
           </p>
 
