@@ -91,9 +91,9 @@ export default function Home() {
       {/* ------------------- STEP 2 --------------- */}
       {step === 2 && (
         <div className="step-container">
-          <h2>Wie sieht der bisherige Verlauf aus?</h2>
+          <h2>Verlauf</h2>
           <textarea
-            placeholder="Gab es bisher Therapie/Coaching/Selbsterfahrung?"
+            placeholder="Wie lange leidest du schon an deinem Thema?"
             value={form.verlauf}
             onChange={(e) => setForm({ ...form, verlauf: e.target.value })}
           />
@@ -107,9 +107,9 @@ export default function Home() {
       {/* ------------------- STEP 3 --------------- */}
       {step === 3 && (
         <div className="step-container">
-          <h2>Wohin möchtest du?</h2>
+          <h2>Ziel?</h2>
           <textarea
-            placeholder="Was ist ein Ziel, ein Wunsch oder eine Richtung?"
+            placeholder="Was wünscht du dir von einem Coaching?"
             value={form.ziel}
             onChange={(e) => setForm({ ...form, ziel: e.target.value })}
           />
