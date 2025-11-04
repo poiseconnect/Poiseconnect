@@ -196,7 +196,7 @@ const getSortedTeam = () => {
       gap: "20px",
       justifyItems: "center"
     }}>
-      {teamData.map((m) => (
+      {getSortedTeam().map((m) => (
         <div key={m.name} 
           style={{
             borderRadius: 12,
