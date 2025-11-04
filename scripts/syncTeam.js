@@ -8,28 +8,43 @@ async function fetchTeam() {
   const res = await fetch(SHEET_URL);
   const csv = await res.text();
 
-  const rows = csv.split("\n").map((r) => r.split(","));
+  console.log("\n--- RAW CSV FIRST 10 LINES ---");
+  console.log(csv.split("\n").slice(0, 10).join("\n"));
+  console.log("--- END PREVIEW ---\n");
 
-  const header = rows.shift().map((h) => h.trim().toLowerCase());
+  // ✅ Auto-Erkennung: Komma oder Semikolon?
+  const separator = csv.includes(";") ? ";" : ",";
+
+  const rows = csv.split("\n").map((r) => r.split(separator));
+
+  const header = rows.shift().map((h) =>
+    h.replace(/"/g, "").trim().toLowerCase()
+  );
 
   const team = rows
-    .filter((r) => r[0]) // nur Zeilen mit Name
+    .filter((r) => r[0] && r[0].trim() !== "")
     .map((cols) => {
       const obj = {};
       header.forEach((key, i) => {
-        obj[key] = cols[i] ? cols[i].trim() : "";
+        obj[key] = cols[i] ? cols[i].replace(/"/g, "").trim() : "";
       });
 
       return {
         name: obj.name,
-        image: obj.image,
-        tags: obj.tags.split(";").map((t) => t.trim()).filter(Boolean),
-        available: obj.available.toLowerCase() === "true",
+        image: obj["bild-url"] || obj.image || "",
+        tags: obj.tags ? obj.tags.split(/[;,]/).map((t) => t.trim()) : [],
+        available:
+          obj.available?.toLowerCase() === "true" ||
+          obj.status?.toLowerCase() === "true",
       };
     });
 
-  fs.writeFileSync("./lib/team.js", `export const team = ${JSON.stringify(team, null, 2)};`);
-  console.log("✅ team.js erfolgreich aktualisiert (" + team.length + " Einträge)");
+  fs.writeFileSync(
+    "./lib/team.js",
+    `export const team = ${JSON.stringify(team, null, 2)};`
+  );
+
+  console.log(`✅ team.js erfolgreich aktualisiert (${team.length} Einträge)`);
 }
 
 fetchTeam();
