@@ -1,53 +1,140 @@
-import fs from "fs";
-import fetch from "node-fetch";
-
-const SHEET_URL =
-  "https://docs.google.com/spreadsheets/d/1Xnm11JnbP8mHpcQ9s2ypxccvSsAykAiXcpnW199_MpM/gviz/tq?tqx=out:csv&gid=988240020";
-
-async function fetchTeam() {
-  const res = await fetch(SHEET_URL);
-  const csv = await res.text();
-
-  console.log("\n--- RAW CSV (erste 10 Zeilen) ---");
-  console.log(csv.split("\n").slice(0, 10).join("\n"));
-  console.log("\n--- ENDE ---\n");
-
-  // ✅ Auto-Erkennung des Trennzeichens (, oder ;)
-  const separator = csv.includes(";") ? ";" : ",";
-
-  const rows = csv.split("\n").map((r) => r.split(separator));
-
-  // Header → lowercase + Trim
-  const header = rows.shift().map((h) =>
-    h.replace(/"/g, "").trim().toLowerCase()
-  );
-
-  const team = rows
-    .filter((r) => r[0] && r[0].trim() !== "") // nur Zeilen mit Name
-    .map((cols) => {
-      const obj = {};
-      header.forEach((key, i) => {
-        obj[key] = cols[i]?.replace(/"/g, "").trim() || "";
-      });
-
-      return {
-        name: obj["name"],
-        image: obj["image"],
-        tags: obj["tags"]
-          ? obj["tags"].split(/[;,]/).map((t) => t.trim())
-          : [],
-        available:
-          obj["available"]?.toLowerCase() === "true" ||
-          obj["available"] === "1",
-      };
-    });
-
-  fs.writeFileSync(
-    "./app/data/team.js",
-    `export const team = ${JSON.stringify(team, null, 2)};`
-  );
-
-  console.log(`✅ team.js erfolgreich aktualisiert (${team.length} Einträge)`);
-}
-
-fetchTeam();
+export const team = [
+  {
+    name: "Linda",
+    tags: [],
+    image: "",
+    available: true
+  },
+  {
+    name: "Ann",
+    tags: [],
+    image: "",
+    available: true
+  },
+  {
+    name: "Anna",
+    tags: [],
+    image: "",
+    available: true
+  },
+  {
+    name: "Anja",
+    tags: [],
+    image: "",
+    available: true
+  },
+  {
+    name: "Babette",
+    tags: [],
+    image: "",
+    available: true
+  },
+  {
+    name: "Carolin",
+    tags: [],
+    image: "",
+    available: true
+  },
+  {
+    name: "Caroline",
+    tags: [],
+    image: "",
+    available: true
+  },
+  {
+    name: "Elena",
+    tags: [],
+    image: "",
+    available: true
+  },
+  {
+    name: "Franziska",
+    tags: [],
+    image: "",
+    available: true
+  },
+  {
+    name: "Gerhard",
+    tags: [],
+    image: "",
+    available: true
+  },
+  {
+    name: "Gesine",
+    tags: [],
+    image: "",
+    available: true
+  },
+  {
+    name: "Isabella",
+    tags: [],
+    image: "",
+    available: true
+  },
+  {
+    name: "Jenny",
+    tags: [],
+    image: "",
+    available: true
+  },
+  {
+    name: "Judith",
+    tags: [],
+    image: "",
+    available: true
+  },
+  {
+    name: "Julius",
+    tags: [],
+    image: "",
+    available: true
+  },
+  {
+    name: "Kristin",
+    tags: [],
+    image: "",
+    available: true
+  },
+  {
+    name: "Kristin-Sofie",
+    tags: [],
+    image: "",
+    available: true
+  },
+  {
+    name: "Livia",
+    tags: [],
+    image: "",
+    available: true
+  },
+  {
+    name: "Magdalena",
+    tags: [],
+    image: "",
+    available: true
+  },
+  {
+    name: "Marisa",
+    tags: [],
+    image: "",
+    available: true
+  },
+  {
+    name: "Marleen",
+    tags: [],
+    image: "",
+    available: true
+  },
+  {
+    name: "Sophie",
+    tags: [],
+    image: "",
+    available: true
+  },
+  {
+    name: "Yanina",
+    tags: [],
+    image: "",
+    available: true
+  }
+];
