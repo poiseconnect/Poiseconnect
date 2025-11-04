@@ -189,8 +189,8 @@ const getSortedTeam = () => {
     <h2>Wer könnte gut zu dir passen?</h2>
 
     {(() => {
-      const detected = detectTags(form.anliegen);      // Anliegen → Tags
-      const matches = matchTeamMembers(detected);       // Tags → Sortierte Team-Liste
+      const matches = matchTeamMembers(form.anliegen);
+      console.log("MATCH RESULTS:", matches);
 
       return (
         <div className="match-grid">
@@ -221,15 +221,13 @@ const getSortedTeam = () => {
 
     <div className="footer-buttons">
       <button onClick={back}>Zurück</button>
-      <button
-        disabled={!form.wunschtherapeut}
-        onClick={next}
-      >
+      <button disabled={!form.wunschtherapeut} onClick={next}>
         Weiter
       </button>
     </div>
   </div>
 )}
+
 
 
       {/* ---------- STEP 6 Kontaktdaten ---------- */}
