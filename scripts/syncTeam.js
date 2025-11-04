@@ -17,6 +17,10 @@ https.get(CSV_URL, (res) => {
 
   res.on("data", (chunk) => (data += chunk));
   res.on("end", () => {
+    console.log("\n----- RAW CSV DATA -----\n");
+    console.log(data);
+    console.log("\n------------------------\n");
+
     const rows = data.split("\n").map(r => r.split(/[,;]+/));
     const headers = rows.shift().map((h) => h.trim().toLowerCase());
 
