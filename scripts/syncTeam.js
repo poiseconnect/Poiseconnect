@@ -17,7 +17,7 @@ https.get(CSV_URL, (res) => {
 
   res.on("data", (chunk) => (data += chunk));
   res.on("end", () => {
-    const rows = data.split("\n").map((row) => row.split(","));
+    const rows = data.split("\n").map(r => r.split(/[,;]+/));
     const headers = rows.shift().map((h) => h.trim().toLowerCase());
 
     const nameIndex = headers.indexOf("name");
