@@ -183,31 +183,48 @@ const getSortedTeam = () => {
         </div>
       )}
 
-{/* ---------- STEP 5 Team Matching Auswahl ---------- */}
+{/* ---------- STEP 5 Matching-Auswahl ---------- */}
 {step === 5 && (
   <div className="step-container">
-    <h2>Wer passt zu dir?</h2>
+    <h2>Wer könnte gut zu dir passen?</h2>
 
-    {matchTeamMembers(form.anliegen).map((m) => (
-      <div key={m.name} className={`therapist-card ${!m.available ? "unavailable" : ""}`}>
-        <img src={m.image} alt={m.name} className="therapist-img" />
+    {(() => {
+      const detected = detectTags(form.anliegen);      // Anliegen → Tags
+      const matches = matchTeamMembers(detected);       // Tags → Sortierte Team-Liste
 
-        <h3>{m.name}</h3>
-        <p>{m.tags.join(", ")}</p>
+      return (
+        <div className="match-grid">
+          {matches.map((m) => (
+            <div
+              key={m.name}
+              className={`therapist-card ${!m.available ? "unavailable" : ""}`}
+            >
+              <img src={m.image} className="therapist-img" alt={m.name} />
 
-        {m.available ? (
-          <button onClick={() => setForm({ ...form, wunschtherapeut: m.name })}>
-            Auswählen
-          </button>
-        ) : (
-          <button disabled>Aktuell keine freien Plätze</button>
-        )}
-      </div>
-    ))}
+              <h3>{m.name}</h3>
+
+              {m.tags.length > 0 && (
+                <p className="tags">{m.tags.join(" • ")}</p>
+              )}
+
+              <button
+                disabled={!m.available}
+                onClick={() => setForm({ ...form, wunschtherapeut: m.name })}
+              >
+                {m.available ? "Auswählen" : "Keine freien Plätze"}
+              </button>
+            </div>
+          ))}
+        </div>
+      );
+    })()}
 
     <div className="footer-buttons">
       <button onClick={back}>Zurück</button>
-      <button disabled={!form.wunschtherapeut} onClick={next}>
+      <button
+        disabled={!form.wunschtherapeut}
+        onClick={next}
+      >
         Weiter
       </button>
     </div>
