@@ -196,8 +196,9 @@ const getSortedTeam = () => {
       gap: "20px",
       justifyItems: "center"
     }}>
-      {getSortedTeam().map((m) => (
-        <div key={m.name} 
+      {getSortedTeam().map((m) => (   // ⬅️ ⬅️ ⬅️ WICHTIGE ÄNDERUNG HIER
+        <div
+          key={m.name}
           style={{
             borderRadius: 12,
             padding: 16,
@@ -211,7 +212,7 @@ const getSortedTeam = () => {
           }}
           onClick={() => m.status === "frei" && setForm({ ...form, wunschtherapeut: m.name })}
         >
-          <img 
+          <img
             src={m.image}
             alt={m.name}
             style={{width: "100%", borderRadius: 12, marginBottom: 12}}
@@ -234,7 +235,6 @@ const getSortedTeam = () => {
     </div>
   </div>
 )}
-
 
       {/* ---------- STEP 6 Kontaktdaten ---------- */}
       {step === 6 && (
