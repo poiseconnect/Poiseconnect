@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Image from "next/image";
 import StepIndicator from "./components/StepIndicator";
+import { teamData } from "./teamData";
 
 export default function Home() {
   const [step, setStep] = useState(0);
@@ -57,6 +58,23 @@ export default function Home() {
       alert("Fehler — bitte versuche es erneut.");
     }
   };
+const getSortedTeam = () => {
+  if (!form.anliegen) return teamData; // Falls noch kein Anliegen
+
+  const keywords = form.anliegen.toLowerCase().split(/[\s,.;!?]+/);
+
+  return [...teamData].sort((a, b) => {
+    const aScore = a.tags?.filter(tag => 
+      keywords.some(word => tag.toLowerCase().includes(word))
+    ).length || 0;
+
+    const bScore = b.tags?.filter(tag => 
+      keywords.some(word => tag.toLowerCase().includes(word))
+    ).length || 0;
+
+    return bScore - aScore;
+  });
+};
 
   return (
     <div className="form-wrapper">
