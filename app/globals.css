@@ -139,3 +139,73 @@ button:disabled {
     font-size: 1.4rem;
   }
 }
+/* ----- Team Matching Cards ----- */
+
+.therapist-card {
+  background: #FFFFFF;
+  border-radius: 22px;
+  padding: 1.4rem;
+  margin-bottom: 1.6rem;
+  text-align: center;
+  border: 1.5px solid #E6D6D4; /* sanftes Rosa-Beige wie mypoise */
+  box-shadow: 0 6px 18px rgba(0,0,0,0.04);
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+
+.therapist-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 10px 26px rgba(0,0,0,0.08);
+}
+
+.therapist-card.unavailable {
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+.therapist-img {
+  width: 100%;
+  max-width: 230px;
+  height: auto;
+  border-radius: 18px;
+  margin-bottom: 1.2rem;
+  object-fit: cover;
+}
+
+/* Name */
+.therapist-card h3 {
+  font-size: 1.3rem;
+  font-weight: 600;
+  margin-bottom: .4rem;
+  color: #3D3D3D;
+}
+
+/* Tags */
+.therapist-card p {
+  font-size: 0.95rem;
+  line-height: 1.4;
+  margin-bottom: 1.2rem;
+  color: #6A5E5C; /* warm-grau */
+}
+
+/* Auswählen Button */
+.therapist-card button {
+  background: #D7A6A0; /* Poise Rosa */
+  color: #FFF;
+  font-weight: 500;
+  padding: 0.9rem 1.4rem;
+  border-radius: 14px;
+  border: none;
+  width: 100%;
+  cursor: pointer;
+  transition: background 0.25s ease;
+}
+
+.therapist-card button:hover {
+  background: #C7928A; /* etwas dunkler beim Hover */
+}
+
+/* Disabled Button wenn kein Platz */
+.therapist-card button:disabled {
+  background: #E7DADA;
+  color: #A8A8A8;
+}
