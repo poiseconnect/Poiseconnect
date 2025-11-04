@@ -4,6 +4,8 @@ import { useState } from "react";
 import Image from "next/image";
 import StepIndicator from "./components/StepIndicator";
 import { teamData } from "./teamData";
+import { matchTeamMembers } from "./lib/matchTeamMembers";
+
 
 export default function Home() {
   const [step, setStep] = useState(0);
@@ -181,60 +183,37 @@ const getSortedTeam = () => {
         </div>
       )}
 
-      {/* ---------- STEP 5 Matching: Team-Auswahl ---------- */}
+{/* ---------- STEP 5 Team Matching Auswahl ---------- */}
 {step === 5 && (
   <div className="step-container">
-    <h2>Wer könnte gut zu dir passen?</h2>
+    <h2>Wer passt zu dir?</h2>
 
-    <p style={{textAlign: "center", marginBottom: 20}}>
-      Wähle eine Person aus unserem Team, die dich begleiten darf.
-    </p>
+    {matchTeamMembers(form.anliegen).map((m) => (
+      <div key={m.name} className={`therapist-card ${!m.available ? "unavailable" : ""}`}>
+        <img src={m.image} alt={m.name} className="therapist-img" />
 
-    <div style={{
-      display: "grid",
-      gridTemplateColumns: "repeat(auto-fit, minmax(230px, 1fr))",
-      gap: "20px",
-      justifyItems: "center"
-    }}>
-      {getSortedTeam().map((m) => (   // ⬅️ ⬅️ ⬅️ WICHTIGE ÄNDERUNG HIER
-        <div
-          key={m.name}
-          style={{
-            borderRadius: 12,
-            padding: 16,
-            textAlign: "center",
-            width: "100%",
-            maxWidth: 260,
-            background: m.status === "warteliste" ? "#f4f4f4" : "white",
-            opacity: m.status === "warteliste" ? 0.5 : 1,
-            cursor: m.status === "warteliste" ? "not-allowed" : "pointer",
-            boxShadow: "0 2px 8px rgba(0,0,0,.08)"
-          }}
-          onClick={() => m.status === "frei" && setForm({ ...form, wunschtherapeut: m.name })}
-        >
-          <img
-            src={m.image}
-            alt={m.name}
-            style={{width: "100%", borderRadius: 12, marginBottom: 12}}
-          />
-          <h3 style={{margin: "6px 0"}}>{m.name}</h3>
-          <p style={{fontSize: 14, opacity: .8}}>{m.role}</p>
+        <h3>{m.name}</h3>
+        <p>{m.tags.join(", ")}</p>
 
-          {m.status === "frei" ? (
-            <button style={{marginTop: 12}}>Auswählen</button>
-          ) : (
-            <p style={{marginTop: 12, color: "gray"}}>Zurzeit Warteliste</p>
-          )}
-        </div>
-      ))}
-    </div>
+        {m.available ? (
+          <button onClick={() => setForm({ ...form, wunschtherapeut: m.name })}>
+            Auswählen
+          </button>
+        ) : (
+          <button disabled>Aktuell keine freien Plätze</button>
+        )}
+      </div>
+    ))}
 
     <div className="footer-buttons">
       <button onClick={back}>Zurück</button>
-      <button disabled={!form.wunschtherapeut} onClick={next}>Weiter</button>
+      <button disabled={!form.wunschtherapeut} onClick={next}>
+        Weiter
+      </button>
     </div>
   </div>
 )}
+
 
       {/* ---------- STEP 6 Kontaktdaten ---------- */}
       {step === 6 && (
