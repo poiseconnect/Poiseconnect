@@ -1,21 +1,30 @@
-// app/lib/matchTeamMembers.js
-import { team } from "../data/team";
-import { detectTags } from "./detectTags";
+import { teamData } from "../teamData";
 
-export function matchTeamMembersFromText(anliegenText) {
-  const detected = detectTags(anliegenText); // ["burnout","beziehung", ...]
-  return scoreAndSort(team, detected);
-}
+export function matchTeamMembers(anliegenText = "") {
+  const lower = anliegenText.toLowerCase();
 
-export function scoreAndSort(teamArr, tags) {
-  // gewichtete Summe aus tagsWeighted
-  return [...teamArr].map(m => {
-    let score = 0;
-    for (const t of (m.tagsWeighted || [])) {
-      if (tags.includes(t.tag)) score += t.score; // 1/2/3
-    }
-    // leichte Bonuspunkte für Verfügbarkeit
-    if (m.available) score += 0.3;
-    return { ...m, matchScore: score };
-  }).sort((a, b) => b.matchScore - a.matchScore);
+  const topicKeywords = {
+    beziehung: ["beziehung", "partnerschaft", "trennung", "liebe", "affäre", "freundschaft"],
+    panik: ["angst", "panik", "attacke", "überforderung", "kontrolle", "stress"],
+    selbstwert: ["selbstwert", "unsicherheit", "scham", "ich bin nicht genug", "zweifel"],
+    burnout: ["burnout", "erschöpfung", "müdigkeit", "kraftlos", "überlastung"],
+    trauer: ["trauer", "verlust", "tod", "fehlgeburt"],
+    beruf: ["job", "arbeit", "karriere", "beruf", "kündigung", "neuanfang"],
+    trauma: ["trauma", "übergrif", "ptbs", "belastung"],
+    depression: ["depression", "niedergeschlagen", "antriebslos", "traurig"],
+    stress: ["stress", "reiz", "spannung", "belastung"],
+  };
+
+  const matchedTopics = Object.keys(topicKeywords).filter(topic =>
+    topicKeywords[topic].some(word => lower.includes(word))
+  );
+
+  // Score berechnen
+  const scored = teamData.map(member => ({
+    ...member,
+    score: matchedTopics.filter(t => member.tags.includes(t)).length,
+  }));
+
+  // Sortierung: Höchster Score → oben
+  return scored.sort((a, b) => b.score - a.score);
 }
