@@ -5,11 +5,15 @@ export default function TeamCarousel({ members, onSelect }) {
   const [openIndex, setOpenIndex] = useState(null);
   const toggleOpen = (i) => setOpenIndex(openIndex === i ? null : i);
 
+  if (!Array.isArray(members) || members.length === 0) {
+    return <p style={{ opacity: 0.7 }}>Aktuell keine Profile verfügbar.</p>;
+  }
+
   return (
     <div style={{ overflowX: "auto", whiteSpace: "nowrap", paddingBottom: "1rem" }}>
       {members.map((m, i) => (
         <div
-          key={m.name}
+          key={`${m.name}-${i}`}
           style={{
             display: "inline-block",
             width: 300,
@@ -32,14 +36,24 @@ export default function TeamCarousel({ members, onSelect }) {
           />
 
           <h3 style={{ marginTop: 12, fontSize: "1.1rem", fontWeight: 600 }}>{m.name}</h3>
-          {m.role && <p style={{ fontSize: ".92rem", opacity: .8 }}>{m.role}</p>}
-          {m.short && <p style={{ fontSize: ".95rem", marginTop: 6 }}>{m.short}</p>}
+
+          {m.role && (
+            <p style={{ fontSize: ".92rem", opacity: 0.8, marginTop: 2 }}>{m.role}</p>
+          )}
+
+          {m.short && (
+            <p style={{ fontSize: ".95rem", marginTop: 6, lineHeight: 1.4 }}>{m.short}</p>
+          )}
 
           <button
             onClick={() => toggleOpen(i)}
             style={{
-              marginTop: 10, background: "transparent", border: "none",
-              color: "#A27C77", cursor: "pointer", fontWeight: 500
+              marginTop: 10,
+              background: "transparent",
+              border: "none",
+              color: "#A27C77",
+              cursor: "pointer",
+              fontWeight: 500,
             }}
           >
             {openIndex === i ? "Weniger anzeigen" : "Mehr erfahren"}
@@ -47,7 +61,11 @@ export default function TeamCarousel({ members, onSelect }) {
 
           {openIndex === i && (
             <div style={{ marginTop: 12, textAlign: "left" }}>
-              {m.bio && <p style={{ fontSize: ".95rem", lineHeight: 1.5 }}>{m.bio}</p>}
+              {m.bio && (
+                <p style={{ fontSize: ".95rem", lineHeight: 1.55, whiteSpace: "normal" }}>
+                  {m.bio}
+                </p>
+              )}
 
               {m.video && (
                 <div style={{ marginTop: 12, borderRadius: 14, overflow: "hidden" }}>
@@ -58,8 +76,16 @@ export default function TeamCarousel({ members, onSelect }) {
               <button
                 onClick={() => onSelect(m.name)}
                 style={{
-                  marginTop: 14, width: "100%", background: "#D7A6A0", color: "#fff",
-                  border: "none", padding: ".9rem", borderRadius: 14, fontSize: "1rem", fontWeight: 500
+                  marginTop: 14,
+                  width: "100%",
+                  background: "#D7A6A0",
+                  color: "#fff",
+                  border: "none",
+                  padding: ".9rem",
+                  borderRadius: 14,
+                  fontSize: "1rem",
+                  fontWeight: 500,
+                  cursor: "pointer",
                 }}
               >
                 Diese Begleitung wählen
@@ -81,8 +107,10 @@ function SmartVideo({ url }) {
   const isMp4 = /\.mp4(\?|$)/i.test(u);
 
   if (isYouTube) {
-    // Unterstützt youtu.be und youtube.com/watch?v=
-    const id = u.match(/(?:v=|youtu\.be\/)([^&?/]+)/)?.[1] || "";
+    const id =
+      u.match(/(?:v=|youtu\.be\/)([^&?/]+)/)?.[1] ||
+      u.split("v=")[1]?.split("&")[0] ||
+      "";
     const src = `https://www.youtube.com/embed/${id}`;
     return (
       <iframe
@@ -117,7 +145,7 @@ function SmartVideo({ url }) {
     );
   }
 
-  // Fallback: als Link anzeigen
+  // Fallback
   return (
     <a href={u} target="_blank" rel="noreferrer" style={{ color: "#A27C77" }}>
       Video öffnen
