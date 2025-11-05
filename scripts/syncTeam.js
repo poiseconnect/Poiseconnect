@@ -1,28 +1,42 @@
 import fs from "fs";
 import fetch from "node-fetch";
 
-const SHEET_URL =
-  "https://docs.google.com/spreadsheets/d/1Xnm11JnbP8mHpcQ9s2ypxccvSsAykAiXcpnW199_MpM/gviz/tq?tqx=out:csv&gid=988240020";
+const SHEET_ID = "1Xnm11JnbP8mHpcQ9s2ypxccvSsAykAiXcpnW199_MpM";
+const GID = "0"; // Tabelle1 = erste Seite
 
-async function fetchTeam() {
-  const res = await fetch(SHEET_URL);
+const CSV_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${GID}`;
+
+async function syncTeam() {
+  console.log("⏳ Lade Daten aus Google Sheet...");
+
+  const res = await fetch(CSV_URL);
   const csv = await res.text();
 
-  console.log("\n---- CSV FILE RAW PREVIEW ----");
+  console.log("\n---- CSV PREVIEW ----");
   console.log(csv.split("\n").slice(0, 6).join("\n"));
-  console.log("---- END RAW PREVIEW ----\n");
+  console.log("---- END PREVIEW ----\n");
 
-  const rows = csv.split("\n").map((row) =>
-    row
-      .replace(/\r/g, "")
-      .split(",")
-      .map((cell) => cell.replace(/(^"|"$)/g, "").trim())
-  );
+  const rows = csv.split("\n").map(r => r.split(","));
+  const header = rows.shift().map(h => h.trim().toLowerCase());
 
-  const header = rows[0];
-  console.log("HEADER DETECTED:", header);
+  const nameIndex = header.indexOf("name");
+  const tagsIndex = header.indexOf("tags");
+  const imageIndex = header.indexOf("image");
+  const availableIndex = header.indexOf("available");
 
-  // STOP HIER — wir schreiben noch nichts
+  const team = rows
+    .filter(r => r[nameIndex])
+    .map(r => ({
+      name: r[nameIndex].replace(/"/g, "").trim(),
+      image: r[imageIndex]?.replace(/"/g, "").trim() || "",
+      tags: r[tagsIndex] ? r[tagsIndex].replace(/"/g, "").split(";").map(t => t.trim().toLowerCase()) : [],
+      available: !(r[availableIndex] && r[availableIndex].toLowerCase().includes("voll")),
+    }));
+
+  const output = `export const team = ${JSON.stringify(team, null, 2)};\n`;
+  fs.writeFileSync("./app/data/team.js", output);
+
+  console.log("✅ team.js erfolgreich aktualisiert.");
 }
 
-fetchTeam();
+syncTeam();
