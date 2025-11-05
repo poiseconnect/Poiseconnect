@@ -1,6 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import TeamCarousel from "./components/TeamCarousel";
+import TeamDetail from "./components/TeamDetail";
+import { matchTeamMembers } from "./lib/matchTeamMembers";
 import Image from "next/image";
 import StepIndicator from "./components/StepIndicator";
 import { teamData } from "./teamData";
