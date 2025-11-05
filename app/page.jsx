@@ -6,8 +6,6 @@ import Image from "next/image";
 import StepIndicator from "./components/StepIndicator";
 import TeamCarousel from "./components/TeamCarousel";
 import TeamDetail from "./components/TeamDetail";
-
-import { matchTeamMembers } from "./lib/matchTeamMembers";
 import { teamData } from "./teamData";
 
 export default function Home() {
