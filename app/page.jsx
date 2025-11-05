@@ -191,33 +191,23 @@ const getSortedTeam = () => {
   <div className="step-container">
     <h2>Wer könnte gut zu dir passen?</h2>
 
-    {/* Matching berechnen */}
-    {(() => {
-      const matches = matchTeamMembers(form.anliegen || "");
-      const [activeIndex, setActiveIndex] = useState(0);
+    <TeamCarousel
+      members={matches}
+      activeIndex={activeIndex}
+      setActiveIndex={setActiveIndex}
+    />
 
-      return (
-        <>
-          <TeamCarousel
-            members={matches}
-            activeIndex={activeIndex}
-            setActiveIndex={setActiveIndex}
-          />
+    <TeamDetail
+      member={matches[activeIndex]}
+      onSelect={(name) => {
+        setForm({ ...form, wunschtherapeut: name });
+        next();
+      }}
+    />
 
-          <TeamDetail
-            member={matches[activeIndex]}
-            onSelect={(name) => {
-              setForm({ ...form, wunschtherapeut: name });
-              next(); // direkt zu Step 6 wechseln
-            }}
-          />
-
-          <div className="footer-buttons">
-            <button onClick={back}>Zurück</button>
-          </div>
-        </>
-      );
-    })()}
+    <div className="footer-buttons">
+      <button onClick={back}>Zurück</button>
+    </div>
   </div>
 )}
 
