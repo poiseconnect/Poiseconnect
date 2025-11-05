@@ -5,15 +5,12 @@ import Image from "next/image";
 
 import StepIndicator from "./components/StepIndicator";
 import TeamCarousel from "./components/TeamCarousel";
-import TeamDetail from "./components/TeamDetail";
 import { teamData } from "./teamData";
 
 export default function Home() {
   const [step, setStep] = useState(0);
   const totalSteps = 9;
   const today = new Date();
-
-  const [activeIndex, setActiveIndex] = useState(0);
 
   const [form, setForm] = useState({
     anliegen: "",
@@ -31,7 +28,6 @@ export default function Home() {
     check_datenschutz: false,
   });
 
-  // --- Altersprüfung ---
   const isAdult = (dateString) => {
     const birth = new Date(dateString);
     const age = today.getFullYear() - birth.getFullYear();
@@ -42,7 +38,6 @@ export default function Home() {
   const next = () => setStep((s) => s + 1);
   const back = () => setStep((s) => s - 1);
 
-  // --- Formular senden ---
   const send = async () => {
     const res = await fetch("/api/submit", {
       method: "POST",
@@ -58,13 +53,13 @@ export default function Home() {
     }
   };
 
-  // --- Matching basierend auf Anliegen ---
+  // --- Matching (einfach & robust) ---
   const getSortedTeam = () => {
-    if (!form.anliegen) return teamData; // keine Eingabe → original Reihenfolge
+    if (!form.anliegen) return teamData || [];
 
-    const keywords = form.anliegen.toLowerCase().split(/[\s,.;!?]+/);
+    const keywords = form.anliegen.toLowerCase().split(/[\s,.;!?]+/).filter(Boolean);
 
-    return [...teamData].sort((a, b) => {
+    return [...(teamData || [])].sort((a, b) => {
       const aScore =
         a.tags?.filter((tag) =>
           keywords.some((word) => tag.toLowerCase().includes(word))
@@ -78,8 +73,6 @@ export default function Home() {
       return bScore - aScore;
     });
   };
-
-  const sortedTeam = getSortedTeam();
 
   return (
     <div className="form-wrapper">
@@ -106,7 +99,9 @@ export default function Home() {
           />
           <div className="footer-buttons">
             <span />
-            <button disabled={!form.anliegen} onClick={next}>Weiter</button>
+            <button disabled={!form.anliegen} onClick={next}>
+              Weiter
+            </button>
           </div>
         </div>
       )}
@@ -128,7 +123,9 @@ export default function Home() {
 
           <div className="footer-buttons">
             <button onClick={back}>Zurück</button>
-            <button disabled={!form.leidensdruck} onClick={next}>Weiter</button>
+            <button disabled={!form.leidensdruck} onClick={next}>
+              Weiter
+            </button>
           </div>
         </div>
       )}
@@ -144,7 +141,9 @@ export default function Home() {
           />
           <div className="footer-buttons">
             <button onClick={back}>Zurück</button>
-            <button disabled={!form.verlauf} onClick={next}>Weiter</button>
+            <button disabled={!form.verlauf} onClick={next}>
+              Weiter
+            </button>
           </div>
         </div>
       )}
@@ -164,7 +163,9 @@ export default function Home() {
 
           <div className="footer-buttons">
             <button onClick={back}>Zurück</button>
-            <button disabled={!form.diagnose} onClick={next}>Weiter</button>
+            <button disabled={!form.diagnose} onClick={next}>
+              Weiter
+            </button>
           </div>
         </div>
       )}
@@ -180,27 +181,23 @@ export default function Home() {
           />
           <div className="footer-buttons">
             <button onClick={back}>Zurück</button>
-            <button disabled={!form.ziel} onClick={next}>Weiter</button>
+            <button disabled={!form.ziel} onClick={next}>
+              Weiter
+            </button>
           </div>
         </div>
       )}
 
-      {/* ---------- STEP 5 Matching ---------- */}
+      {/* ---------- STEP 5 Matching + Profil ---------- */}
       {step === 5 && (
         <div className="step-container">
           <h2>Wer könnte gut zu dir passen?</h2>
 
           <TeamCarousel
-            members={sortedTeam}
-            activeIndex={activeIndex}
-            setActiveIndex={setActiveIndex}
-          />
-
-          <TeamDetail
-            member={sortedTeam[activeIndex]}
+            members={getSortedTeam()}
             onSelect={(name) => {
               setForm({ ...form, wunschtherapeut: name });
-              next();
+              next(); // weiter zu Step 6
             }}
           />
 
@@ -210,8 +207,110 @@ export default function Home() {
         </div>
       )}
 
-      {/* ---------- STEP 6+ bleiben unverändert ---------- */}
-      {/* (dein bisheriger Code für Kontaktdaten, Beschäftigung, Datenschutz bleibt wie er ist) */}
+      {/* ---------- STEP 6 Kontaktdaten ---------- */}
+      {step === 6 && (
+        <div className="step-container">
+          <h2>Kontaktdaten</h2>
+
+          <input
+            placeholder="Vorname"
+            value={form.vorname}
+            onChange={(e) => setForm({ ...form, vorname: e.target.value })}
+          />
+          <input
+            placeholder="Nachname"
+            value={form.nachname}
+            onChange={(e) => setForm({ ...form, nachname: e.target.value })}
+          />
+          <input
+            type="email"
+            placeholder="E-Mail"
+            value={form.email}
+            onChange={(e) => setForm({ ...form, email: e.target.value })}
+          />
+          <input
+            placeholder="Adresse"
+            value={form.adresse}
+            onChange={(e) => setForm({ ...form, adresse: e.target.value })}
+          />
+          <input
+            type="date"
+            value={form.geburtsdatum}
+            onChange={(e) => setForm({ ...form, geburtsdatum: e.target.value })}
+          />
+
+          {!isAdult(form.geburtsdatum) && form.geburtsdatum && (
+            <p style={{ color: "red" }}>Du musst mindestens 18 Jahre alt sein.</p>
+          )}
+
+          <div className="footer-buttons">
+            <button onClick={back}>Zurück</button>
+            <button
+              disabled={
+                !form.vorname ||
+                !form.nachname ||
+                !form.email ||
+                !form.adresse ||
+                !form.geburtsdatum ||
+                !isAdult(form.geburtsdatum)
+              }
+              onClick={next}
+            >
+              Weiter
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ---------- STEP 7 Beschäftigung ---------- */}
+      {step === 7 && (
+        <div className="step-container">
+          <h2>Beschäftigungsgrad</h2>
+
+          <select
+            value={form.beschaeftigungsgrad}
+            onChange={(e) => setForm({ ...form, beschaeftigungsgrad: e.target.value })}
+          >
+            <option value="">Bitte auswählen…</option>
+            <option>Angestellt</option>
+            <option>Selbstständig</option>
+            <option>Arbeitssuchend</option>
+            <option>Schule/Studium</option>
+          </select>
+
+          <div className="footer-buttons">
+            <button onClick={back}>Zurück</button>
+            <button disabled={!form.beschaeftigungsgrad} onClick={next}>
+              Weiter
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ---------- STEP 8 Datenschutz ---------- */}
+      {step === 8 && (
+        <div className="step-container">
+          <h2>Datenschutz</h2>
+
+          <label className="checkbox">
+            <input
+              type="checkbox"
+              checked={form.check_datenschutz}
+              onChange={() =>
+                setForm({ ...form, check_datenschutz: !form.check_datenschutz })
+              }
+            />
+            Ich akzeptiere die Datenschutzerklärung.
+          </label>
+
+          <div className="footer-buttons">
+            <button onClick={back}>Zurück</button>
+            <button disabled={!form.check_datenschutz} onClick={send}>
+              Anfrage senden
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
