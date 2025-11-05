@@ -8,7 +8,10 @@ async function fetchTeam() {
   const res = await fetch(SHEET_URL);
   const csv = await res.text();
 
-  // Zeilen aufsplitten, Anführungszeichen entfernen
+  console.log("\n---- CSV FILE RAW PREVIEW ----");
+  console.log(csv.split("\n").slice(0, 6).join("\n"));
+  console.log("---- END RAW PREVIEW ----\n");
+
   const rows = csv.split("\n").map((row) =>
     row
       .replace(/\r/g, "")
@@ -16,32 +19,10 @@ async function fetchTeam() {
       .map((cell) => cell.replace(/(^"|"$)/g, "").trim())
   );
 
-  const header = rows.shift().map((h) => h.toLowerCase());
+  const header = rows[0];
+  console.log("HEADER DETECTED:", header);
 
-  const nameIndex = header.indexOf("name");
-  const tagsIndex = header.indexOf("tags");
-  const imageIndex = header.indexOf("image");
-  const availableIndex = header.indexOf("available");
-
-  const team = rows
-    .filter((row) => row[nameIndex] && row[nameIndex] !== "")
-    .map((row) => ({
-      name: row[nameIndex],
-      image: row[imageIndex] || "",
-      tags: row[tagsIndex]
-        ? row[tagsIndex].split(/;|,/).map((t) => t.trim()).filter(Boolean)
-        : [],
-      available: row[availableIndex]
-        ? row[availableIndex].toLowerCase() === "true"
-        : true, // Standard = verfügbar
-    }));
-
-  fs.writeFileSync(
-    "./app/data/team.js",
-    `export const team = ${JSON.stringify(team, null, 2)};`
-  );
-
-  console.log(`✅ team.js erfolgreich aktualisiert (${team.length} Profile)`);
+  // STOP HIER — wir schreiben noch nichts
 }
 
 fetchTeam();
