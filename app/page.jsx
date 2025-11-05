@@ -1,19 +1,22 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
+
+import StepIndicator from "./components/StepIndicator";
 import TeamCarousel from "./components/TeamCarousel";
 import TeamDetail from "./components/TeamDetail";
-import { matchTeamMembers } from "./lib/matchTeamMembers";
-import Image from "next/image";
-import StepIndicator from "./components/StepIndicator";
-import { teamData } from "./teamData";
 
+import { matchTeamMembers } from "./lib/matchTeamMembers";
+import { teamData } from "./teamData";
 
 export default function Home() {
   const [step, setStep] = useState(0);
   const totalSteps = 9;
-
   const today = new Date();
+
+  const [activeIndex, setActiveIndex] = useState(0);
+  const matches = matchTeamMembers;
 
   const [form, setForm] = useState({
     anliegen: "",
@@ -30,13 +33,6 @@ export default function Home() {
     beschaeftigungsgrad: "",
     check_datenschutz: false,
   });
-
-  const team = [
-    "Linda", "Ann", "Anna", "Anja", "Babette", "Carolin", "Caroline", "Elena",
-    "Franziska", "Gerhard", "Gesine", "Isabella", "Jenny", "Judith", "Julius",
-    "Kristin", "Kristin-Sofie", "Livia", "Magdalena", "Marisa", "Marleen",
-    "Sophie", "Yanina", "Keine Präferenz",
-  ];
 
   const isAdult = (dateString) => {
     const birth = new Date(dateString);
@@ -62,30 +58,15 @@ export default function Home() {
       alert("Fehler — bitte versuche es erneut.");
     }
   };
-const getSortedTeam = () => {
-  if (!form.anliegen) return teamData; // Falls noch kein Anliegen
 
-  const keywords = form.anliegen.toLowerCase().split(/[\s,.;!?]+/);
-
-  return [...teamData].sort((a, b) => {
-    const aScore = a.tags?.filter(tag => 
-      keywords.some(word => tag.toLowerCase().includes(word))
-    ).length || 0;
-
-    const bScore = b.tags?.filter(tag => 
-      keywords.some(word => tag.toLowerCase().includes(word))
-    ).length || 0;
-
-    return bScore - aScore;
-  });
-};
+  const sortedTeam = matchTeamMembers(form.anliegen || "");
 
   return (
     <div className="form-wrapper">
 
       <div style={{ textAlign: "center", marginBottom: "24px" }}>
         <Image 
-          src="/IMG_7599.png"   // <— genau so, weil Datei in /public liegt
+          src="/IMG_7599.png"
           alt="Poise Logo"
           width={160}
           height={160}
@@ -185,30 +166,30 @@ const getSortedTeam = () => {
         </div>
       )}
 
-{/* ---------- STEP 5 Matching-Auswahl ---------- */}
-{step === 5 && (
-  <div className="step-container">
-    <h2>Wer könnte gut zu dir passen?</h2>
+      {/* ---------- STEP 5 Matching ---------- */}
+      {step === 5 && (
+        <div className="step-container">
+          <h2>Wer könnte gut zu dir passen?</h2>
 
-    <TeamCarousel
-      members={matches}
-      activeIndex={activeIndex}
-      setActiveIndex={setActiveIndex}
-    />
+          <TeamCarousel
+            members={sortedTeam}
+            activeIndex={activeIndex}
+            setActiveIndex={setActiveIndex}
+          />
 
-    <TeamDetail
-      member={matches[activeIndex]}
-      onSelect={(name) => {
-        setForm({ ...form, wunschtherapeut: name });
-        next();
-      }}
-    />
+          <TeamDetail
+            member={sortedTeam[activeIndex]}
+            onSelect={(name) => {
+              setForm({ ...form, wunschtherapeut: name });
+              next();
+            }}
+          />
 
-    <div className="footer-buttons">
-      <button onClick={back}>Zurück</button>
-    </div>
-  </div>
-)}
+          <div className="footer-buttons">
+            <button onClick={back}>Zurück</button>
+          </div>
+        </div>
+      )}
 
       {/* ---------- STEP 6 Kontaktdaten ---------- */}
       {step === 6 && (
@@ -244,7 +225,7 @@ const getSortedTeam = () => {
         </div>
       )}
 
-      {/* ---------- STEP 7 Beschäftigungsgrad ---------- */}
+      {/* ---------- STEP 7 Beschäftigung ---------- */}
       {step === 7 && (
         <div className="step-container">
           <h2>Beschäftigungsgrad</h2>
