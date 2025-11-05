@@ -59,7 +59,7 @@ export default function Home() {
     }
   };
 
-  const sortedTeam = matchTeamMembers(form.anliegen || "");
+  const sortedTeam = matchTeamMembers(form.anliegen);
 
   return (
     <div className="form-wrapper">
