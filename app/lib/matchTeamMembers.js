@@ -1,16 +1,21 @@
+// app/lib/matchTeamMembers.js
 import { team } from "../data/team";
+import { detectTags } from "./detectTags";
 
-export function matchTeamMembers(detectedTags) {
-  return [...team]
-    .map(member => {
-      // Score = Anzahl der übereinstimmenden Tags
-      const score = member.tags.filter(t => detectedTags.includes(t)).length;
+export function matchTeamMembersFromText(anliegenText) {
+  const detected = detectTags(anliegenText); // ["burnout","beziehung", ...]
+  return scoreAndSort(team, detected);
+}
 
-      return {
-        ...member,
-        score
-      };
-    })
-    // Sortieren: bestes Matching zuerst
-    .sort((a, b) => b.score - a.score);
+export function scoreAndSort(teamArr, tags) {
+  // gewichtete Summe aus tagsWeighted
+  return [...teamArr].map(m => {
+    let score = 0;
+    for (const t of (m.tagsWeighted || [])) {
+      if (tags.includes(t.tag)) score += t.score; // 1/2/3
+    }
+    // leichte Bonuspunkte für Verfügbarkeit
+    if (m.available) score += 0.3;
+    return { ...m, matchScore: score };
+  }).sort((a, b) => b.matchScore - a.matchScore);
 }
