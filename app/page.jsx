@@ -186,7 +186,6 @@ const getSortedTeam = () => {
       )}
 
 {/* ---------- STEP 5 Matching-Auswahl ---------- */}
-{/* ---------- STEP 5 Matching-Auswahl ---------- */}
 {step === 5 && (
   <div className="step-container">
     <h2>Wer könnte gut zu dir passen?</h2>
@@ -210,7 +209,6 @@ const getSortedTeam = () => {
     </div>
   </div>
 )}
-
 
       {/* ---------- STEP 6 Kontaktdaten ---------- */}
       {step === 6 && (
