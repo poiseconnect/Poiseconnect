@@ -7,7 +7,6 @@ import { matchTeamMembers } from "./lib/matchTeamMembers";
 import Image from "next/image";
 import StepIndicator from "./components/StepIndicator";
 import { teamData } from "./teamData";
-import { matchTeamMembers } from "./lib/matchTeamMembers";
 
 
 export default function Home() {
@@ -187,37 +186,41 @@ const getSortedTeam = () => {
       )}
 
 {/* ---------- STEP 5 Matching-Auswahl ---------- */}
-import TeamCarousel from "./components/TeamCarousel";
-import TeamDetail from "./components/TeamDetail";
-import { matchTeamMembers } from "./lib/matchTeamMembers";
-
-...
-const [activeIndex, setActiveIndex] = useState(0);
-const matches = matchTeamMembers(form.anliegen);
-
+{/* ---------- STEP 5 Matching-Auswahl ---------- */}
 {step === 5 && (
   <div className="step-container">
     <h2>Wer könnte gut zu dir passen?</h2>
 
-    <TeamCarousel
-      members={matches}
-      activeIndex={activeIndex}
-      setActiveIndex={setActiveIndex}
-    />
+    {/* Matching berechnen */}
+    {(() => {
+      const matches = matchTeamMembers(form.anliegen || "");
+      const [activeIndex, setActiveIndex] = useState(0);
 
-    <TeamDetail
-      member={matches[activeIndex]}
-      onSelect={(name) => {
-        setForm({ ...form, wunschtherapeut: name });
-        next();
-      }}
-    />
+      return (
+        <>
+          <TeamCarousel
+            members={matches}
+            activeIndex={activeIndex}
+            setActiveIndex={setActiveIndex}
+          />
 
-    <div className="footer-buttons">
-      <button onClick={back}>Zurück</button>
-    </div>
+          <TeamDetail
+            member={matches[activeIndex]}
+            onSelect={(name) => {
+              setForm({ ...form, wunschtherapeut: name });
+              next(); // direkt zu Step 6 wechseln
+            }}
+          />
+
+          <div className="footer-buttons">
+            <button onClick={back}>Zurück</button>
+          </div>
+        </>
+      );
+    })()}
   </div>
 )}
+
 
       {/* ---------- STEP 6 Kontaktdaten ---------- */}
       {step === 6 && (
