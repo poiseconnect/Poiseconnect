@@ -184,51 +184,37 @@ const getSortedTeam = () => {
       )}
 
 {/* ---------- STEP 5 Matching-Auswahl ---------- */}
+import TeamCarousel from "./components/TeamCarousel";
+import TeamDetail from "./components/TeamDetail";
+import { matchTeamMembers } from "./lib/matchTeamMembers";
+
+...
+const [activeIndex, setActiveIndex] = useState(0);
+const matches = matchTeamMembers(form.anliegen);
+
 {step === 5 && (
   <div className="step-container">
     <h2>Wer könnte gut zu dir passen?</h2>
 
-    {(() => {
-      const matches = matchTeamMembers(form.anliegen);
-      console.log("MATCH RESULTS:", matches);
+    <TeamCarousel
+      members={matches}
+      activeIndex={activeIndex}
+      setActiveIndex={setActiveIndex}
+    />
 
-      return (
-        <div className="match-grid">
-          {matches.map((m) => (
-            <div
-              key={m.name}
-              className={`therapist-card ${!m.available ? "unavailable" : ""}`}
-            >
-              <img src={m.image} className="therapist-img" alt={m.name} />
-
-              <h3>{m.name}</h3>
-
-              {m.tags.length > 0 && (
-                <p className="tags">{m.tags.join(" • ")}</p>
-              )}
-
-              <button
-                disabled={!m.available}
-                onClick={() => setForm({ ...form, wunschtherapeut: m.name })}
-              >
-                {m.available ? "Auswählen" : "Keine freien Plätze"}
-              </button>
-            </div>
-          ))}
-        </div>
-      );
-    })()}
+    <TeamDetail
+      member={matches[activeIndex]}
+      onSelect={(name) => {
+        setForm({ ...form, wunschtherapeut: name });
+        next();
+      }}
+    />
 
     <div className="footer-buttons">
       <button onClick={back}>Zurück</button>
-      <button disabled={!form.wunschtherapeut} onClick={next}>
-        Weiter
-      </button>
     </div>
   </div>
 )}
-
-
 
       {/* ---------- STEP 6 Kontaktdaten ---------- */}
       {step === 6 && (
