@@ -192,15 +192,12 @@ export default function Home() {
 {step === 5 && (
   <div className="step-container">
     <h2>Wer könnte gut zu dir passen?</h2>
+    <p style={{ opacity: 0.8, marginBottom: 16 }}>
+      Basierend auf deinem Anliegen schlagen wir dir passende Begleitungen vor.
+    </p>
 
     <TeamCarousel
       members={sortedTeam}
-      activeIndex={activeIndex}
-      setActiveIndex={setActiveIndex}
-    />
-
-    <TeamDetail
-      member={sortedTeam[activeIndex]}
       onSelect={(name) => {
         setForm({ ...form, wunschtherapeut: name });
         next();
@@ -209,6 +206,7 @@ export default function Home() {
 
     <div className="footer-buttons">
       <button onClick={back}>Zurück</button>
+      {/* Der Weiter-Button ist optional, weil Auswahl die Navigation übernimmt */}
     </div>
   </div>
 )}
