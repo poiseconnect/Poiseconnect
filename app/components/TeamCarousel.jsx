@@ -33,8 +33,6 @@ export default function TeamCarousel({ members, onSelect }) {
           <img
             src={m.image}
             alt={m.name}
-            width={260}
-            height={260}
             style={{
               borderRadius: 12,
               objectFit: "cover",
@@ -53,7 +51,6 @@ export default function TeamCarousel({ members, onSelect }) {
             <p style={{ fontSize: ".95rem", marginTop: 6, lineHeight: 1.4 }}>{m.short}</p>
           )}
 
-          {/* Expand toggle */}
           <button
             onClick={() => toggleOpen(i)}
             style={{
@@ -68,16 +65,14 @@ export default function TeamCarousel({ members, onSelect }) {
             {openIndex === i ? "Weniger anzeigen" : "Mehr erfahren"}
           </button>
 
-          {/* Expanded Detail Section */}
           {openIndex === i && (
             <div style={{ marginTop: 12, textAlign: "left" }}>
               {m.long && (
-                <p style={{ fontSize: ".95rem", lineHeight: 1.55, whiteSpace: "normal" }}>
+                <p style={{ fontSize: ".95rem", lineHeight: 1.55 }}>
                   {m.long}
                 </p>
               )}
 
-              {/* Video by click, not auto */}
               {m.video && (
                 <button
                   onClick={() => openVideo(i)}
@@ -92,3 +87,85 @@ export default function TeamCarousel({ members, onSelect }) {
                     fontSize: ".95rem",
                     cursor: "pointer",
                     fontWeight: 500,
+                  }}
+                >
+                  Vorstellungs-Video ansehen
+                </button>
+              )}
+
+              <button
+                onClick={() => onSelect(m.name)}
+                style={{
+                  marginTop: 14,
+                  width: "100%",
+                  background: "#D7A6A0",
+                  color: "#fff",
+                  border: "none",
+                  padding: ".9rem",
+                  borderRadius: 14,
+                  fontSize: "1rem",
+                  fontWeight: 500,
+                  cursor: "pointer",
+                }}
+              >
+                Diese Begleitung wählen
+              </button>
+            </div>
+          )}
+
+          {videoIndex === i && (
+            <VideoModal url={m.video} onClose={closeVideo} />
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function VideoModal({ url, onClose }) {
+  if (!url) return null;
+
+  const id =
+    url.match(/(?:v=|youtu\.be\/)([^&?/]+)/)?.[1] ||
+    "";
+
+  const embed = id
+    ? `https://www.youtube.com/embed/${id}`
+    : url;
+
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: "fixed",
+        inset: 0,
+        background: "rgba(0,0,0,.6)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        zIndex: 1000,
+        padding: "20px",
+      }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          width: "100%",
+          maxWidth: 640,
+          background: "#fff",
+          borderRadius: 14,
+          overflow: "hidden",
+        }}
+      >
+        <iframe
+          src={embed}
+          width="100%"
+          height="360"
+          style={{ border: 0 }}
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+          allowFullScreen
+        />
+      </div>
+    </div>
+  );
+}
