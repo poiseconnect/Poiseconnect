@@ -27,9 +27,33 @@ export default function Home() {
     beschaeftigungsgrad: "",
     check_datenschutz: false,
   });
-  
+
   const [activeIndex, setActiveIndex] = useState(0);
+
+  // ---------- Matching Funktion ----------
+  const getSortedTeam = () => {
+    if (!form.anliegen) return teamData || [];
+
+    const keywords = form.anliegen.toLowerCase().split(/[\s,.;!?]+/).filter(Boolean);
+
+    return [...(teamData || [])].sort((a, b) => {
+      const aScore =
+        a.tags?.filter((tag) =>
+          keywords.some((word) => tag.toLowerCase().includes(word))
+        ).length || 0;
+
+      const bScore =
+        b.tags?.filter((tag) =>
+          keywords.some((word) => tag.toLowerCase().includes(word))
+        ).length || 0;
+
+      return bScore - aScore;
+    });
+  };
+
   const sortedTeam = getSortedTeam();
+  // --------------------------------------
+
   const isAdult = (dateString) => {
     const birth = new Date(dateString);
     const age = today.getFullYear() - birth.getFullYear();
@@ -55,39 +79,12 @@ export default function Home() {
     }
   };
 
-  // --- Matching (einfach & robust) ---
-  const getSortedTeam = () => {
-    if (!form.anliegen) return teamData || [];
-
-    const keywords = form.anliegen.toLowerCase().split(/[\s,.;!?]+/).filter(Boolean);
-
-    return [...(teamData || [])].sort((a, b) => {
-      const aScore =
-        a.tags?.filter((tag) =>
-          keywords.some((word) => tag.toLowerCase().includes(word))
-        ).length || 0;
-
-      const bScore =
-        b.tags?.filter((tag) =>
-          keywords.some((word) => tag.toLowerCase().includes(word))
-        ).length || 0;
-
-      return bScore - aScore;
-    });
-  };
-
   return (
     <div className="form-wrapper">
       <div style={{ textAlign: "center", marginBottom: "24px" }}>
-        <Image
-          src="/IMG_7599.png"
-          alt="Poise Logo"
-          width={160}
-          height={160}
-          priority
-        />
+        <Image src="/IMG_7599.png" alt="Poise Logo" width={160} height={160} priority />
       </div>
-
+      
       <StepIndicator step={step} total={totalSteps} />
 
       {/* ---------- STEP 0 Anliegen ---------- */}
