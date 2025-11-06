@@ -1,13 +1,19 @@
-export default function TeamCard({ member, active, onSelect }) {
-  return (
-    <div
-      className={`team-card ${active ? "active" : ""}`}
-      onClick={onSelect}
-    >
-      <img src={member.image} alt={member.name} className="team-card-img" />
+"use client";
+import Image from "next/image";
 
-      <h4>{member.name}</h4>
-      {member.short && <p className="team-card-short">{member.short}</p>}
+export default function TeamCarousel({ members, activeIndex, setActiveIndex }) {
+  return (
+    <div className="carousel">
+      {members.map((m, i) => (
+        <div
+          key={m.name}
+          className={`carousel-item ${i === activeIndex ? "active" : ""}`}
+          onClick={() => setActiveIndex(i)}
+        >
+          <Image src={m.image} width={80} height={80} alt={m.name} />
+          <p>{m.name}</p>
+        </div>
+      ))}
     </div>
   );
 }
