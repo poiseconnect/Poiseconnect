@@ -188,18 +188,16 @@ export default function Home() {
         </div>
       )}
 
-      {/* ---------- STEP 5 Matching + Profil ---------- */}
-      {step === 5 && (
+      {/* ---------- STEP 5 Matching-Auswahl ---------- */}
+{step === 5 && (
   <div className="step-container">
     <h2>Wer könnte gut zu dir passen?</h2>
 
-    <div className="carousel-wrapper">
-      <TeamCarousel
-        members={sortedTeam}
-        activeIndex={activeIndex}
-        setActiveIndex={setActiveIndex}
-      />
-    </div>
+    <TeamCarousel
+      members={sortedTeam}
+      activeIndex={activeIndex}
+      setActiveIndex={setActiveIndex}
+    />
 
     <TeamDetail
       member={sortedTeam[activeIndex]}
@@ -214,6 +212,7 @@ export default function Home() {
     </div>
   </div>
 )}
+
 
       {/* ---------- STEP 6 Kontaktdaten ---------- */}
       {step === 6 && (
