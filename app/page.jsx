@@ -27,7 +27,9 @@ export default function Home() {
     beschaeftigungsgrad: "",
     check_datenschutz: false,
   });
-
+  
+  const [activeIndex, setActiveIndex] = useState(0);
+  const sortedTeam = getSortedTeam();
   const isAdult = (dateString) => {
     const birth = new Date(dateString);
     const age = today.getFullYear() - birth.getFullYear();
