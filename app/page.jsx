@@ -190,22 +190,30 @@ export default function Home() {
 
       {/* ---------- STEP 5 Matching + Profil ---------- */}
       {step === 5 && (
-        <div className="step-container">
-          <h2>Wer könnte gut zu dir passen?</h2>
+  <div className="step-container">
+    <h2>Wer könnte gut zu dir passen?</h2>
 
-          <TeamCarousel
-            members={getSortedTeam()}
-            onSelect={(name) => {
-              setForm({ ...form, wunschtherapeut: name });
-              next(); // weiter zu Step 6
-            }}
-          />
+    <div className="carousel-wrapper">
+      <TeamCarousel
+        members={sortedTeam}
+        activeIndex={activeIndex}
+        setActiveIndex={setActiveIndex}
+      />
+    </div>
 
-          <div className="footer-buttons">
-            <button onClick={back}>Zurück</button>
-          </div>
-        </div>
-      )}
+    <TeamDetail
+      member={sortedTeam[activeIndex]}
+      onSelect={(name) => {
+        setForm({ ...form, wunschtherapeut: name });
+        next();
+      }}
+    />
+
+    <div className="footer-buttons">
+      <button onClick={back}>Zurück</button>
+    </div>
+  </div>
+)}
 
       {/* ---------- STEP 6 Kontaktdaten ---------- */}
       {step === 6 && (
