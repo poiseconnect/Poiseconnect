@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { NextResponse } from "next/server";
 
 export async function GET() {
@@ -7,11 +9,10 @@ export async function GET() {
     const res = await fetch(url);
     const text = await res.text();
 
-    // CSV → Array
-    const rows = text.split("\n").map(r => r.split(","));
+    const rows = text.split("\n").map((r) => r.split(","));
     const header = rows.shift();
 
-    const list = rows.map(row => {
+    const list = rows.map((row) => {
       const obj = {};
       header.forEach((h, i) => (obj[h.trim()] = row[i]?.trim()));
       return obj;
