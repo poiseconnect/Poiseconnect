@@ -78,6 +78,15 @@ export default function Home() {
       alert("Fehler — bitte versuche es erneut.");
     }
   };
+  const isExcluded = () => {
+  const text = `${form.anliegen} ${form.verlauf} ${form.ziel}`.toLowerCase();
+  const exclusionTerms = [
+    "suizid","selbstmord","selbstverletz","ritzen",
+    "magersucht","anorex","bulim","fress","brech",
+    "borderline","bpd"
+  ];
+  return exclusionTerms.some(word => text.includes(word));
+};
 
   return (
     <div className="form-wrapper">
