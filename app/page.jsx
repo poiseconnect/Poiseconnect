@@ -6,6 +6,19 @@ import Image from "next/image";
 import StepIndicator from "./components/StepIndicator";
 import TeamCarousel from "./components/TeamCarousel";
 import { teamData } from "./teamData";
+const RED_FLAGS = [
+  "suizid", "selbstmord", "selbstverletzung", "ritzen",
+  "magersucht", "anorexie", "bulimie", "bulimia", "erbrechen",
+  "binge", "binge eating", "essstörung", "essstoerung",
+  "borderline", "svv"
+];
+
+const isRedFlag = (text) => {
+  if (!text) return false;
+  const t = text.toLowerCase();
+  return RED_FLAGS.some(flag => t.includes(flag));
+};
+
 
 export default function Home() {
   const [step, setStep] = useState(0);
