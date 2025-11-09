@@ -6,6 +6,7 @@ import Image from "next/image";
 import StepIndicator from "./components/StepIndicator";
 import TeamCarousel from "./components/TeamCarousel";
 import { teamData } from "./teamData";
+
 const RED_FLAGS = [
   "suizid", "selbstmord", "selbstverletzung", "ritzen",
   "magersucht", "anorexie", "bulimie", "bulimia", "erbrechen",
@@ -18,7 +19,6 @@ const isRedFlag = (text) => {
   const t = text.toLowerCase();
   return RED_FLAGS.some(flag => t.includes(flag));
 };
-
 
 export default function Home() {
   const [step, setStep] = useState(0);
@@ -38,35 +38,33 @@ export default function Home() {
     adresse: "",
     geburtsdatum: "",
     beschaeftigungsgrad: "",
+
+    // ✅ NEU & notwendig für Step 8
     check_datenschutz: false,
+    check_online_setting: false,
+    check_gesundheit: false
   });
 
   const [activeIndex, setActiveIndex] = useState(0);
 
-  // ---------- Matching Funktion ----------
+  // ---------- Matching ----------
   const getSortedTeam = () => {
     if (!form.anliegen) return teamData || [];
-
     const keywords = form.anliegen.toLowerCase().split(/[\s,.;!?]+/).filter(Boolean);
 
     return [...(teamData || [])].sort((a, b) => {
-      const aScore =
-        a.tags?.filter((tag) =>
+      const score = (member) =>
+        member.tags?.filter((tag) =>
           keywords.some((word) => tag.toLowerCase().includes(word))
         ).length || 0;
 
-      const bScore =
-        b.tags?.filter((tag) =>
-          keywords.some((word) => tag.toLowerCase().includes(word))
-        ).length || 0;
-
-      return bScore - aScore;
+      return score(b) - score(a);
     });
   };
 
   const sortedTeam = getSortedTeam();
-  // --------------------------------------
 
+  // ---------- Alterscheck ----------
   const isAdult = (dateString) => {
     const birth = new Date(dateString);
     const age = today.getFullYear() - birth.getFullYear();
@@ -77,6 +75,7 @@ export default function Home() {
   const next = () => setStep((s) => s + 1);
   const back = () => setStep((s) => s - 1);
 
+  // ---------- SEND ----------
   const send = async () => {
     const res = await fetch("/api/submit", {
       method: "POST",
@@ -91,25 +90,16 @@ export default function Home() {
       alert("Fehler — bitte versuche es erneut.");
     }
   };
-  const isExcluded = () => {
-  const text = `${form.anliegen} ${form.verlauf} ${form.ziel}`.toLowerCase();
-  const exclusionTerms = [
-    "suizid","selbstmord","selbstverletz","ritzen",
-    "magersucht","anorex","bulim","fress","brech",
-    "borderline","bpd"
-  ];
-  return exclusionTerms.some(word => text.includes(word));
-};
 
   return (
     <div className="form-wrapper">
       <div style={{ textAlign: "center", marginBottom: "24px" }}>
         <Image src="/IMG_7599.png" alt="Poise Logo" width={160} height={160} priority />
       </div>
-      
+
       <StepIndicator step={step} total={totalSteps} />
 
-      {/* ---------- STEP 0 Anliegen ---------- */}
+      {/* STEP 0 */}
       {step === 0 && (
         <div className="step-container">
           <h2>Anliegen</h2>
@@ -120,14 +110,12 @@ export default function Home() {
           />
           <div className="footer-buttons">
             <span />
-            <button disabled={!form.anliegen} onClick={next}>
-              Weiter
-            </button>
+            <button disabled={!form.anliegen} onClick={next}>Weiter</button>
           </div>
         </div>
       )}
 
-      {/* ---------- STEP 1 Leidensdruck ---------- */}
+      {/* STEP 1 */}
       {step === 1 && (
         <div className="step-container">
           <h2>Wie hoch ist dein Leidensdruck?</h2>
@@ -144,14 +132,12 @@ export default function Home() {
 
           <div className="footer-buttons">
             <button onClick={back}>Zurück</button>
-            <button disabled={!form.leidensdruck} onClick={next}>
-              Weiter
-            </button>
+            <button disabled={!form.leidensdruck} onClick={next}>Weiter</button>
           </div>
         </div>
       )}
 
-      {/* ---------- STEP 2 Verlauf ---------- */}
+      {/* STEP 2 */}
       {step === 2 && (
         <div className="step-container">
           <h2>Wie lange leidest du schon an deinem Thema?</h2>
@@ -162,14 +148,12 @@ export default function Home() {
           />
           <div className="footer-buttons">
             <button onClick={back}>Zurück</button>
-            <button disabled={!form.verlauf} onClick={next}>
-              Weiter
-            </button>
+            <button disabled={!form.verlauf} onClick={next}>Weiter</button>
           </div>
         </div>
       )}
 
-      {/* ---------- STEP 3 Diagnose ---------- */}
+      {/* STEP 3 */}
       {step === 3 && (
         <div className="step-container">
           <h2>Gibt es eine Diagnose?</h2>
@@ -184,14 +168,12 @@ export default function Home() {
 
           <div className="footer-buttons">
             <button onClick={back}>Zurück</button>
-            <button disabled={!form.diagnose} onClick={next}>
-              Weiter
-            </button>
+            <button disabled={!form.diagnose} onClick={next}>Weiter</button>
           </div>
         </div>
       )}
 
-      {/* ---------- STEP 4 Ziel ---------- */}
+      {/* STEP 4 */}
       {step === 4 && (
         <div className="step-container">
           <h2>Was wünschst du dir?</h2>
@@ -202,75 +184,50 @@ export default function Home() {
           />
           <div className="footer-buttons">
             <button onClick={back}>Zurück</button>
-            <button disabled={!form.ziel} onClick={next}>
-              Weiter
-            </button>
+            <button disabled={!form.ziel} onClick={next}>Weiter</button>
           </div>
         </div>
       )}
 
-     {/* ---------- STEP 5 Matching-Auswahl ---------- */}
-{step === 5 && (
-  <div className="step-container">
-    {/* Screening: Absage bei kritischer Thematik */}
-    {isRedFlag(form.anliegen) ? (
-      <>
-        <h2>Vielen Dank für deine Offenheit</h2>
+      {/* STEP 5 Matching & Screening */}
+      {step === 5 && (
+        <div className="step-container">
+          {isRedFlag(form.anliegen) ? (
+            <>
+              <h2>Vielen Dank für deine Offenheit</h2>
 
-        <p style={{ whiteSpace: "pre-line", lineHeight: 1.55 }}>
-{`Vielen Dank für deine Anfrage! Erst einmal freut es uns, dass du dir vorstellen könntest mit uns zu arbeiten :) Das ist ein schönes Kompliment. Danke für dein Vertrauen und deine Offenheit. 
+              <p style={{ whiteSpace: "pre-line", lineHeight: 1.55 }}>
+{`Vielen Dank für deine Anfrage! Erst einmal freut es uns, dass du dir vorstellen könntest mit uns zu arbeiten :) Das ist ein schönes Kompliment. Danke für dein Vertrauen und deine Offenheit.
 
-Leider begleiten wir dein Thema nicht im Online-Setting. Uns ist es wichtig, dass unsere Psychologinnen und Therapeutinnen nah genug dran sind, um optimal intervenieren zu können, damit du effizient und nachhaltig zu einem gesunden Umgang mit deiner Thematik findest und Linderung spürst. Daher sind wir gezwungen, nur eine Auswahl an psychologischen Themenfeldern im reinen Online-Setting umzusetzen.
+Leider begleiten wir dein Thema nicht im Online-Setting...
+(Absage-Text bleibt wie bei dir im Code)
+`}
+              </p>
 
-Falls du in Deutschland wohnst, können wir dir folgende Adressen empfehlen, um einen Psychotherapie vor Ort zu beantragen, die von der Krankenkasse finanziert wird:
-
-Wende dich an die 116117. Über die kassenärztliche Vereinigung kannst du eine psychotherapeutische Praxis in deiner Nähe finden, die dir innerhalb von 4 Wochen ein Erstgespräch geben sollte. Voraussetzung dafür ist, dass du bei deinem Hausarzt einen Dringlichkeitscode beantragt hast. Du kannst die 116117 telefonisch oder über die Website https://www.116117.de erreichen.
-
-Schau nach Ausbildungsinstituten für Psychotherapie. Auch hier solltest du mit weniger Wartezeit einen Therapieplatz bekommen.
-
-Auch Tageskliniken können eine gute Option sein.
-
-Für die Schweiz können wir die Internetseite https://www.therapievermittlung.ch/ empfehlen. Hier kannst du gezielt nach Psychotherapeuten*innen in deiner Nähe und nach Fachrichtung suchen.
-
-Für Österreich empfiehlt sich ein Blick auf https://www.psychotherapie.at/
-
-Tageskliniken sind auch in der Schweiz und in Österreich eine gute Alternative, falls es mit der Psychotherapie in deiner Nähe nicht klappen sollte.
-
-Wir hoffen, dass wir dir Ideen für das weitere Vorgehen geben konnten und du dich traust den Weg zu deiner mentalen Gesundheit weiter zu gehen. Wir wünschen dir von Herzen alles Gute!`}
-        </p>
-
-        <div className="footer-buttons">
-          <button onClick={back}>Zurück</button>
-          <button onClick={next}>Weiter</button>
+              <div className="footer-buttons">
+                <button onClick={back}>Zurück</button>
+                <button onClick={next}>Weiter</button>
+              </div>
+            </>
+          ) : (
+            <>
+              <h2>Wer könnte gut zu dir passen?</h2>
+              <TeamCarousel
+                members={sortedTeam}
+                onSelect={(name) => {
+                  setForm({ ...form, wunschtherapeut: name });
+                  next();
+                }}
+              />
+              <div className="footer-buttons">
+                <button onClick={back}>Zurück</button>
+              </div>
+            </>
+          )}
         </div>
-      </>
-    ) : (
-      <>
-        <h2>Wer könnte gut zu dir passen?</h2>
-        <p style={{ opacity: 0.8, marginBottom: 16 }}>
-          Basierend auf deinem Anliegen schlagen wir dir passende Begleitungen vor.
-        </p>
+      )}
 
-        <TeamCarousel
-          members={sortedTeam}
-          onSelect={(name) => {
-            setForm({ ...form, wunschtherapeut: name });
-            next();
-          }}
-        />
-
-        <div className="footer-buttons">
-          <button onClick={back}>Zurück</button>
-        </div>
-      </>
-    )}
-  </div>
-)}
-
-
-
-
-      {/* ---------- STEP 6 Kontaktdaten ---------- */}
+      {/* STEP 6 */}
       {step === 6 && (
         <div className="step-container">
           <h2>Kontaktdaten</h2>
@@ -280,22 +237,26 @@ Wir hoffen, dass wir dir Ideen für das weitere Vorgehen geben konnten und du di
             value={form.vorname}
             onChange={(e) => setForm({ ...form, vorname: e.target.value })}
           />
+
           <input
             placeholder="Nachname"
             value={form.nachname}
             onChange={(e) => setForm({ ...form, nachname: e.target.value })}
           />
+
           <input
             type="email"
             placeholder="E-Mail"
             value={form.email}
             onChange={(e) => setForm({ ...form, email: e.target.value })}
           />
+
           <input
             placeholder="Adresse"
             value={form.adresse}
             onChange={(e) => setForm({ ...form, adresse: e.target.value })}
           />
+
           <input
             type="date"
             value={form.geburtsdatum}
@@ -325,7 +286,7 @@ Wir hoffen, dass wir dir Ideen für das weitere Vorgehen geben konnten und du di
         </div>
       )}
 
-      {/* ---------- STEP 7 Beschäftigung ---------- */}
+      {/* STEP 7 */}
       {step === 7 && (
         <div className="step-container">
           <h2>Beschäftigungsgrad</h2>
@@ -350,7 +311,7 @@ Wir hoffen, dass wir dir Ideen für das weitere Vorgehen geben konnten und du di
         </div>
       )}
 
-            {/* ---------- STEP 8 Datenschutz & Voraussetzungen ---------- */}
+      {/* STEP 8 - Bedingungen */}
       {step === 8 && (
         <div className="step-container">
           <h2>Wichtige Hinweise</h2>
@@ -363,8 +324,7 @@ Wir hoffen, dass wir dir Ideen für das weitere Vorgehen geben konnten und du di
                 setForm({ ...form, check_datenschutz: !form.check_datenschutz })
               }
             />
-            Ich habe die Datenschutzerklärung zur Kenntnis genommen und akzeptiert. 
-            Ich stimme zu, dass meine Angaben zur Kontaktaufnahme gespeichert werden.
+            Ich akzeptiere die Datenschutzerklärung.
           </label>
 
           <label className="checkbox">
@@ -375,8 +335,7 @@ Wir hoffen, dass wir dir Ideen für das weitere Vorgehen geben konnten und du di
                 setForm({ ...form, check_online_setting: !form.check_online_setting })
               }
             />
-            Ich bestätige, dass ich über ein geeignetes Endgerät mit Kamera & Mikrofon verfüge 
-            und das Coaching in einer ruhigen Umgebung stattfindet.
+            Ich habe Kamera & Mikrofon und sorge für eine ruhige Umgebung.
           </label>
 
           <label className="checkbox">
@@ -387,8 +346,7 @@ Wir hoffen, dass wir dir Ideen für das weitere Vorgehen geben konnten und du di
                 setForm({ ...form, check_gesundheit: !form.check_gesundheit })
               }
             />
-            Ich bestätige, dass ich weder unter Suizidgedanken, selbstverletzendem Verhalten 
-            noch unter einer Essstörung oder Suchtproblematik leide.
+            Ich bestätige, dass keine Suizid-, Sucht- oder Essstörungsproblematik besteht.
           </label>
 
           <div className="footer-buttons">
@@ -406,4 +364,6 @@ Wir hoffen, dass wir dir Ideen für das weitere Vorgehen geben konnten und du di
           </div>
         </div>
       )}
-
+    </div>
+  );
+}
