@@ -32,19 +32,27 @@ function parseIcsToSlots(text, daysAhead = 21) {
   const until = new Date(now.getTime() + daysAhead * 86400000);
   const slots = [];
 
-  const parseICSDate = (line) => {
-    const m = line.match(/DT(ST|END)(?:;TZID=[^:]+)?:([0-9T]+)Z?/i);
-    if (!m) return null;
-    const raw = m[2];
-    return new Date(
-      raw.slice(0, 4),
-      raw.slice(4, 6) - 1,
-      raw.slice(6, 8),
-      raw.slice(9, 11) || 0,
-      raw.slice(11, 13) || 0,
-      raw.slice(13, 15) || 0
-    );
-  };
+function parseICSDate(line) {
+  // Unterstützt:
+  // DTSTART:20251110T130000Z
+  // DTSTART;TZID=Europe/Vienna:20251110T140000
+
+  const match = line.match(/DTSTART(;TZID=[^:]+)?:([0-9]{8}T[0-9]{4,6})/i)
+    || line.match(/DTEND(;TZID=[^:]+)?:([0-9]{8}T[0-9]{4,6})/i);
+
+  if (!match) return null;
+
+  const raw = match[2]; // z.B. "20251110T140000"
+  const y = +raw.slice(0, 4);
+  const m = +raw.slice(4, 6) - 1;
+  const d = +raw.slice(6, 8);
+  const hh = +raw.slice(9, 11) || 0;
+  const mm = +raw.slice(11, 13) || 0;
+  const ss = raw.length >= 15 ? +raw.slice(13, 15) : 0;
+
+  // Wir interpretieren ohne Z als lokale Zeit (Europe/Vienna)
+  return new Date(y, m, d, hh, mm, ss);
+}
 
   for (const ev of events) {
     const sLine = ev.split("\n").find((l) => l.startsWith("DTSTART"));
