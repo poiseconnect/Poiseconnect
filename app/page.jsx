@@ -350,10 +350,10 @@ Wir hoffen, dass wir dir Ideen für das weitere Vorgehen geben konnten und du di
         </div>
       )}
 
-      {/* ---------- STEP 8 Datenschutz ---------- */}
+            {/* ---------- STEP 8 Datenschutz & Voraussetzungen ---------- */}
       {step === 8 && (
         <div className="step-container">
-          <h2>Datenschutz</h2>
+          <h2>Wichtige Hinweise</h2>
 
           <label className="checkbox">
             <input
@@ -363,17 +363,47 @@ Wir hoffen, dass wir dir Ideen für das weitere Vorgehen geben konnten und du di
                 setForm({ ...form, check_datenschutz: !form.check_datenschutz })
               }
             />
-            Ich akzeptiere die Datenschutzerklärung.
+            Ich habe die Datenschutzerklärung zur Kenntnis genommen und akzeptiert. 
+            Ich stimme zu, dass meine Angaben zur Kontaktaufnahme gespeichert werden.
+          </label>
+
+          <label className="checkbox">
+            <input
+              type="checkbox"
+              checked={form.check_online_setting}
+              onChange={() =>
+                setForm({ ...form, check_online_setting: !form.check_online_setting })
+              }
+            />
+            Ich bestätige, dass ich über ein geeignetes Endgerät mit Kamera & Mikrofon verfüge 
+            und das Coaching in einer ruhigen Umgebung stattfindet.
+          </label>
+
+          <label className="checkbox">
+            <input
+              type="checkbox"
+              checked={form.check_gesundheit}
+              onChange={() =>
+                setForm({ ...form, check_gesundheit: !form.check_gesundheit })
+              }
+            />
+            Ich bestätige, dass ich weder unter Suizidgedanken, selbstverletzendem Verhalten 
+            noch unter einer Essstörung oder Suchtproblematik leide.
           </label>
 
           <div className="footer-buttons">
             <button onClick={back}>Zurück</button>
-            <button disabled={!form.check_datenschutz} onClick={send}>
+            <button
+              disabled={
+                !form.check_datenschutz ||
+                !form.check_online_setting ||
+                !form.check_gesundheit
+              }
+              onClick={send}
+            >
               Anfrage senden
             </button>
           </div>
         </div>
       )}
-    </div>
-  );
-}
+
