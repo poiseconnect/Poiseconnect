@@ -15,49 +15,42 @@ const RED_FLAGS = [
 ];
 const isRedFlag = (t) => t && RED_FLAGS.some(x => t.toLowerCase().includes(x));
 
-// ---- Kalender pro Teammitglied ----
-const ICS_BY_MEMBER = {
-  Ann: "https://calendar.google.com/calendar/ical/75f62df4c63554a1436d49c3a381da84502728a0457c9c8b56d30e21fa5021c5%40group.calendar.google.com/public/basic.ics",
-};
-
-// ---- Datumshilfen ----
+// ---- Formatierung ----
 const formatDate = (d) =>
   d.toLocaleDateString("de-AT", { weekday: "short", day: "2-digit", month: "2-digit" });
 const formatTime = (d) =>
   d.toLocaleTimeString("de-AT", { hour: "2-digit", minute: "2-digit" });
 
-// ICS Datum parser
-function parseICSDate(line) {
-  const m = line.match(/DT(ST|END)(?:;TZID=[^:]+)?:([0-9T]+)Z?/i);
-  if (!m) return null;
-  const raw = m[2];
-  return new Date(
-    raw.slice(0, 4),
-    raw.slice(4, 6) - 1,
-    raw.slice(6, 8),
-    raw.slice(9, 11) || 0,
-    raw.slice(11, 13) || 0,
-    raw.slice(13, 15) || 0
-  );
-}
-
-// ICS → freie 30-min Slots
-async function loadIcsSlots(icsUrl, daysAhead = 21) {
-  const res = await fetch(`${icsUrl}?nocache=${Date.now()}`, { cache: "no-store" });
-  const text = await res.text();
+// ---- ICS -> Slots Parser ----
+function parseIcsToSlots(text, daysAhead = 21) {
   const events = text
     .split("BEGIN:VEVENT")
     .slice(1)
-    .map((chunk) => "BEGIN:VEVENT" + chunk.split("END:VEVENT")[0] + "END:VEVENT");
+    .map((c) => "BEGIN:VEVENT" + c.split("END:VEVENT")[0] + "END:VEVENT");
 
   const now = new Date();
   const until = new Date(now.getTime() + daysAhead * 86400000);
   const slots = [];
 
+  const parseICSDate = (line) => {
+    const m = line.match(/DT(ST|END)(?:;TZID=[^:]+)?:([0-9T]+)Z?/i);
+    if (!m) return null;
+    const raw = m[2];
+    return new Date(
+      raw.slice(0, 4),
+      raw.slice(4, 6) - 1,
+      raw.slice(6, 8),
+      raw.slice(9, 11) || 0,
+      raw.slice(11, 13) || 0,
+      raw.slice(13, 15) || 0
+    );
+  };
+
   for (const ev of events) {
     const sLine = ev.split("\n").find((l) => l.startsWith("DTSTART"));
     const eLine = ev.split("\n").find((l) => l.startsWith("DTEND"));
     if (!sLine || !eLine) continue;
+
     const start = parseICSDate(sLine.trim());
     const end = parseICSDate(eLine.trim());
     if (!start || !end || end <= now || start > until) continue;
@@ -70,6 +63,14 @@ async function loadIcsSlots(icsUrl, daysAhead = 21) {
   }
 
   return slots.sort((a, b) => a.start - b.start);
+}
+
+// ---- Slots vom Proxy laden (CORS-Fix) ----
+async function loadSlotsViaProxy(member, daysAhead = 21) {
+  const r = await fetch(`/api/ics?member=${encodeURIComponent(member)}`, { cache: "no-store" });
+  if (!r.ok) throw new Error("ICS fetch failed");
+  const text = await r.text();
+  return parseIcsToSlots(text, daysAhead);
 }
 
 export default function Home() {
@@ -116,25 +117,20 @@ export default function Home() {
 
   const next = () => setStep((s) => s + 1);
   const back = () => setStep((s) => s - 1);
-  
-  // ---------- SEND FORM ----------
+
   const send = async () => {
-  const res = await fetch("/api/submit", {
-    method: "POST",
-    body: JSON.stringify(form),
-    headers: { "Content-Type": "application/json" },
-  });
+    const res = await fetch("/api/submit", {
+      method: "POST",
+      body: JSON.stringify(form),
+      headers: { "Content-Type": "application/json" },
+    });
+    if (res.ok) {
+      alert("Danke — deine Anfrage wurde erfolgreich gesendet.");
+      setStep(0);
+    } else alert("Fehler — bitte versuche es erneut.");
+  };
 
-  if (res.ok) {
-    alert("Danke — deine Anfrage wurde erfolgreich gesendet.");
-    setStep(0);
-  } else {
-    alert("Fehler — bitte versuche es erneut.");
-  }
-};
-
-
-  // ---- Step 9 Slot Loading ----
+  // ---- Termin-Slots laden ----
   const [slots, setSlots] = useState([]);
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [slotsError, setSlotsError] = useState("");
@@ -145,9 +141,12 @@ export default function Home() {
       setLoadingSlots(true);
       setSlotsError("");
       try {
-        const ics = ICS_BY_MEMBER[form.wunschtherapeut];
-        if (!ics) return setSlotsError("Kein Kalender hinterlegt.");
-        setSlots(await loadIcsSlots(ics, 21));
+        if (!form.wunschtherapeut) {
+          setSlotsError("Bitte zuerst im Schritt 5 eine Begleitung auswählen.");
+        } else {
+          const s = await loadSlotsViaProxy(form.wunschtherapeut, 21);
+          setSlots(s);
+        }
       } catch {
         setSlotsError("Kalender konnte nicht geladen werden.");
       }
@@ -155,20 +154,19 @@ export default function Home() {
     })();
   }, [step, form.wunschtherapeut]);
 
-  // ---- Slot grouping ----
   const groupedSlots = useMemo(() => {
-    const map = new Map();
+    const m = new Map();
     slots.forEach((s) => {
-      const key = s.start.toDateString();
-      if (!map.has(key)) map.set(key, []);
-      map.get(key).push(s);
+      const k = s.start.toDateString();
+      if (!m.has(k)) m.set(k, []);
+      m.get(k).push(s);
     });
-    return Array.from(map.entries());
+    return [...m.entries()];
   }, [slots]);
 
   return (
     <div className="form-wrapper">
-      <div style={{ textAlign: "center", marginBottom: "24px" }}>
+      <div style={{ textAlign: "center", marginBottom: 24 }}>
         <Image src="/IMG_7599.png" width={160} height={160} alt="Poise Logo" priority />
       </div>
 
@@ -300,45 +298,45 @@ export default function Home() {
       )}
 
       {/* STEP 9 MINI-KALENDER */}
-      {step === 9 && (
+        {step === 9 && (
         <div className="step-container">
           <h2>Erstgespräch – Termin wählen</h2>
 
           {loadingSlots && <p>Kalender wird geladen…</p>}
           {slotsError && <p style={{ color: "red" }}>{slotsError}</p>}
-
           {!loadingSlots && groupedSlots.length === 0 && <p>Keine freien Termine verfügbar.</p>}
 
-          {!loadingSlots && groupedSlots.length > 0 && (
-            groupedSlots.map(([dayKey, list]) => (
-              <div key={dayKey} style={{ marginBottom: 14 }}>
-                <strong>{formatDate(list[0].start)}</strong>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 6 }}>
-                  {list.map((s) => (
-                    <button
-                      key={s.key}
-                      onClick={() =>
-                        setForm({
-                          ...form,
-                          terminISO: s.start.toISOString(),
-                          terminDisplay: `${formatDate(s.start)} ${formatTime(s.start)}`
-                        })
-                      }
-                      style={{
-                        padding: "6px 10px",
-                        borderRadius: 10,
-                        border: form.terminISO === s.start.toISOString() ? "2px solid #A27C77" : "1px solid #ddd",
-                        background: form.terminISO === s.start.toISOString() ? "#F3E9E7" : "#fff",
-                        cursor: "pointer",
-                      }}
-                    >
-                      {formatTime(s.start)}
-                    </button>
-                  ))}
-                </div>
+          {!loadingSlots && groupedSlots.length > 0 && groupedSlots.map(([day, list]) => (
+            <div key={day} style={{ marginBottom: 14 }}>
+              <strong>{formatDate(list[0].start)}</strong>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 6 }}>
+                {list.map((s) => (
+                  <button
+                    key={s.key}
+                    onClick={() =>
+                      setForm({
+                        ...form,
+                        terminISO: s.start.toISOString(),
+                        terminDisplay: `${formatDate(s.start)} ${formatTime(s.start)}`
+                      })
+                    }
+                    style={{
+                      padding: "6px 10px",
+                      borderRadius: 10,
+                      border: form.terminISO === s.start.toISOString()
+                        ? "2px solid #A27C77"
+                        : "1px solid #ddd",
+                      background: form.terminISO === s.start.toISOString()
+                        ? "#F3E9E7"
+                        : "#fff",
+                    }}
+                  >
+                    {formatTime(s.start)}
+                  </button>
+                ))}
               </div>
-            ))
-          )}
+            </div>
+          ))}
 
           {form.terminISO && (
             <p style={{ marginTop: 12 }}>
