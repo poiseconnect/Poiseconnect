@@ -6,65 +6,70 @@ import StepIndicator from "./components/StepIndicator";
 import TeamCarousel from "./components/TeamCarousel";
 import { teamData } from "./teamData";
 
-// --- Red Flag Screening ---
+// ---- Ausschlusskriterien ----
 const RED_FLAGS = [
   "suizid", "selbstmord", "selbstverletzung", "ritzen",
-  "magersucht", "anorexie", "bulimie", "bulimia", "erbrechen",
-  "binge", "binge eating", "essstörung", "essstoerung",
+  "magersucht", "anorexie", "bulim", "erbrechen",
+  "binge", "essstörung", "essstoerung",
   "borderline", "svv"
 ];
-const isRedFlag = (text) => {
-  const t = (text || "").toLowerCase();
-  return RED_FLAGS.some((f) => t.includes(f));
-};
+const isRedFlag = (t) => t && RED_FLAGS.some(x => t.toLowerCase().includes(x));
 
-// --- Kalender (ICS) Links ---
+// ---- Kalender pro Teammitglied ----
 const ICS_BY_MEMBER = {
   Ann: "https://calendar.google.com/calendar/ical/75f62df4c63554a1436d49c3a381da84502728a0457c9c8b56d30e21fa5021c5%40group.calendar.google.com/public/basic.ics",
 };
 
-// Format Helpers
+// ---- Datumshilfen ----
 const formatDate = (d) =>
   d.toLocaleDateString("de-AT", { weekday: "short", day: "2-digit", month: "2-digit" });
 const formatTime = (d) =>
   d.toLocaleTimeString("de-AT", { hour: "2-digit", minute: "2-digit" });
 
-// ICS Parser
+// ICS Datum parser
 function parseICSDate(line) {
   const m = line.match(/DT(ST|END)(?:;TZID=[^:]+)?:([0-9T]+)Z?/i);
   if (!m) return null;
   const raw = m[2];
   return new Date(
-    +raw.slice(0, 4),
-    +raw.slice(4, 6) - 1,
-    +raw.slice(6, 8),
-    +raw.slice(9, 11) || 0,
-    +raw.slice(11, 13) || 0,
-    +raw.slice(13, 15) || 0
+    raw.slice(0, 4),
+    raw.slice(4, 6) - 1,
+    raw.slice(6, 8),
+    raw.slice(9, 11) || 0,
+    raw.slice(11, 13) || 0,
+    raw.slice(13, 15) || 0
   );
 }
 
-// ICS → Slots (30min)
-async function loadIcsSlots(icsUrl) {
-  const text = await (await fetch(icsUrl + "?v=" + Date.now(), { cache: "no-store" })).text();
-  const events = text.split("BEGIN:VEVENT").slice(1);
-  const now = new Date();
-  const until = new Date(now.getTime() + 21 * 86400000);
-  const out = [];
+// ICS → freie 30-min Slots
+async function loadIcsSlots(icsUrl, daysAhead = 21) {
+  const res = await fetch(`${icsUrl}?nocache=${Date.now()}`, { cache: "no-store" });
+  const text = await res.text();
+  const events = text
+    .split("BEGIN:VEVENT")
+    .slice(1)
+    .map((chunk) => "BEGIN:VEVENT" + chunk.split("END:VEVENT")[0] + "END:VEVENT");
 
-  for (const block of events) {
-    const start = parseICSDate((block.match(/DTSTART[^\n]*/)?.[0] || "").trim());
-    const end = parseICSDate((block.match(/DTEND[^\n]*/)?.[0] || "").trim());
-    if (!start || !end) continue;
-    if (end <= now || start > until) continue;
+  const now = new Date();
+  const until = new Date(now.getTime() + daysAhead * 86400000);
+  const slots = [];
+
+  for (const ev of events) {
+    const sLine = ev.split("\n").find((l) => l.startsWith("DTSTART"));
+    const eLine = ev.split("\n").find((l) => l.startsWith("DTEND"));
+    if (!sLine || !eLine) continue;
+    const start = parseICSDate(sLine.trim());
+    const end = parseICSDate(eLine.trim());
+    if (!start || !end || end <= now || start > until) continue;
 
     for (let t = new Date(start); t < end; t = new Date(t.getTime() + 30 * 60000)) {
-      const e = new Date(t.getTime() + 30 * 60000);
-      if (e <= now || e > end) continue;
-      out.push({ start: new Date(t), end: e, key: t.toISOString() });
+      const tEnd = new Date(t.getTime() + 30 * 60000);
+      if (tEnd <= now || tEnd > end) continue;
+      slots.push({ start: new Date(t), end: tEnd, key: t.toISOString() });
     }
   }
-  return out.sort((a, b) => a.start - b.start);
+
+  return slots.sort((a, b) => a.start - b.start);
 }
 
 export default function Home() {
@@ -96,127 +101,235 @@ export default function Home() {
     if (!form.anliegen) return teamData || [];
     const words = form.anliegen.toLowerCase().split(/[\s,.;!?]+/).filter(Boolean);
     return [...teamData].sort((a, b) => {
-      const score = (m) => m.tags?.filter(t => words.some(w => t.toLowerCase().includes(w))).length || 0;
+      const score = (m) =>
+        m.tags?.filter((tag) => words.some((w) => tag.toLowerCase().includes(w))).length || 0;
       return score(b) - score(a);
     });
   }, [form.anliegen]);
 
+  const isAdult = (d) => {
+    const birth = new Date(d);
+    const age = today.getFullYear() - birth.getFullYear();
+    const m = today.getMonth() - birth.getMonth();
+    return age > 18 || (age === 18 && m >= 0);
+  };
+
   const next = () => setStep((s) => s + 1);
   const back = () => setStep((s) => s - 1);
 
-  const send = async () => {
-    await fetch("/api/submit", {
-      method: "POST",
-      body: JSON.stringify(form),
-      headers: { "Content-Type": "application/json" },
-    });
-    alert("Danke — deine Anfrage wurde erfolgreich gesendet.");
-    setStep(0);
-  };
-
-  // --- Step 9 Kalender Slots ---
+  // ---- Step 9 Slot Loading ----
   const [slots, setSlots] = useState([]);
-  const [selectedDay, setSelectedDay] = useState("");
   const [loadingSlots, setLoadingSlots] = useState(false);
+  const [slotsError, setSlotsError] = useState("");
 
   useEffect(() => {
     if (step !== 9) return;
-    setForm({ ...form, terminISO: "", terminDisplay: "" });
-    setSelectedDay("");
-    const load = async () => {
+    (async () => {
       setLoadingSlots(true);
-      const url = ICS_BY_MEMBER[form.wunschtherapeut];
-      setSlots(url ? await loadIcsSlots(url) : []);
+      setSlotsError("");
+      try {
+        const ics = ICS_BY_MEMBER[form.wunschtherapeut];
+        if (!ics) return setSlotsError("Kein Kalender hinterlegt.");
+        setSlots(await loadIcsSlots(ics, 21));
+      } catch {
+        setSlotsError("Kalender konnte nicht geladen werden.");
+      }
       setLoadingSlots(false);
-    };
-    load();
-  }, [step]);
+    })();
+  }, [step, form.wunschtherapeut]);
 
-  const days = [...new Map(slots.map(s => [s.start.toDateString(), s.start])).entries()]
-    .map(([key, start]) => ({ key, date: start }))
-    .sort((a, b) => a.date - b.date);
-
-  const daySlots = selectedDay
-    ? slots.filter(s => s.start.toDateString() === selectedDay)
-    : [];
+  // ---- Slot grouping ----
+  const groupedSlots = useMemo(() => {
+    const map = new Map();
+    slots.forEach((s) => {
+      const key = s.start.toDateString();
+      if (!map.has(key)) map.set(key, []);
+      map.get(key).push(s);
+    });
+    return Array.from(map.entries());
+  }, [slots]);
 
   return (
     <div className="form-wrapper">
-      <div style={{ textAlign: "center", marginBottom: 24 }}>
-        <Image src="/IMG_7599.png" alt="Poise Logo" width={160} height={160} priority />
+      <div style={{ textAlign: "center", marginBottom: "24px" }}>
+        <Image src="/IMG_7599.png" width={160} height={160} alt="Poise Logo" priority />
       </div>
+
       <StepIndicator step={step} total={totalSteps} />
 
-      {/* ---- STEPS 0–8 UNVERÄNDERT (hier gekürzt, du hast sie bereits) ---- */}
+      {/* STEP 0 */}
+      {step === 0 && (
+        <div className="step-container">
+          <h2>Anliegen</h2>
+          <textarea value={form.anliegen} onChange={(e) => setForm({ ...form, anliegen: e.target.value })} />
+          <div className="footer-buttons"><span /><button disabled={!form.anliegen} onClick={next}>Weiter</button></div>
+        </div>
+      )}
 
-      {/* ---------- STEP 9 MINIKALENDER ---------- */}
+      {/* STEP 1 */}
+      {step === 1 && (
+        <div className="step-container">
+          <h2>Wie hoch ist dein Leidensdruck?</h2>
+          <select value={form.leidensdruck} onChange={(e) => setForm({ ...form, leidensdruck: e.target.value })}>
+            <option value="">Bitte auswählen…</option><option>niedrig</option><option>mittel</option><option>hoch</option><option>sehr hoch</option>
+          </select>
+          <div className="footer-buttons"><button onClick={back}>Zurück</button><button disabled={!form.leidensdruck} onClick={next}>Weiter</button></div>
+        </div>
+      )}
+
+      {/* STEP 2 */}
+      {step === 2 && (
+        <div className="step-container">
+          <h2>Wie lange leidest du schon?</h2>
+          <textarea value={form.verlauf} onChange={(e) => setForm({ ...form, verlauf: e.target.value })} />
+          <div className="footer-buttons"><button onClick={back}>Zurück</button><button disabled={!form.verlauf} onClick={next}>Weiter</button></div>
+        </div>
+      )}
+
+      {/* STEP 3 */}
+      {step === 3 && (
+        <div className="step-container">
+          <h2>Gibt es eine Diagnose?</h2>
+          <select value={form.diagnose} onChange={(e) => setForm({ ...form, diagnose: e.target.value })}>
+            <option value="">Bitte auswählen…</option><option>Ja</option><option>Nein</option>
+          </select>
+          <div className="footer-buttons"><button onClick={back}>Zurück</button><button disabled={!form.diagnose} onClick={next}>Weiter</button></div>
+        </div>
+      )}
+
+      {/* STEP 4 */}
+      {step === 4 && (
+        <div className="step-container">
+          <h2>Was wünschst du dir?</h2>
+          <textarea value={form.ziel} onChange={(e) => setForm({ ...form, ziel: e.target.value })} />
+          <div className="footer-buttons"><button onClick={back}>Zurück</button><button disabled={!form.ziel} onClick={next}>Weiter</button></div>
+        </div>
+      )}
+
+      {/* STEP 5 Matching + Red-Flag */}
+      {step === 5 && (
+        <div className="step-container">
+          {isRedFlag(form.anliegen) ? (
+            <>
+              <h2>Vielen Dank für deine Offenheit</h2>
+              <p style={{ whiteSpace: "pre-line" }}>
+{`Vielen Dank für deine Anfrage! Erst einmal freut es uns, dass du dir vorstellen könntest mit uns zu arbeiten :) ... (Absagetext unverändert hier) ...`}
+              </p>
+              <div className="footer-buttons"><button onClick={back}>Zurück</button><button onClick={next}>Weiter</button></div>
+            </>
+          ) : (
+            <>
+              <h2>Wer könnte gut zu dir passen?</h2>
+              <TeamCarousel members={sortedTeam} onSelect={(name) => { setForm({ ...form, wunschtherapeut: name }); next(); }} />
+              <div className="footer-buttons"><button onClick={back}>Zurück</button></div>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* STEP 6 */}
+      {step === 6 && (
+        <div className="step-container">
+          <h2>Kontaktdaten</h2>
+          <input placeholder="Vorname" value={form.vorname} onChange={(e) => setForm({ ...form, vorname: e.target.value })} />
+          <input placeholder="Nachname" value={form.nachname} onChange={(e) => setForm({ ...form, nachname: e.target.value })} />
+          <input placeholder="E-Mail" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+          <input placeholder="Adresse" value={form.adresse} onChange={(e) => setForm({ ...form, adresse: e.target.value })} />
+          <input type="date" value={form.geburtsdatum} onChange={(e) => setForm({ ...form, geburtsdatum: e.target.value })} />
+          {form.geburtsdatum && !isAdult(form.geburtsdatum) && <p style={{ color: "red" }}>Du musst mindestens 18 Jahre alt sein.</p>}
+          <div className="footer-buttons"><button onClick={back}>Zurück</button><button disabled={!form.vorname || !form.nachname || !form.email || !form.adresse || !form.geburtsdatum || !isAdult(form.geburtsdatum)} onClick={next}>Weiter</button></div>
+        </div>
+      )}
+
+      {/* STEP 7 */}
+      {step === 7 && (
+        <div className="step-container">
+          <h2>Beschäftigungsgrad</h2>
+          <select value={form.beschaeftigungsgrad} onChange={(e) => setForm({ ...form, beschaeftigungsgrad: e.target.value })}>
+            <option value="">Bitte auswählen…</option>
+            <option>Angestellt</option><option>Selbstständig</option><option>Arbeitssuchend</option><option>Schule/Studium</option>
+          </select>
+          <div className="footer-buttons"><button onClick={back}>Zurück</button><button disabled={!form.beschaeftigungsgrad} onClick={next}>Weiter</button></div>
+        </div>
+      )}
+
+      {/* STEP 8 */}
+      {step === 8 && (
+        <div className="step-container">
+          <h2>Wichtige Hinweise</h2>
+
+          <label className="checkbox">
+            <input type="checkbox" checked={form.check_datenschutz} onChange={() => setForm({ ...form, check_datenschutz: !form.check_datenschutz })} />
+            Ich akzeptiere die Datenschutzerklärung.
+          </label>
+
+          <label className="checkbox">
+            <input type="checkbox" checked={form.check_online_setting} onChange={() => setForm({ ...form, check_online_setting: !form.check_online_setting })} />
+            Ich bestätige ein geeignetes Gerät & ruhige Umgebung.
+          </label>
+
+          <label className="checkbox">
+            <input type="checkbox" checked={form.check_gesundheit} onChange={() => setForm({ ...form, check_gesundheit: !form.check_gesundheit })} />
+            Ich leide nicht unter suizidalen Gedanken / SVV / Essstörung.
+          </label>
+
+          <div className="footer-buttons">
+            <button onClick={back}>Zurück</button>
+            <button disabled={!form.check_datenschutz || !form.check_online_setting || !form.check_gesundheit} onClick={next}>
+              Weiter
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* STEP 9 MINI-KALENDER */}
       {step === 9 && (
         <div className="step-container">
           <h2>Erstgespräch – Termin wählen</h2>
 
           {loadingSlots && <p>Kalender wird geladen…</p>}
-          {!loadingSlots && days.length === 0 && (
-            <p>Keine freien Termine sichtbar.</p>
-          )}
+          {slotsError && <p style={{ color: "red" }}>{slotsError}</p>}
 
-          {/* Kalendertage */}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 8, margin: "16px 0" }}>
-            {days.map(({ key, date }) => (
-              <button
-                key={key}
-                onClick={() => setSelectedDay(key)}
-                style={{
-                  padding: "8px 6px",
-                  borderRadius: 10,
-                  border: selectedDay === key ? "2px solid #A27C77" : "1px solid #ddd",
-                  background: selectedDay === key ? "#F3E9E7" : "#fff",
-                }}
-              >
-                {formatDate(date)}
-              </button>
-            ))}
-          </div>
+          {!loadingSlots && groupedSlots.length === 0 && <p>Keine freien Termine verfügbar.</p>}
 
-          {/* Time Slots */}
-          {selectedDay && (
-            <div style={{ marginTop: 14 }}>
-              <div style={{ fontWeight: 600, marginBottom: 8 }}>Verfügbare Zeiten</div>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                {daySlots.map((s) => (
-                  <button
-                    key={s.key}
-                    onClick={() =>
-                      setForm({
-                        ...form,
-                        terminISO: s.start.toISOString(),
-                        terminDisplay: `${formatDate(s.start)} ${formatTime(s.start)}`
-                      })
-                    }
-                    style={{
-                      padding: "8px 12px",
-                      borderRadius: 10,
-                      border:
-                        form.terminISO === s.start.toISOString()
-                          ? "2px solid #A27C77"
-                          : "1px solid #ddd",
-                      background:
-                        form.terminISO === s.start.toISOString()
-                          ? "#F3E9E7"
-                          : "#fff",
-                    }}
-                  >
-                    {formatTime(s.start)}
-                  </button>
-                ))}
+          {!loadingSlots && groupedSlots.length > 0 && (
+            groupedSlots.map(([dayKey, list]) => (
+              <div key={dayKey} style={{ marginBottom: 14 }}>
+                <strong>{formatDate(list[0].start)}</strong>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 6 }}>
+                  {list.map((s) => (
+                    <button
+                      key={s.key}
+                      onClick={() =>
+                        setForm({
+                          ...form,
+                          terminISO: s.start.toISOString(),
+                          terminDisplay: `${formatDate(s.start)} ${formatTime(s.start)}`
+                        })
+                      }
+                      style={{
+                        padding: "6px 10px",
+                        borderRadius: 10,
+                        border: form.terminISO === s.start.toISOString() ? "2px solid #A27C77" : "1px solid #ddd",
+                        background: form.terminISO === s.start.toISOString() ? "#F3E9E7" : "#fff",
+                        cursor: "pointer",
+                      }}
+                    >
+                      {formatTime(s.start)}
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
+            ))
           )}
 
           {form.terminISO && (
-            <p style={{ marginTop: 14 }}>Gewählt: <strong>{form.terminDisplay}</strong></p>
+            <p style={{ marginTop: 12 }}>
+              Gewählt: <strong>{form.terminDisplay}</strong>
+            </p>
           )}
 
-          <div className="footer-buttons" style={{ marginTop: 18 }}>
+          <div className="footer-buttons" style={{ marginTop: 16 }}>
             <button onClick={back}>Zurück</button>
             <button disabled={!form.terminISO} onClick={send}>Anfrage senden</button>
           </div>
