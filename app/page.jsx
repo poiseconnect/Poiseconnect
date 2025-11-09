@@ -45,7 +45,7 @@ function parseICSDate(line) {
 
 // ----- ICS → freie 30-min Slots -----
 async function loadIcsSlots(icsUrl, daysAhead = 21) {
-  const res = await fetch(`${icsUrl}?nocache=${Date.now()}`, { cache: "no-store" });
+const res = await fetch(`/api/ics?url=${encodeURIComponent(icsUrl)}`);
   const text = await res.text();
 
   const events = text.split("BEGIN:VEVENT").slice(1);
