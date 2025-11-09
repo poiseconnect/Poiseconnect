@@ -116,6 +116,23 @@ export default function Home() {
 
   const next = () => setStep((s) => s + 1);
   const back = () => setStep((s) => s - 1);
+  
+  // ---------- SEND FORM ----------
+  const send = async () => {
+  const res = await fetch("/api/submit", {
+    method: "POST",
+    body: JSON.stringify(form),
+    headers: { "Content-Type": "application/json" },
+  });
+
+  if (res.ok) {
+    alert("Danke — deine Anfrage wurde erfolgreich gesendet.");
+    setStep(0);
+  } else {
+    alert("Fehler — bitte versuche es erneut.");
+  }
+};
+
 
   // ---- Step 9 Slot Loading ----
   const [slots, setSlots] = useState([]);
