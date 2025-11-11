@@ -286,8 +286,65 @@ export default function Home() {
         </div>
       )}
 
-      {/* ---------- STEP 8 Story-Flow ---------- */}
-{step === 8 && (() => {
+      {/* STEP 8 – Datenschutz & Bedingungen */}
+{step === 8 && (
+  <div className="step-container">
+    <h2>Wichtige Hinweise</h2>
+
+    <label className="checkbox">
+      <input
+        type="checkbox"
+        checked={form.check_datenschutz}
+        onChange={() =>
+          setForm({ ...form, check_datenschutz: !form.check_datenschutz })
+        }
+      />
+      Ich habe die Datenschutzerklärung zur Kenntnis genommen und akzeptiert.
+      Ich stimme zu, dass meine Angaben zur Kontaktaufnahme gespeichert werden.
+    </label>
+
+    <label className="checkbox">
+      <input
+        type="checkbox"
+        checked={form.check_online_setting}
+        onChange={() =>
+          setForm({ ...form, check_online_setting: !form.check_online_setting })
+        }
+      />
+      Ich bestätige, dass ich über ein Gerät mit Kamera & Mikrofon verfüge
+      und das Gespräch in einer ruhigen Umgebung stattfindet.
+    </label>
+
+    <label className="checkbox">
+      <input
+        type="checkbox"
+        checked={form.check_gesundheit}
+        onChange={() =>
+          setForm({ ...form, check_gesundheit: !form.check_gesundheit })
+        }
+      />
+      Ich bestätige, dass ich **keine** akuten Suizidgedanken habe und mich nicht
+      selbst verletze. Falls das zutrifft → bitte an eine Akutstelle wenden.
+    </label>
+
+    <div className="footer-buttons">
+      <button onClick={back}>Zurück</button>
+      <button
+        disabled={
+          !form.check_datenschutz ||
+          !form.check_online_setting ||
+          !form.check_gesundheit
+        }
+        onClick={next}
+      >
+        Weiter
+      </button>
+    </div>
+  </div>
+)}
+
+      {/* ---------- STEP 9 Story-Flow ---------- */}
+{step === 9 && (() => {
   const t = getTherapistInfo(form.wunschtherapeut);
 
   const slides = [
@@ -359,40 +416,6 @@ Wenn das für dich passt → dann wähle jetzt deinen Termin 🙂`,
   );
 })()}
 
-{/* STEP 9 – Info & Ablauf & Preise */}
-{step === 9 && (() => {
-  const th = getTherapistInfo(form.wunschtherapeut);
-
-  return (
-    <div className="step-container">
-      <h2>Information & Ablauf</h2>
-
-      <p style={{ whiteSpace: "pre-line", lineHeight: 1.6 }}>
-        {`Danke für dein Interesse an Poise. Danke auch für dein Vertrauen mit uns arbeiten zu wollen, das ist ein tolles Kompliment!
-
-Ich bin Sebastian, Geschäftsführer von Poise, und manage die Terminvergabe bei unserem Team an Psychologinnen und Therapeutinnen.
-
-Es freut mich, dass du ${form.wunschtherapeut} ausgewählt hast. Ich denke, du bist mit deinem Anliegen bei ihr sehr gut aufgehoben.
-
-Der Prozess startet mit einem kostenlosen Erstgespräch von 30 min im Video-Call.
-Ihr besprecht dort Anliegen, Ablauf & Ziel.
-
-Danach können sich beide für oder gegen eine gemeinsame Zusammenarbeit entscheiden.
-
-${form.wunschtherapeut} arbeitet mit einem Stundensatz von ${th.preis || "___"}€.
-Für Studierende / Auszubildende gibt es einen Tarif von ${th.preisStudent || "___"}€.
-
-Unser Angebot richtet sich in der Regel an Selbstzahler.
-Durchschnittlich dauert ein Prozess 8–10 Sitzungen.`}
-      </p>
-
-      <div className="footer-buttons">
-        <button onClick={back}>Zurück</button>
-        <button onClick={next}>Weiter</button>
-      </div>
-    </div>
-  );
-})()}
 
       {/* STEP 10 – Termin-Auswahl */}
       {step === 10 && (
