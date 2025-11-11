@@ -5,6 +5,10 @@ import Image from "next/image";
 import StepIndicator from "./components/StepIndicator";
 import TeamCarousel from "./components/TeamCarousel";
 import { teamData } from "./teamData";
+const getTherapistInfo = (name) => {
+  return teamData.find((t) => t.name === name) || {};
+};
+
 
 // ---- RED-FLAGS ----
 const RED_FLAGS = [
@@ -84,7 +88,7 @@ const res = await fetch(`/api/ics?url=${encodeURIComponent(icsUrl)}`);
 
 export default function Home() {
   const [step, setStep] = useState(0);
-  const totalSteps = 10;
+  const totalSteps = 11;
   const today = new Date();
 
   const [form, setForm] = useState({
@@ -297,9 +301,43 @@ export default function Home() {
           </div>
         </div>
       )}
+{/* STEP 9 – Info & Ablauf & Preise */}
+{step === 9 && (() => {
+  const th = getTherapistInfo(form.wunschtherapeut);
 
-      {/* STEP 9 – Termin-Auswahl */}
-      {step === 9 && (
+  return (
+    <div className="step-container">
+      <h2>Information & Ablauf</h2>
+
+      <p style={{ whiteSpace: "pre-line", lineHeight: 1.6 }}>
+        {`Danke für dein Interesse an Poise. Danke auch für dein Vertrauen mit uns arbeiten zu wollen, das ist ein tolles Kompliment!
+
+Ich bin Sebastian, Geschäftsführer von Poise, und manage die Terminvergabe bei unserem Team an Psychologinnen und Therapeutinnen.
+
+Es freut mich, dass du ${form.wunschtherapeut} ausgewählt hast. Ich denke, du bist mit deinem Anliegen bei ihr sehr gut aufgehoben.
+
+Der Prozess startet mit einem kostenlosen Erstgespräch von 30 min im Video-Call.
+Ihr besprecht dort Anliegen, Ablauf & Ziel.
+
+Danach können sich beide für oder gegen eine gemeinsame Zusammenarbeit entscheiden.
+
+${form.wunschtherapeut} arbeitet mit einem Stundensatz von ${th.preis || "___"}€.
+Für Studierende / Auszubildende gibt es einen Tarif von ${th.preisStudent || "___"}€.
+
+Unser Angebot richtet sich in der Regel an Selbstzahler.
+Durchschnittlich dauert ein Prozess 8–10 Sitzungen.`}
+      </p>
+
+      <div className="footer-buttons">
+        <button onClick={back}>Zurück</button>
+        <button onClick={next}>Weiter</button>
+      </div>
+    </div>
+  );
+})()}
+
+      {/* STEP 10 – Termin-Auswahl */}
+      {step === 10 && (
         <div className="step-container">
           <h2>Erstgespräch – Termin wählen</h2>
 
