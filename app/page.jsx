@@ -287,60 +287,39 @@ export default function Home() {
         </div>
       )}
 
-      {/* STEP 8 – Datenschutz & Sicherheit */}
-{step === 8 && (
-  <div className="step-container">
-    <h2>Bevor wir weitermachen</h2>
+      {/* STEP 8 – Datenschutz */}
+      {step === 8 && (
+        <div className="step-container">
+          <h2>Wichtige Hinweise</h2>
 
-    <label className="checkbox">
-      <input
-        type="checkbox"
-        checked={form.check_datenschutz}
-        onChange={() =>
-          setForm({ ...form, check_datenschutz: !form.check_datenschutz })
-        }
-      />
-      Ich habe die Datenschutzerklärung gelesen und stimme der Speicherung meiner Angaben zu.
-    </label>
+          <label className="checkbox">
+            <input type="checkbox" checked={form.check_datenschutz}
+              onChange={() => setForm({ ...form, check_datenschutz: !form.check_datenschutz })} />
+            Ich stimme der Speicherung meiner Angaben zur Kontaktaufnahme zu.
+          </label>
 
-    <label className="checkbox">
-      <input
-        type="checkbox"
-        checked={form.check_online_setting}
-        onChange={() =>
-          setForm({ ...form, check_online_setting: !form.check_online_setting })
-        }
-      />
-      Ich bestätige, dass ich über ein Gerät mit Kamera + Mikrofon verfüge und das Gespräch in ruhiger Umgebung stattfindet.
-    </label>
+          <label className="checkbox">
+            <input type="checkbox" checked={form.check_online_setting}
+              onChange={() => setForm({ ...form, check_online_setting: !form.check_online_setting })} />
+            Ich bestätige, dass ich das Gespräch im Online-Setting führen kann.
+          </label>
 
-    <label className="checkbox">
-      <input
-        type="checkbox"
-        checked={form.check_gesundheit}
-        onChange={() =>
-          setForm({ ...form, check_gesundheit: !form.check_gesundheit })
-        }
-      />
-      Ich bestätige, dass ich aktuell **keine** akuten Suizidgedanken habe und mich nicht selbst verletze.
-    </label>
+          <label className="checkbox">
+            <input type="checkbox" checked={form.check_gesundheit}
+              onChange={() => setForm({ ...form, check_gesundheit: !form.check_gesundheit })} />
+            Ich habe **keine** akuten Suizidgedanken / Selbstverletzung.
+          </label>
 
-    <div className="footer-buttons">
-      <button onClick={back}>Zurück</button>
-      <button
-        disabled={
-          !form.check_datenschutz ||
-          !form.check_online_setting ||
-          !form.check_gesundheit
-        }
-        onClick={next}
-      >
-        Weiter
-      </button>
-    </div>
-  </div>
-)}
-})()}
+          <div className="footer-buttons">
+            <button onClick={back}>Zurück</button>
+            <button disabled={
+              !form.check_datenschutz ||
+              !form.check_online_setting ||
+              !form.check_gesundheit
+            } onClick={next}>Weiter</button>
+          </div>
+        </div>
+      )}
 
 {/* STEP 9 – Story Flow (Ablauf + Preise) */}
 {step === 9 && (() => {
