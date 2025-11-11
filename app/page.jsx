@@ -368,7 +368,7 @@ Eine Kostenübernahme kann möglich sein — individuell klären.`,
   );
 })()}
 
-      {/* --- STEP 10 Terminwahl --- */}
+           {/* --- STEP 10 Terminwahl --- */}
       {step === 10 && (
         <div className="step-container">
           <h2>Erstgespräch – Termin wählen</h2>
@@ -406,6 +406,6 @@ Eine Kostenübernahme kann möglich sein — individuell klären.`,
           </div>
         </div>
       )}
-    </div>
-  );
-}
+    </div>   {/*  ← schließt .form-wrapper  */}
+  );         {/*  ← schließt return() */}
+}            {/*  ← schließt function Home() */}
