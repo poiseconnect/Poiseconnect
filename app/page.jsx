@@ -340,7 +340,7 @@ export default function Home() {
     </div>
   </div>
 )}
-
+})()}
 
 {/* STEP 9 – Story Flow (Ablauf + Preise) */}
 {step === 9 && (() => {
