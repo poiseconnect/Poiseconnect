@@ -385,35 +385,33 @@ das prüft man individuell.`,
     },
   ];
 
-  const isLast = subStep8 === slides.length - 1;
+  const isLast = subStep9 === slides.length - 1;
 
-  return (
-    <div className="step-container">
-      <h2>{slides[subStep8].title}</h2>
+        return (
+          <div className="step-container">
+            <h2>{slides[subStep9].title}</h2>
+            <p style={{ whiteSpace: "pre-line", lineHeight: 1.55 }}>
+              {slides[subStep9].text}
+            </p>
 
-      <p style={{ whiteSpace: "pre-line", lineHeight: 1.55 }}>
-        {slides[subStep8].text}
-      </p>
+            <div className="footer-buttons">
+              {subStep9 > 0 ? (
+                <button onClick={() => setSubStep9(subStep9 - 1)}>Zurück</button>
+              ) : (
+                <button onClick={back}>Zurück</button>
+              )}
 
-      <div className="footer-buttons">
-        {subStep8 > 0 ? (
-          <button onClick={() => setSubStep8(subStep8 - 1)}>Zurück</button>
-        ) : (
-          <button onClick={back}>Zurück</button>
-        )}
-
-        {!isLast ? (
-          <button onClick={() => setSubStep8(subStep8 + 1)}>Weiter</button>
-        ) : (
-          <button onClick={() => { setSubStep8(0); next(); }}>
-            Weiter zur Terminwahl
-          </button>
-        )}
-      </div>
-    </div>
-  );
-})()}
-
+              {!isLast ? (
+                <button onClick={() => setSubStep9(subStep9 + 1)}>Weiter</button>
+              ) : (
+                <button onClick={() => { setSubStep9(0); next(); }}>
+                  Weiter zur Terminwahl
+                </button>
+              )}
+            </div>
+          </div>
+        );
+      })()}
 
 {/* STEP 10 – Terminwahl */}
 {step === 10 && (
