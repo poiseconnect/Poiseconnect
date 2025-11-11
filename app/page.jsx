@@ -407,4 +407,5 @@ das prüft man individuell.`,
       <button disabled={!form.terminISO} onClick={send}>Anfrage senden</button>
     </div>
   </div>
-)}
+);
+}
