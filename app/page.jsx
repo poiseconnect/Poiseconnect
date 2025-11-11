@@ -88,6 +88,7 @@ const res = await fetch(`/api/ics?url=${encodeURIComponent(icsUrl)}`);
 
 export default function Home() {
   const [step, setStep] = useState(0);
+  const [subStep8, setSubStep8] = useState(0);
   const totalSteps = 11;
   const today = new Date();
 
