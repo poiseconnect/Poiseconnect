@@ -287,10 +287,10 @@ export default function Home() {
         </div>
       )}
 
-      {/* STEP 8 – Datenschutz & Bedingungen */}
+      {/* STEP 8 – Datenschutz & Sicherheit */}
 {step === 8 && (
   <div className="step-container">
-    <h2>Wichtige Hinweise</h2>
+    <h2>Bevor wir weitermachen</h2>
 
     <label className="checkbox">
       <input
@@ -300,8 +300,7 @@ export default function Home() {
           setForm({ ...form, check_datenschutz: !form.check_datenschutz })
         }
       />
-      Ich habe die Datenschutzerklärung zur Kenntnis genommen und akzeptiert.
-      Ich stimme zu, dass meine Angaben zur Kontaktaufnahme gespeichert werden.
+      Ich habe die Datenschutzerklärung gelesen und stimme der Speicherung meiner Angaben zu.
     </label>
 
     <label className="checkbox">
@@ -312,8 +311,7 @@ export default function Home() {
           setForm({ ...form, check_online_setting: !form.check_online_setting })
         }
       />
-      Ich bestätige, dass ich über ein Gerät mit Kamera & Mikrofon verfüge
-      und das Gespräch in einer ruhigen Umgebung stattfindet.
+      Ich bestätige, dass ich über ein Gerät mit Kamera + Mikrofon verfüge und das Gespräch in ruhiger Umgebung stattfindet.
     </label>
 
     <label className="checkbox">
@@ -324,8 +322,7 @@ export default function Home() {
           setForm({ ...form, check_gesundheit: !form.check_gesundheit })
         }
       />
-      Ich bestätige, dass ich **keine** akuten Suizidgedanken habe und mich nicht
-      selbst verletze. Falls das zutrifft → bitte an eine Akutstelle wenden.
+      Ich bestätige, dass ich aktuell **keine** akuten Suizidgedanken habe und mich nicht selbst verletze.
     </label>
 
     <div className="footer-buttons">
@@ -344,47 +341,47 @@ export default function Home() {
   </div>
 )}
 
-      {/* ---------- STEP 9 Story-Flow ---------- */}
+
+{/* STEP 9 – Story Flow (Ablauf + Preise) */}
 {step === 9 && (() => {
   const t = getTherapistInfo(form.wunschtherapeut);
 
   const slides = [
     {
       title: "Schön, dass du da bist 🤍",
-      text: `Danke für dein Vertrauen. Das ist ein schönes Kompliment.
+      text: `Danke für dein Vertrauen.
 
-Du hast **${t.name}** ausgewählt – eine sehr gute Wahl.
+Du hast **${t.name}** ausgewählt — eine sehr gute Wahl.
 
 Wir führen dich jetzt ganz kurz durch den Ablauf,
-bevor du den Termin auswählst.`,
+bevor du deinen Termin auswählst.`,
     },
     {
       title: "Wie startet der Prozess?",
-      text: `Ihr beginnt mit einem **kostenlosen Erstgespräch (30 Min, Video-Call)**.
+      text: `Ihr beginnt mit einem **kostenlosen Erstgespräch (30 Min)** im Video-Call.
 
-Ihr lernt euch kennen, sprecht dein Thema & klärt alle deine Fragen.
-Danach entscheiden **beide frei**, ob ihr zusammen weiterarbeitet.`,
+Ihr lernt euch kennen, besprecht das Anliegen
+und klärt organisatorische Fragen.
+
+Danach entscheiden beide frei, ob ihr weiter zusammenarbeitet.`,
     },
     {
       title: "Wie geht es danach weiter?",
-      text: `Wenn ihr weiterarbeitet:
+      text: `Wenn ihr weitermacht:
 
-• **60-Min-Sitzungen per Video-Call**
-• in eurem Tempo (ca. 8–10 Sitzungen im Durchschnitt)
-• Anpassung jederzeit möglich
-
-Wir nehmen uns Zeit – und arbeiten gleichzeitig klar & zielorientiert.`,
+• Sitzungen à **60 Minuten**
+• Online per Video-Call
+• Ca. 8–10 Sitzungen im Durchschnitt
+• Offenes Tempo & Anpassung jederzeit möglich`,
     },
     {
-      title: `Kosten pro Sitzung mit ${t.name}`,
-      text: `Regulär: **${t.preis_std}€** / 60 Min
-Ermäßigt (Studierende/Auszubildende): **${t.preis_ermaessigt}€**
+      title: `Kosten bei ${t.name}`,
+      text: `Standardtarif: **${t.preis_std}€ / 60 Min**
+Ermäßigt (Studierende / Azubi): **${t.preis_ermaessigt}€**
 
 Unser Angebot richtet sich grundsätzlich an Selbstzahler.
-In manchen Fällen übernimmt die Krankenkasse einen Teil – das wird
-individuell mit der Kasse geklärt.
-
-Wenn das für dich passt → dann wähle jetzt deinen Termin 🙂`,
+Eine Kostenübernahme durch die Kasse kann möglich sein —
+das prüft man individuell.`,
     },
   ];
 
@@ -418,48 +415,45 @@ Wenn das für dich passt → dann wähle jetzt deinen Termin 🙂`,
 })()}
 
 
-      {/* STEP 10 – Termin-Auswahl */}
-      {step === 10 && (
-        <div className="step-container">
-          <h2>Erstgespräch – Termin wählen</h2>
+{/* STEP 10 – Terminwahl */}
+{step === 10 && (
+  <div className="step-container">
+    <h2>Erstgespräch – Termin wählen</h2>
 
-          {loadingSlots && <p>Kalender wird geladen…</p>}
-          {slotsError && <p style={{ color: "red" }}>{slotsError}</p>}
-          {!loadingSlots && grouped.length === 0 && <p>Keine freien Termine verfügbar.</p>}
+    {loadingSlots && <p>Kalender wird geladen…</p>}
+    {slotsError && <p style={{ color: "red" }}>{slotsError}</p>}
+    {!loadingSlots && grouped.length === 0 && <p>Keine freien Termine verfügbar.</p>}
 
-          {!loadingSlots && grouped.length > 0 && (
-            grouped.map(([day, list]) => (
-              <div key={day} style={{ marginBottom: 14 }}>
-                <strong>{formatDate(list[0].start)}</strong>
-                <div style={{ display:"flex", flexWrap:"wrap", gap:8, marginTop:6 }}>
-                  {list.map((s) => (
-                    <button
-                      key={s.key}
-                      onClick={() => setForm({ ...form, terminISO: s.start.toISOString(), terminDisplay: `${formatDate(s.start)} ${formatTime(s.start)}` })}
-                      style={{
-                        padding: "6px 10px",
-                        borderRadius: 10,
-                        border: form.terminISO === s.start.toISOString() ? "2px solid #A27C77" : "1px solid #ddd",
-                        background: form.terminISO === s.start.toISOString() ? "#F3E9E7" : "#fff",
-                        cursor: "pointer",
-                      }}
-                    >
-                      {formatTime(s.start)}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            ))
-          )}
-
-          {form.terminISO && <p style={{ marginTop: 12 }}>Gewählt: <strong>{form.terminDisplay}</strong></p>}
-
-          <div className="footer-buttons" style={{ marginTop: 16 }}>
-            <button onClick={back}>Zurück</button>
-            <button disabled={!form.terminISO} onClick={send}>Anfrage senden</button>
+    {!loadingSlots && grouped.length > 0 && (
+      grouped.map(([day, list]) => (
+        <div key={day} style={{ marginBottom: 14 }}>
+          <strong>{formatDate(list[0].start)}</strong>
+          <div style={{ display:"flex", flexWrap:"wrap", gap:8, marginTop:6 }}>
+            {list.map((s) => (
+              <button
+                key={s.key}
+                onClick={() => setForm({ ...form, terminISO: s.start.toISOString(), terminDisplay: `${formatDate(s.start)} ${formatTime(s.start)}` })}
+                style={{
+                  padding: "6px 10px",
+                  borderRadius: 10,
+                  border: form.terminISO === s.start.toISOString() ? "2px solid #A27C77" : "1px solid #ddd",
+                  background: form.terminISO === s.start.toISOString() ? "#F3E9E7" : "#fff",
+                  cursor: "pointer",
+                }}
+              >
+                {formatTime(s.start)}
+              </button>
+            ))}
           </div>
         </div>
-      )}
+      ))
+    )}
+
+    {form.terminISO && <p style={{ marginTop: 12 }}>Gewählt: <strong>{form.terminDisplay}</strong></p>}
+
+    <div className="footer-buttons" style={{ marginTop: 16 }}>
+      <button onClick={back}>Zurück</button>
+      <button disabled={!form.terminISO} onClick={send}>Anfrage senden</button>
     </div>
-  );
-}
+  </div>
+)}
