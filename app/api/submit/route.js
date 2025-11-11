@@ -3,7 +3,6 @@ import { Resend } from "resend";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
-// Die gleichen Red-Flag-Begriffe wie im Frontend
 const RED_FLAGS = [
   "suizid", "selbstmord", "selbstverletzung", "ritzen",
   "magersucht", "anorexie", "bulimie", "bulimia", "erbrechen",
@@ -13,19 +12,17 @@ const RED_FLAGS = [
 
 function isRedFlag(text) {
   if (!text) return false;
-  const t = String(text || "").toLowerCase();
+  const t = String(text).toLowerCase();
   return RED_FLAGS.some((flag) => t.includes(flag));
 }
 
-export async function POST(req) {
+export async function POST(request) {
   try {
-    const data = await req.json();
+    const data = await request.json();
 
     const {
       anliegen,
-      leidensdruck,
       verlauf,
-      diagnose,
       ziel,
       wunschtherapeut,
       vorname,
@@ -34,23 +31,19 @@ export async function POST(req) {
       adresse,
       geburtsdatum,
       beschaeftigungsgrad,
-      terminDisplay
+      terminDisplay,
     } = data;
 
-    // Prüfen ob kritischer Fall
-    const isCritical = isRedFlag(anliegen || "") || isRedFlag(verlauf || "") || isRedFlag(ziel || "");
+    const isCritical =
+      isRedFlag(anliegen) ||
+      isRedFlag(verlauf) ||
+      isRedFlag(ziel);
 
-    let subject;
-    let message;
+    const subject = isCritical
+      ? `⚠️ Kritischer Fall — Bitte Rückmeldung`
+      : `Neue Anfrage — ${vorname} ${nachname}`;
 
-    if (isCritical) {
-      // Nur interne Info → KEIN Termin, KEINE Weiterleitung
-      subject = `⚠️ Kritischer Fall — Bitte Rückmeldung`;
-      message = `
-Kritische Anfrage eingegangen.
-
---- Daten ---
-
+    const text = `
 Name: ${vorname} ${nachname}
 E-Mail: ${email}
 Adresse: ${adresse}
@@ -66,52 +59,27 @@ ${verlauf}
 Ziel:
 ${ziel}
 
-⚠️ Hinweis:
-Red-Flag erkannt → Bitte Absage-Mail senden.
-      `.trim();
-    } else {
-      // Normale Anfrage mit Termin
-      subject = `Neue Anfrage — ${vorname} ${nachname}`;
-      message = `
-Neue Anfrage eingegangen:
+Wunsch-Begleitung:
+${wunschtherapeut}
 
---- Persönliche Daten ---
-Name: ${vorname} ${nachname}
-E-Mail: ${email}
-Adresse: ${adresse}
-Geburtsdatum: ${geburtsdatum}
-Beschäftigung: ${beschaeftigungsgrad}
+${!isCritical ? `Gewählter Termin: ${terminDisplay}` : `⚠️ Red-Flag erkannt → Bitte intern abklären.`}
+`.trim();
 
---- Anliegen ---
-${anliegen}
-
---- Verlauf ---
-${verlauf}
-
---- Ziel ---
-${ziel}
-
---- Wunsch-Begleitung ---
-${wunschtherapeut || "Noch nicht gewählt"}
-
---- Gewählter Termin ---
-${terminDisplay || "Kein Termin gewählt"}
-
-Bitte anrufen / schreiben für Erstkontakt.
-      `.trim();
-    }
-
-    // Mail versenden
-    await resend.emails.send({
-      from: "onboarding@resend.dev",
+    const { error } = await resend.emails.send({
+      from: "hallo@mypoise.de",
       to: "hallo@mypoise.de",
       subject,
-      text: message,
+      text,
     });
 
+    if (error) {
+      console.error("Resend Fehler:", error);
+      return NextResponse.json({ error: "Resend konnte nicht senden." }, { status: 500 });
+    }
+
     return NextResponse.json({ ok: true });
-  } catch (err) {
-    console.error(err);
-    return NextResponse.json({ error: "Fehler beim Versenden" }, { status: 500 });
+  } catch (error) {
+    console.error("Server Fehler:", error);
+    return NextResponse.json({ error: "Serverfehler" }, { status: 500 });
   }
 }
