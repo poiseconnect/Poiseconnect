@@ -5,10 +5,9 @@ import Image from "next/image";
 import StepIndicator from "./components/StepIndicator";
 import TeamCarousel from "./components/TeamCarousel";
 import { teamData } from "./teamData";
-const getTherapistInfo = (name) => {
-  return teamData.find((t) => t.name === name) || {};
-};
 
+const getTherapistInfo = (name) =>
+  teamData.find((t) => t.name === name) || {};
 
 // ---- RED-FLAGS ----
 const RED_FLAGS = [
@@ -19,37 +18,32 @@ const RED_FLAGS = [
 ];
 const isRedFlag = (t) => t && RED_FLAGS.some((x) => t.toLowerCase().includes(x));
 
-// ---- KALENDER für Teammitglieder ----
+// ---- ICS Kalender ----
 const ICS_BY_MEMBER = {
   Ann: "https://calendar.google.com/calendar/ical/75f62df4c63554a1436d49c3a381da84502728a0457c9c8b56d30e21fa5021c5%40group.calendar.google.com/public/basic.ics",
 };
 
-// ---- Datumshilfen ----
+// Datum & Zeit
 const formatDate = (d) =>
   d.toLocaleDateString("de-AT", { weekday: "short", day: "2-digit", month: "2-digit" });
-
 const formatTime = (d) =>
   d.toLocaleTimeString("de-AT", { hour: "2-digit", minute: "2-digit" });
 
-// ----- ICS PARSER (unterstützt TZID) -----
 function parseICSDate(line) {
   const m = line.match(/DT(?:START|END)(?:;TZID=[^:]+)?:([0-9T]+)/i);
   if (!m) return null;
-  const raw = m[1]; // z.B. 20251112T140000
-
-  const y = +raw.slice(0, 4);
-  const mo = +raw.slice(4, 6) - 1;
-  const d = +raw.slice(6, 8);
-  const hh = +raw.slice(9, 11) || 0;
-  const mm = +raw.slice(11, 13) || 0;
-
-  // → lokale Zeit korrekt
-  return new Date(y, mo, d, hh, mm);
+  const raw = m[1];
+  return new Date(
+    +raw.slice(0, 4),
+    +raw.slice(4, 6) - 1,
+    +raw.slice(6, 8),
+    +raw.slice(9, 11) || 0,
+    +raw.slice(11, 13) || 0
+  );
 }
 
-// ----- ICS → freie 30-min Slots -----
 async function loadIcsSlots(icsUrl, daysAhead = 21) {
-const res = await fetch(`/api/ics?url=${encodeURIComponent(icsUrl)}`);
+  const res = await fetch(`/api/ics?url=${encodeURIComponent(icsUrl)}`);
   const text = await res.text();
 
   const events = text.split("BEGIN:VEVENT").slice(1);
@@ -59,27 +53,14 @@ const res = await fetch(`/api/ics?url=${encodeURIComponent(icsUrl)}`);
   const slots = [];
 
   for (const event of events) {
-    const sLine = event.split("\n").find((l) => l.startsWith("DTSTART"));
-    const eLine = event.split("\n").find((l) => l.startsWith("DTEND"));
-    if (!sLine || !eLine) continue;
+    const start = parseICSDate(event.match(/DTSTART.*/)?.[0]);
+    const end = parseICSDate(event.match(/DTEND.*/)?.[0]);
+    if (!start || !end || end <= now || start > until) continue;
 
-    const start = parseICSDate(sLine);
-    const end = parseICSDate(eLine);
-    if (!start || !end) continue;
-
-    if (end <= now || start > until) continue;
-
-    // → 30min Schritte erzeugen
     for (let t = new Date(start); t < end; t = new Date(t.getTime() + 1800000)) {
       const tEnd = new Date(t.getTime() + 1800000);
-      if (tEnd > end) break;
-      if (tEnd <= now) continue;
-
-      slots.push({
-        start: new Date(t),
-        end: tEnd,
-        key: t.toISOString(),
-      });
+      if (tEnd <= now || tEnd > end) continue;
+      slots.push({ start: new Date(t), end: tEnd, key: t.toISOString() });
     }
   }
 
@@ -88,7 +69,8 @@ const res = await fetch(`/api/ics?url=${encodeURIComponent(icsUrl)}`);
 
 export default function Home() {
   const [step, setStep] = useState(0);
-  const [subStep8, setSubStep8] = useState(0);
+  const [subStep9, setSubStep9] = useState(0);
+
   const totalSteps = 11;
   const today = new Date();
 
@@ -114,7 +96,7 @@ export default function Home() {
 
   const sortedTeam = useMemo(() => {
     if (!form.anliegen) return teamData || [];
-    const words = form.anliegen.toLowerCase().split(/[\s,.;!?]+/).filter(Boolean);
+    const words = form.anliegen.toLowerCase().split(/\W+/).filter(Boolean);
     return [...teamData].sort((a, b) => {
       const score = (m) =>
         m.tags?.filter((tag) => words.some((w) => tag.toLowerCase().includes(w))).length || 0;
@@ -125,14 +107,13 @@ export default function Home() {
   const isAdult = (d) => {
     const birth = new Date(d);
     const age = today.getFullYear() - birth.getFullYear();
-    const m = today.getMonth() - birth.getMonth();
-    return age > 18 || (age === 18 && m >= 0);
+    const month = today.getMonth() - birth.getMonth();
+    return age > 18 || (age === 18 && month >= 0);
   };
 
   const next = () => setStep((s) => s + 1);
   const back = () => setStep((s) => s - 1);
 
-  // ---- SEND FORM ----
   const send = async () => {
     const res = await fetch("/api/submit", {
       method: "POST",
@@ -148,7 +129,6 @@ export default function Home() {
     }
   };
 
-  // ---- STEP 10: ICS laden ----
   const [slots, setSlots] = useState([]);
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [slotsError, setSlotsError] = useState("");
@@ -157,8 +137,6 @@ export default function Home() {
     if (step !== 10) return;
     (async () => {
       setLoadingSlots(true);
-      setSlotsError("");
-
       try {
         const ics = ICS_BY_MEMBER[form.wunschtherapeut];
         if (!ics) return setSlotsError("Kein Kalender hinterlegt.");
@@ -166,7 +144,6 @@ export default function Home() {
       } catch {
         setSlotsError("Kalender konnte nicht geladen werden.");
       }
-
       setLoadingSlots(false);
     })();
   }, [step, form.wunschtherapeut]);
@@ -183,7 +160,7 @@ export default function Home() {
 
   return (
     <div className="form-wrapper">
-      <div style={{ textAlign: "center", marginBottom: "24px" }}>
+      <div style={{ textAlign: "center", marginBottom: 24 }}>
         <Image src="/IMG_7599.png" width={160} height={160} alt="Poise Logo" priority />
       </div>
 
