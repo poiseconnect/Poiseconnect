@@ -298,75 +298,75 @@ export default function Home() {
       )}
 
       {/* --- STEP 9 Story Flow --- */}
-      {step === 9 && (() => {
-        const t = getTherapistInfo(form.wunschtherapeut);
+{step === 9 && (() => {
+  const t = getTherapistInfo(form.wunschtherapeut);
 
-        const slides = [
-          {
-            title: "Schön, dass du da bist 🤍",
-            text: `Danke für dein Vertrauen.
+  const slides = [
+    {
+      title: "Schön, dass du da bist 🤍",
+      text: `Danke für dein Vertrauen.
 
 Du hast **${t.name}** ausgewählt — eine sehr gute Wahl.
 
 Wir führen dich jetzt ganz kurz durch den Ablauf,
 bevor du deinen Termin auswählst.`,
-          },
-          {
-            title: "Wie startet der Prozess?",
-            text: `Ihr beginnt mit einem **kostenlosen Erstgespräch (30 Min)** im Video-Call.
+    },
+    {
+      title: "Wie startet der Prozess?",
+      text: `Ihr beginnt mit einem **kostenlosen Erstgespräch (30 Min)** im Video-Call.
 
 Ihr lernt euch kennen, besprecht das Anliegen
 und klärt organisatorische Fragen.
 
 Danach entscheiden beide frei, ob ihr weiter zusammenarbeitet.`,
-          },
-          {
-            title: "Wie geht es danach weiter?",
-            text: `Wenn ihr weitermacht:
+    },
+    {
+      title: "Wie geht es danach weiter?",
+      text: `Wenn ihr weitermacht:
 
 • Sitzungen à **60 Minuten**
 • Online per Video-Call
 • Ca. 8–10 Sitzungen im Durchschnitt
 • Offenes Tempo & Anpassung jederzeit möglich`,
-          },
-          {
-            title: `Kosten bei ${t.name}`,
-            text: `Standardtarif: **${t.preis_std}€ / 60 Min**
+    },
+    {
+      title: `Kosten bei ${t.name}`,
+      text: `Standardtarif: **${t.preis_std}€ / 60 Min**
 Ermäßigt (Studierende / Azubi): **${t.preis_ermaessigt}€**
 
 Unser Angebot richtet sich grundsätzlich an Selbstzahler.
 Eine Kostenübernahme kann möglich sein — individuell klären.`,
-          },
-        ];
+    },
+  ];
 
-        const isLast = subStep9 === slides.length - 1;
+  const isLast = subStep9 === slides.length - 1;
 
-        return (
-          <div className="step-container">
-            <h2>{slides[subStep9].title}</h2>
+  return (
+    <div className="step-container">
+      <h2>{slides[subStep9].title}</h2>
 
-            <p style={{ whiteSpace: "pre-line", lineHeight: 1.55 }}>
-              {slides[subStep9].text}
-            </p>
+      <p style={{ whiteSpace: "pre-line", lineHeight: 1.55 }}>
+        {slides[subStep9].text}
+      </p>
 
-            <div className="footer-buttons">
-              {subStep9 > 0 ? (
-                <button onClick={() => setSubStep9(subStep9 - 1)}>Zurück</button>
-              ) : (
-                <button onClick={back}>Zurück</button>
-              )}
+      <div className="footer-buttons">
+        {subStep9 > 0 ? (
+          <button onClick={() => setSubStep9(subStep9 - 1)}>Zurück</button>
+        ) : (
+          <button onClick={back}>Zurück</button>
+        )}
 
-              {!isLast ? (
-                <button onClick={() => setSubStep9(subStep9 + 1)}>Weiter</button>
-              ) : (
-                <button onClick={() => { setSubStep9(0); next(); }}>
-                  Weiter zur Terminwahl
-                </button>
-              )}
-            </div>
-          </div>
-        );
-      })()}
+        {!isLast ? (
+          <button onClick={() => setSubStep9(subStep9 + 1)}>Weiter</button>
+        ) : (
+          <button onClick={() => { setSubStep9(0); next(); }}>
+            Weiter zur Terminwahl
+          </button>
+        )}
+      </div>
+    </div>
+  );
+})()}
 
       {/* --- STEP 10 Terminwahl --- */}
       {step === 10 && (
