@@ -148,13 +148,13 @@ export default function Home() {
     }
   };
 
-  // ---- STEP 9: ICS laden ----
+  // ---- STEP 10: ICS laden ----
   const [slots, setSlots] = useState([]);
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [slotsError, setSlotsError] = useState("");
 
   useEffect(() => {
-    if (step !== 9) return;
+    if (step !== 10) return;
     (async () => {
       setLoadingSlots(true);
       setSlotsError("");
