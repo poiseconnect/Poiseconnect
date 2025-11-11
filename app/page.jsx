@@ -286,21 +286,79 @@ export default function Home() {
         </div>
       )}
 
-      {/* STEP 8 */}
-      {step === 8 && (
-        <div className="step-container">
-          <h2>Wichtige Hinweise</h2>
+      {/* ---------- STEP 8 Story-Flow ---------- */}
+{step === 8 && (() => {
+  const t = getTherapistInfo(form.wunschtherapeut);
 
-          <label><input type="checkbox" checked={form.check_datenschutz} onChange={() => setForm({...form, check_datenschutz:!form.check_datenschutz })}/> Ich akzeptiere die Datenschutzerklärung.</label>
-          <label><input type="checkbox" checked={form.check_online_setting} onChange={() => setForm({...form, check_online_setting:!form.check_online_setting })}/> Geeignetes Endgerät vorhanden.</label>
-          <label><input type="checkbox" checked={form.check_gesundheit} onChange={() => setForm({...form, check_gesundheit:!form.check_gesundheit })}/> Keine akute Krisensituation.</label>
+  const slides = [
+    {
+      title: "Schön, dass du da bist 🤍",
+      text: `Danke für dein Vertrauen. Das ist ein schönes Kompliment.
 
-          <div className="footer-buttons">
-            <button onClick={back}>Zurück</button>
-            <button disabled={!form.check_datenschutz || !form.check_online_setting || !form.check_gesundheit} onClick={next}>Weiter</button>
-          </div>
-        </div>
-      )}
+Du hast **${t.name}** ausgewählt – eine sehr gute Wahl.
+
+Wir führen dich jetzt ganz kurz durch den Ablauf,
+bevor du den Termin auswählst.`,
+    },
+    {
+      title: "Wie startet der Prozess?",
+      text: `Ihr beginnt mit einem **kostenlosen Erstgespräch (30 Min, Video-Call)**.
+
+Ihr lernt euch kennen, sprecht dein Thema & klärt alle deine Fragen.
+Danach entscheiden **beide frei**, ob ihr zusammen weiterarbeitet.`,
+    },
+    {
+      title: "Wie geht es danach weiter?",
+      text: `Wenn ihr weiterarbeitet:
+
+• **60-Min-Sitzungen per Video-Call**
+• in eurem Tempo (ca. 8–10 Sitzungen im Durchschnitt)
+• Anpassung jederzeit möglich
+
+Wir nehmen uns Zeit – und arbeiten gleichzeitig klar & zielorientiert.`,
+    },
+    {
+      title: `Kosten pro Sitzung mit ${t.name}`,
+      text: `Regulär: **${t.preis_std}€** / 60 Min
+Ermäßigt (Studierende/Auszubildende): **${t.preis_ermaessigt}€**
+
+Unser Angebot richtet sich grundsätzlich an Selbstzahler.
+In manchen Fällen übernimmt die Krankenkasse einen Teil – das wird
+individuell mit der Kasse geklärt.
+
+Wenn das für dich passt → dann wähle jetzt deinen Termin 🙂`,
+    },
+  ];
+
+  const isLast = subStep8 === slides.length - 1;
+
+  return (
+    <div className="step-container">
+      <h2>{slides[subStep8].title}</h2>
+
+      <p style={{ whiteSpace: "pre-line", lineHeight: 1.55 }}>
+        {slides[subStep8].text}
+      </p>
+
+      <div className="footer-buttons">
+        {subStep8 > 0 ? (
+          <button onClick={() => setSubStep8(subStep8 - 1)}>Zurück</button>
+        ) : (
+          <button onClick={back}>Zurück</button>
+        )}
+
+        {!isLast ? (
+          <button onClick={() => setSubStep8(subStep8 + 1)}>Weiter</button>
+        ) : (
+          <button onClick={() => { setSubStep8(0); next(); }}>
+            Weiter zur Terminwahl
+          </button>
+        )}
+      </div>
+    </div>
+  );
+})()}
+
 {/* STEP 9 – Info & Ablauf & Preise */}
 {step === 9 && (() => {
   const th = getTherapistInfo(form.wunschtherapeut);
