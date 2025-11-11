@@ -103,7 +103,7 @@ Bitte anrufen / schreiben für Erstkontakt.
 
     // Mail versenden
     await resend.emails.send({
-      from: "hallo@mypoise.de",
+      from: "onboarding@resend.dev",
       to: "hallo@mypoise.de",
       subject,
       text: message,
