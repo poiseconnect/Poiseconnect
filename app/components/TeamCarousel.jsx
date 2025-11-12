@@ -28,6 +28,7 @@ export default function TeamCarousel({ members, onSelect }) {
             boxShadow: "0 8px 28px rgba(0,0,0,0.08)",
             padding: "1.2rem",
             textAlign: "center",
+            whiteSpace: "normal", // <-- Fix: Texte umbrechen
           }}
         >
           <img
@@ -41,14 +42,35 @@ export default function TeamCarousel({ members, onSelect }) {
             }}
           />
 
-          <h3 style={{ marginTop: 12, fontSize: "1.1rem", fontWeight: 600 }}>{m.name}</h3>
+          <h3 style={{ marginTop: 12, fontSize: "1.1rem", fontWeight: 600 }}>
+            {m.name}
+          </h3>
 
           {m.role && (
-            <p style={{ fontSize: ".92rem", opacity: 0.8, marginTop: 2 }}>{m.role}</p>
+            <p
+              style={{
+                fontSize: ".92rem",
+                opacity: 0.8,
+                marginTop: 2,
+                lineHeight: 1.3,
+                wordBreak: "break-word", // <-- Fix: keine Überlappung
+              }}
+            >
+              {m.role}
+            </p>
           )}
 
           {m.short && (
-            <p style={{ fontSize: ".95rem", marginTop: 6, lineHeight: 1.4 }}>{m.short}</p>
+            <p
+              style={{
+                fontSize: ".95rem",
+                marginTop: 6,
+                lineHeight: 1.4,
+                wordBreak: "break-word",
+              }}
+            >
+              {m.short}
+            </p>
           )}
 
           <button
@@ -66,56 +88,69 @@ export default function TeamCarousel({ members, onSelect }) {
           </button>
 
           {openIndex === i && (
-            <div style={{ marginTop: 12, textAlign: "left" }}>
+            <div style={{ marginTop: 14, textAlign: "left" }}>
               {m.long && (
-                <p style={{ fontSize: ".95rem", lineHeight: 1.55 }}>
+                <p
+                  style={{
+                    fontSize: ".95rem",
+                    lineHeight: 1.55,
+                    marginBottom: 14,
+                    wordBreak: "break-word",
+                  }}
+                >
                   {m.long}
                 </p>
               )}
 
-              {m.video && (
-                <button
-                  onClick={() => openVideo(i)}
-                  style={{
-                    marginTop: 10,
-                    width: "100%",
-                    background: "#E9D7D4",
-                    color: "#7A5350",
-                    border: "none",
-                    padding: ".7rem",
-                    borderRadius: 14,
-                    fontSize: ".95rem",
-                    cursor: "pointer",
-                    fontWeight: 500,
-                  }}
-                >
-                  Vorstellungs-Video ansehen
-                </button>
-              )}
-
-              <button
-                onClick={() => onSelect(m.name)}
+              {/* Buttons vertikal gestapelt */}
+              <div
                 style={{
-                  marginTop: 14,
-                  width: "100%",
-                  background: "#D7A6A0",
-                  color: "#fff",
-                  border: "none",
-                  padding: ".9rem",
-                  borderRadius: 14,
-                  fontSize: "1rem",
-                  fontWeight: 500,
-                  cursor: "pointer",
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "stretch",
+                  gap: 8,
                 }}
               >
-                Diese Begleitung wählen
-              </button>
+                {m.video && (
+                  <button
+                    onClick={() => openVideo(i)}
+                    style={{
+                      background: "#E9D7D4",
+                      color: "#7A5350",
+                      border: "none",
+                      padding: ".8rem",
+                      borderRadius: 14,
+                      fontSize: ".95rem",
+                      cursor: "pointer",
+                      fontWeight: 500,
+                      width: "100%",
+                    }}
+                  >
+                    Vorstellungs-Video ansehen
+                  </button>
+                )}
+
+                <button
+                  onClick={() => onSelect(m.name)}
+                  style={{
+                    background: "#D7A6A0",
+                    color: "#fff",
+                    border: "none",
+                    padding: ".9rem",
+                    borderRadius: 14,
+                    fontSize: "1rem",
+                    fontWeight: 500,
+                    cursor: "pointer",
+                    width: "100%",
+                  }}
+                >
+                  Diese Begleitung wählen
+                </button>
+              </div>
             </div>
           )}
 
-          {videoIndex === i && (
-            <VideoModal url={m.video} onClose={closeVideo} />
-          )}
+          {videoIndex === i && <VideoModal url={m.video} onClose={closeVideo} />}
         </div>
       ))}
     </div>
@@ -125,13 +160,8 @@ export default function TeamCarousel({ members, onSelect }) {
 function VideoModal({ url, onClose }) {
   if (!url) return null;
 
-  const id =
-    url.match(/(?:v=|youtu\.be\/)([^&?/]+)/)?.[1] ||
-    "";
-
-  const embed = id
-    ? `https://www.youtube.com/embed/${id}`
-    : url;
+  const id = url.match(/(?:v=|youtu\.be\/)([^&?/]+)/)?.[1] || "";
+  const embed = id ? `https://www.youtube.com/embed/${id}` : url;
 
   return (
     <div
