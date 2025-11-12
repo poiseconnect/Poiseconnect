@@ -406,6 +406,7 @@ Eine Kostenübernahme kann möglich sein — individuell klären.`,
           </div>
         </div>
       )}
-    </div>   {/*  ← schließt .form-wrapper  */}
-  );         {/*  ← schließt return() */}
-}            {/*  ← schließt function Home() */}
+   </div>
+);
+}
+
