@@ -148,7 +148,7 @@ export default function Home() {
     return Array.from(map.entries());
   }, [slots]);
 
-  const send = async () => {
+  
 const send = async () => {
   try {
     const res = await fetch("/api/submit", {
