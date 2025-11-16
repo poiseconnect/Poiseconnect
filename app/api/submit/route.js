@@ -69,8 +69,6 @@ ${isCritical
       }
     `.trim();
 
-
-    // 🟢 E-Mail senden
     const result = await resend.emails.send({
       from: "hallo@mypoise.de",
       to: "hallo@mypoise.de",
@@ -88,10 +86,9 @@ ${isCritical
       );
     }
 
-    return NextResponse.json({ ok: true });
-  }
+    return NextResponse.json({ ok: true }, { status: 200 });
 
-  catch (err) {
+  } catch (err) {
     console.error("Server Fehler:", err);
     return NextResponse.json(
       { error: "Serverfehler", details: err.toString() },
