@@ -16,7 +16,7 @@ const RED_FLAGS = [
 function isRedFlag(text) {
   if (!text) return false;
   return RED_FLAGS.some((flag) =>
-    text.toString().toLowerCase().includes(flag)
+    text.toLowerCase().includes(flag)
   );
 }
 
@@ -47,8 +47,8 @@ export async function POST(request) {
       ? `⚠️ Kritischer Fall — Bitte Rückmeldung`
       : `Neue Anfrage — ${vorname} ${nachname}`;
 
-    const text = (
-`Name: ${vorname} ${nachname}
+    const message = `
+Name: ${vorname} ${nachname}
 E-Mail: ${email}
 Adresse: ${adresse}
 Geburtsdatum: ${geburtsdatum}
@@ -66,32 +66,32 @@ ${ziel}
 Wunsch-Begleitung:
 ${wunschtherapeut}
 
-${isCritical
-  ? `⚠️ Red-Flag erkannt – bitte intern prüfen.`
-  : `Gewählter Termin: ${terminDisplay}`}`
-    ).trim();
+${isCritical 
+  ? "⚠️ Red-Flag erkannt – bitte intern prüfen."
+  : `Gewählter Termin: ${terminDisplay}`}
+`.trim();
 
-    const result = await resend.emails.send({
+    // ---- E-Mail senden ----
+    const sent = await resend.emails.send({
       from: "hallo@mypoise.de",
       to: "hallo@mypoise.de",
       subject,
-      text,
+      text: message,
     });
 
-    console.log("Resend result:", result);
-
-    if (result.error) {
+    if (sent.error) {
       return NextResponse.json(
-        { error: "Resend Fehler", detail: result.error },
+        { ok: false, error: sent.error },
         { status: 500 }
       );
     }
 
     return NextResponse.json({ ok: true });
-  } catch (err) {
-    console.error("Server Fehler:", err);
+  }
+
+  catch (err) {
     return NextResponse.json(
-      { error: "Serverfehler", detail: err.toString() },
+      { ok: false, error: err.message || "Serverfehler" },
       { status: 500 }
     );
   }
