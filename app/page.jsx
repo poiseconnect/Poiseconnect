@@ -149,13 +149,32 @@ export default function Home() {
   }, [slots]);
 
   const send = async () => {
+  try {
     const res = await fetch("/api/submit", {
       method: "POST",
-      body: JSON.stringify(form),
       headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(form),
     });
-    res.ok ? alert("Danke — Anfrage gesendet.") : alert("Fehler — bitte erneut versuchen.");
-  };
+
+    let json;
+    try {
+      json = await res.json();
+    } catch {
+      json = { ok: res.ok };
+    }
+
+    if (!res.ok) {
+      console.error("Fehler:", json);
+      alert("Fehler – Anfrage konnte nicht gesendet werden.");
+      return;
+    }
+
+    alert("Danke — deine Anfrage wurde erfolgreich gesendet.");
+  } catch (err) {
+    console.error("Client Fehler:", err);
+    alert("Unerwarteter Fehler — bitte später erneut versuchen.");
+  }
+};
 
   return (
     <div className="form-wrapper">
