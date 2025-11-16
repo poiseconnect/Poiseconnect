@@ -390,45 +390,63 @@ Eine Kostenübernahme kann möglich sein — individuell klären.`,
   );
 })()}
 
-           {/* --- STEP 10 Terminwahl --- */}
-      {step === 10 && (
-        <div className="step-container">
-          <h2>Erstgespräch – Termin wählen</h2>
+          {/* --- STEP 10 Terminwahl --- */}
+{step === 10 && (
+  <div className="step-container">
+    <h2>Erstgespräch – Termin wählen</h2>
 
-          {loadingSlots && <p>Kalender wird geladen…</p>}
-          {slotsError && <p style={{ color: "red" }}>{slotsError}</p>}
-          {!loadingSlots && grouped.length === 0 && <p>Keine freien Termine verfügbar.</p>}
+    {loadingSlots && <p>Kalender wird geladen…</p>}
+    {slotsError && <p style={{ color: "red" }}>{slotsError}</p>}
+    {!loadingSlots && grouped.length === 0 && <p>Keine freien Termine verfügbar.</p>}
 
-          {!loadingSlots && grouped.length > 0 && grouped.map(([day, list]) => (
-            <div key={day} style={{ marginBottom: 14 }}>
-              <strong>{formatDate(list[0].start)}</strong>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 6 }}>
-                {list.map((s) => (
-                  <button key={s.key}
-                    onClick={() => setForm({ ...form, terminISO: s.start.toISOString(), terminDisplay: `${formatDate(s.start)} ${formatTime(s.start)}` })}
-                    style={{
-                      padding: "6px 10px",
-                      borderRadius: 10,
-                      border: form.terminISO === s.start.toISOString() ? "2px solid #A27C77" : "1px solid #ddd",
-                      background: form.terminISO === s.start.toISOString() ? "#F3E9E7" : "#fff",
-                      cursor: "pointer",
-                    }}>
-                    {formatTime(s.start)}
-                  </button>
-                ))}
-              </div>
-            </div>
+    {!loadingSlots && grouped.length > 0 && grouped.map(([day, list]) => (
+      <div key={day} style={{ marginBottom: 14 }}>
+        <strong>{formatDate(list[0].start)}</strong>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 6 }}>
+          {list.map((s) => (
+            <button
+              key={s.key}
+              onClick={() =>
+                setForm({
+                  ...form,
+                  terminISO: s.start.toISOString(),
+                  terminDisplay: `${formatDate(s.start)} ${formatTime(s.start)}`
+                })
+              }
+              style={{
+                padding: "6px 10px",
+                borderRadius: 10,
+                border: form.terminISO === s.start.toISOString()
+                  ? "2px solid #A27C77"
+                  : "1px solid #ddd",
+                background: form.terminISO === s.start.toISOString()
+                  ? "#F3E9E7"
+                  : "#fff",
+                cursor: "pointer",
+              }}
+            >
+              {formatTime(s.start)}
+            </button>
           ))}
-
-          {form.terminISO && <p style={{ marginTop: 12 }}>Gewählt: <strong>{form.terminDisplay}</strong></p>}
-
-          <div className="footer-buttons" style={{ marginTop: 16 }}>
-            <button onClick={back}>Zurück</button>
-            <button disabled={!form.terminISO} onClick={send}>Anfrage senden</button>
-          </div>
         </div>
-      )}
-   </div>
-);
-}
+      </div>
+    ))}
 
+    {form.terminISO && (
+      <p style={{ marginTop: 12 }}>
+        Gewählt: <strong>{form.terminDisplay}</strong>
+      </p>
+    )}
+
+    <div className="footer-buttons" style={{ marginTop: 16 }}>
+      <button onClick={back}>Zurück</button>
+      <button disabled={!form.terminISO} onClick={send}>
+        Anfrage senden
+      </button>
+    </div>
+  </div>
+)}
+
+</div>
+);  // ← schließt return()
+}    // ← schließt function Home
