@@ -157,12 +157,12 @@ const send = async () => {
       body: JSON.stringify(form),
     });
 
-    // JSON sicher parsen, ohne crash
     let json = null;
     try {
-      json = await res.clone().json();
-    } catch (e) {
-      console.warn("Response ist kein JSON (ist OK):", e);
+      json = await res.json();
+    } catch {
+      // falls kein JSON zurückkommt → nicht abstürzen
+      json = null;
     }
 
     if (!res.ok) {
@@ -177,6 +177,7 @@ const send = async () => {
     alert("Unerwarteter Fehler — bitte später erneut versuchen.");
   }
 };
+
 
 
   return (
