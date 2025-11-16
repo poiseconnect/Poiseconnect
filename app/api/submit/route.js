@@ -47,8 +47,8 @@ export async function POST(request) {
       ? `⚠️ Kritischer Fall — Bitte Rückmeldung`
       : `Neue Anfrage — ${vorname} ${nachname}`;
 
-    const text = `
-Name: ${vorname} ${nachname}
+    const text = (
+`Name: ${vorname} ${nachname}
 E-Mail: ${email}
 Adresse: ${adresse}
 Geburtsdatum: ${geburtsdatum}
@@ -67,9 +67,9 @@ Wunsch-Begleitung:
 ${wunschtherapeut}
 
 ${isCritical
-        ? `⚠️ Red-Flag erkannt – bitte intern prüfen.`
-        : `Gewählter Termin: ${terminDisplay}`}
-`.trim();
+  ? `⚠️ Red-Flag erkannt – bitte intern prüfen.`
+  : `Gewählter Termin: ${terminDisplay}`}`
+    ).trim();
 
     const result = await resend.emails.send({
       from: "hallo@mypoise.de",
