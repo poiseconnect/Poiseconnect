@@ -149,6 +149,7 @@ export default function Home() {
   }, [slots]);
 
   const send = async () => {
+const send = async () => {
   try {
     const res = await fetch("/api/submit", {
       method: "POST",
@@ -156,15 +157,16 @@ export default function Home() {
       body: JSON.stringify(form),
     });
 
-    let json;
+    // JSON sicher parsen, ohne crash
+    let json = null;
     try {
-      json = await res.json();
-    } catch {
-      json = { ok: res.ok };
+      json = await res.clone().json();
+    } catch (e) {
+      console.warn("Response ist kein JSON (ist OK):", e);
     }
 
     if (!res.ok) {
-      console.error("Fehler:", json);
+      console.error("API Fehler:", json || res.status);
       alert("Fehler – Anfrage konnte nicht gesendet werden.");
       return;
     }
@@ -175,6 +177,7 @@ export default function Home() {
     alert("Unerwarteter Fehler — bitte später erneut versuchen.");
   }
 };
+
 
   return (
     <div className="form-wrapper">
