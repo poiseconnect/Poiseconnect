@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { NextResponse } from "next/server";
 import { Resend } from "resend";
 
@@ -13,8 +15,9 @@ const RED_FLAGS = [
 
 function isRedFlag(text) {
   if (!text) return false;
-  const t = text.toString().toLowerCase();
-  return RED_FLAGS.some((flag) => t.includes(flag));
+  return RED_FLAGS.some((flag) =>
+    text.toString().toLowerCase().includes(flag)
+  );
 }
 
 export async function POST(request) {
@@ -64,10 +67,9 @@ Wunsch-Begleitung:
 ${wunschtherapeut}
 
 ${isCritical
-        ? `⚠️ Red-Flag erkannt → Bitte intern prüfen.`
-        : `Gewählter Termin: ${terminDisplay}`
-      }
-    `.trim();
+        ? `⚠️ Red-Flag erkannt – bitte intern prüfen.`
+        : `Gewählter Termin: ${terminDisplay}`}
+`.trim();
 
     const result = await resend.emails.send({
       from: "hallo@mypoise.de",
@@ -79,19 +81,17 @@ ${isCritical
     console.log("Resend result:", result);
 
     if (result.error) {
-      console.error("Resend Error:", result.error);
       return NextResponse.json(
-        { error: "Resend Fehler", details: result.error },
+        { error: "Resend Fehler", detail: result.error },
         { status: 500 }
       );
     }
 
-    return NextResponse.json({ ok: true }, { status: 200 });
-
+    return NextResponse.json({ ok: true });
   } catch (err) {
     console.error("Server Fehler:", err);
     return NextResponse.json(
-      { error: "Serverfehler", details: err.toString() },
+      { error: "Serverfehler", detail: err.toString() },
       { status: 500 }
     );
   }
