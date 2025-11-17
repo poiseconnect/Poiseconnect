@@ -157,12 +157,14 @@ const send = async () => {
       body: JSON.stringify(form),
     });
 
+    // Versuch JSON zu lesen, aber ohne crashen
     let json = null;
     try {
-      json = await res.json();
-    } catch {
-      // falls kein JSON zurückkommt → nicht abstürzen
-      json = null;
+      if (res.headers.get("content-type")?.includes("application/json")) {
+        json = await res.json();
+      }
+    } catch (e) {
+      console.warn("Keine JSON Response, ist OK.");
     }
 
     if (!res.ok) {
@@ -171,13 +173,12 @@ const send = async () => {
       return;
     }
 
-    alert("Danke — deine Anfrage wurde erfolgreich gesendet.");
+    alert("Danke — deine Anfrage wurde gesendet.");
   } catch (err) {
     console.error("Client Fehler:", err);
-    alert("Unerwarteter Fehler — bitte später erneut versuchen.");
+    alert("Serverfehler — bitte später versuchen.");
   }
 };
-
 
 
   return (
