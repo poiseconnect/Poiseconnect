@@ -66,9 +66,8 @@ ${wunschtherapeut}
 
 ${critical
   ? "⚠️ RED-FLAG — bitte intern prüfen."
-  : `Gewählter Termin: ${terminDisplay}`
-}
-    `.trim();
+  : `Gewählter Termin: ${terminDisplay}`}
+`.trim();
 
     const result = await resend.emails.send({
       from: "hallo@mypoise.de",
@@ -77,7 +76,6 @@ ${critical
       text,
     });
 
-    // IMPORTANT: Kein weiteres return nach diesem!
     if (result.error) {
       return NextResponse.json(
         { error: "RESEND_ERROR", detail: result.error },
