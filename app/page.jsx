@@ -453,3 +453,4 @@ Eine Kostenübernahme kann möglich sein — individuell klären.`,
 </div>
 );  // ← schließt return()
 }    // ← schließt function Home
+// CODE OK — keine weiteren Platzhalter notwendig.
