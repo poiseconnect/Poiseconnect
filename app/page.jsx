@@ -151,15 +151,13 @@ export default function Home() {
   
 const send = async () => {
   try {
-    const res = await fetch("/api/submit", {
+    const res = await fetch("/api/form-submit", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(form),
     });
 
     let json = null;
-
-    // Kein Clone, kein Crash
     try {
       if (res.headers.get("content-type")?.includes("application/json")) {
         json = await res.json();
@@ -180,6 +178,7 @@ const send = async () => {
     alert("Unerwarteter Fehler – bitte später erneut versuchen.");
   }
 };
+
 
 
   return (
