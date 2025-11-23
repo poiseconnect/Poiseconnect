@@ -1,52 +1,56 @@
 export const dynamic = "force-dynamic";
 
+import { NextResponse } from "next/server";
+
 export async function GET(request) {
   try {
-    const fullUrl =
-      request.url.startsWith("http")
-        ? request.url
-        : `https://${request.headers.get("host")}${request.url}`;
+    const { searchParams } = new URL(request.url);
 
-    const url = new URL(fullUrl);
-    const action = url.searchParams.get("action");
-    const client = url.searchParams.get("client");
-    const name = url.searchParams.get("name");
+    const action = searchParams.get("action");
+    const client = searchParams.get("client");
+    const name = searchParams.get("name");
 
     console.log("Therapist response:", action, client, name);
 
-    const go = (target) =>
-      new Response(null, {
-        status: 302,
-        headers: { Location: target },
-      });
+    // ⛔ Sicherheitscheck – fehlen Parameter?
+    if (!action || !client) {
+      return NextResponse.json(
+        { ok: false, error: "MISSING_PARAMS" },
+        { status: 400 }
+      );
+    }
 
+    // ✅ Termin bestätigt
     if (action === "confirm") {
-      return go(
-        `https://mypoise.de/?resume=confirmed&email=${encodeURIComponent(client)}`
+      return NextResponse.redirect(
+        `https://poiseconnect.vercel.app/?resume=confirmed&email=${encodeURIComponent(client)}`
       );
     }
 
+    // ✅ neuer Termin, gleiche Begleitung
     if (action === "rebook_same") {
-      return go(
-        `https://mypoise.de/?resume=10&email=${encodeURIComponent(client)}`
+      return NextResponse.redirect(
+        `https://poiseconnect.vercel.app/?resume=10&email=${encodeURIComponent(client)}`
       );
     }
 
+    // ✅ anderes Teammitglied wählen
     if (action === "rebook_other") {
-      return go(
-        `https://mypoise.de/?resume=5&email=${encodeURIComponent(client)}`
+      return NextResponse.redirect(
+        `https://poiseconnect.vercel.app/?resume=5&email=${encodeURIComponent(client)}`
       );
     }
 
-    return new Response(
-      JSON.stringify({ ok: false, error: "UNKNOWN_ACTION" }),
+    // ✅ Unbekannte Aktion
+    return NextResponse.json(
+      { ok: false, error: "UNKNOWN_ACTION" },
       { status: 400 }
     );
 
   } catch (err) {
     console.error("THERAPIST RESPONSE ERROR:", err);
-    return new Response(
-      JSON.stringify({ ok: false, error: "SERVER_ERROR" }),
+    return NextResponse.json(
+      { ok: false, error: "SERVER_ERROR" },
       { status: 500 }
     );
   }
