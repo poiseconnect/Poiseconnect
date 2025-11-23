@@ -176,6 +176,39 @@ const sortedTeam = useMemo(() => {
       setLoadingSlots(false);
     })();
   }, [step, form.wunschtherapeut]);
+  // Resume Flow via URL (?resume=10&email=...&therapist=Ann)
+useEffect(() => {
+  if (typeof window === "undefined") return;
+
+  const params = new URLSearchParams(window.location.search);
+  const resume = params.get("resume");
+  if (!resume) return;
+
+  const emailParam = params.get("email") || "";
+  const therapistParam = params.get("therapist") || "";
+
+  const targetStep = parseInt(resume, 10);
+  if (Number.isNaN(targetStep)) return;
+
+  setForm((prev) => ({
+    ...prev,
+    email: emailParam || prev.email,
+    // Wenn neues Teammitglied gewählt werden soll → wunschtherapeut leeren
+    // Wenn Termin nur neu gewählt wird und Therapeuten-Name mitgegeben wird → setzen
+    wunschtherapeut:
+      targetStep === 5
+        ? ""
+        : therapistParam || prev.wunschtherapeut,
+    // alten Termin immer zurücksetzen
+    terminISO: "",
+    terminDisplay: "",
+  }));
+
+  setStep(targetStep);
+
+  // Query-Parameter aus der URL entfernen, damit ein Reload nicht wieder springt
+  window.history.replaceState({}, "", window.location.pathname);
+}, []);
   // Resume Flow via URL (?resume=10&email=...)
 useEffect(() => {
   if (typeof window === "undefined") return;
