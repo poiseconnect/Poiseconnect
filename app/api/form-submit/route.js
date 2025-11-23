@@ -2,7 +2,7 @@ export const dynamic = "force-dynamic";
 
 import { Resend } from "resend";
 // Pfad anpassen, falls deine Datei anders liegt:
-import { teamData } from "../../../data/team";
+import { import { teamData } from "../../../data/team.js";
 
 const resend = new Resend(process.env.RESEND_API_KEY ?? "");
 
