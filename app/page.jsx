@@ -113,6 +113,7 @@ export default function Home() {
     vorname: "",
     nachname: "",
     email: "",
+    telefon: "",
     adresse: "",
     geburtsdatum: "",
     beschaeftigungsgrad: "",
@@ -299,20 +300,71 @@ const send = async () => {
         </div>
       )}
 
-      {/* STEP 6 */}
-      {step === 6 && (
-        <div className="step-container">
-          <h2>Kontaktdaten</h2>
-          <input placeholder="Vorname" value={form.vorname} onChange={(e) => setForm({ ...form, vorname: e.target.value })} />
-          <input placeholder="Nachname" value={form.nachname} onChange={(e) => setForm({ ...form, nachname: e.target.value })} />
-          <input placeholder="E-Mail" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
-          <input placeholder="Adresse" value={form.adresse} onChange={(e) => setForm({ ...form, adresse: e.target.value })} />
-          <input type="date" value={form.geburtsdatum} onChange={(e) => setForm({ ...form, geburtsdatum: e.target.value })} />
-          {!isAdult(form.geburtsdatum) && form.geburtsdatum && <p style={{ color: "red" }}>Du musst mindestens 18 sein.</p>}
-          <div className="footer-buttons"><button onClick={back}>Zurück</button><button disabled={!form.vorname || !form.nachname || !form.email || !form.adresse || !form.geburtsdatum || !isAdult(form.geburtsdatum)} onClick={next}>Weiter</button></div>
-        </div>
-      )}
+{step === 6 && (
+  <div className="step-container">
+    <h2>Kontaktdaten</h2>
 
+    <input
+      placeholder="Vorname"
+      value={form.vorname}
+      onChange={(e) => setForm({ ...form, vorname: e.target.value })}
+    />
+
+    <input
+      placeholder="Nachname"
+      value={form.nachname}
+      onChange={(e) => setForm({ ...form, nachname: e.target.value })}
+    />
+
+    <input
+      placeholder="E-Mail"
+      type="email"
+      value={form.email}
+      onChange={(e) => setForm({ ...form, email: e.target.value })}
+    />
+
+    <input
+      placeholder="Telefonnummer"
+      type="tel"
+      value={form.telefon}
+      onChange={(e) => setForm({ ...form, telefon: e.target.value })}
+    />
+
+    <input
+      placeholder="Adresse"
+      value={form.adresse}
+      onChange={(e) => setForm({ ...form, adresse: e.target.value })}
+    />
+
+    <input
+      type="date"
+      value={form.geburtsdatum}
+      onChange={(e) => setForm({ ...form, geburtsdatum: e.target.value })}
+    />
+
+    {!isAdult(form.geburtsdatum) && form.geburtsdatum && (
+      <p style={{ color: "red" }}>Du musst mindestens 18 sein.</p>
+    )}
+
+    <div className="footer-buttons">
+      <button onClick={back}>Zurück</button>
+      <button
+        disabled={
+          !form.vorname ||
+          !form.nachname ||
+          !form.email ||
+          !form.telefon ||   // ✅ neu Pflicht
+          !form.adresse ||
+          !form.geburtsdatum ||
+          !isAdult(form.geburtsdatum)
+        }
+        onClick={next}
+      >
+        Weiter
+      </button>
+    </div>
+  </div>
+)}
       {/* STEP 7 */}
       {step === 7 && (
         <div className="step-container">
