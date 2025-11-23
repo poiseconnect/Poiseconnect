@@ -32,30 +32,53 @@ export async function POST(request) {
     } = data;
 
     const therapistEmail = getTherapistEmail(wunschtherapeut);
-const base = "https://mypoise.de/api/therapist-response";
 
-const confirmLink = `${base}?action=confirm&client=${encodeURIComponent(email)}&name=${encodeURIComponent(vorname)}`;
-const rebookSameLink = `${base}?action=rebook_same&client=${encodeURIComponent(email)}&name=${encodeURIComponent(vorname)}`;
-const rebookOtherLink = `${base}?action=rebook_other&client=${encodeURIComponent(email)}&name=${encodeURIComponent(vorname)}`;
-    // Empfänger-Liste: Poise + gewählte Begleitung (falls gefunden)
+    // ✅ Links für Auswahl durch Teammitglied
+    const base = "https://mypoise.de/api/therapist-response";
+
+    const confirmLink = `${base}?action=confirm&client=${encodeURIComponent(email)}&name=${encodeURIComponent(vorname)}`;
+    const rebookSameLink = `${base}?action=rebook_same&client=${encodeURIComponent(email)}&name=${encodeURIComponent(vorname)}`;
+    const rebookOtherLink = `${base}?action=rebook_other&client=${encodeURIComponent(email)}&name=${encodeURIComponent(vorname)}`;
+
+    // ✅ Empfänger: Poise + gewählte Begleitung
     const recipients = ["hallo@mypoise.de"];
     if (therapistEmail && !recipients.includes(therapistEmail)) {
       recipients.push(therapistEmail);
     }
 
-    const subject = `Neue Anfrage — ${[vorname, nachname].filter(Boolean).join(" ")}`;
+    const subject = `Neue Anfrage — ${vorname} ${nachname}`;
 
-    const text = `
+    // ✅ Mail an Teammitglied + Poise
+    const { error } = await resend.emails.send({
+      from: "hallo@mypoise.de",
+      to: recipients,
+      subject,
+      text: `
 Neue Anfrage über mypoise.de
 
-Name: ${[vorname, nachname].filter(Boolean).join(" ")}
-E-Mail: ${email || ""}
+Name: ${vorname} ${nachname}
+E-Mail: ${email}
 Telefon: ${telefon || ""}
 Adresse: ${adresse || ""}
 Geburtsdatum: ${geburtsdatum || ""}
 Beschäftigung: ${beschaeftigungsgrad || ""}
 
 Wunsch-Begleitung: ${wunschtherapeut || ""}
+
+---
+
+👉 Bitte wähle aus:
+
+✅ Termin bestätigen
+${confirmLink}
+
+🔁 Neuer Termin mit mir wählen
+${rebookSameLink}
+
+🔄 An anderes Teammitglied übergeben
+${rebookOtherLink}
+
+---
 
 Anliegen:
 ${anliegen || ""}
@@ -68,17 +91,10 @@ ${ziel || ""}
 
 Gewählter Termin:
 ${terminDisplay || ""}
-    `.trim();
-
-        // ✅ Mail an Team + Therapeut
-    const { error } = await resend.emails.send({
-      from: "hallo@mypoise.de",
-      to: recipients,
-      subject,
-      text,
+      `.trim(),
     });
 
-        if (error) {
+    if (error) {
       console.error("Resend error:", error);
       return new Response("EMAIL_ERROR", { status: 500 });
     }
