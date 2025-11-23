@@ -14,27 +14,27 @@ export async function GET(request) {
 
     console.log("Therapist response:", action, client, name);
 
-    // ✅ Termin bestätigen
+    const go = (target) =>
+      new Response(null, {
+        status: 302,
+        headers: { Location: target },
+      });
+
     if (action === "confirm") {
-      return Response.redirect(
-        `https://mypoise.de/?resume=confirmed&email=${encodeURIComponent(client)}`,
-        302
+      return go(
+        `https://mypoise.de/?resume=confirmed&email=${encodeURIComponent(client)}`
       );
     }
 
-    // ✅ neuer Termin, gleiche Begleitung
     if (action === "rebook_same") {
-      return Response.redirect(
-        `https://mypoise.de/?resume=10&email=${encodeURIComponent(client)}`,
-        302
+      return go(
+        `https://mypoise.de/?resume=10&email=${encodeURIComponent(client)}`
       );
     }
 
-    // ✅ anderes Teammitglied wählen
     if (action === "rebook_other") {
-      return Response.redirect(
-        `https://mypoise.de/?resume=5&email=${encodeURIComponent(client)}`,
-        302
+      return go(
+        `https://mypoise.de/?resume=5&email=${encodeURIComponent(client)}`
       );
     }
 
