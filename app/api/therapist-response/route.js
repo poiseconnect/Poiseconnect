@@ -3,11 +3,19 @@ export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 
 export async function GET(request) {
-  const { searchParams } = new URL(request.url);
+  let url;
+
+  try {
+    url = new URL(request.url);
+  } catch {
+    return NextResponse.json({ ok: false, error: "INVALID_URL" }, { status: 400 });
+  }
+
+  const searchParams = url.searchParams;
 
   const action = searchParams.get("action");
-  const client = searchParams.get("client");
-  const name = searchParams.get("name");
+  const client = searchParams.get("client") || "";
+  const name = searchParams.get("name") || "";
 
   console.log("Therapist response:", action, client, name);
 
@@ -32,5 +40,8 @@ export async function GET(request) {
     );
   }
 
-  return NextResponse.json({ ok: false, error: "UNKNOWN_ACTION" }, { status: 400 });
+  return NextResponse.json(
+    { ok: false, error: "UNKNOWN_ACTION" },
+    { status: 400 }
+  );
 }
