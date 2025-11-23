@@ -32,7 +32,11 @@ export async function POST(request) {
     } = data;
 
     const therapistEmail = getTherapistEmail(wunschtherapeut);
+const base = "https://mypoise.de/api/therapist-response";
 
+const confirmLink = `${base}?action=confirm&client=${encodeURIComponent(email)}&name=${encodeURIComponent(vorname)}`;
+const rebookSameLink = `${base}?action=rebook_same&client=${encodeURIComponent(email)}&name=${encodeURIComponent(vorname)}`;
+const rebookOtherLink = `${base}?action=rebook_other&client=${encodeURIComponent(email)}&name=${encodeURIComponent(vorname)}`;
     // Empfänger-Liste: Poise + gewählte Begleitung (falls gefunden)
     const recipients = ["hallo@mypoise.de"];
     if (therapistEmail && !recipients.includes(therapistEmail)) {
