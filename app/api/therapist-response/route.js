@@ -10,34 +10,28 @@ export async function GET(request) {
 
     console.log("Therapist response:", action, client, name);
 
-    if (!action || !client) {
-      return new Response(
-        JSON.stringify({ ok: false, error: "MISSING_PARAMS" }),
-        { status: 400, headers: { "Content-Type": "application/json" } }
-      );
+    function redirect(url) {
+      return new Response(null, {
+        status: 302,
+        headers: { Location: url }
+      });
     }
 
-    // ✅ TERMIN BESTÄTIGT
     if (action === "confirm") {
-      return Response.redirect(
-        `https://poiseconnect.vercel.app/?resume=confirmed&email=${encodeURIComponent(client)}`,
-        302
+      return redirect(
+        `https://poiseconnect.vercel.app/?resume=confirmed&email=${encodeURIComponent(client)}`
       );
     }
 
-    // ✅ NEUER TERMIN
     if (action === "rebook_same") {
-      return Response.redirect(
-        `https://poiseconnect.vercel.app/?resume=10&email=${encodeURIComponent(client)}`,
-        302
+      return redirect(
+        `https://poiseconnect.vercel.app/?resume=10&email=${encodeURIComponent(client)}`
       );
     }
 
-    // ✅ ANDERES TEAMMITGLIED
     if (action === "rebook_other") {
-      return Response.redirect(
-        `https://poiseconnect.vercel.app/?resume=5&email=${encodeURIComponent(client)}`,
-        302
+      return redirect(
+        `https://poiseconnect.vercel.app/?resume=5&email=${encodeURIComponent(client)}`
       );
     }
 
