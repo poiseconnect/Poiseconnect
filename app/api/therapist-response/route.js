@@ -1,50 +1,65 @@
 export const dynamic = "force-dynamic";
 
+// ✅ wir verwenden KEIN NextResponse (macht Probleme bei Routen)
 export async function GET(request) {
   try {
-    const { searchParams } = new URL(request.url);
+    const url = new URL(request.url);
+    const action = url.searchParams.get("action");
+    const client = url.searchParams.get("client") || "";
+    const name = url.searchParams.get("name") || "";
+    const therapist = url.searchParams.get("therapist") || "";
 
-    const action = searchParams.get("action");
-    const client = searchParams.get("client");
-    const name = searchParams.get("name");
+    console.log("Therapist response:", action, client, name, therapist);
 
-    console.log("Therapist response:", action, client, name);
-
-    function redirect(url) {
-      return new Response(null, {
+    // ✅ Helper: korrekter Redirect in API Route
+    const redirect = (target) =>
+      new Response(null, {
         status: 302,
-        headers: { Location: url }
+        headers: {
+          Location: target,
+        },
       });
-    }
 
+    // ✅ Termin bestätigen
     if (action === "confirm") {
       return redirect(
         `https://poiseconnect.vercel.app/?resume=confirmed&email=${encodeURIComponent(client)}`
       );
     }
 
+    // ✅ neuer Termin, gleiche Begleitung
     if (action === "rebook_same") {
       return redirect(
-        `https://poiseconnect.vercel.app/?resume=10&email=${encodeURIComponent(client)}`
+        `https://poiseconnect.vercel.app/?resume=10&email=${encodeURIComponent(
+          client
+        )}&therapist=${encodeURIComponent(therapist)}`
       );
     }
 
+    // ✅ anderes Teammitglied wählen
     if (action === "rebook_other") {
       return redirect(
         `https://poiseconnect.vercel.app/?resume=5&email=${encodeURIComponent(client)}`
       );
     }
 
+    // ✅ unbekannte Aktion
     return new Response(
       JSON.stringify({ ok: false, error: "UNKNOWN_ACTION" }),
-      { status: 400, headers: { "Content-Type": "application/json" } }
+      {
+        status: 400,
+        headers: { "Content-Type": "application/json" },
+      }
     );
-
   } catch (err) {
     console.error("THERAPIST RESPONSE ERROR:", err);
+
     return new Response(
       JSON.stringify({ ok: false, error: "SERVER_ERROR" }),
-      { status: 500, headers: { "Content-Type": "application/json" } }
+      {
+        status: 500,
+        headers: { "Content-Type": "application/json" },
+      }
     );
   }
 }
