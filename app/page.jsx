@@ -176,6 +176,32 @@ const sortedTeam = useMemo(() => {
       setLoadingSlots(false);
     })();
   }, [step, form.wunschtherapeut]);
+  // Resume Flow via URL (?resume=10&email=...)
+useEffect(() => {
+  if (typeof window === "undefined") return;
+
+  const params = new URLSearchParams(window.location.search);
+  const resume = params.get("resume");
+  const emailParam = params.get("email");
+  const nameParam = params.get("name");
+
+  if (!resume) return;
+
+  // Step bestimmen
+  const targetStep = parseInt(resume, 10);
+
+  // Optional: Email vorausfüllen
+  setForm((prev) => ({
+    ...prev,
+    email: emailParam || prev.email,
+    wunschtherapeut: targetStep === 5 ? "" : prev.wunschtherapeut,
+  }));
+
+  setStep(targetStep);
+
+  // URL bereinigen
+  window.history.replaceState({}, "", window.location.pathname);
+}, []);
 
   const grouped = useMemo(() => {
     const map = new Map();
