@@ -18,6 +18,31 @@ const RED_FLAGS = [
   "borderline", "svv"
 ];
 const isRedFlag = (t) => t && RED_FLAGS.some((x) => t.toLowerCase().includes(x));
+const TAG_WEIGHTS = {
+  trauma: 5,
+  ptbs: 5,
+  essstörung: 5,
+  essstoerung: 5,
+  anorexie: 5,
+  bulimie: 5,
+  bulimia: 5,
+
+  binge: 4,
+  zwang: 4,
+  panik: 3,
+  angst: 3,
+  depression: 3,
+
+  selbstwert: 2,
+  burnout: 2,
+  erschöpfung: 2,
+
+  beziehung: 1,
+  partnerschaft: 1,
+  stress: 1,
+  arbeit: 1,
+  studium: 0.5,
+};
 
 // ---- KALENDER LINKS ----
 const ICS_BY_MEMBER = {
@@ -98,15 +123,28 @@ export default function Home() {
     terminDisplay: "",
   });
 
-  const sortedTeam = useMemo(() => {
-    if (!form.anliegen) return teamData || [];
-    const words = form.anliegen.toLowerCase().split(/[\s,.;!?]+/).filter(Boolean);
-    return [...teamData].sort((a, b) => {
-      const score = (m) =>
-        m.tags?.filter((tag) => words.some((w) => tag.toLowerCase().includes(w))).length || 0;
-      return score(b) - score(a);
-    });
-  }, [form.anliegen]);
+const sortedTeam = useMemo(() => {
+  if (!form.anliegen) return teamData || [];
+
+  const words = form.anliegen
+    .toLowerCase()
+    .split(/[\s,.;!?]+/)
+    .filter(Boolean);
+
+  return [...teamData].sort((a, b) => {
+    const score = (member) =>
+      member.tags?.reduce((sum, tag) => {
+        tag = tag.toLowerCase();
+        const matches = words.some((w) => tag.includes(w));
+        if (!matches) return sum;
+
+        const weight = TAG_WEIGHTS[tag] ?? 1;
+        return sum + weight;
+      }, 0) || 0;
+
+    return score(b) - score(a);
+  });
+}, [form.anliegen]);
 
   const isAdult = (d) => {
     const birth = new Date(d);
