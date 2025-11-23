@@ -34,7 +34,7 @@ export async function POST(request) {
     const therapistEmail = getTherapistEmail(wunschtherapeut);
 
     // ✅ Links für Auswahl durch Teammitglied
-    const base = "https://poiseconnect.vercel.app/api/therapist-response";
+    const base = "https://poiseconnect.vercel.app/api/therapist-response/";
 
     const confirmLink = `${base}?action=confirm&client=${encodeURIComponent(email)}&name=${encodeURIComponent(vorname)}`;
     const rebookSameLink = `${base}?action=rebook_same&client=${encodeURIComponent(email)}&name=${encodeURIComponent(vorname)}`;
