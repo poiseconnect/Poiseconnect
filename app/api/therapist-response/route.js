@@ -1,96 +1,36 @@
 export const dynamic = "force-dynamic";
 
-import { Resend } from "resend";
-
-const resend = new Resend(process.env.RESEND_API_KEY ?? "");
+import { NextResponse } from "next/server";
 
 export async function GET(request) {
-  try {
-    const url = new URL(request.url);
-    const action = url.searchParams.get("action");
-    const clientEmail = url.searchParams.get("client");
-    const clientName = url.searchParams.get("name") ?? "Klient";
+  const { searchParams } = new URL(request.url);
 
-    if (!action || !clientEmail) {
-      return new Response("Ungültiger Link", { status: 400 });
-    }
+  const action = searchParams.get("action");
+  const client = searchParams.get("client");
+  const name = searchParams.get("name");
 
-    // ✅ 1) Termin bestätigt
-    if (action === "confirm") {
-      await resend.emails.send({
-        from: "hallo@mypoise.de",
-        to: clientEmail,
-        subject: "Termin bestätigt ✅",
-        text: `Hallo ${clientName},
+  console.log("Therapist response:", action, client, name);
 
-dein Termin wurde bestätigt ✅
-
-Wir freuen uns auf dich!
-❤️ Dein Poise Team
-`,
-      });
-
-      return html("Termin bestätigt ✅");
-    }
-
-    // ✅ 2) Neuer Termin beim gleichen Teammitglied
-    if (action === "rebook_same") {
-      await resend.emails.send({
-        from: "hallo@mypoise.de",
-        to: clientEmail,
-        subject: "Neuer Termin nötig 🔁",
-        text: `Hallo ${clientName},
-
-der ausgewählte Termin kann leider nicht stattfinden.
-
-Bitte wähle einen neuen Termin:
-
-https://mypoise.de?retry=same&client=${encodeURIComponent(clientEmail)}
-
-Liebe Grüße
-Dein Poise Team
-`,
-      });
-
-      return html("Klient kann neuen Termin wählen 🔁");
-    }
-
-    // ✅ 3) Anderes Teammitglied auswählen
-    if (action === "rebook_other") {
-      await resend.emails.send({
-        from: "hallo@mypoise.de",
-        to: clientEmail,
-        subject: "Neue Begleitung auswählen 💡",
-        text: `Hallo ${clientName},
-
-die gewählte Begleitung ist aktuell nicht verfügbar.
-
-Bitte wähle eine andere Begleitung:
-
-https://mypoise.de?retry=other&client=${encodeURIComponent(clientEmail)}
-
-Liebe Grüße
-Dein Poise Team
-`,
-      });
-
-      return html("Klient soll anderes Teammitglied wählen 💡");
-    }
-
-    return new Response("Unbekannte Aktion", { status: 400 });
-
-  } catch (err) {
-    console.error("THERAPIST RESPONSE ERROR:", err);
-    return new Response("SERVER ERROR", { status: 500 });
+  // ✅ Termin bestätigen
+  if (action === "confirm") {
+    return NextResponse.redirect(
+      `https://mypoise.de/?resume=confirmed&email=${encodeURIComponent(client)}`
+    );
   }
-}
 
-function html(msg) {
-  return new Response(
-    `<html><body style="font-family:sans-serif;text-align:center;padding:40px;">
-      <h2>${msg}</h2>
-      <p>Danke für deine Rückmeldung!</p>
-    </body></html>`,
-    { status: 200, headers: { "Content-Type": "text/html" } }
-  );
+  // ✅ neuer Termin, gleiche Begleitung
+  if (action === "rebook_same") {
+    return NextResponse.redirect(
+      `https://mypoise.de/?resume=10&email=${encodeURIComponent(client)}`
+    );
+  }
+
+  // ✅ anderes Teammitglied wählen
+  if (action === "rebook_other") {
+    return NextResponse.redirect(
+      `https://mypoise.de/?resume=5&email=${encodeURIComponent(client)}`
+    );
+  }
+
+  return NextResponse.json({ ok: false, error: "UNKNOWN_ACTION" }, { status: 400 });
 }
