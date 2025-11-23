@@ -99,6 +99,17 @@ async function loadIcsSlots(icsUrl, daysAhead = 21) {
 
 export default function Home() {
   const [step, setStep] = useState(0);
+  // URL Step Restore (Therapist Response Redirect)
+useEffect(() => {
+  const params = new URLSearchParams(window.location.search);
+  const s = params.get("step");
+  const therapist = params.get("therapist");
+
+  if (s === "10" && therapist) {
+    setForm((f) => ({ ...f, wunschtherapeut: therapist }));
+    setStep(10);
+  }
+}, []);
   const [subStep9, setSubStep9] = useState(0);
   const totalSteps = 11;
   const today = new Date();
