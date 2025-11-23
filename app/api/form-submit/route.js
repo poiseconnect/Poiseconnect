@@ -67,6 +67,7 @@ Gewählter Termin:
 ${terminDisplay || ""}
     `.trim();
 
+        // ✅ Mail an Team + Therapeut
     const { error } = await resend.emails.send({
       from: "hallo@mypoise.de",
       to: recipients,
@@ -79,9 +80,24 @@ ${terminDisplay || ""}
       return new Response("EMAIL_ERROR", { status: 500 });
     }
 
-    return new Response("OK", { status: 200 });
-  } catch (err) {
-    console.error("SERVER ERROR:", err);
-    return new Response("SERVER_ERROR", { status: 500 });
-  }
-}
+    // ✅ Bestätigungsmail an Klient
+    if (email) {
+      await resend.emails.send({
+        from: "hallo@mypoise.de",
+        to: email,
+        subject: "Danke für deine Anfrage 🤍",
+        text: `
+Hallo ${vorname},
+
+vielen Dank für deine Anfrage bei Poise.
+
+Wir haben deine Daten erhalten und melden uns so schnell wie möglich bei dir.
+
+Gewählter Termin:
+${terminDisplay || "wird noch abgestimmt"}
+
+Liebe Grüße  
+Poise Team
+        `.trim(),
+      });
+    }
