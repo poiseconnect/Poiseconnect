@@ -75,7 +75,7 @@ ${terminDisplay || ""}
       text,
     });
 
-    if (error) {
+        if (error) {
       console.error("Resend error:", error);
       return new Response("EMAIL_ERROR", { status: 500 });
     }
@@ -101,4 +101,11 @@ Poise Team
         `.trim(),
       });
     }
+
+    return new Response("OK", { status: 200 });
+
+  } catch (err) {
+    console.error("SERVER ERROR:", err);
+    return new Response("SERVER_ERROR", { status: 500 });
   }
+}
