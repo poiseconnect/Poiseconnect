@@ -36,9 +36,9 @@ export async function POST(request) {
     // ✅ Links für Auswahl durch Teammitglied
     const base = "https://poiseconnect.vercel.app/api/therapist-response/";
 
-    const confirmLink = `${base}?action=confirm&client=${encodeURIComponent(email)}&name=${encodeURIComponent(vorname)}`;
-    const rebookSameLink = `${base}?action=rebook_same&client=${encodeURIComponent(email)}&name=${encodeURIComponent(vorname)}`;
-    const rebookOtherLink = `${base}?action=rebook_other&client=${encodeURIComponent(email)}&name=${encodeURIComponent(vorname)}`;
+    const confirmLink = `${base}?action=confirm&client=${encodeURIComponent(email)}&name=${encodeURIComponent(vorname?.trim() || "")}`;
+const rebookSameLink = `${base}?action=rebook_same&client=${encodeURIComponent(email)}&name=${encodeURIComponent(vorname?.trim() || "")}`;
+const rebookOtherLink = `${base}?action=rebook_other&client=${encodeURIComponent(email)}&name=${encodeURIComponent(vorname?.trim() || "")}`;
 
     // ✅ Empfänger: Poise + gewählte Begleitung
     const recipients = ["hallo@mypoise.de"];
