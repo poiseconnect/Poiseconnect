@@ -1,45 +1,52 @@
 export const dynamic = "force-dynamic";
 
-import { NextResponse } from "next/server";
-
 export async function GET(request) {
   try {
-    const url = new URL(request.url);
-    const searchParams = url.searchParams;
+    const fullUrl =
+      request.url.startsWith("http")
+        ? request.url
+        : `https://${request.headers.get("host")}${request.url}`;
 
-    const action = searchParams.get("action");
-    const client = searchParams.get("client");
-    const name = searchParams.get("name");
+    const url = new URL(fullUrl);
+    const action = url.searchParams.get("action");
+    const client = url.searchParams.get("client");
+    const name = url.searchParams.get("name");
 
     console.log("Therapist response:", action, client, name);
 
+    // ✅ Termin bestätigen
     if (action === "confirm") {
-      return NextResponse.redirect(
-        `https://poiseconnect.vercel.app/?resume=confirmed&email=${encodeURIComponent(client)}`
+      return Response.redirect(
+        `https://mypoise.de/?resume=confirmed&email=${encodeURIComponent(client)}`,
+        302
       );
     }
 
+    // ✅ neuer Termin, gleiche Begleitung
     if (action === "rebook_same") {
-      return NextResponse.redirect(
-        `https://poiseconnect.vercel.app/?resume=10&email=${encodeURIComponent(client)}`
+      return Response.redirect(
+        `https://mypoise.de/?resume=10&email=${encodeURIComponent(client)}`,
+        302
       );
     }
 
+    // ✅ anderes Teammitglied wählen
     if (action === "rebook_other") {
-      return NextResponse.redirect(
-        `https://poiseconnect.vercel.app/?resume=5&email=${encodeURIComponent(client)}`
+      return Response.redirect(
+        `https://mypoise.de/?resume=5&email=${encodeURIComponent(client)}`,
+        302
       );
     }
 
-    return NextResponse.json(
-      { ok: false, error: "UNKNOWN_ACTION" },
+    return new Response(
+      JSON.stringify({ ok: false, error: "UNKNOWN_ACTION" }),
       { status: 400 }
     );
 
   } catch (err) {
     console.error("THERAPIST RESPONSE ERROR:", err);
-    return NextResponse.json(
-      { ok: false, error: "SERVER_ERROR", detail: String(err) },
+    return new Response(
+      JSON.stringify({ ok: false, error: "SERVER_ERROR" }),
       { status: 500 }
     );
   }
