@@ -98,6 +98,36 @@ async function loadIcsSlots(icsUrl, daysAhead = 21) {
 }
 
 export default function Home() {
+  // ✅ Resume Handling für Therapist-Response Links
+useEffect(() => {
+  const url = new URL(window.location.href);
+  const resume = url.searchParams.get("resume");
+  const email = url.searchParams.get("email");
+  const therapist = url.searchParams.get("therapist");
+
+  if (!resume) return;
+
+  // ✅ Termin bestätigt
+  if (resume === "confirmed") {
+    alert("Termin wurde bestätigt ✅");
+    return;
+  }
+
+  // ✅ Neuer Termin, gleiche Begleitung
+  if (resume === "10") {
+    if (email) setForm((f) => ({ ...f, email }));
+    if (therapist) setForm((f) => ({ ...f, wunschtherapeut: therapist }));
+    setStep(10);
+    return;
+  }
+
+  // ✅ anderes Teammitglied wählen
+  if (resume === "5") {
+    if (email) setForm((f) => ({ ...f, email }));
+    setStep(5);
+    return;
+  }
+}, []);
   const [step, setStep] = useState(0);
   // URL Step Restore (Therapist Response Redirect)
 useEffect(() => {
