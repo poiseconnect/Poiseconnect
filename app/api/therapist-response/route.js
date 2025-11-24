@@ -29,11 +29,9 @@ export async function GET(request) {
 
     // ✅ neuer Termin, gleiche Begleitung
     if (action === "rebook_same") {
-      return redirect(
-        `https://poiseconnect.vercel.app/?resume=10&email=${encodeURIComponent(
-          client
-        )}&therapist=${encodeURIComponent(therapist)}`
-      );
+      return NextResponse.redirect(
+  `https://poiseconnect.vercel.app/?resume=10&email=${encodeURIComponent(client)}&therapist=${encodeURIComponent(name)}`
+);
     }
 
     // ✅ anderes Teammitglied wählen
