@@ -103,8 +103,8 @@ useEffect(() => {
   const url = new URL(window.location.href);
   const resume = url.searchParams.get("resume");
   const email = url.searchParams.get("email");
-  const therapist = url.searchParams.get("therapist");
-
+const therapist = url.searchParams.get("name");
+  
   if (!resume) return;
 
   // ✅ Termin bestätigt
@@ -133,8 +133,8 @@ useEffect(() => {
 useEffect(() => {
   const params = new URLSearchParams(window.location.search);
   const s = params.get("step");
-  const therapist = params.get("therapist");
-
+const therapist = params.get("name");
+  
   if (s === "10" && therapist) {
     setForm((f) => ({ ...f, wunschtherapeut: therapist }));
     setStep(10);
