@@ -164,6 +164,25 @@ useEffect(() => {
     terminISO: "",
     terminDisplay: "",
   });
+// ✅ Resume nach Redirect (Therapeut bestätigt / neuer Termin)
+useEffect(() => {
+  if (typeof window === "undefined") return;
+
+  const params = new URLSearchParams(window.location.search);
+  const resume = params.get("resume");
+  const therapist = params.get("therapist");
+
+  // ✅ Wenn gleicher Therapeut neu buchen
+  if (resume === "10" && therapist) {
+    setForm(f => ({ ...f, wunschtherapeut: therapist }));
+    setStep(10); // direkt zur Terminwahl
+  }
+
+  // ✅ Wenn anderer Therapeut gewählt
+  if (resume === "5") {
+    setStep(5); // Teamwahl
+  }
+}, []); 
 
 const sortedTeam = useMemo(() => {
   if (!form.anliegen) return teamData || [];
