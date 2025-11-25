@@ -1,48 +1,89 @@
+// app/api/therapist-response/route.js
 export const dynamic = "force-dynamic";
+
+import { NextResponse } from "next/server";
+import { createClient } from "@supabase/supabase-js";
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+const supabase =
+  supabaseUrl && serviceKey
+    ? createClient(supabaseUrl, serviceKey)
+    : null;
+
+// Basis-URL deiner App (Vercel-Deployment)
+const FRONTEND_BASE = "https://poiseconnect.vercel.app";
 
 export async function GET(request) {
   try {
-    const { searchParams } = new URL(request.url);
+    const url = new URL(request.url);
+    const searchParams = url.searchParams;
 
-    const action = searchParams.get("action");
-    const client = searchParams.get("client");
-    const therapist =
-      searchParams.get("therapist") ||
-      searchParams.get("name") ||
-      "";
+    const action = searchParams.get("action") || "";
+    const client = searchParams.get("client") || "";
+    const therapist = searchParams.get("therapist") || "";
+    const terminIso = searchParams.get("termin") || "";
 
-    console.log("Therapist response:", action, client, therapist);
+    console.log("Therapist response:", action, client, therapist, terminIso);
 
-    // ✅ Termin bestätigen
+    // --- A) Termin bestätigen: in Supabase eintragen ---
     if (action === "confirm") {
-      return Response.redirect(
-        `https://poiseconnect.vercel.app/?resume=confirmed&email=${encodeURIComponent(client)}`,
-        302
-      );
+      if (supabase && client && therapist && terminIso) {
+        const { error } = await supabase
+          .from("confirmed_appointments")
+          .insert({
+            therapist,
+            client_email: client,
+            termin_iso: terminIso,
+          });
+
+        if (error) {
+          console.error("Supabase insert error:", error);
+        }
+      } else {
+        console.warn(
+          "Supabase oder Daten fehlen bei confirm",
+          !!supabase,
+          client,
+          therapist,
+          terminIso
+        );
+      }
+
+      const target = `${FRONTEND_BASE}/?resume=confirmed&email=${encodeURIComponent(
+        client
+      )}`;
+      return NextResponse.redirect(target);
     }
 
-    // ✅ neuer Termin, gleiche Begleitung
+    // --- B) Neuer Termin, gleiche Begleitung ---
     if (action === "rebook_same") {
-      return Response.redirect(
-        `https://poiseconnect.vercel.app/?resume=10&email=${encodeURIComponent(client)}&therapist=${encodeURIComponent(therapist)}`,
-        302
-      );
+      const target =
+        `${FRONTEND_BASE}/?resume=10` +
+        `&email=${encodeURIComponent(client)}` +
+        `&therapist=${encodeURIComponent(therapist)}`;
+      return NextResponse.redirect(target);
     }
 
-    // ✅ anderes Teammitglied wählen
+    // --- C) Anderes Teammitglied wählen ---
     if (action === "rebook_other") {
-      return Response.redirect(
-        `https://poiseconnect.vercel.app/?resume=5&email=${encodeURIComponent(client)}`,
-        302
-      );
+      const target =
+        `${FRONTEND_BASE}/?resume=5` +
+        `&email=${encodeURIComponent(client)}`;
+      return NextResponse.redirect(target);
     }
 
-    return new Response(JSON.stringify({ ok: false, error: "UNKNOWN_ACTION" }), {
-      status: 400,
-      headers: { "Content-Type": "application/json" },
-    });
+    // Fallback: unbekannte Aktion
+    return NextResponse.json(
+      { ok: false, error: "UNKNOWN_ACTION", action },
+      { status: 400 }
+    );
   } catch (err) {
     console.error("THERAPIST RESPONSE ERROR:", err);
-    return new Response("SERVER_ERROR", { status: 500 });
+    return NextResponse.json(
+      { ok: false, error: "SERVER_ERROR", detail: String(err) },
+      { status: 500 }
+    );
   }
 }
