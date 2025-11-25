@@ -1,3 +1,4 @@
+// app/api/form-submit/route.js
 export const dynamic = "force-dynamic";
 
 import { Resend } from "resend";
@@ -29,60 +30,51 @@ export async function POST(request) {
       beschaeftigungsgrad,
       wunschtherapeut,
       terminDisplay,
+      terminISO, // wichtig!
     } = data;
 
     const therapistEmail = getTherapistEmail(wunschtherapeut);
 
-    // ✅ Links für Auswahl durch Teammitglied
-    const base = "https://poiseconnect.vercel.app/api/therapist-response";
-
-const confirmLink = `${base}?action=confirm&client=${encodeURIComponent(email)}&name=${encodeURIComponent(vorname)}&time=${encodeURIComponent(data.terminISO)}`;
-
-const rebookSameLink = `${base}?action=rebook_same&client=${encodeURIComponent(email)}&name=${encodeURIComponent(
-  vorname
-)}&therapist=${encodeURIComponent(wunschtherapeut || "")}`;
-
-const rebookOtherLink = `${base}?action=rebook_other&client=${encodeURIComponent(email)}&name=${encodeURIComponent(vorname)}`;
-
-    // ✅ Empfänger: Poise + gewählte Begleitung
+    // Empfänger-Liste: Poise + gewählte Begleitung (falls gefunden)
     const recipients = ["hallo@mypoise.de"];
     if (therapistEmail && !recipients.includes(therapistEmail)) {
       recipients.push(therapistEmail);
     }
 
-    const subject = `Neue Anfrage — ${vorname} ${nachname}`;
+    const fullName = [vorname, nachname].filter(Boolean).join(" ");
 
-    // ✅ Mail an Teammitglied + Poise
-    const { error } = await resend.emails.send({
-      from: "hallo@mypoise.de",
-      to: recipients,
-      subject,
-      text: `
+    // Basis-URL auf deine API (Therapist-Response)
+    const base = "https://poiseconnect.vercel.app/api/therapist-response";
+
+    // Links für die Therapeut:innen
+    const confirmLink =
+      `${base}?action=confirm` +
+      `&client=${encodeURIComponent(email || "")}` +
+      `&therapist=${encodeURIComponent(wunschtherapeut || "")}` +
+      `&termin=${encodeURIComponent(terminISO || "")}`;
+
+    const rebookSameLink =
+      `${base}?action=rebook_same` +
+      `&client=${encodeURIComponent(email || "")}` +
+      `&therapist=${encodeURIComponent(wunschtherapeut || "")}`;
+
+    const rebookOtherLink =
+      `${base}?action=rebook_other` +
+      `&client=${encodeURIComponent(email || "")}`;
+
+    const subject = `Neue Anfrage — ${fullName || "Unbekannt"}`;
+
+    const textTeam = `
 Neue Anfrage über mypoise.de
 
-Name: ${vorname} ${nachname}
-E-Mail: ${email}
+Name: ${fullName}
+E-Mail: ${email || ""}
 Telefon: ${telefon || ""}
 Adresse: ${adresse || ""}
 Geburtsdatum: ${geburtsdatum || ""}
 Beschäftigung: ${beschaeftigungsgrad || ""}
 
 Wunsch-Begleitung: ${wunschtherapeut || ""}
-
----
-
-👉 Bitte wähle aus:
-
-✅ Termin bestätigen
-${confirmLink}
-
-🔁 Neuer Termin mit mir wählen
-${rebookSameLink}
-
-🔄 An anderes Teammitglied übergeben
-${rebookOtherLink}
-
----
 
 Anliegen:
 ${anliegen || ""}
@@ -95,22 +87,37 @@ ${ziel || ""}
 
 Gewählter Termin:
 ${terminDisplay || ""}
-      `.trim(),
+
+────────────────────────
+Aktion für dich:
+
+✓ Termin bestätigen:
+${confirmLink}
+
+⟳ Anderen Termin MIT dir finden:
+${rebookSameLink}
+
+⇄ Anderes Teammitglied vorschlagen:
+${rebookOtherLink}
+    `.trim();
+
+    // ✅ Mail an Team + Therapeut
+    const { error } = await resend.emails.send({
+      from: "hallo@mypoise.de",
+      to: recipients,
+      subject,
+      text: textTeam,
     });
 
     if (error) {
-      console.error("Resend error:", error);
+      console.error("Resend error (Team):", error);
       return new Response("EMAIL_ERROR", { status: 500 });
     }
 
     // ✅ Bestätigungsmail an Klient
     if (email) {
-      await resend.emails.send({
-        from: "hallo@mypoise.de",
-        to: email,
-        subject: "Danke für deine Anfrage 🤍",
-        text: `
-Hallo ${vorname},
+      const textClient = `
+Hallo ${vorname || ""},
 
 vielen Dank für deine Anfrage bei Poise.
 
@@ -121,12 +128,17 @@ ${terminDisplay || "wird noch abgestimmt"}
 
 Liebe Grüße  
 Poise Team
-        `.trim(),
+      `.trim();
+
+      await resend.emails.send({
+        from: "hallo@mypoise.de",
+        to: email,
+        subject: "Danke für deine Anfrage 🤍",
+        text: textClient,
       });
     }
 
     return new Response("OK", { status: 200 });
-
   } catch (err) {
     console.error("SERVER ERROR:", err);
     return new Response("SERVER_ERROR", { status: 500 });
