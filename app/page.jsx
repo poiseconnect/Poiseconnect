@@ -5,6 +5,7 @@ import Image from "next/image";
 import StepIndicator from "./components/StepIndicator";
 import TeamCarousel from "./components/TeamCarousel";
 import { teamData } from "./teamData";
+import { supabase } from "./lib/supabase";
 
 const getTherapistInfo = (name) => {
   return teamData.find((t) => t.name === name) || {};
@@ -222,20 +223,54 @@ const sortedTeam = useMemo(() => {
   const [slotsError, setSlotsError] = useState("");
 
   useEffect(() => {
-    if (step !== 10) return;
-    (async () => {
-      setLoadingSlots(true);
-      setSlotsError("");
-      try {
-        const ics = ICS_BY_MEMBER[form.wunschtherapeut];
-        if (!ics) return setSlotsError("Kein Kalender hinterlegt.");
-        setSlots(await loadIcsSlots(ics));
-      } catch {
-        setSlotsError("Kalender konnte nicht geladen werden.");
+  if (step !== 10) return;
+
+  (async () => {
+    setLoadingSlots(true);
+    setSlotsError("");
+
+    try {
+      const ics = ICS_BY_MEMBER[form.wunschtherapeut];
+      if (!ics) {
+        setSlots([]);
+        setSlotsError("Kein Kalender hinterlegt.");
+        return;
       }
+
+      // 1) Alle Slots aus ICS holen
+      const allSlots = await loadIcsSlots(ics);
+
+      // 2) Bestätigte Termine aus Supabase laden
+      let freeSlots = allSlots;
+
+      try {
+        const { data: rows, error } = await supabase
+          .from("confirmed_appointments")
+          .select("termin_iso")
+          .eq("therapist", form.wunschtherapeut);
+
+        if (error) {
+          console.error("Supabase load error:", error);
+        } else if (rows && rows.length > 0) {
+          const bookedSet = new Set(rows.map((r) => r.termin_iso));
+          freeSlots = allSlots.filter(
+            (s) => !bookedSet.has(s.start.toISOString())
+          );
+        }
+      } catch (e) {
+        console.error("Supabase client error:", e);
+      }
+
+      setSlots(freeSlots);
+    } catch (e) {
+      console.error("Kalender Fehler:", e);
+      setSlots([]);
+      setSlotsError("Kalender konnte nicht geladen werden.");
+    } finally {
       setLoadingSlots(false);
-    })();
-  }, [step, form.wunschtherapeut]);
+    }
+  })();
+}, [step, form.wunschtherapeut]);
   // Resume Flow via URL (?resume=10&email=...&therapist=Ann)
 useEffect(() => {
   if (typeof window === "undefined") return;
