@@ -222,6 +222,63 @@ const sortedTeam = useMemo(() => {
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [slotsError, setSlotsError] = useState("");
 
+  // ✅ Resume nach Redirect (Therapeut bestätigt / neuer Termin)
+useEffect(() => {
+  if (typeof window === "undefined") return;
+
+  const params = new URLSearchParams(window.location.search);
+  const resume = params.get("resume");
+  const therapist = params.get("therapist");
+
+  // ✅ Wenn gleicher Therapeut neu buchen
+  if (resume === "10" && therapist) {
+    setForm(f => ({ ...f, wunschtherapeut: therapist }));
+    setStep(10); // direkt zur Terminwahl
+  }
+
+  // ✅ Wenn anderer Therapeut gewählt
+  if (resume === "5") {
+    setStep(5); // Teamwahl
+  }
+}, []); 
+
+const sortedTeam = useMemo(() => {
+  if (!form.anliegen) return teamData || [];
+
+  const words = form.anliegen
+    .toLowerCase()
+    .split(/[\s,.;!?]+/)
+    .filter(Boolean);
+
+  return [...teamData].sort((a, b) => {
+    const score = (member) =>
+      member.tags?.reduce((sum, tag) => {
+        tag = tag.toLowerCase();
+        const matches = words.some((w) => tag.includes(w));
+        if (!matches) return sum;
+
+        const weight = TAG_WEIGHTS[tag] ?? 1;
+        return sum + weight;
+      }, 0) || 0;
+
+    return score(b) - score(a);
+  });
+}, [form.anliegen]);
+
+  const isAdult = (d) => {
+    const birth = new Date(d);
+    const age = today.getFullYear() - birth.getFullYear();
+    const m = today.getMonth() - birth.getMonth();
+    return age > 18 || (age === 18 && m >= 0);
+  };
+
+  const next = () => setStep((s) => s + 1);
+  const back = () => setStep((s) => s - 1);
+
+  const [slots, setSlots] = useState([]);
+  const [loadingSlots, setLoadingSlots] = useState(false);
+  const [slotsError, setSlotsError] = useState("");
+
   useEffect(() => {
   if (step !== 10) return;
   // ✅ Bestätigte Termine (confirmed_appointments) laden
@@ -256,6 +313,52 @@ const sortedTeam = useMemo(() => {
       }
     })();
   }, [step, form.wunschtherapeut]);
+  (async () => {
+    setLoadingSlots(true);
+    setSlotsError("");
+
+    try {
+      const ics = ICS_BY_MEMBER[form.wunschtherapeut];
+      if (!ics) {
+        setSlots([]);
+        setSlotsError("Kein Kalender hinterlegt.");
+        return;
+      }
+
+      // 1) Alle Slots aus ICS holen
+      const allSlots = await loadIcsSlots(ics);
+
+      // 2) Bestätigte Termine aus Supabase laden
+      let freeSlots = allSlots;
+
+      try {
+        const { data: rows, error } = await supabase
+          .from("confirmed_appointments")
+          .select("termin_iso")
+          .eq("therapist", form.wunschtherapeut);
+
+        if (error) {
+          console.error("Supabase load error:", error);
+        } else if (rows && rows.length > 0) {
+          const bookedSet = new Set(rows.map((r) => r.termin_iso));
+          freeSlots = allSlots.filter(
+            (s) => !bookedSet.has(s.start.toISOString())
+          );
+        }
+      } catch (e) {
+        console.error("Supabase client error:", e);
+      }
+
+      setSlots(freeSlots);
+    } catch (e) {
+      console.error("Kalender Fehler:", e);
+      setSlots([]);
+      setSlotsError("Kalender konnte nicht geladen werden.");
+    } finally {
+      setLoadingSlots(false);
+    }
+  })();
+}, [step, form.wunschtherapeut]);
   (async () => {
     setLoadingSlots(true);
     setSlotsError("");
