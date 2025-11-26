@@ -224,7 +224,38 @@ const sortedTeam = useMemo(() => {
 
   useEffect(() => {
   if (step !== 10) return;
+  // ✅ Bestätigte Termine (confirmed_appointments) laden
+  useEffect(() => {
+    if (step !== 10 || !form.wunschtherapeut) return;
 
+    (async () => {
+      try {
+        const { data, error } = await supabase
+          .from("confirmed_appointments")
+          .select("termin_iso")
+          .eq("therapist", form.wunschtherapeut);
+
+        if (error) {
+          console.error("Supabase error (confirmed_appointments):", error);
+          return;
+        }
+
+        if (data) {
+          const list = data
+            .map((row) => {
+              const d = new Date(row.termin_iso);
+              if (isNaN(d.getTime())) return null;
+              return d.toISOString();
+            })
+            .filter(Boolean);
+
+          setBookedIso(list);
+        }
+      } catch (e) {
+        console.error("Supabase fetch failed:", e);
+      }
+    })();
+  }, [step, form.wunschtherapeut]);
   (async () => {
     setLoadingSlots(true);
     setSlotsError("");
@@ -332,14 +363,21 @@ useEffect(() => {
 }, []);
 
   const grouped = useMemo(() => {
-    const map = new Map();
-    for (const s of slots) {
-      const key = s.start.toDateString();
-      if (!map.has(key)) map.set(key, []);
-      map.get(key).push(s);
-    }
-    return Array.from(map.entries());
-  }, [slots]);
+  const map = new Map();
+
+  for (const s of slots) {
+    const iso = s.start.toISOString();
+
+    // ❌ Blockierte / bestätigte Termine überspringen
+    if (bookedIso.includes(iso)) continue;
+
+    const key = s.start.toDateString();
+    if (!map.has(key)) map.set(key, []);
+    map.get(key).push(s);
+  }
+
+  return Array.from(map.entries());
+}, [slots, bookedIso]);
 
   
 const send = async () => {
