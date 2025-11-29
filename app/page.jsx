@@ -279,132 +279,71 @@ const sortedTeam = useMemo(() => {
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [slotsError, setSlotsError] = useState("");
 
-  useEffect(() => {
-  if (step !== 10) return;
-  // ✅ Bestätigte Termine (confirmed_appointments) laden
-  useEffect(() => {
-    if (step !== 10 || !form.wunschtherapeut) return;
+// -------------------------
+// STEP 10 – Slots laden
+// -------------------------
+useEffect(() => {
+  if (step !== 10 || !form.wunschtherapeut) return;
 
-    (async () => {
-      try {
-        const { data, error } = await supabase
-          .from("confirmed_appointments")
-          .select("termin_iso")
-          .eq("therapist", form.wunschtherapeut);
+  let isMounted = true;
+  const therapist = form.wunschtherapeut;
 
-        if (error) {
-          console.error("Supabase error (confirmed_appointments):", error);
-          return;
-        }
-
-        if (data) {
-          const list = data
-            .map((row) => {
-              const d = new Date(row.termin_iso);
-              if (isNaN(d.getTime())) return null;
-              return d.toISOString();
-            })
-            .filter(Boolean);
-
-          setBookedIso(list);
-        }
-      } catch (e) {
-        console.error("Supabase fetch failed:", e);
-      }
-    })();
-  }, [step, form.wunschtherapeut]);
-  (async () => {
+  async function loadData() {
     setLoadingSlots(true);
     setSlotsError("");
 
     try {
-      const ics = ICS_BY_MEMBER[form.wunschtherapeut];
+      //
+      // 1) ICS laden
+      //
+      const ics = ICS_BY_MEMBER[therapist];
       if (!ics) {
-        setSlots([]);
-        setSlotsError("Kein Kalender hinterlegt.");
+        if (isMounted) {
+          setSlots([]);
+          setSlotsError("Kein Kalender hinterlegt.");
+          setLoadingSlots(false);
+        }
         return;
       }
 
-      // 1) Alle Slots aus ICS holen
       const allSlots = await loadIcsSlots(ics);
 
+      //
       // 2) Bestätigte Termine aus Supabase laden
+      //
+      const { data: rows, error } = await supabase
+        .from("confirmed_appointments")
+        .select("termin_iso")
+        .eq("therapist", therapist);
+
+      if (error) console.error("Supabase load error:", error);
+
       let freeSlots = allSlots;
 
-      try {
-        const { data: rows, error } = await supabase
-          .from("confirmed_appointments")
-          .select("termin_iso")
-          .eq("therapist", form.wunschtherapeut);
-
-        if (error) {
-          console.error("Supabase load error:", error);
-        } else if (rows && rows.length > 0) {
-          const bookedSet = new Set(rows.map((r) => r.termin_iso));
-          freeSlots = allSlots.filter(
-            (s) => !bookedSet.has(s.start.toISOString())
-          );
-        }
-      } catch (e) {
-        console.error("Supabase client error:", e);
+      if (rows && rows.length > 0) {
+        const bookedSet = new Set(rows.map((r) => r.termin_iso));
+        freeSlots = allSlots.filter(
+          (s) => !bookedSet.has(s.start.toISOString())
+        );
       }
 
-      setSlots(freeSlots);
-    } catch (e) {
-      console.error("Kalender Fehler:", e);
-      setSlots([]);
-      setSlotsError("Kalender konnte nicht geladen werden.");
-    } finally {
-      setLoadingSlots(false);
+      //
+      // 3) State aktualisieren
+      //
+      if (isMounted) setSlots(freeSlots);
+
+    } catch (err) {
+      console.error("Slot-Load error:", err);
+      if (isMounted) setSlotsError("Kalender konnte nicht geladen werden.");
     }
-  })();
+
+    if (isMounted) setLoadingSlots(false);
+  }
+
+  loadData();
+  return () => { isMounted = false; };
 }, [step, form.wunschtherapeut]);
-  (async () => {
-    setLoadingSlots(true);
-    setSlotsError("");
 
-    try {
-      const ics = ICS_BY_MEMBER[form.wunschtherapeut];
-      if (!ics) {
-        setSlots([]);
-        setSlotsError("Kein Kalender hinterlegt.");
-        return;
-      }
-
-      // 1) Alle Slots aus ICS holen
-      const allSlots = await loadIcsSlots(ics);
-
-      // 2) Bestätigte Termine aus Supabase laden
-      let freeSlots = allSlots;
-
-      try {
-        const { data: rows, error } = await supabase
-          .from("confirmed_appointments")
-          .select("termin_iso")
-          .eq("therapist", form.wunschtherapeut);
-
-        if (error) {
-          console.error("Supabase load error:", error);
-        } else if (rows && rows.length > 0) {
-          const bookedSet = new Set(rows.map((r) => r.termin_iso));
-          freeSlots = allSlots.filter(
-            (s) => !bookedSet.has(s.start.toISOString())
-          );
-        }
-      } catch (e) {
-        console.error("Supabase client error:", e);
-      }
-
-      setSlots(freeSlots);
-    } catch (e) {
-      console.error("Kalender Fehler:", e);
-      setSlots([]);
-      setSlotsError("Kalender konnte nicht geladen werden.");
-    } finally {
-      setLoadingSlots(false);
-    }
-  })();
-}, [step, form.wunschtherapeut]);
   // Resume Flow via URL (?resume=10&email=...&therapist=Ann)
 useEffect(() => {
   if (typeof window === "undefined") return;
