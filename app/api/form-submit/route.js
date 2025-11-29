@@ -2,7 +2,7 @@ export const dynamic = "force-dynamic";
 
 import { Resend } from "resend";
 import { createClient } from "@supabase/supabase-js";
-import { teamData } from "../../../data/team.js";
+import { teamData } from "../../teamData";
 
 const resend = new Resend(process.env.RESEND_API_KEY ?? "");
 
