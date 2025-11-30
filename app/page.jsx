@@ -2,37 +2,30 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
+
 import StepIndicator from "./components/StepIndicator";
 import TeamCarousel from "./components/TeamCarousel";
 import { teamData } from "./teamData";
 import { supabase } from "./lib/supabase";
 
-// --- Helfer für Team-Infos ---
-const getTherapistInfo = (name) => {
-  return teamData.find((t) => t.name === name) || {};
-};
+// -------------------------------------
+// Konfiguration / Helfer
+// -------------------------------------
+
+const getTherapistInfo = (name) =>
+  teamData.find((t) => t.name === name) || {};
 
 // ---- RED-FLAGS ----
 const RED_FLAGS = [
-  "suizid",
-  "selbstmord",
-  "selbstverletzung",
-  "ritzen",
-  "magersucht",
-  "anorexie",
-  "bulim",
-  "erbrechen",
-  "binge",
-  "essstörung",
-  "essstoerung",
-  "borderline",
-  "svv",
+  "suizid", "selbstmord", "selbstverletzung", "ritzen",
+  "magersucht", "anorexie", "bulim", "erbrechen",
+  "binge", "essstörung", "essstoerung",
+  "borderline", "svv",
 ];
 
 const isRedFlag = (t) =>
   t && RED_FLAGS.some((x) => t.toLowerCase().includes(x));
 
-// Gewichtung für Matching
 const TAG_WEIGHTS = {
   trauma: 5,
   ptbs: 5,
@@ -59,13 +52,12 @@ const TAG_WEIGHTS = {
   studium: 0.5,
 };
 
-// ---- KALENDER LINKS ----
+// ---- Kalender (ICS) – aktuell nur Ann, später erweiterbar ----
 const ICS_BY_MEMBER = {
   Ann: "https://calendar.google.com/calendar/ical/75f62df4c63554a1436d49c3a381da84502728a0457c9c8b56d30e21fa5021c5%40group.calendar.google.com/public/basic.ics",
-  // weitere Teammitglieder später hier ergänzen
 };
 
-// ---- Datums-Helfer ----
+// ---- Formatierer ----
 const formatDate = (d) =>
   d.toLocaleDateString("de-AT", {
     weekday: "short",
@@ -74,12 +66,16 @@ const formatDate = (d) =>
   });
 
 const formatTime = (d) =>
-  d.toLocaleTimeString("de-AT", { hour: "2-digit", minute: "2-digit" });
+  d.toLocaleTimeString("de-AT", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 
 function parseICSDate(line) {
   const m = line.match(/DT(?:START|END)(?:;TZID=[^:]+)?:([0-9T]+)/i);
   if (!m) return null;
   const raw = m[1];
+
   return new Date(
     Number(raw.slice(0, 4)),
     Number(raw.slice(4, 6)) - 1,
@@ -89,13 +85,13 @@ function parseICSDate(line) {
   );
 }
 
-// ICS laden und in 30-Min-Slots schneiden
 async function loadIcsSlots(icsUrl, daysAhead = 21) {
   const res = await fetch(`/api/ics?url=${encodeURIComponent(icsUrl)}`);
   const text = await res.text();
 
   const now = new Date();
   const until = new Date(now.getTime() + daysAhead * 86400000);
+
   const events = text.split("BEGIN:VEVENT").slice(1);
   const slots = [];
 
@@ -108,15 +104,24 @@ async function loadIcsSlots(icsUrl, daysAhead = 21) {
     const end = parseICSDate(eLine);
     if (!start || !end || end <= now || start > until) continue;
 
-    for (let t = new Date(start); t < end; t = new Date(t.getTime() + 1800000)) {
-      const tEnd = new Date(t.getTime() + 1800000);
+    // 30-Minuten-Slots erzeugen
+    for (let t = new Date(start); t < end; t = new Date(t.getTime() + 30 * 60000)) {
+      const tEnd = new Date(t.getTime() + 30 * 60000);
       if (tEnd > end || tEnd <= now) continue;
-      slots.push({ start: new Date(t), key: t.toISOString() });
+
+      slots.push({
+        start: new Date(t),
+        key: t.toISOString(),
+      });
     }
   }
 
   return slots.sort((a, b) => a.start - b.start);
 }
+
+// -------------------------------------
+// Component
+// -------------------------------------
 
 export default function Home() {
   const [step, setStep] = useState(0);
@@ -149,43 +154,9 @@ export default function Home() {
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [slotsError, setSlotsError] = useState("");
 
-  // -------- Resume nach Redirect (Therapist-Response) ----------
-  // Links aus Mail:
-  // - gleicher Termin neu:  ?resume=10&email=...&therapist=Ann
-  // - anderes Team wählen: ?resume=5&email=...
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-
-    const params = new URLSearchParams(window.location.search);
-    const resume = params.get("resume");
-    if (!resume) return;
-
-    const emailParam = params.get("email") || "";
-    const therapistParam = params.get("therapist") || "";
-
-    // "confirmed" kommt nur auf mypoise.de vor – hier ignorieren wir das
-    const targetStep = parseInt(resume, 10);
-    if (Number.isNaN(targetStep)) {
-      return;
-    }
-
-    setForm((prev) => ({
-      ...prev,
-      email: emailParam || prev.email,
-      wunschtherapeut:
-        targetStep === 5 ? "" : therapistParam || prev.wunschtherapeut,
-      // alten Termin immer löschen
-      terminISO: "",
-      terminDisplay: "",
-    }));
-
-    setStep(targetStep);
-
-    // URL aufräumen, damit beim Reload nix springt
-    window.history.replaceState({}, "", window.location.pathname);
-  }, []);
-
-  // -------- Team-Matching ----------
+  // -------------------------------------
+  // Matching – Team-Sortierung nach Tags
+  // -------------------------------------
   const sortedTeam = useMemo(() => {
     if (!form.anliegen) return teamData || [];
 
@@ -200,7 +171,6 @@ export default function Home() {
           tag = tag.toLowerCase();
           const matches = words.some((w) => tag.includes(w));
           if (!matches) return sum;
-
           const weight = TAG_WEIGHTS[tag] ?? 1;
           return sum + weight;
         }, 0) || 0;
@@ -209,6 +179,7 @@ export default function Home() {
     });
   }, [form.anliegen]);
 
+  // Volljährigkeit
   const isAdult = (d) => {
     const birth = new Date(d);
     const age = today.getFullYear() - birth.getFullYear();
@@ -219,9 +190,54 @@ export default function Home() {
   const next = () => setStep((s) => s + 1);
   const back = () => setStep((s) => s - 1);
 
-  // -------------------------
-  // STEP 10 – Slots laden
-  // -------------------------
+  // -------------------------------------
+  // Resume-Flow (Therapist-Response Links)
+  // ?resume=confirmed&email=...&therapist=Ann
+  // ?resume=10&email=...&therapist=Ann
+  // ?resume=5&email=...
+  // -------------------------------------
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const params = new URLSearchParams(window.location.search);
+    const resume = params.get("resume");
+    if (!resume) return;
+
+    const emailParam = params.get("email") || "";
+    const therapistParam =
+      params.get("therapist") || params.get("name") || "";
+
+    // Termin vom Team bestätigt
+    if (resume === "confirmed") {
+      alert("Termin wurde bestätigt ✅");
+      window.history.replaceState({}, "", window.location.pathname);
+      return;
+    }
+
+    const targetStep = parseInt(resume, 10);
+    if (Number.isNaN(targetStep)) return;
+
+    setForm((prev) => ({
+      ...prev,
+      email: emailParam || prev.email,
+      // Bei "anderes Teammitglied" (5) Wunschtherapeut leeren, sonst ggf. setzen
+      wunschtherapeut:
+        targetStep === 5 ? "" : therapistParam || prev.wunschtherapeut,
+      // alten Termin zurücksetzen
+      terminISO: "",
+      terminDisplay: "",
+    }));
+
+    setStep(targetStep);
+
+    // Query-Parameter entfernen
+    window.history.replaceState({}, "", window.location.pathname);
+  }, []);
+
+  // -------------------------------------
+  // STEP 10 – ICS + Supabase (confirmed_appointments)
+  // -> Slots laden, bereits bestätigte Termine ausfiltern
+  // -------------------------------------
   useEffect(() => {
     if (step !== 10 || !form.wunschtherapeut) return;
 
@@ -246,32 +262,32 @@ export default function Home() {
 
         const allSlots = await loadIcsSlots(ics);
 
-        // 2) Bestätigte Termine aus Supabase laden
-        const { data: rows, error } = await supabase
-          .from("confirmed_appointments")
-          .select("termin_iso")
-          .eq("therapist", therapist);
-
-        if (error) {
-          console.error("Supabase load error:", error);
-        }
-
+        // 2) Bestätigte Termine aus Supabase
         let freeSlots = allSlots;
 
-        if (rows && rows.length > 0) {
-          const bookedSet = new Set(rows.map((r) => r.termin_iso));
-          freeSlots = allSlots.filter(
-            (s) => !bookedSet.has(s.start.toISOString())
-          );
+        try {
+          const { data: rows, error } = await supabase
+            .from("confirmed_appointments")
+            .select("termin_iso")
+            .eq("therapist", therapist);
+
+          if (error) {
+            console.error("Supabase load error:", error);
+          } else if (rows && rows.length > 0) {
+            const bookedSet = new Set(rows.map((r) => r.termin_iso));
+            freeSlots = allSlots.filter(
+              (s) => !bookedSet.has(s.start.toISOString())
+            );
+          }
+        } catch (e) {
+          console.error("Supabase client error:", e);
         }
 
-        // 3) State aktualisieren
-        if (isMounted) {
-          setSlots(freeSlots);
-        }
+        if (isMounted) setSlots(freeSlots);
       } catch (err) {
         console.error("Slot-Load error:", err);
-        if (isMounted) setSlotsError("Kalender konnte nicht geladen werden.");
+        if (isMounted)
+          setSlotsError("Kalender konnte nicht geladen werden.");
       }
 
       if (isMounted) setLoadingSlots(false);
@@ -283,8 +299,8 @@ export default function Home() {
     };
   }, [step, form.wunschtherapeut]);
 
-  // Slots nach Tag gruppieren
-  const grouped = useMemo(() => {
+  // Slots nach Tagen gruppieren
+  const groupedSlots = useMemo(() => {
     const map = new Map();
 
     for (const s of slots) {
@@ -296,7 +312,9 @@ export default function Home() {
     return Array.from(map.entries());
   }, [slots]);
 
-  // -------- Formular absenden --------
+  // -------------------------------------
+  // Formular absenden
+  // -------------------------------------
   const send = async () => {
     try {
       const res = await fetch("/api/form-submit", {
@@ -327,7 +345,10 @@ export default function Home() {
     }
   };
 
-  // ---------------- RENDERING ----------------
+  // -------------------------------------
+  // Render
+  // -------------------------------------
+
   return (
     <div className="form-wrapper">
       <div style={{ textAlign: "center", marginBottom: 24 }}>
@@ -379,10 +400,7 @@ export default function Home() {
           </select>
           <div className="footer-buttons">
             <button onClick={back}>Zurück</button>
-            <button
-              disabled={!form.leidensdruck}
-              onClick={next}
-            >
+            <button disabled={!form.leidensdruck} onClick={next}>
               Weiter
             </button>
           </div>
@@ -424,10 +442,7 @@ export default function Home() {
           </select>
           <div className="footer-buttons">
             <button onClick={back}>Zurück</button>
-            <button
-              disabled={!form.diagnose}
-              onClick={next}
-            >
+            <button disabled={!form.diagnose} onClick={next}>
               Weiter
             </button>
           </div>
@@ -440,9 +455,7 @@ export default function Home() {
           <h2>Was wünschst du dir?</h2>
           <textarea
             value={form.ziel}
-            onChange={(e) =>
-              setForm({ ...form, ziel: e.target.value })
-            }
+            onChange={(e) => setForm({ ...form, ziel: e.target.value })}
           />
           <div className="footer-buttons">
             <button onClick={back}>Zurück</button>
@@ -453,7 +466,7 @@ export default function Home() {
         </div>
       )}
 
-      {/* STEP 5 */}
+      {/* STEP 5 – Matching / Red-Flag */}
       {step === 5 && (
         <div className="step-container">
           {isRedFlag(form.anliegen) ? (
@@ -486,7 +499,7 @@ export default function Home() {
         </div>
       )}
 
-      {/* STEP 6 Kontaktdaten */}
+      {/* STEP 6 – Kontaktdaten */}
       {step === 6 && (
         <div className="step-container">
           <h2>Kontaktdaten</h2>
@@ -565,7 +578,7 @@ export default function Home() {
         </div>
       )}
 
-      {/* STEP 7 Beschäftigungsgrad */}
+      {/* STEP 7 – Beschäftigungsgrad */}
       {step === 7 && (
         <div className="step-container">
           <h2>Beschäftigungsgrad</h2>
@@ -596,7 +609,7 @@ export default function Home() {
         </div>
       )}
 
-      {/* STEP 8 Hinweise / Checkboxen */}
+      {/* STEP 8 – Hinweise / Datenschutz */}
       {step === 8 && (
         <div className="step-container">
           <h2>Wichtige Hinweise</h2>
@@ -627,7 +640,7 @@ export default function Home() {
                 })
               }
             />
-            Ich habe Kamera &amp; Mikrofon und sorge für ruhige
+            Ich habe Kamera & Mikrofon und sorge für ruhige
             Umgebung.
           </label>
 
@@ -642,8 +655,8 @@ export default function Home() {
                 })
               }
             />
-            Ich habe keine akuten Suizidgedanken / akute
-            Selbstgefährdung.
+            Ich habe keine akuten Suizidgedanken /
+            akute Selbstgefährdung.
           </label>
 
           <div className="footer-buttons">
@@ -662,95 +675,89 @@ export default function Home() {
         </div>
       )}
 
-      {/* STEP 9 Story Flow */}
-      {step === 9 &&
-        (() => {
-          const t = getTherapistInfo(form.wunschtherapeut);
+      {/* STEP 9 – Story / Infos zum Ablauf */}
+      {step === 9 && (() => {
+        const t = getTherapistInfo(form.wunschtherapeut);
 
-          const slides = [
-            {
-              title: "Schön, dass du da bist 🤍",
-              text: `Danke für dein Vertrauen.
+        const slides = [
+          {
+            title: "Schön, dass du da bist 🤍",
+            text: `Danke für dein Vertrauen.
 
-Du hast **${t.name || "deine Begleitung"}** ausgewählt — eine sehr gute Wahl.
+Du hast **${t.name}** ausgewählt — eine sehr gute Wahl.
 
 Wir führen dich jetzt ganz kurz durch den Ablauf,
 bevor du deinen Termin auswählst.`,
-            },
-            {
-              title: "Wie startet der Prozess?",
-              text: `Ihr beginnt mit einem **kostenlosen Erstgespräch (30 Min)** im Video-Call.
+          },
+          {
+            title: "Wie startet der Prozess?",
+            text: `Ihr beginnt mit einem **kostenlosen Erstgespräch (30 Min)** im Video-Call.
 
 Ihr lernt euch kennen, besprecht das Anliegen
 und klärt organisatorische Fragen.
 
 Danach entscheiden beide frei, ob ihr weiter zusammenarbeitet.`,
-            },
-            {
-              title: "Wie geht es danach weiter?",
-              text: `Wenn ihr weitermacht:
+          },
+          {
+            title: "Wie geht es danach weiter?",
+            text: `Wenn ihr weitermacht:
 
 • Sitzungen à **60 Minuten**
 • Online per Video-Call
 • Ca. 8–10 Sitzungen im Durchschnitt
 • Offenes Tempo & Anpassung jederzeit möglich`,
-            },
-            {
-              title: `Kosten bei ${t.name || "deiner Begleitung"}`,
-              text: `Standardtarif: **${t.preis_std ?? "?"}€ / 60 Min**
-Ermäßigt (Studierende / Azubi): **${t.preis_ermaessigt ?? "?"}€**
+          },
+          {
+            title: `Kosten bei ${t.name}`,
+            text: `Standardtarif: **${t.preis_std}€ / 60 Min**
+Ermäßigt (Studierende / Azubi): **${t.preis_ermaessigt}€**
 
 Unser Angebot richtet sich grundsätzlich an Selbstzahler.
 Eine Kostenübernahme kann möglich sein — individuell klären.`,
-            },
-          ];
+          },
+        ];
 
-          const isLast = subStep9 === slides.length - 1;
+        const isLast = subStep9 === slides.length - 1;
 
-          return (
-            <div className="step-container">
-              <h2>{slides[subStep9].title}</h2>
+        return (
+          <div className="step-container">
+            <h2>{slides[subStep9].title}</h2>
 
-              <p
-                style={{
-                  whiteSpace: "pre-line",
-                  lineHeight: 1.55,
-                }}
-              >
-                {slides[subStep9].text}
-              </p>
+            <p style={{ whiteSpace: "pre-line", lineHeight: 1.55 }}>
+              {slides[subStep9].text}
+            </p>
 
-              <div className="footer-buttons">
-                {subStep9 > 0 ? (
-                  <button
-                    onClick={() => setSubStep9(subStep9 - 1)}
-                  >
-                    Zurück
-                  </button>
-                ) : (
-                  <button onClick={back}>Zurück</button>
-                )}
+            <div className="footer-buttons">
+              {subStep9 > 0 ? (
+                <button
+                  onClick={() => setSubStep9((v) => v - 1)}
+                >
+                  Zurück
+                </button>
+              ) : (
+                <button onClick={back}>Zurück</button>
+              )}
 
-                {!isLast ? (
-                  <button
-                    onClick={() => setSubStep9(subStep9 + 1)}
-                  >
-                    Weiter
-                  </button>
-                ) : (
-                  <button
-                    onClick={() => {
-                      setSubStep9(0);
-                      next();
-                    }}
-                  >
-                    Weiter zur Terminwahl
-                  </button>
-                )}
-              </div>
+              {!isLast ? (
+                <button
+                  onClick={() => setSubStep9((v) => v + 1)}
+                >
+                  Weiter
+                </button>
+              ) : (
+                <button
+                  onClick={() => {
+                    setSubStep9(0);
+                    next();
+                  }}
+                >
+                  Weiter zur Terminwahl
+                </button>
+              )}
             </div>
-          );
-        })()}
+          </div>
+        );
+      })()}
 
       {/* STEP 10 – Terminwahl */}
       {step === 10 && (
@@ -761,14 +768,16 @@ Eine Kostenübernahme kann möglich sein — individuell klären.`,
           {slotsError && (
             <p style={{ color: "red" }}>{slotsError}</p>
           )}
-          {!loadingSlots && grouped.length === 0 && (
-            <p>Keine freien Termine verfügbar.</p>
-          )}
+          {!loadingSlots &&
+            !slotsError &&
+            groupedSlots.length === 0 && (
+              <p>Keine freien Termine verfügbar.</p>
+            )}
 
           {!loadingSlots &&
-            grouped.length > 0 &&
-            grouped.map(([dayKey, list]) => (
-              <div key={dayKey} style={{ marginBottom: 14 }}>
+            groupedSlots.length > 0 &&
+            groupedSlots.map(([day, list]) => (
+              <div key={day} style={{ marginBottom: 14 }}>
                 <strong>{formatDate(list[0].start)}</strong>
                 <div
                   style={{
@@ -794,11 +803,13 @@ Eine Kostenübernahme kann möglich sein — individuell klären.`,
                         padding: "6px 10px",
                         borderRadius: 10,
                         border:
-                          form.terminISO === s.start.toISOString()
+                          form.terminISO ===
+                          s.start.toISOString()
                             ? "2px solid #A27C77"
                             : "1px solid #ddd",
                         background:
-                          form.terminISO === s.start.toISOString()
+                          form.terminISO ===
+                          s.start.toISOString()
                             ? "#F3E9E7"
                             : "#fff",
                         cursor: "pointer",
@@ -817,10 +828,7 @@ Eine Kostenübernahme kann möglich sein — individuell klären.`,
             </p>
           )}
 
-          <div
-            className="footer-buttons"
-            style={{ marginTop: 16 }}
-          >
+          <div className="footer-buttons" style={{ marginTop: 16 }}>
             <button onClick={back}>Zurück</button>
             <button disabled={!form.terminISO} onClick={send}>
               Anfrage senden
