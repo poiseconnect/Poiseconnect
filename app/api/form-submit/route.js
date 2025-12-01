@@ -1,14 +1,15 @@
+export const dynamic = "force-dynamic";
+
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
-// ⚠️ Supabase NICHT global erstellen!
-// Immer in einer Funktion – sonst crasht der Build.
-function getSupabaseServer() {
+// Supabase-Client erst zur LAUFZEIT erzeugen
+function getSupabase() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_KEY; 
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
   if (!url || !key) {
-    console.error("❌ Supabase ENV fehlt:", {
+    console.error("❌ Missing Supabase ENV:", {
       hasUrl: !!url,
       hasKey: !!key,
     });
@@ -20,9 +21,9 @@ function getSupabaseServer() {
 
 export async function POST(req) {
   try {
-    const body = await req.json();
+    const data = await req.json();
 
-    const supabase = getSupabaseServer();
+    const supabase = getSupabase();
     if (!supabase) {
       return NextResponse.json(
         { error: "SUPABASE_NOT_CONFIGURED" },
@@ -30,12 +31,19 @@ export async function POST(req) {
       );
     }
 
-    // Beispiel: Insert der Anfrage
-    const { error } = await supabase.from("requests").insert(body);
+    // ⚠️ WICHTIG: Hier die richtige Tabelle eintragen!
+    const TABLE = "requests";
+
+    const { error } = await supabase
+      .from(TABLE)
+      .insert({ ...data });
 
     if (error) {
       console.error("DB ERROR:", error);
-      return NextResponse.json({ error: "DB_INSERT_FAILED" }, { status: 500 });
+      return NextResponse.json(
+        { error: "DB_INSERT_FAILED", detail: error.message },
+        { status: 500 }
+      );
     }
 
     return NextResponse.json({ ok: true });
