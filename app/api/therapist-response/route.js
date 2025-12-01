@@ -3,13 +3,16 @@ export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
-// 👇 Hilfsfunktion, damit der Build nicht crasht
-function getSupabaseServer() {
+/**
+ * Supabase Client erst zur Laufzeit erzeugen
+ * → verhindert Build-Fehler auf Vercel
+ */
+function getSupabase() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY; // <- GENAU SO heißt deine Variable
+  const key = process.env.SUPABASE_SERVICE_KEY;
 
   if (!url || !key) {
-    console.error("Supabase env fehlt:", {
+    console.error("❌ SUPABASE ENV FEHLT:", {
       hasUrl: !!url,
       hasKey: !!key,
     });
@@ -19,23 +22,25 @@ function getSupabaseServer() {
   return createClient(url, key);
 }
 
+// --------------------------------------------------------------------
+// API ENTRY
+// --------------------------------------------------------------------
 export async function GET(req) {
   try {
     const url = new URL(req.url);
-    const action = url.searchParams.get("action");
 
-    const client = url.searchParams.get("client");       // E-Mail der Klientin
-    const name = url.searchParams.get("name");           // Klientenname (optional)
-    const therapist = url.searchParams.get("therapist"); // z.B. "Ann"
-    const slot = url.searchParams.get("slot");           // ISO-String des Termins
+    const action = url.searchParams.get("action");       // confirm | rebook_same | rebook_other
+    const email = url.searchParams.get("client") || "";  // Klient-Mail
+    const therapist = url.searchParams.get("therapist"); // Name der Begleitung
+    const slot = url.searchParams.get("slot");           // Termin ISO
 
-    console.log("Therapist response:", { action, client, therapist, slot });
+    console.log("📨 Therapist Response:", { action, email, therapist, slot });
 
-    const supabase = getSupabaseServer();
+    const supabase = getSupabase(); // kann null sein
 
-    // ------------------------------
+    // --------------------------------------------------------------
     // 1️⃣ TERMIN BESTÄTIGEN
-    // ------------------------------
+    // --------------------------------------------------------------
     if (action === "confirm") {
       if (!therapist || !slot) {
         return NextResponse.json(
@@ -45,86 +50,61 @@ export async function GET(req) {
       }
 
       if (!supabase) {
-        // Env nicht gesetzt → 500, aber kein Build-Fehler
         return NextResponse.json(
           { error: "SUPABASE_NOT_CONFIGURED" },
           { status: 500 }
         );
       }
 
+      // In Supabase speichern (Tabelle: booked_appointments)
       const { error } = await supabase
-        .from("confirmed_appointments")
+        .from("booked_appointments")
         .insert({
           therapist,
-          client_email: client || null,
-          slot, // 👈 spaltenname in Supabase
+          termin_iso: slot,
         });
 
       if (error) {
-        console.error("Supabase INSERT ERROR:", error);
+        console.error("❌ DB INSERT ERROR:", error);
         return NextResponse.json(
           { error: "DB_INSERT_FAILED" },
           { status: 500 }
         );
       }
 
-      // ✅ Zurück zum Formular – Termin bestätigt
+      console.log("✅ Termin bestätigt und gespeichert");
+
+      // Danach wieder zurück zum Poise-Formular
       return NextResponse.redirect(
-        `https://mypoise.de/?resume=confirmed&email=${encodeURIComponent(
-          client || ""
-        )}`
+        `https://mypoise.de/?resume=confirmed&email=${encodeURIComponent(email)}`
       );
     }
 
-    // ------------------------------
-    // 2️⃣ NEUER TERMIN – GLEICHE BEGLEITUNG
-    //    → alter Termin wieder freigeben
-    // ------------------------------
+    // --------------------------------------------------------------
+    // 2️⃣ NEUER TERMIN – GLEICHER THERAPEUT
+    // --------------------------------------------------------------
     if (action === "rebook_same") {
-      if (supabase && therapist && slot) {
-        try {
-          await supabase
-            .from("confirmed_appointments")
-            .delete()
-            .eq("therapist", therapist)
-            .eq("slot", slot);
-        } catch (e) {
-          console.error("Supabase DELETE (rebook_same) failed:", e);
-        }
-      }
-
       return NextResponse.redirect(
-        `https://mypoise.de/?resume=10&email=${encodeURIComponent(
-          client || ""
-        )}&therapist=${encodeURIComponent(therapist || "")}`
+        `https://mypoise.de/?resume=10&email=${encodeURIComponent(email)}&therapist=${encodeURIComponent(therapist || "")}`
       );
     }
 
-    // ------------------------------
-    // 3️⃣ ANDERES TEAMMITGLIED – alter Termin wieder frei
-    // ------------------------------
+    // --------------------------------------------------------------
+    // 3️⃣ ANDERES TEAMMITGLIED WÄHLEN
+    // --------------------------------------------------------------
     if (action === "rebook_other") {
-      if (supabase && therapist && slot) {
-        try {
-          await supabase
-            .from("confirmed_appointments")
-            .delete()
-            .eq("therapist", therapist)
-            .eq("slot", slot);
-        } catch (e) {
-          console.error("Supabase DELETE (rebook_other) failed:", e);
-        }
-      }
-
       return NextResponse.redirect(
-        `https://mypoise.de/?resume=5&email=${encodeURIComponent(client || "")}`
+        `https://mypoise.de/?resume=5&email=${encodeURIComponent(email)}`
       );
     }
 
-    // Unbekannte Aktion
+    // --------------------------------------------------------------
+    // ❓ Unbekannte Aktion
+    // --------------------------------------------------------------
     return NextResponse.json({ error: "UNKNOWN_ACTION" }, { status: 400 });
+
   } catch (err) {
-    console.error("THERAPIST RESPONSE ERROR:", err);
+    console.error("❌ THERAPIST RESPONSE ERROR:", err);
     return NextResponse.json(
       { error: "SERVER_ERROR", detail: String(err) },
       { status: 500 }
