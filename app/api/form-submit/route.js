@@ -3,13 +3,12 @@ export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
-// Supabase-Client erst zur LAUFZEIT erzeugen
 function getSupabase() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
   if (!url || !key) {
-    console.error("❌ Missing Supabase ENV:", {
+    console.error("❌ SUPABASE ENV FEHLT:", {
       hasUrl: !!url,
       hasKey: !!key,
     });
@@ -21,7 +20,7 @@ function getSupabase() {
 
 export async function POST(req) {
   try {
-    const data = await req.json();
+    const body = await req.json(); // FIX für .json is not a function
 
     const supabase = getSupabase();
     if (!supabase) {
@@ -31,15 +30,28 @@ export async function POST(req) {
       );
     }
 
-    // ⚠️ WICHTIG: Hier die richtige Tabelle eintragen!
-    const TABLE = "requests";
-
-    const { error } = await supabase
-      .from(TABLE)
-      .insert({ ...data });
+    // 🟣 Schreiben in deine Tabelle "anfragen"
+    const { error } = await supabase.from("anfragen").insert({
+      vorname: body.vorname,
+      nachname: body.nachname,
+      email: body.email,
+      strasse_hausnr: body.adresse || "",
+      plz_ort: body.plz_ort || "",
+      geburtsdatum: body.geburtsdatum,
+      beschaeftigungsgrad: body.beschaeftigungsgrad,
+      leidensdruck: body.leidensdruck || "",
+      anliegen: body.anliegen,
+      verlauf: body.verlauf,
+      ziel: body.ziel,
+      wunschtherapeut: body.wunschtherapeut,
+      bevorzugte_zeit: body.terminDisplay || "",
+      check_suizid: body.check_gesundheit || false,
+      check_datenschutz: body.check_datenschutz || false,
+      check_online: body.check_online_setting || false,
+    });
 
     if (error) {
-      console.error("DB ERROR:", error);
+      console.error("❌ DB ERROR:", error);
       return NextResponse.json(
         { error: "DB_INSERT_FAILED", detail: error.message },
         { status: 500 }
@@ -48,7 +60,7 @@ export async function POST(req) {
 
     return NextResponse.json({ ok: true });
   } catch (err) {
-    console.error("SERVER ERROR:", err);
+    console.error("❌ SERVER ERROR:", err);
     return NextResponse.json(
       { error: "SERVER_ERROR", detail: String(err) },
       { status: 500 }
