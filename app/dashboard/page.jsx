@@ -8,7 +8,7 @@ export default function Dashboard() {
   const [requests, setRequests] = useState([]);
 
   // ---------------------------------------------------
-  // 1) Prüfen, ob Teammitglied eingeloggt ist
+  // 1) Magic-Link Login prüfen
   // ---------------------------------------------------
   useEffect(() => {
     async function loadUser() {
@@ -19,7 +19,7 @@ export default function Dashboard() {
   }, []);
 
   // ---------------------------------------------------
-  // 2) Anfragen laden ONLY für eigenen Login
+  // 2) Nur eigene Anfragen laden
   // ---------------------------------------------------
   useEffect(() => {
     if (!user?.email) return;
@@ -28,102 +28,85 @@ export default function Dashboard() {
       const { data, error } = await supabase
         .from("anfragen")
         .select("*")
-        .eq("wunschtherapeut", user.email) // Teammitglied sieht NUR eigene Anfragen
+        .eq("wunschtherapeut", user.email)
         .order("id", { ascending: false });
 
       if (!error) setRequests(data || []);
     }
-
     load();
   }, [user]);
 
   // ---------------------------------------------------
-  // 3) BUTTON: Termin bestätigen
+  // 3) TERMIN BESTÄTIGEN
   // ---------------------------------------------------
   async function confirmAppointment(req) {
-    const res = await fetch("/api/therapist-response?action=confirm", {
+    const res = await fetch("/api/confirm-appointment", {
       method: "POST",
       body: JSON.stringify({
+        requestId: req.id,
         therapist: user.email,
         client: req.email,
         slot: req.bevorzugte_zeit,
       }),
     });
 
-    if (!res.ok) {
-      alert("Fehler beim Bestätigen!");
-      return;
-    }
-
+    if (!res.ok) return alert("Fehler beim Bestätigen!");
     alert("Termin bestätigt 🤍");
     window.location.reload();
   }
 
   // ---------------------------------------------------
-  // 4) BUTTON: Anfrage absagen
+  // 4) ABSAGEN
   // ---------------------------------------------------
   async function decline(req) {
-    const res = await fetch("/api/decline", {
+    const res = await fetch("/api/reject-appointment", {
       method: "POST",
       body: JSON.stringify({
-        id: req.id,
-        email: req.email,
+        requestId: req.id,
         therapist: user.email,
+        client: req.email,
         vorname: req.vorname,
       }),
     });
 
-    if (!res.ok) {
-      alert("Fehler beim Absagen!");
-      return;
-    }
-
+    if (!res.ok) return alert("Fehler beim Absagen!");
     alert("Klient wurde informiert (Absage).");
     window.location.reload();
   }
 
   // ---------------------------------------------------
-  // 5) BUTTON: Neuen Termin auswählen (Schritt 5 → resume=10)
+  // 5) NEUER TERMIN
   // ---------------------------------------------------
   async function newAppointment(req) {
     const res = await fetch("/api/new-appointment", {
       method: "POST",
       body: JSON.stringify({
-        id: req.id,
-        email: req.email,
+        requestId: req.id,
+        client: req.email,
         therapist: user.email,
-        vorname: req.vorname,
       }),
     });
 
-    if (!res.ok) {
-      alert("Fehler beim Senden!");
-      return;
-    }
-
+    if (!res.ok) return alert("Fehler beim Senden!");
     alert("Klient wählt neuen Termin aus.");
     window.location.reload();
   }
 
   // ---------------------------------------------------
-  // 6) BUTTON: Anders Teammitglied (resume=5)
+  // 6) ANDERES TEAMMITGLIED
   // ---------------------------------------------------
   async function reassign(req) {
-    const res = await fetch("/api/reassign", {
+    const res = await fetch("/api/forward-request", {
       method: "POST",
       body: JSON.stringify({
-        id: req.id,
-        email: req.email,
+        requestId: req.id,
+        client: req.email,
         vorname: req.vorname,
       }),
     });
 
-    if (!res.ok) {
-      alert("Fehler beim Weiterleiten!");
-      return;
-    }
-
-    alert("Klient wählt jetzt ein anderes Teammitglied.");
+    if (!res.ok) return alert("Fehler beim Weiterleiten!");
+    alert("Anfrage wurde weitergeleitet.");
     window.location.reload();
   }
 
@@ -142,84 +125,6 @@ export default function Dashboard() {
 
       <h2>Deine Anfragen</h2>
 
-      {requests.length === 0 && (
-        <p>Noch keine Anfragen.</p>
-      )}
+      {requests.length === 0 && <p>Noch keine Anfragen.</p>}
 
-      {requests.map((r) => (
-        <div
-          key={r.id}
-          style={{
-            padding: 16,
-            border: "1px solid #ddd",
-            borderRadius: 10,
-            marginBottom: 16,
-          }}
-        >
-          <h3>
-            {r.vorname} {r.nachname}
-          </h3>
-          <p><strong>Email:</strong> {r.email}</p>
-          <p><strong>Anliegen:</strong> {r.anliegen}</p>
-          <p><strong>Bevorzugte Zeit:</strong> {r.bevorzugte_zeit || "Noch kein Termin gewählt"}</p>
-
-          <div style={{ marginTop: 12, display: "flex", gap: 8, flexWrap: "wrap" }}>
-
-            {/* BUTTON 1: Termin bestätigen */}
-            <button
-              onClick={() => confirmAppointment(r)}
-              style={{
-                padding: "6px 12px",
-                borderRadius: 8,
-                background: "#D4F8D4",
-                border: "1px solid #8BC48B",
-              }}
-            >
-              ✔ Termin bestätigen
-            </button>
-
-            {/* BUTTON 2: Absagen */}
-            <button
-              onClick={() => decline(r)}
-              style={{
-                padding: "6px 12px",
-                borderRadius: 8,
-                background: "#FFDADA",
-                border: "1px solid #E88",
-              }}
-            >
-              ✖ Absagen
-            </button>
-
-            {/* BUTTON 3: Neuer Termin (Resume=10) */}
-            <button
-              onClick={() => newAppointment(r)}
-              style={{
-                padding: "6px 12px",
-                borderRadius: 8,
-                background: "#E8E8FF",
-                border: "1px solid #9990ff",
-              }}
-            >
-              🔁 Neuen Termin
-            </button>
-
-            {/* BUTTON 4: anderes Teammitglied (Resume=5) */}
-            <button
-              onClick={() => reassign(r)}
-              style={{
-                padding: "6px 12px",
-                borderRadius: 8,
-                background: "#FFF1D6",
-                border: "1px solid #E0B96F",
-              }}
-            >
-              👥 anderes Teammitglied
-            </button>
-
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
+      {requests.map((
