@@ -3,13 +3,12 @@ export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
-/**
- * Supabase Client erst zur Laufzeit erzeugen
- * → verhindert Build-Fehler auf Vercel
- */
+// ----------------------------
+// SUPABASE SERVER CLIENT
+// ----------------------------
 function getSupabase() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_KEY;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
   if (!url || !key) {
     console.error("❌ SUPABASE ENV FEHLT:", {
@@ -22,29 +21,56 @@ function getSupabase() {
   return createClient(url, key);
 }
 
-// --------------------------------------------------------------------
-// API ENTRY
-// --------------------------------------------------------------------
+// ----------------------------
+// RESEND EMAIL CLIENT
+// ----------------------------
+async function sendEmail(to, subject, text) {
+  try {
+    await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        from: "Poise <kontakt@mypoise.de>",
+        to: [to],
+        subject,
+        text,
+      }),
+    });
+  } catch (err) {
+    console.error("❌ EMAIL FEHLER:", err);
+  }
+}
+
+// ----------------------------
+// API ROUTE
+// ----------------------------
 export async function GET(req) {
   try {
     const url = new URL(req.url);
 
-    const action = url.searchParams.get("action");       // confirm | rebook_same | rebook_other
-    const email = url.searchParams.get("client") || "";  // Klient-Mail
-    const therapist = url.searchParams.get("therapist"); // Name der Begleitung
-    const slot = url.searchParams.get("slot");           // Termin ISO
+    const action = url.searchParams.get("action");
+    const therapist = url.searchParams.get("therapist");
+    const client = url.searchParams.get("client");
+    const slot = url.searchParams.get("slot");
 
-    console.log("📨 Therapist Response:", { action, email, therapist, slot });
+    console.log("Therapist response:", { action, therapist, client, slot });
 
-    const supabase = getSupabase(); // kann null sein
+    if (!action) {
+      return NextResponse.json({ error: "Missing action" }, { status: 400 });
+    }
 
-    // --------------------------------------------------------------
+    const supabase = getSupabase();
+
+    // ----------------------------------
     // 1️⃣ TERMIN BESTÄTIGEN
-    // --------------------------------------------------------------
+    // ----------------------------------
     if (action === "confirm") {
-      if (!therapist || !slot) {
+      if (!therapist || !client || !slot) {
         return NextResponse.json(
-          { error: "Missing therapist or slot" },
+          { error: "Missing parameters" },
           { status: 400 }
         );
       }
@@ -56,13 +82,12 @@ export async function GET(req) {
         );
       }
 
-      // In Supabase speichern (Tabelle: booked_appointments)
-      const { error } = await supabase
-        .from("booked_appointments")
-        .insert({
-          therapist,
-          termin_iso: slot,
-        });
+      // ❗ In confirmed_appointments schreiben
+      const { error } = await supabase.from("confirmed_appointments").insert({
+        therapist,
+        client_email: client,
+        slot,
+      });
 
       if (error) {
         console.error("❌ DB INSERT ERROR:", error);
@@ -72,39 +97,72 @@ export async function GET(req) {
         );
       }
 
-      console.log("✅ Termin bestätigt und gespeichert");
+      // ----------------------------------
+      // 3️⃣ EMAIL AN KLIENT
+      // ----------------------------------
+      await sendEmail(
+        client,
+        "Dein Termin bei Poise wurde bestätigt 🤍",
+        `Hallo,
 
-      // Danach wieder zurück zum Poise-Formular
+dein Erstgespräch bei ${therapist} wurde soeben bestätigt.
+
+Termin:
+${slot}
+
+Wir freuen uns auf dich!
+Dein Poise Team`
+      );
+
+      // ----------------------------------
+      // 4️⃣ EMAIL AN DICH (ADMIN)
+      // ----------------------------------
+
+      const ADMIN_EMAIL = "sebastian@mypoise.de"; // ← Ändern falls nötig
+
+      await sendEmail(
+        ADMIN_EMAIL,
+        "Neue Terminbestätigung",
+        `Neuer bestätigter Termin:
+
+Therapeut: ${therapist}
+Klient: ${client}
+Slot: ${slot}`
+      );
+
+      // ----------------------------------
+      // Weiterleitung zurück zu mypoise.de
+      // ----------------------------------
       return NextResponse.redirect(
-        `https://mypoise.de/?resume=confirmed&email=${encodeURIComponent(email)}`
+        `https://mypoise.de/?resume=confirmed&email=${encodeURIComponent(
+          client
+        )}&therapist=${encodeURIComponent(therapist)}`
       );
     }
 
-    // --------------------------------------------------------------
-    // 2️⃣ NEUER TERMIN – GLEICHER THERAPEUT
-    // --------------------------------------------------------------
+    // ----------------------------------
+    // 2️⃣ NEUER TERMIN / gleicher Therapeut
+    // ----------------------------------
     if (action === "rebook_same") {
       return NextResponse.redirect(
-        `https://mypoise.de/?resume=10&email=${encodeURIComponent(email)}&therapist=${encodeURIComponent(therapist || "")}`
+        `https://mypoise.de/?resume=10&email=${encodeURIComponent(
+          client
+        )}&therapist=${encodeURIComponent(therapist)}`
       );
     }
 
-    // --------------------------------------------------------------
-    // 3️⃣ ANDERES TEAMMITGLIED WÄHLEN
-    // --------------------------------------------------------------
+    // ----------------------------------
+    // 3️⃣ anderes Teammitglied wählen
+    // ----------------------------------
     if (action === "rebook_other") {
       return NextResponse.redirect(
-        `https://mypoise.de/?resume=5&email=${encodeURIComponent(email)}`
+        `https://mypoise.de/?resume=5&email=${encodeURIComponent(client || "")}`
       );
     }
 
-    // --------------------------------------------------------------
-    // ❓ Unbekannte Aktion
-    // --------------------------------------------------------------
     return NextResponse.json({ error: "UNKNOWN_ACTION" }, { status: 400 });
-
   } catch (err) {
-    console.error("❌ THERAPIST RESPONSE ERROR:", err);
+    console.error("THERAPIST RESPONSE ERROR:", err);
     return NextResponse.json(
       { error: "SERVER_ERROR", detail: String(err) },
       { status: 500 }
