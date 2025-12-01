@@ -18,9 +18,9 @@ function getSupabase() {
   return createClient(url, key);
 }
 
-export async function POST(request) {
+export async function POST(req) {
   try {
-    const body = await request.json();
+    const body = await req.json();
 
     const supabase = getSupabase();
     if (!supabase) {
@@ -30,7 +30,6 @@ export async function POST(request) {
       );
     }
 
-    // --- INSERT in "anfragen"
     const { error } = await supabase.from("anfragen").insert({
       vorname: body.vorname,
       nachname: body.nachname,
@@ -47,7 +46,7 @@ export async function POST(request) {
       bevorzugte_zeit: body.terminDisplay || "",
       check_suizid: body.check_gesundheit || false,
       check_datenschutz: body.check_datenschutz || false,
-      check_online_setting: body.check_online_setting || false,
+      check_online_setting: body.check_online_setting || false // 🔥 WICHTIG
     });
 
     if (error) {
