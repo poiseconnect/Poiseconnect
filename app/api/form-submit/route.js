@@ -20,6 +20,7 @@ function getSupabase() {
 
 export async function POST(req) {
   try {
+    // Body korrekt parsen
     const body = await req.json();
 
     const supabase = getSupabase();
@@ -48,8 +49,8 @@ export async function POST(req) {
       check_suizid: body.check_gesundheit || false,
       check_datenschutz: body.check_datenschutz || false,
 
-      // FIX: richtige Spalte!
-      check_online: body.check_online_setting || false,
+      // ❗️ DER EINZIG RICHTIGE NAME
+      check_online_setting: body.check_online_setting || false,
     });
 
     if (error) {
