@@ -3,6 +3,7 @@ export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
+// 🔧 Supabase v2 kompatibel initialisieren
 function getSupabase() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -15,12 +16,17 @@ function getSupabase() {
     return null;
   }
 
-  return createClient(url, key);
+  return createClient(url, key, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+    },
+  });
 }
 
 export async function POST(req) {
   try {
-    const body = await req.json(); // FIX für .json is not a function
+    const body = await req.json();
 
     const supabase = getSupabase();
     if (!supabase) {
