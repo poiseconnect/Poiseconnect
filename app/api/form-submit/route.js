@@ -1,7 +1,16 @@
 export const dynamic = "force-dynamic";
 
-import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+
+// Sichere JSON-Antwort – NIE wieder .json Probleme
+function JSONResponse(data, status = 200) {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: {
+      "Content-Type": "application/json",
+    },
+  });
+}
 
 function getSupabase() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -20,15 +29,11 @@ function getSupabase() {
 
 export async function POST(req) {
   try {
-    // Body korrekt parsen
     const body = await req.json();
 
     const supabase = getSupabase();
     if (!supabase) {
-      return NextResponse.json(
-        { error: "SUPABASE_NOT_CONFIGURED" },
-        { status: 500 }
-      );
+      return JSONResponse({ error: "SUPABASE_NOT_CONFIGURED" }, 500);
     }
 
     const { error } = await supabase.from("anfragen").insert({
@@ -45,28 +50,25 @@ export async function POST(req) {
       ziel: body.ziel,
       wunschtherapeut: body.wunschtherapeut,
       bevorzugte_zeit: body.terminDisplay || "",
-
       check_suizid: body.check_gesundheit || false,
       check_datenschutz: body.check_datenschutz || false,
-
-      // ❗️ DER EINZIG RICHTIGE NAME
       check_online_setting: body.check_online_setting || false,
     });
 
     if (error) {
       console.error("❌ DB ERROR:", error);
-      return NextResponse.json(
+      return JSONResponse(
         { error: "DB_INSERT_FAILED", detail: error.message },
-        { status: 500 }
+        500
       );
     }
 
-    return NextResponse.json({ ok: true });
+    return JSONResponse({ ok: true });
   } catch (err) {
     console.error("❌ SERVER ERROR:", err);
-    return NextResponse.json(
+    return JSONResponse(
       { error: "SERVER_ERROR", detail: String(err) },
-      { status: 500 }
+      500
     );
   }
 }
