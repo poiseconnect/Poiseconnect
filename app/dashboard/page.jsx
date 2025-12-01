@@ -1,167 +1,199 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { supabase } from "../lib/supabase";
+import { supabase } from "../lib/supabaseClient";
 
-export default function Dashboard() {
+// ---------------------------------------------
+// 🔐 Dashboard: Teammitglied sieht NUR eigene Anfragen
+// ---------------------------------------------
+export default function DashboardPage() {
   const [user, setUser] = useState(null);
-  const [loadingUser, setLoadingUser] = useState(true);
-
   const [requests, setRequests] = useState([]);
-  const [loadingRequests, setLoadingRequests] = useState(true);
+  const [loading, setLoading] = useState(true);
 
-  // ---------------------------------------------------
-  // 1) USER LADEN (Magic Link Auth)
-  // ---------------------------------------------------
+  // ----------------------
+  // 1) Benutzer holen
+  // ----------------------
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      if (!data?.user) {
-        window.location.href = "/login"; // nicht eingeloggt → Login
-      } else {
-        setUser(data.user);
+    async function loadUser() {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) {
+        window.location.href = "/login";
+        return;
       }
-      setLoadingUser(false);
-    });
+
+      setUser(user);
+    }
+
+    loadUser();
   }, []);
 
-  // ---------------------------------------------------
-  // 2) ANFRAGEN LADEN (vom eingeloggten Teammitglied)
-  // ---------------------------------------------------
+  // ----------------------
+  // 2) Anfragen aus DB laden
+  // ----------------------
   useEffect(() => {
     if (!user) return;
 
     async function loadRequests() {
-      setLoadingRequests(true);
+      setLoading(true);
 
-      const res = await fetch("/api/team-requests", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: user.email }),
-      });
+      const { data, error } = await supabase
+        .from("anfragen")
+        .select("*")
+        .eq("wunschtherapeut", user.email) // Nur eigene Anfragen
+        .order("created_at", { ascending: false });
 
-      const json = await res.json();
-      setRequests(json.requests || []);
+      if (error) console.error("DB LOAD ERROR:", error);
 
-      setLoadingRequests(false);
+      setRequests(data || []);
+      setLoading(false);
     }
 
     loadRequests();
   }, [user]);
 
-  // ---------------------------------------------------
-  // UI
-  // ---------------------------------------------------
-  if (loadingUser) return <p>Wird geladen…</p>;
-  if (!user) return null;
+  // -------------------------------------------------
+  // 📌 BUTTON HANDLER
+  // -------------------------------------------------
+
+  // Termin bestätigen
+  async function confirmAppointment(r) {
+    await fetch("/api/confirm-appointment", {
+      method: "POST",
+      body: JSON.stringify({
+        id: r.id,
+        therapist: user.email,
+        terminISO: r.bevorzugte_zeit_iso || r.terminISO || "",
+      }),
+    });
+
+    alert("Termin bestätigt!");
+    window.location.reload();
+  }
+
+  // Absagen
+  async function rejectAppointment(r) {
+    await fetch("/api/reject-appointment", {
+      method: "POST",
+      body: JSON.stringify({ id: r.id }),
+    });
+
+    alert("Termin wurde abgesagt.");
+    window.location.reload();
+  }
+
+  // Weiterleiten
+  async function forwardRequest(r) {
+    await fetch("/api/forward-request", {
+      method: "POST",
+      body: JSON.stringify({ id: r.id }),
+    });
+
+    alert("Anfrage wurde weitergeleitet.");
+    window.location.reload();
+  }
+
+  // Platzhalter für neuen Termin
+  function newAppointment() {
+    alert("Schritt 5: Resume=10 Link folgt als Nächstes.");
+  }
+
+  // -------------------------------------------------
+  // UI Rendering
+  // -------------------------------------------------
+  if (!user) return <p>Wird geladen…</p>;
+  if (loading) return <p>Anfragen werden geladen…</p>;
 
   return (
-    <div style={{ padding: 24, maxWidth: 700, margin: "0 auto" }}>
-      <h1>Team Dashboard</h1>
+    <div style={{ padding: 24 }}>
+      <h1>Dashboard</h1>
+      <p>Eingeloggt als <strong>{user.email}</strong></p>
 
-      <p>
-        Eingeloggt als: <strong>{user.email}</strong>
-      </p>
-
-      <hr style={{ margin: "24px 0" }} />
-
-      <h2>Deine aktuellen Anfragen</h2>
-
-      {loadingRequests && <p>Wird geladen…</p>}
-
-      {!loadingRequests && requests.length === 0 && (
-        <p>Keine offenen Anfragen.</p>
+      {requests.length === 0 && (
+        <p>Keine offenen Anfragen für dich.</p>
       )}
 
-      {/* LISTE ALLER ANFRAGEN */}
-      {!loadingRequests &&
-        requests.map((r) => (
-          <div
-            key={r.id}
-            style={{
-              padding: 16,
-              border: "1px solid #ddd",
-              borderRadius: 12,
-              marginBottom: 16,
-              background: "#fafafa",
-            }}
-          >
-            <h3 style={{ marginTop: 0 }}>
-              {r.vorname} {r.nachname}
-            </h3>
+      {requests.map((r) => (
+        <div
+          key={r.id}
+          style={{
+            marginTop: 20,
+            padding: 16,
+            border: "1px solid #ddd",
+            borderRadius: 12,
+          }}
+        >
+          <h3>
+            {r.vorname} {r.nachname}
+          </h3>
 
+          <p><strong>Email:</strong> {r.email}</p>
+          <p><strong>Anliegen:</strong> {r.anliegen}</p>
+          <p><strong>Ziel:</strong> {r.ziel}</p>
+
+          {r.bevorzugte_zeit && (
             <p>
-              <strong>Anliegen:</strong>
-              <br />
-              {r.anliegen}
+              <strong>Wunschtermin:</strong> {r.bevorzugte_zeit}
             </p>
+          )}
 
+          {r.status && (
             <p>
-              <strong>Wunschtermin:</strong>{" "}
-              {r.bevorzugte_zeit || "Kein Termin ausgewählt"}
+              <strong>Status:</strong> {r.status}
             </p>
+          )}
 
-            <div style={{ marginTop: 12 }}>
-              <button
-                style={{
-                  padding: "6px 12px",
-                  marginRight: 8,
-                  background: "#c8e6c9",
-                  border: "1px solid #8bc34a",
-                  borderRadius: 8,
-                  cursor: "pointer",
-                }}
-                onClick={() => alert("Termin bestätigen — folgt in Schritt 4")}
-              >
-                Termin bestätigen
-              </button>
+          {/* BUTTONS */}
+          <div style={{ marginTop: 12, display: "flex", gap: 10 }}>
+            <button
+              onClick={() => confirmAppointment(r)}
+              style={{
+                padding: "6px 12px",
+                borderRadius: 8,
+                background: "#D4FCDD",
+              }}
+            >
+              ✔ Termin bestätigen
+            </button>
 
-              <button
-                style={{
-                  padding: "6px 12px",
-                  marginRight: 8,
-                  background: "#ffcdd2",
-                  border: "1px solid #e57373",
-                  borderRadius: 8,
-                  cursor: "pointer",
-                }}
-                onClick={() => alert("Absagen — folgt in Schritt 4")}
-              >
-                Absagen
-              </button>
+            <button
+              onClick={() => rejectAppointment(r)}
+              style={{
+                padding: "6px 12px",
+                borderRadius: 8,
+                background: "#FFE0E0",
+              }}
+            >
+              ✖ Absagen
+            </button>
 
-              <button
-                style={{
-                  padding: "6px 12px",
-                  marginRight: 8,
-                  background: "#bbdefb",
-                  border: "1px solid #64b5f6",
-                  borderRadius: 8,
-                  cursor: "pointer",
-                }}
-                onClick={() =>
-                  alert("Neuen Termin vorschlagen — folgt in Schritt 4")
-                }
-              >
-                Neuen Termin
-              </button>
+            <button
+              onClick={newAppointment}
+              style={{
+                padding: "6px 12px",
+                borderRadius: 8,
+                background: "#E8E8FF",
+              }}
+            >
+              🔁 Neuen Termin
+            </button>
 
-              <button
-                style={{
-                  padding: "6px 12px",
-                  background: "#e1bee7",
-                  border: "1px solid #ba68c8",
-                  borderRadius: 8,
-                  cursor: "pointer",
-                }}
-                onClick={() =>
-                  alert("Anderes Teammitglied — folgt in Schritt 4")
-                }
-              >
-                Weiterleiten
-              </button>
-            </div>
+            <button
+              onClick={() => forwardRequest(r)}
+              style={{
+                padding: "6px 12px",
+                borderRadius: 8,
+                background: "#FFF4C2",
+              }}
+            >
+              ➜ Weiterleiten
+            </button>
           </div>
-        ))}
+        </div>
+      ))}
     </div>
   );
 }
