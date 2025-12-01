@@ -3,15 +3,13 @@ export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
-// -----------------------------
-// Supabase nur dynamisch bauen
-// -----------------------------
-function getSupabase() {
+// 👇 Hilfsfunktion, damit der Build nicht crasht
+function getSupabaseServer() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY; // ✅ FIX: richtige Variable
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY; // <- GENAU SO heißt deine Variable
 
   if (!url || !key) {
-    console.error("❌ Supabase ENV fehlt:", {
+    console.error("Supabase env fehlt:", {
       hasUrl: !!url,
       hasKey: !!key,
     });
@@ -24,19 +22,20 @@ function getSupabase() {
 export async function GET(req) {
   try {
     const url = new URL(req.url);
-
     const action = url.searchParams.get("action");
-    const client = url.searchParams.get("client");
-    const therapist = url.searchParams.get("therapist");
-    const slot = url.searchParams.get("slot");
+
+    const client = url.searchParams.get("client");       // E-Mail der Klientin
+    const name = url.searchParams.get("name");           // Klientenname (optional)
+    const therapist = url.searchParams.get("therapist"); // z.B. "Ann"
+    const slot = url.searchParams.get("slot");           // ISO-String des Termins
 
     console.log("Therapist response:", { action, client, therapist, slot });
 
-    const supabase = getSupabase();
+    const supabase = getSupabaseServer();
 
-    // ----------------------------------------------------
+    // ------------------------------
     // 1️⃣ TERMIN BESTÄTIGEN
-    // ----------------------------------------------------
+    // ------------------------------
     if (action === "confirm") {
       if (!therapist || !slot) {
         return NextResponse.json(
@@ -46,6 +45,7 @@ export async function GET(req) {
       }
 
       if (!supabase) {
+        // Env nicht gesetzt → 500, aber kein Build-Fehler
         return NextResponse.json(
           { error: "SUPABASE_NOT_CONFIGURED" },
           { status: 500 }
@@ -57,18 +57,18 @@ export async function GET(req) {
         .insert({
           therapist,
           client_email: client || null,
-          termin_iso: slot,
+          slot, // 👈 spaltenname in Supabase
         });
 
       if (error) {
-        console.error("❌ Supabase INSERT ERROR:", error);
+        console.error("Supabase INSERT ERROR:", error);
         return NextResponse.json(
-          { error: "DB_INSERT_FAILED", detail: error.message },
+          { error: "DB_INSERT_FAILED" },
           { status: 500 }
         );
       }
 
-      // Termin bestätigt → Formular Step = confirmed
+      // ✅ Zurück zum Formular – Termin bestätigt
       return NextResponse.redirect(
         `https://mypoise.de/?resume=confirmed&email=${encodeURIComponent(
           client || ""
@@ -76,10 +76,23 @@ export async function GET(req) {
       );
     }
 
-    // ----------------------------------------------------
-    // 2️⃣ GLEICHER THERAPEUT – Neuer Termin
-    // ----------------------------------------------------
+    // ------------------------------
+    // 2️⃣ NEUER TERMIN – GLEICHE BEGLEITUNG
+    //    → alter Termin wieder freigeben
+    // ------------------------------
     if (action === "rebook_same") {
+      if (supabase && therapist && slot) {
+        try {
+          await supabase
+            .from("confirmed_appointments")
+            .delete()
+            .eq("therapist", therapist)
+            .eq("slot", slot);
+        } catch (e) {
+          console.error("Supabase DELETE (rebook_same) failed:", e);
+        }
+      }
+
       return NextResponse.redirect(
         `https://mypoise.de/?resume=10&email=${encodeURIComponent(
           client || ""
@@ -87,25 +100,31 @@ export async function GET(req) {
       );
     }
 
-    // ----------------------------------------------------
-    // 3️⃣ ANDERES TEAMMITGLIED WÄHLEN
-    // ----------------------------------------------------
+    // ------------------------------
+    // 3️⃣ ANDERES TEAMMITGLIED – alter Termin wieder frei
+    // ------------------------------
     if (action === "rebook_other") {
+      if (supabase && therapist && slot) {
+        try {
+          await supabase
+            .from("confirmed_appointments")
+            .delete()
+            .eq("therapist", therapist)
+            .eq("slot", slot);
+        } catch (e) {
+          console.error("Supabase DELETE (rebook_other) failed:", e);
+        }
+      }
+
       return NextResponse.redirect(
         `https://mypoise.de/?resume=5&email=${encodeURIComponent(client || "")}`
       );
     }
 
-    // ----------------------------------------------------
-    // UNKNOWN ACTION
-    // ----------------------------------------------------
-    return NextResponse.json(
-      { error: "UNKNOWN_ACTION" },
-      { status: 400 }
-    );
-
+    // Unbekannte Aktion
+    return NextResponse.json({ error: "UNKNOWN_ACTION" }, { status: 400 });
   } catch (err) {
-    console.error("❌ THERAPIST RESPONSE ERROR:", err);
+    console.error("THERAPIST RESPONSE ERROR:", err);
     return NextResponse.json(
       { error: "SERVER_ERROR", detail: String(err) },
       { status: 500 }
