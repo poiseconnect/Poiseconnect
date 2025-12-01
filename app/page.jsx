@@ -9,7 +9,7 @@ import { teamData } from "./teamData";
 import { supabase } from "./lib/supabase";
 
 // -------------------------------------
-// Konfiguration / Helfer
+// Helfer & Konfiguration
 // -------------------------------------
 
 const getTherapistInfo = (name) =>
@@ -17,15 +17,25 @@ const getTherapistInfo = (name) =>
 
 // ---- RED-FLAGS ----
 const RED_FLAGS = [
-  "suizid", "selbstmord", "selbstverletzung", "ritzen",
-  "magersucht", "anorexie", "bulim", "erbrechen",
-  "binge", "essstörung", "essstoerung",
-  "borderline", "svv",
+  "suizid",
+  "selbstmord",
+  "selbstverletzung",
+  "ritzen",
+  "magersucht",
+  "anorexie",
+  "bulim",
+  "erbrechen",
+  "binge",
+  "essstörung",
+  "essstoerung",
+  "borderline",
+  "svv",
 ];
 
 const isRedFlag = (t) =>
   t && RED_FLAGS.some((x) => t.toLowerCase().includes(x));
 
+// Matching-Gewichte
 const TAG_WEIGHTS = {
   trauma: 5,
   ptbs: 5,
@@ -52,12 +62,7 @@ const TAG_WEIGHTS = {
   studium: 0.5,
 };
 
-// ---- Kalender (ICS) – aktuell nur Ann, später erweiterbar ----
-const ICS_BY_MEMBER = {
-  Ann: "https://calendar.google.com/calendar/ical/75f62df4c63554a1436d49c3a381da84502728a0457c9c8b56d30e21fa5021c5%40group.calendar.google.com/public/basic.ics",
-};
-
-// ---- Formatierer ----
+// ---- Format ----
 const formatDate = (d) =>
   d.toLocaleDateString("de-AT", {
     weekday: "short",
@@ -71,11 +76,14 @@ const formatTime = (d) =>
     minute: "2-digit",
   });
 
+// ----------------------
+// ICS PARSER
+// ----------------------
 function parseICSDate(line) {
   const m = line.match(/DT(?:START|END)(?:;TZID=[^:]+)?:([0-9T]+)/i);
   if (!m) return null;
-  const raw = m[1];
 
+  const raw = m[1];
   return new Date(
     Number(raw.slice(0, 4)),
     Number(raw.slice(4, 6)) - 1,
@@ -95,40 +103,38 @@ async function loadIcsSlots(icsUrl, daysAhead = 21) {
   const events = text.split("BEGIN:VEVENT").slice(1);
   const slots = [];
 
-  for (const event of events) {
-    const sLine = event.split("\n").find((l) => l.startsWith("DTSTART"));
-    const eLine = event.split("\n").find((l) => l.startsWith("DTEND"));
-    if (!sLine || !eLine) continue;
+  for (const ev of events) {
+    const startLine = ev.split("\n").find((l) => l.startsWith("DTSTART"));
+    const endLine = ev.split("\n").find((l) => l.startsWith("DTEND"));
+    if (!startLine || !endLine) continue;
 
-    const start = parseICSDate(sLine);
-    const end = parseICSDate(eLine);
+    const start = parseICSDate(startLine);
+    const end = parseICSDate(endLine);
     if (!start || !end || end <= now || start > until) continue;
 
-    // 30-Minuten-Slots erzeugen
-    for (let t = new Date(start); t < end; t = new Date(t.getTime() + 30 * 60000)) {
-      const tEnd = new Date(t.getTime() + 30 * 60000);
-      if (tEnd > end || tEnd <= now) continue;
+    let t = new Date(start);
+    while (t < end) {
+      const tEnd = new Date(t.getTime() + 30 * 60000); // 30 Minuten
+      if (tEnd > end || tEnd <= now) break;
 
-      slots.push({
-        start: new Date(t),
-        key: t.toISOString(),
-      });
+      slots.push({ start: new Date(t) });
+      t = new Date(t.getTime() + 30 * 60000);
     }
   }
 
   return slots.sort((a, b) => a.start - b.start);
 }
 
-// -------------------------------------
-// Component
-// -------------------------------------
-
+// --------------------------------------------------
+// PAGE COMPONENT
+// --------------------------------------------------
 export default function Home() {
+  const today = new Date();
   const [step, setStep] = useState(0);
   const [subStep9, setSubStep9] = useState(0);
   const totalSteps = 11;
-  const today = new Date();
 
+  // Formular-Daten
   const [form, setForm] = useState({
     anliegen: "",
     leidensdruck: "",
@@ -150,6 +156,7 @@ export default function Home() {
     terminDisplay: "",
   });
 
+  // Termine
   const [slots, setSlots] = useState([]);
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [slotsError, setSlotsError] = useState("");
@@ -235,23 +242,24 @@ export default function Home() {
   }, []);
 
   // -------------------------------------
-  // STEP 10 – ICS + Supabase (confirmed_appointments)
-  // -> Slots laden, bereits bestätigte Termine ausfiltern
+  // STEP 10 – ICS + Supabase (booked_appointments)
   // -------------------------------------
   useEffect(() => {
     if (step !== 10 || !form.wunschtherapeut) return;
 
     let isMounted = true;
-    const therapist = form.wunschtherapeut;
 
     async function loadData() {
       setLoadingSlots(true);
       setSlotsError("");
 
       try {
-        // 1) ICS laden
-        const ics = ICS_BY_MEMBER[therapist];
-        if (!ics) {
+        // 1) passende Person aus teamData holen
+        const therapistObj = teamData.find(
+          (t) => t.name === form.wunschtherapeut
+        );
+
+        if (!therapistObj || !therapistObj.ics) {
           if (isMounted) {
             setSlots([]);
             setSlotsError("Kein Kalender hinterlegt.");
@@ -260,21 +268,22 @@ export default function Home() {
           return;
         }
 
-        const allSlots = await loadIcsSlots(ics);
+        // 2) ICS-Slots laden
+        const allSlots = await loadIcsSlots(therapistObj.ics);
 
-        // 2) Bestätigte Termine aus Supabase
+        // 3) Bereits gebuchte Termine aus Supabase
         let freeSlots = allSlots;
 
         try {
-          const { data: rows, error } = await supabase
-            .from("confirmed_appointments")
+          const { data, error } = await supabase
+            .from("booked_appointments")
             .select("termin_iso")
-            .eq("therapist", therapist);
+            .eq("therapist", form.wunschtherapeut);
 
           if (error) {
             console.error("Supabase load error:", error);
-          } else if (rows && rows.length > 0) {
-            const bookedSet = new Set(rows.map((r) => r.termin_iso));
+          } else if (data && data.length > 0) {
+            const bookedSet = new Set(data.map((r) => r.termin_iso));
             freeSlots = allSlots.filter(
               (s) => !bookedSet.has(s.start.toISOString())
             );
@@ -283,11 +292,14 @@ export default function Home() {
           console.error("Supabase client error:", e);
         }
 
-        if (isMounted) setSlots(freeSlots);
+        if (isMounted) {
+          setSlots(freeSlots);
+        }
       } catch (err) {
         console.error("Slot-Load error:", err);
-        if (isMounted)
+        if (isMounted) {
           setSlotsError("Kalender konnte nicht geladen werden.");
+        }
       }
 
       if (isMounted) setLoadingSlots(false);
@@ -338,7 +350,7 @@ export default function Home() {
         return;
       }
 
-      alert("Danke – deine Anfrage wurde erfolgreich gesendet!");
+      alert("Danke – deine Anfrage wurde erfolgreich gesendet 🤍");
     } catch (err) {
       console.error("Client Fehler:", err);
       alert("Unerwarteter Fehler – bitte später erneut versuchen.");
@@ -363,7 +375,7 @@ export default function Home() {
 
       <StepIndicator step={step} total={totalSteps} />
 
-      {/* STEP 0 */}
+      {/* STEP 0 – Anliegen */}
       {step === 0 && (
         <div className="step-container">
           <h2>Anliegen</h2>
@@ -382,7 +394,7 @@ export default function Home() {
         </div>
       )}
 
-      {/* STEP 1 */}
+      {/* STEP 1 – Leidensdruck */}
       {step === 1 && (
         <div className="step-container">
           <h2>Wie hoch ist dein Leidensdruck?</h2>
@@ -407,7 +419,7 @@ export default function Home() {
         </div>
       )}
 
-      {/* STEP 2 */}
+      {/* STEP 2 – Verlauf */}
       {step === 2 && (
         <div className="step-container">
           <h2>Wie lange leidest du schon?</h2>
@@ -426,7 +438,7 @@ export default function Home() {
         </div>
       )}
 
-      {/* STEP 3 */}
+      {/* STEP 3 – Diagnose */}
       {step === 3 && (
         <div className="step-container">
           <h2>Gibt es eine Diagnose?</h2>
@@ -449,13 +461,15 @@ export default function Home() {
         </div>
       )}
 
-      {/* STEP 4 */}
+      {/* STEP 4 – Ziel */}
       {step === 4 && (
         <div className="step-container">
           <h2>Was wünschst du dir?</h2>
           <textarea
             value={form.ziel}
-            onChange={(e) => setForm({ ...form, ziel: e.target.value })}
+            onChange={(e) =>
+              setForm({ ...form, ziel: e.target.value })
+            }
           />
           <div className="footer-buttons">
             <button onClick={back}>Zurück</button>
@@ -474,7 +488,10 @@ export default function Home() {
               <h2>Vielen Dank für deine Offenheit</h2>
               <p>
                 Leider können wir dein Thema nicht im Online-Setting
-                begleiten …
+                begleiten. Bitte wende dich an eine{" "}
+                <strong>ambulante psychotherapeutische Praxis</strong>,
+                den <strong>ärztlichen Notdienst</strong> oder im
+                Notfall direkt an den <strong>Notruf</strong>.
               </p>
               <div className="footer-buttons">
                 <button onClick={back}>Zurück</button>
@@ -684,7 +701,7 @@ export default function Home() {
             title: "Schön, dass du da bist 🤍",
             text: `Danke für dein Vertrauen.
 
-Du hast **${t.name}** ausgewählt — eine sehr gute Wahl.
+Du hast **${t.name || "deine Begleitung"}** ausgewählt — eine sehr gute Wahl.
 
 Wir führen dich jetzt ganz kurz durch den Ablauf,
 bevor du deinen Termin auswählst.`,
@@ -708,9 +725,9 @@ Danach entscheiden beide frei, ob ihr weiter zusammenarbeitet.`,
 • Offenes Tempo & Anpassung jederzeit möglich`,
           },
           {
-            title: `Kosten bei ${t.name}`,
-            text: `Standardtarif: **${t.preis_std}€ / 60 Min**
-Ermäßigt (Studierende / Azubi): **${t.preis_ermaessigt}€**
+            title: `Kosten bei ${t.name || "deiner Begleitung"}`,
+            text: `Standardtarif: **${t.preis_std ?? "–"}€ / 60 Min**
+Ermäßigt (Studierende / Azubi): **${t.preis_ermaessigt ?? "–"}€**
 
 Unser Angebot richtet sich grundsätzlich an Selbstzahler.
 Eine Kostenübernahme kann möglich sein — individuell klären.`,
@@ -779,6 +796,7 @@ Eine Kostenübernahme kann möglich sein — individuell klären.`,
             groupedSlots.map(([day, list]) => (
               <div key={day} style={{ marginBottom: 14 }}>
                 <strong>{formatDate(list[0].start)}</strong>
+
                 <div
                   style={{
                     display: "flex",
@@ -789,7 +807,7 @@ Eine Kostenübernahme kann möglich sein — individuell klären.`,
                 >
                   {list.map((s) => (
                     <button
-                      key={s.key}
+                      key={s.start.toISOString()}
                       onClick={() =>
                         setForm({
                           ...form,
