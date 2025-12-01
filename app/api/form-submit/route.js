@@ -3,7 +3,6 @@ export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
-// 🔧 Supabase v2 kompatibel initialisieren
 function getSupabase() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -16,17 +15,12 @@ function getSupabase() {
     return null;
   }
 
-  return createClient(url, key, {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false,
-    },
-  });
+  return createClient(url, key);
 }
 
-export async function POST(req) {
+export async function POST(request) {
   try {
-    const body = await req.json();
+    const body = await request.json();
 
     const supabase = getSupabase();
     if (!supabase) {
@@ -36,7 +30,7 @@ export async function POST(req) {
       );
     }
 
-    // 🟣 Schreiben in deine Tabelle "anfragen"
+    // --- INSERT in "anfragen"
     const { error } = await supabase.from("anfragen").insert({
       vorname: body.vorname,
       nachname: body.nachname,
@@ -53,7 +47,7 @@ export async function POST(req) {
       bevorzugte_zeit: body.terminDisplay || "",
       check_suizid: body.check_gesundheit || false,
       check_datenschutz: body.check_datenschutz || false,
-      check_online: body.check_online_setting || false,
+      check_online_setting: body.check_online_setting || false,
     });
 
     if (error) {
