@@ -1,7 +1,22 @@
 export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
-import { supabase } from "@/app/lib/supabase";
+import { createClient } from "@supabase/supabase-js";
+
+function getSupabase() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!url || !key) {
+    console.error("❌ SUPABASE ENV FEHLT (reject):", {
+      hasUrl: !!url,
+      hasKey: !!key,
+    });
+    return null;
+  }
+
+  return createClient(url, key);
+}
 
 export async function POST(req) {
   try {
@@ -15,33 +30,42 @@ export async function POST(req) {
       );
     }
 
-    // Anfrage als abgelehnt markieren
+    const supabase = getSupabase();
+    if (!supabase) {
+      return NextResponse.json(
+        { error: "SUPABASE_NOT_CONFIGURED" },
+        { status: 500 }
+      );
+    }
+
     await supabase
       .from("anfragen")
       .update({ status: "abgelehnt" })
       .eq("id", requestId);
 
-    // Email an Klienten
-    await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        from: "Poise <noreply@mypoise.de>",
-        to: client,
-        subject: "Deine Anfrage",
-        html: `
-          <p>Hallo ${vorname},</p>
-          <p>Leider kann diese Anfrage nicht angenommen werden.</p>
-          <p>Bitte wähle bei Bedarf ein anderes Teammitglied.</p>
-        `,
-      }),
-    });
+    if (process.env.RESEND_API_KEY) {
+      await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          from: "Poise <noreply@mypoise.de>",
+          to: client,
+          subject: "Deine Anfrage bei Poise",
+          html: `
+            <p>Hallo ${vorname || ""},</p>
+            <p>die angefragte Begleitung kann diesen Termin leider nicht übernehmen.</p>
+            <p>Du kannst jederzeit ein anderes Teammitglied auswählen oder eine neue Anfrage stellen.</p>
+          `,
+        }),
+      }).catch((e) => console.error("Resend error (reject):", e));
+    }
 
     return NextResponse.json({ ok: true });
   } catch (err) {
+    console.error("❌ SERVER ERROR (reject):", err);
     return NextResponse.json(
       { error: "SERVER_ERROR", detail: String(err) },
       { status: 500 }
