@@ -6,8 +6,9 @@ import { supabase } from "../lib/supabase";
 export default function Dashboard() {
   const [user, setUser] = useState(null);
   const [requests, setRequests] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  // 1) Magic-Link Login prüfen
+  // 1) Prüfen ob der User eingeloggt ist
   useEffect(() => {
     async function loadUser() {
       const { data } = await supabase.auth.getUser();
@@ -16,11 +17,13 @@ export default function Dashboard() {
     loadUser();
   }, []);
 
-  // 2) Nur eigene Anfragen laden
+  // 2) Eigene Anfragen laden (wunschtherapeut = user.email)
   useEffect(() => {
-    if (!user?.email) return;
-
     async function load() {
+      if (!user?.email) return;
+
+      setLoading(true);
+
       const { data, error } = await supabase
         .from("anfragen")
         .select("*")
@@ -28,11 +31,16 @@ export default function Dashboard() {
         .order("id", { ascending: false });
 
       if (!error) setRequests(data || []);
+      setLoading(false);
     }
+
     load();
   }, [user]);
 
-  // 3) Termin bestätigen
+  // ---------------------------------------------------------
+  // BUTTON ACTIONS
+  // ---------------------------------------------------------
+
   async function confirmAppointment(req) {
     const res = await fetch("/api/confirm-appointment", {
       method: "POST",
@@ -44,12 +52,15 @@ export default function Dashboard() {
       }),
     });
 
-    if (!res.ok) return alert("Fehler beim Bestätigen!");
+    if (!res.ok) {
+      alert("Fehler beim Bestätigen!");
+      return;
+    }
+
     alert("Termin bestätigt 🤍");
     window.location.reload();
   }
 
-  // 4) Absagen
   async function decline(req) {
     const res = await fetch("/api/reject-appointment", {
       method: "POST",
@@ -61,12 +72,15 @@ export default function Dashboard() {
       }),
     });
 
-    if (!res.ok) return alert("Fehler beim Absagen!");
+    if (!res.ok) {
+      alert("Fehler beim Absagen!");
+      return;
+    }
+
     alert("Klient wurde informiert (Absage).");
     window.location.reload();
   }
 
-  // 5) Neuer Termin
   async function newAppointment(req) {
     const res = await fetch("/api/new-appointment", {
       method: "POST",
@@ -77,12 +91,15 @@ export default function Dashboard() {
       }),
     });
 
-    if (!res.ok) return alert("Fehler beim Senden!");
+    if (!res.ok) {
+      alert("Fehler beim Senden!");
+      return;
+    }
+
     alert("Klient wählt neuen Termin aus.");
     window.location.reload();
   }
 
-  // 6) Weiterleiten an anderes Teammitglied
   async function reassign(req) {
     const res = await fetch("/api/forward-request", {
       method: "POST",
@@ -93,19 +110,31 @@ export default function Dashboard() {
       }),
     });
 
-    if (!res.ok) return alert("Fehler beim Weiterleiten!");
+    if (!res.ok) {
+      alert("Fehler beim Weiterleiten!");
+      return;
+    }
+
     alert("Anfrage wurde weitergeleitet.");
     window.location.reload();
   }
 
-  // ----------------- UI -----------------
+  // ---------------------------------------------------------
+  // UI RENDERING
+  // ---------------------------------------------------------
+
   if (!user)
-    return <div style={{ padding: 40 }}>Bitte per Magic Link einloggen…</div>;
+    return (
+      <div style={{ padding: 40, textAlign: "center" }}>
+        Bitte per Magic Link einloggen…
+      </div>
+    );
 
   return (
     <div style={{ padding: 40, maxWidth: 900, margin: "0 auto" }}>
-      <h1>Dashboard</h1>
-      <p>
+      <h1 style={{ marginBottom: 10 }}>Dashboard</h1>
+
+      <p style={{ marginBottom: 25 }}>
         Eingeloggt als <strong>{user.email}</strong>
       </p>
 
@@ -113,91 +142,94 @@ export default function Dashboard() {
 
       <h2>Deine Anfragen</h2>
 
-      {requests.length === 0 && <p>Noch keine Anfragen.</p>}
+      {loading && <p>Wird geladen…</p>}
+      {!loading && requests.length === 0 && <p>Noch keine Anfragen.</p>}
 
-      {requests.map((r) => (
-        <div
-          key={r.id}
-          style={{
-            padding: 16,
-            border: "1px solid #ddd",
-            borderRadius: 10,
-            marginBottom: 16,
-            background: "#fafafa",
-          }}
-        >
-          <h3>
-            {r.vorname} {r.nachname}
-          </h3>
-          <p>
-            <strong>Email:</strong> {r.email}
-          </p>
-          <p>
-            <strong>Anliegen:</strong> {r.anliegen}
-          </p>
-          <p>
-            <strong>Bevorzugte Zeit:</strong>{" "}
-            {r.bevorzugte_zeit || "Noch kein Termin gewählt"}
-          </p>
-
+      {!loading &&
+        requests.map((r) => (
           <div
+            key={r.id}
             style={{
-              marginTop: 12,
-              display: "flex",
-              gap: 8,
-              flexWrap: "wrap",
+              padding: 16,
+              border: "1px solid #ddd",
+              borderRadius: 10,
+              marginBottom: 16,
+              background: "#fafafa",
             }}
           >
-            <button
-              onClick={() => confirmAppointment(r)}
-              style={{
-                padding: "6px 12px",
-                borderRadius: 8,
-                background: "#D4F8D4",
-                border: "1px solid #8BC48B",
-              }}
-            >
-              ✔ Termin bestätigen
-            </button>
+            <h3>
+              {r.vorname} {r.nachname}
+            </h3>
 
-            <button
-              onClick={() => decline(r)}
-              style={{
-                padding: "6px 12px",
-                borderRadius: 8,
-                background: "#FFDADA",
-                border: "1px solid #E88",
-              }}
-            >
-              ✖ Absagen
-            </button>
+            <p>
+              <strong>Email:</strong> {r.email}
+            </p>
+            <p>
+              <strong>Anliegen:</strong> {r.anliegen}
+            </p>
+            <p>
+              <strong>Bevorzugte Zeit:</strong>{" "}
+              {r.bevorzugte_zeit || "Noch kein Termin gewählt"}
+            </p>
 
-            <button
-              onClick={() => newAppointment(r)}
+            <div
               style={{
-                padding: "6px 12px",
-                borderRadius: 8,
-                background: "#E8E8FF",
-                border: "1px solid #9990ff",
+                marginTop: 12,
+                display: "flex",
+                gap: 10,
+                flexWrap: "wrap",
               }}
             >
-              🔁 Neuen Termin
-            </button>
+              <button
+                onClick={() => confirmAppointment(r)}
+                style={{
+                  padding: "6px 12px",
+                  borderRadius: 8,
+                  background: "#D4F8D4",
+                  border: "1px solid #8BC48B",
+                }}
+              >
+                ✔ Termin bestätigen
+              </button>
 
-            <button
-              onClick={() => reassign(r)}
-              style={{
-                padding: "6px 12px",
-                borderRadius: 8,
-                background: "#FFF1D6",
-                border: "1px solid #E0B96F",
-              }}
-            >
-              👥 anderes Teammitglied
-            </button>
+              <button
+                onClick={() => decline(r)}
+                style={{
+                  padding: "6px 12px",
+                  borderRadius: 8,
+                  background: "#FFDADA",
+                  border: "1px solid #E88",
+                }}
+              >
+                ✖ Absagen
+              </button>
+
+              <button
+                onClick={() => newAppointment(r)}
+                style={{
+                  padding: "6px 12px",
+                  borderRadius: 8,
+                  background: "#E8E8FF",
+                  border: "1px solid #9990ff",
+                }}
+              >
+                🔁 Neuen Termin
+              </button>
+
+              <button
+                onClick={() => reassign(r)}
+                style={{
+                  padding: "6px 12px",
+                  borderRadius: 8,
+                  background: "#FFF1D6",
+                  border: "1px solid #E0B96F",
+                }}
+              >
+                👥 anderes Teammitglied
+              </button>
+            </div>
           </div>
-        </div>
-      ))}
+        ))}
     </div>
   );
 }
