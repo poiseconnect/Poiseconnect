@@ -338,8 +338,11 @@ export default function Home() {
       const res = await fetch("/api/form-submit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
-      });
+        body: JSON.stringify({
+        ...form,
+        therapist_from_url: form.wunschtherapeut,
+      }),
+    });
 
       let json = null;
       try {
