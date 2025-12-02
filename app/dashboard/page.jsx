@@ -6,9 +6,8 @@ import { supabase } from "../lib/supabase";
 export default function Dashboard() {
   const [user, setUser] = useState(null);
   const [requests, setRequests] = useState([]);
-  const [loading, setLoading] = useState(true);
 
-  // 1) Prüfen ob der User eingeloggt ist
+  // 1) Magic-Link Login prüfen
   useEffect(() => {
     async function loadUser() {
       const { data } = await supabase.auth.getUser();
@@ -17,30 +16,38 @@ export default function Dashboard() {
     loadUser();
   }, []);
 
-  // 2) Eigene Anfragen laden (wunschtherapeut = user.email)
+  // 2) Anfragen laden
   useEffect(() => {
+    if (!user?.email) return;
+
     async function load() {
-      if (!user?.email) return;
+      const email = user.email.toLowerCase();
 
-      setLoading(true);
-
-      const { data, error } = await supabase
+      // Basis-Query
+      let query = supabase
         .from("anfragen")
         .select("*")
-        .eq("wunschtherapeut", user.email)
         .order("id", { ascending: false });
 
-      if (!error) setRequests(data || []);
-      setLoading(false);
+      // 🔑 ADMIN: hallo@mypoise.de sieht ALLE
+      if (email !== "hallo@mypoise.de") {
+        query = query.eq("wunschtherapeut", user.email);
+      }
+
+      const { data, error } = await query;
+
+      if (error) {
+        console.error("Supabase Fehler beim Laden:", error);
+        return;
+      }
+
+      setRequests(data || []);
     }
 
     load();
   }, [user]);
 
-  // ---------------------------------------------------------
-  // BUTTON ACTIONS
-  // ---------------------------------------------------------
-
+  // 3) Termin bestätigen
   async function confirmAppointment(req) {
     const res = await fetch("/api/confirm-appointment", {
       method: "POST",
@@ -52,15 +59,12 @@ export default function Dashboard() {
       }),
     });
 
-    if (!res.ok) {
-      alert("Fehler beim Bestätigen!");
-      return;
-    }
-
+    if (!res.ok) return alert("Fehler beim Bestätigen!");
     alert("Termin bestätigt 🤍");
     window.location.reload();
   }
 
+  // 4) Absagen
   async function decline(req) {
     const res = await fetch("/api/reject-appointment", {
       method: "POST",
@@ -72,15 +76,12 @@ export default function Dashboard() {
       }),
     });
 
-    if (!res.ok) {
-      alert("Fehler beim Absagen!");
-      return;
-    }
-
+    if (!res.ok) return alert("Fehler beim Absagen!");
     alert("Klient wurde informiert (Absage).");
     window.location.reload();
   }
 
+  // 5) Neuer Termin
   async function newAppointment(req) {
     const res = await fetch("/api/new-appointment", {
       method: "POST",
@@ -91,15 +92,12 @@ export default function Dashboard() {
       }),
     });
 
-    if (!res.ok) {
-      alert("Fehler beim Senden!");
-      return;
-    }
-
+    if (!res.ok) return alert("Fehler beim Senden!");
     alert("Klient wählt neuen Termin aus.");
     window.location.reload();
   }
 
+  // 6) Weiterleiten an anderes Teammitglied
   async function reassign(req) {
     const res = await fetch("/api/forward-request", {
       method: "POST",
@@ -110,126 +108,123 @@ export default function Dashboard() {
       }),
     });
 
-    if (!res.ok) {
-      alert("Fehler beim Weiterleiten!");
-      return;
-    }
-
+    if (!res.ok) return alert("Fehler beim Weiterleiten!");
     alert("Anfrage wurde weitergeleitet.");
     window.location.reload();
   }
 
-  // ---------------------------------------------------------
-  // UI RENDERING
-  // ---------------------------------------------------------
-
+  // ----------------- UI -----------------
   if (!user)
     return (
-      <div style={{ padding: 40, textAlign: "center" }}>
+      <div style={{ padding: 40 }}>
         Bitte per Magic Link einloggen…
       </div>
     );
 
+  const isAdmin = user.email.toLowerCase() === "hallo@mypoise.de";
+
   return (
     <div style={{ padding: 40, maxWidth: 900, margin: "0 auto" }}>
-      <h1 style={{ marginBottom: 10 }}>Dashboard</h1>
-
-      <p style={{ marginBottom: 25 }}>
-        Eingeloggt als <strong>{user.email}</strong>
+      <h1>Dashboard</h1>
+      <p>
+        Eingeloggt als <strong>{user.email}</strong>{" "}
+        {isAdmin && (
+          <span style={{ color: "#888" }}>(Admin-Ansicht: alle Anfragen)</span>
+        )}
       </p>
 
       <hr style={{ margin: "20px 0" }} />
 
-      <h2>Deine Anfragen</h2>
+      <h2>{isAdmin ? "Alle Anfragen" : "Deine Anfragen"}</h2>
 
-      {loading && <p>Wird geladen…</p>}
-      {!loading && requests.length === 0 && <p>Noch keine Anfragen.</p>}
+      {requests.length === 0 && <p>Noch keine Anfragen.</p>}
 
-      {!loading &&
-        requests.map((r) => (
+      {requests.map((r) => (
+        <div
+          key={r.id}
+          style={{
+            padding: 16,
+            border: "1px solid #ddd",
+            borderRadius: 10,
+            marginBottom: 16,
+            background: "#fafafa",
+          }}
+        >
+          <h3>
+            {r.vorname} {r.nachname}
+          </h3>
+          <p>
+            <strong>Email:</strong> {r.email}
+          </p>
+          <p>
+            <strong>Anliegen:</strong> {r.anliegen}
+          </p>
+          <p>
+            <strong>Bevorzugte Zeit:</strong>{" "}
+            {r.bevorzugte_zeit || "Noch kein Termin gewählt"}
+          </p>
+          <p>
+            <strong>Wunsch-Therapeut:</strong> {r.wunschtherapeut}
+          </p>
+
           <div
-            key={r.id}
             style={{
-              padding: 16,
-              border: "1px solid #ddd",
-              borderRadius: 10,
-              marginBottom: 16,
-              background: "#fafafa",
+              marginTop: 12,
+              display: "flex",
+              gap: 8,
+              flexWrap: "wrap",
             }}
           >
-            <h3>
-              {r.vorname} {r.nachname}
-            </h3>
-
-            <p>
-              <strong>Email:</strong> {r.email}
-            </p>
-            <p>
-              <strong>Anliegen:</strong> {r.anliegen}
-            </p>
-            <p>
-              <strong>Bevorzugte Zeit:</strong>{" "}
-              {r.bevorzugte_zeit || "Noch kein Termin gewählt"}
-            </p>
-
-            <div
+            <button
+              onClick={() => confirmAppointment(r)}
               style={{
-                marginTop: 12,
-                display: "flex",
-                gap: 10,
-                flexWrap: "wrap",
+                padding: "6px 12px",
+                borderRadius: 8,
+                background: "#D4F8D4",
+                border: "1px solid #8BC48B",
               }}
             >
-              <button
-                onClick={() => confirmAppointment(r)}
-                style={{
-                  padding: "6px 12px",
-                  borderRadius: 8,
-                  background: "#D4F8D4",
-                  border: "1px solid #8BC48B",
-                }}
-              >
-                ✔ Termin bestätigen
-              </button>
+              ✔ Termin bestätigen
+            </button>
 
-              <button
-                onClick={() => decline(r)}
-                style={{
-                  padding: "6px 12px",
-                  borderRadius: 8,
-                  background: "#FFDADA",
-                  border: "1px solid #E88",
-                }}
-              >
-                ✖ Absagen
-              </button>
+            <button
+              onClick={() => decline(r)}
+              style={{
+                padding: "6px 12px",
+                borderRadius: 8,
+                background: "#FFDADA",
+                border: "1px solid #E88",
+              }}
+            >
+              ✖ Absagen
+            </button>
 
-              <button
-                onClick={() => newAppointment(r)}
-                style={{
-                  padding: "6px 12px",
-                  borderRadius: 8,
-                  background: "#E8E8FF",
-                  border: "1px solid #9990ff",
-                }}
-              >
-                🔁 Neuen Termin
-              </button>
+            <button
+              onClick={() => newAppointment(r)}
+              style={{
+                padding: "6px 12px",
+                borderRadius: 8,
+                background: "#E8E8FF",
+                border: "1px solid #9990ff",
+              }}
+            >
+              🔁 Neuen Termin
+            </button>
 
-              <button
-                onClick={() => reassign(r)}
-                style={{
-                  padding: "6px 12px",
-                  borderRadius: 8,
-                  background: "#FFF1D6",
-                  border: "1px solid #E0B96F",
-                }}
-              >
-                👥 anderes Teammitglied
-              </button>
-            </div>
+            <button
+              onClick={() => reassign(r)}
+              style={{
+                padding: "6px 12px",
+                borderRadius: 8,
+                background: "#FFF1D6",
+                border: "1px solid #E0B96F",
+              }}
+            >
+              👥 anderes Teammitglied
+            </button>
           </div>
-        ))}
+        </div>
+      ))}
     </div>
   );
 }
