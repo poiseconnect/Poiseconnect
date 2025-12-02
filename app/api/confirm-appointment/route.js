@@ -1,45 +1,33 @@
-export const dynamic = "force-dynamic";
-
-import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-);
+import { supabase } from "../../../lib/supabase";
 
 export async function POST(req) {
   try {
     const body = await req.json();
-    const { id, therapist, terminISO } = body;
+    const { requestId, therapist, client, slot } = body;
 
-    if (!id || !therapist || !terminISO) {
-      return NextResponse.json(
-        { error: "MISSING_FIELDS" },
-        { status: 400 }
-      );
+    // Anfrage in Supabase als bestätigt speichern
+    const { error } = await supabase
+      .from("anfragen")
+      .update({
+        status: "bestätigt",
+        bestätigter_termin: slot,
+        bestätigter_therapeut: therapist,
+      })
+      .eq("id", requestId);
+
+    if (error) {
+      console.error("Supabase Update Error:", error);
+      return new Response(JSON.stringify({ error: error.message }), {
+        status: 500,
+      });
     }
 
-    // 1) Termin blockieren
-    await supabase.from("confirmed_appointments").insert({
-      therapist,
-      termin_iso: terminISO,
-    });
-
-    // 2) Anfrage updaten
-    await supabase
-      .from("anfragen")
-      .update({ status: "bestätigt" })
-      .eq("id", id);
-
-    // 3) (optional) Email an Klient → später
-    console.log("EMAIL TO CLIENT: Termin bestätigt");
-
-    return NextResponse.json({ ok: true });
+    // Erfolg
+    return new Response(JSON.stringify({ ok: true }), { status: 200 });
   } catch (err) {
-    return NextResponse.json(
-      { error: "SERVER_ERROR", detail: String(err) },
-      { status: 500 }
-    );
+    console.error("API Error:", err);
+    return new Response(JSON.stringify({ error: err.message }), {
+      status: 500,
+    });
   }
 }
