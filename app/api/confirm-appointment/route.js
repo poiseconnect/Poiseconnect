@@ -1,18 +1,38 @@
 export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
+import { createClient } from "@supabase/supabase-js";
+import { teamData } from "../../teamData";   // ← FIXED IMPORT
+
+function getSupabase() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL,
+    process.env.SUPABASE_SERVICE_ROLE_KEY
+  );
+}
 
 export async function POST(req) {
   try {
-    const { requestId, client, vorname, therapist, slot } = await req.json();
+    const { requestId, therapist, client, slot, vorname } = await req.json();
 
-    if (!client || !therapist || !slot) {
+    if (!requestId || !therapist || !client || !slot) {
       return NextResponse.json({ error: "MISSING_FIELDS" }, { status: 400 });
     }
 
-    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://poiseconnect.vercel.app";
+    const supabase = getSupabase();
+    const baseUrl =
+      process.env.NEXT_PUBLIC_SITE_URL || "https://poiseconnect.vercel.app";
 
-    // 📩 Email senden
+    // Termin speichern
+    await supabase
+      .from("anfragen")
+      .update({
+        bevorzugte_zeit: slot,
+        status: "bestätigt",
+      })
+      .eq("id", requestId);
+
+    // Email an Klient
     await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: {
@@ -22,33 +42,21 @@ export async function POST(req) {
       body: JSON.stringify({
         from: "Poise <noreply@mypoise.de>",
         to: client,
-        subject: "Dein Termin wurde bestätigt 🤍",
+        subject: "Dein Termin ist bestätigt 🤍",
         html: `
           <p>Hallo ${vorname || ""},</p>
-
-          <p>dein Erstgespräch wurde von <strong>${therapist}</strong> bestätigt 🎉</p>
-
+          <p>dein Termin wurde soeben bestätigt.</p>
           <p>
-            Datum & Zeit:<br>
-            <strong>${slot}</strong>
-          </p>
-
-          <p>
-            <a href="${baseUrl}?resume=confirmed&email=${encodeURIComponent(
-          client
-        )}&therapist=${encodeURIComponent(therapist)}"
+            <a href="${baseUrl}?resume=confirmed"
                style="color:#6f4f49; font-weight:bold;">
-              Termin wurde bestätigt anzeigen
+              Zur Bestätigung
             </a>
           </p>
-
-          <p>Wir freuen uns auf dich 🤍<br>Dein Poise-Team</p>
         `,
       }),
     });
 
     return NextResponse.json({ ok: true });
-
   } catch (err) {
     console.error("❌ CONFIRM ERROR:", err);
     return NextResponse.json({ error: "SERVER_ERROR" }, { status: 500 });
