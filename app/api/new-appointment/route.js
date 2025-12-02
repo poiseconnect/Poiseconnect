@@ -21,9 +21,9 @@ function getSupabase() {
 export async function POST(req) {
   try {
     const body = await req.json();
-    const { requestId, client, therapist } = body;
+    const { requestId, client } = body;
 
-    if (!requestId || !client || !therapist) {
+    if (!requestId || !client) {
       return NextResponse.json(
         { error: "MISSING_FIELDS" },
         { status: 400 }
@@ -38,6 +38,24 @@ export async function POST(req) {
       );
     }
 
+    // 1) Anfrage aus DB holen → Name des Therapeuten auslesen
+    const { data: reqRow, error: loadErr } = await supabase
+      .from("anfragen")
+      .select("wunschtherapeut")
+      .eq("id", requestId)
+      .single();
+
+    if (loadErr || !reqRow) {
+      console.error("Load error:", loadErr);
+      return NextResponse.json(
+        { error: "REQUEST_NOT_FOUND" },
+        { status: 404 }
+      );
+    }
+
+    const therapistName = reqRow.wunschtherapeut; // ← das brauchen wir
+
+    // 2) Anfrage zurücksetzen (Zeit löschen)
     await supabase
       .from("anfragen")
       .update({
@@ -46,8 +64,11 @@ export async function POST(req) {
       })
       .eq("id", requestId);
 
+    // 3) Email mit korrektem Namen schicken
     if (process.env.RESEND_API_KEY) {
-      const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://poiseconnect.vercel.app";
+      const baseUrl =
+        process.env.NEXT_PUBLIC_SITE_URL ||
+        "https://poiseconnect.vercel.app";
 
       await fetch("https://api.resend.com/emails", {
         method: "POST",
@@ -65,13 +86,15 @@ export async function POST(req) {
             <p>
               <a href="${baseUrl}?resume=10&email=${encodeURIComponent(
                 client
-              )}&therapist=${encodeURIComponent(therapist)}">
+              )}&therapist=${encodeURIComponent(therapistName)}">
                 Hier klicken, um einen neuen Termin auszuwählen
               </a>
             </p>
           `,
         }),
-      }).catch((e) => console.error("Resend error (new-appointment):", e));
+      }).catch((e) =>
+        console.error("Resend error (new-appointment):", e)
+      );
     }
 
     return NextResponse.json({ ok: true });
