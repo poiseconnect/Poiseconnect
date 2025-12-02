@@ -2,21 +2,13 @@ export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-
-// 👇 teamData importieren (wichtiger Schritt!)
-import { teamData } from "@/app/teamData";
+import { teamData } from "../../teamData";   // ← FIXED IMPORT
 
 function getSupabase() {
   return createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL,
     process.env.SUPABASE_SERVICE_ROLE_KEY
   );
-}
-
-// Email → Name Mapping
-function getTherapistName(email) {
-  const t = teamData.find((x) => x.email === email);
-  return t ? t.name : email; // fallback: email
 }
 
 export async function POST(req) {
@@ -29,13 +21,9 @@ export async function POST(req) {
 
     const supabase = getSupabase();
     const baseUrl =
-      process.env.NEXT_PUBLIC_SITE_URL ||
-      "https://poiseconnect.vercel.app";
+      process.env.NEXT_PUBLIC_SITE_URL || "https://poiseconnect.vercel.app";
 
-    // 👉 Email → Name umwandeln
-    const therapistName = getTherapistName(therapist);
-
-    // 🔄 alten Termin resetten
+    // Termin resetten
     await supabase
       .from("anfragen")
       .update({
@@ -44,7 +32,7 @@ export async function POST(req) {
       })
       .eq("id", requestId);
 
-    // 📩 Email senden
+    // Email senden
     await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: {
@@ -58,14 +46,12 @@ export async function POST(req) {
         html: `
           <p>Hallo ${vorname || ""},</p>
 
-          <p>${therapistName} bittet dich, einen <strong>neuen Termin</strong> auszuwählen.</p>
+          <p>${therapist} bittet dich, einen <strong>neuen Termin</strong> auszuwählen.</p>
 
           <p>
             <a href="${baseUrl}?resume=10&email=${encodeURIComponent(
         client
-      )}&therapist=${encodeURIComponent(
-        therapistName
-      )}"
+      )}&therapist=${encodeURIComponent(therapist)}"
                style="color:#6f4f49; font-weight:bold;">
               Hier neuen Termin auswählen
             </a>
