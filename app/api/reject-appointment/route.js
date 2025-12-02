@@ -1,30 +1,25 @@
-export const dynamic = "force-dynamic";
-
-import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-);
+import { supabase } from "../../../lib/supabase";
 
 export async function POST(req) {
   try {
-    const body = await req.json();
-    const { id } = body;
+    const { requestId, therapist, client, vorname } = await req.json();
 
-    await supabase
+    const { error } = await supabase
       .from("anfragen")
-      .update({ status: "abgesagt" })
-      .eq("id", id);
+      .update({
+        status: "abgelehnt",
+        abgelehnt_von: therapist,
+      })
+      .eq("id", requestId);
 
-    console.log("EMAIL TO CLIENT: Termin abgesagt");
+    if (error) {
+      console.error("Reject Error:", error);
+      return new Response(JSON.stringify({ error: error.message }), { status: 500 });
+    }
 
-    return NextResponse.json({ ok: true });
+    return new Response(JSON.stringify({ ok: true }), { status: 200 });
   } catch (err) {
-    return NextResponse.json(
-      { error: "SERVER_ERROR", detail: String(err) },
-      { status: 500 }
-    );
+    console.error("Reject Catch:", err);
+    return new Response(JSON.stringify({ error: err.message }), { status: 500 });
   }
 }
