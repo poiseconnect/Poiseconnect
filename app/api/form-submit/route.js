@@ -2,13 +2,10 @@ export const dynamic = "force-dynamic";
 
 import { createClient } from "@supabase/supabase-js";
 
-// Sichere JSON-Antwort – NIE wieder .json Probleme
 function JSONResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
     status,
-    headers: {
-      "Content-Type": "application/json",
-    },
+    headers: { "Content-Type": "application/json" }
   });
 }
 
@@ -19,7 +16,7 @@ function getSupabase() {
   if (!url || !key) {
     console.error("❌ SUPABASE ENV FEHLT:", {
       hasUrl: !!url,
-      hasKey: !!key,
+      hasKey: !!key
     });
     return null;
   }
@@ -30,45 +27,65 @@ function getSupabase() {
 export async function POST(req) {
   try {
     const body = await req.json();
-
     const supabase = getSupabase();
-    if (!supabase) {
-      return JSONResponse({ error: "SUPABASE_NOT_CONFIGURED" }, 500);
+    if (!supabase) return JSONResponse({ error: "SUPABASE_NOT_CONFIGURED" }, 500);
+
+    // --------------------------
+    // 1️⃣ Wunschtherapeut reparieren
+    // --------------------------
+    let therapist = body.wunschtherapeut;
+
+    // Falls resume=10 genutzt wurde, kommt "therapist" aus der URL
+    if (!therapist && body.therapist_from_url) {
+      therapist = body.therapist_from_url;
     }
 
+    // Falls immer noch leer → NICHT SPEICHERN!
+    if (!therapist) {
+      return JSONResponse(
+        { error: "THERAPIST_MISSING", detail: "wunschtherapeut ist leer" },
+        400
+      );
+    }
+
+    // --------------------------
+    // 2️⃣ Insert in DB
+    // --------------------------
     const { error } = await supabase.from("anfragen").insert({
       vorname: body.vorname,
       nachname: body.nachname,
       email: body.email,
+
       strasse_hausnr: body.adresse || "",
       plz_ort: body.plz_ort || "",
+
       geburtsdatum: body.geburtsdatum,
       beschaeftigungsgrad: body.beschaeftigungsgrad,
+
       leidensdruck: body.leidensdruck || "",
       anliegen: body.anliegen,
       verlauf: body.verlauf,
       ziel: body.ziel,
-      wunschtherapeut: body.wunschtherapeut,
+
+      wunschtherapeut: therapist,               // ⭐ FIXED ⭐
       bevorzugte_zeit: body.terminDisplay || "",
+
       check_suizid: body.check_gesundheit || false,
       check_datenschutz: body.check_datenschutz || false,
       check_online_setting: body.check_online_setting || false,
+
+      // STATUS neu
+      status: "neu"
     });
 
     if (error) {
       console.error("❌ DB ERROR:", error);
-      return JSONResponse(
-        { error: "DB_INSERT_FAILED", detail: error.message },
-        500
-      );
+      return JSONResponse({ error: "DB_INSERT_FAILED", detail: error.message }, 500);
     }
 
     return JSONResponse({ ok: true });
   } catch (err) {
     console.error("❌ SERVER ERROR:", err);
-    return JSONResponse(
-      { error: "SERVER_ERROR", detail: String(err) },
-      500
-    );
+    return JSONResponse({ error: "SERVER_ERROR", detail: String(err) }, 500);
   }
 }
