@@ -200,8 +200,8 @@ export default function Home() {
   // -------------------------------------
   // Resume-Flow (Therapist-Response Links)
   // ?resume=confirmed&email=...&therapist=Ann
-  // ?resume=10&email=...&therapist=Ann
-  // ?resume=5&email=...
+  // ?resume=10&email=...&therapist=Ann  → Terminwahl
+  // ?resume=5&email=...                 → anderes Teammitglied wählen (jetzt Step 8)
   // -------------------------------------
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -221,16 +221,25 @@ export default function Home() {
       return;
     }
 
-    const targetStep = parseInt(resume, 10);
-    if (Number.isNaN(targetStep)) return;
+    let targetStep = null;
+    const n = parseInt(resume, 10);
+
+    if (!Number.isNaN(n)) {
+      // Mapping: alt 5 (anderes Teammitglied) → jetzt Step 8
+      if (n === 5) {
+        targetStep = 8;
+      } else {
+        targetStep = n;
+      }
+    }
+
+    if (targetStep === null) return;
 
     setForm((prev) => ({
       ...prev,
       email: emailParam || prev.email,
-      // Bei "anderes Teammitglied" (5) Wunschtherapeut leeren, sonst ggf. setzen
       wunschtherapeut:
-        targetStep === 5 ? "" : therapistParam || prev.wunschtherapeut,
-      // alten Termin zurücksetzen
+        targetStep === 8 ? "" : therapistParam || prev.wunschtherapeut,
       terminISO: "",
       terminDisplay: "",
     }));
@@ -254,7 +263,6 @@ export default function Home() {
       setSlotsError("");
 
       try {
-        // 1) passende Person aus teamData holen
         const therapistObj = teamData.find(
           (t) => t.name === form.wunschtherapeut
         );
@@ -268,10 +276,8 @@ export default function Home() {
           return;
         }
 
-        // 2) ICS-Slots laden
         const allSlots = await loadIcsSlots(therapistObj.ics);
 
-        // 3) Bereits gebuchte Termine aus Supabase
         let freeSlots = allSlots;
 
         try {
@@ -480,44 +486,8 @@ export default function Home() {
         </div>
       )}
 
-      {/* STEP 5 – Matching / Red-Flag */}
+      {/* STEP 5 – Kontaktdaten */}
       {step === 5 && (
-        <div className="step-container">
-          {isRedFlag(form.anliegen) ? (
-            <>
-              <h2>Vielen Dank für deine Offenheit</h2>
-              <p>
-                Leider können wir dein Thema nicht im Online-Setting
-                begleiten. Bitte wende dich an eine{" "}
-                <strong>ambulante psychotherapeutische Praxis</strong>,
-                den <strong>ärztlichen Notdienst</strong> oder im
-                Notfall direkt an den <strong>Notruf</strong>.
-              </p>
-              <div className="footer-buttons">
-                <button onClick={back}>Zurück</button>
-                <button onClick={next}>Weiter</button>
-              </div>
-            </>
-          ) : (
-            <>
-              <h2>Wer könnte gut zu dir passen?</h2>
-              <TeamCarousel
-                members={sortedTeam}
-                onSelect={(name) => {
-                  setForm({ ...form, wunschtherapeut: name });
-                  next();
-                }}
-              />
-              <div className="footer-buttons">
-                <button onClick={back}>Zurück</button>
-              </div>
-            </>
-          )}
-        </div>
-      )}
-
-      {/* STEP 6 – Kontaktdaten */}
-      {step === 6 && (
         <div className="step-container">
           <h2>Kontaktdaten</h2>
 
@@ -595,8 +565,8 @@ export default function Home() {
         </div>
       )}
 
-      {/* STEP 7 – Beschäftigungsgrad */}
-      {step === 7 && (
+      {/* STEP 6 – Beschäftigungsgrad */}
+      {step === 6 && (
         <div className="step-container">
           <h2>Beschäftigungsgrad</h2>
           <select
@@ -626,8 +596,8 @@ export default function Home() {
         </div>
       )}
 
-      {/* STEP 8 – Hinweise / Datenschutz */}
-      {step === 8 && (
+      {/* STEP 7 – Hinweise / Datenschutz */}
+      {step === 7 && (
         <div className="step-container">
           <h2>Wichtige Hinweise</h2>
 
@@ -692,89 +662,131 @@ export default function Home() {
         </div>
       )}
 
-      {/* STEP 9 – Story / Infos zum Ablauf */}
-      {step === 9 && (() => {
-        const t = getTherapistInfo(form.wunschtherapeut);
+      {/* STEP 8 – Therapeut:in auswählen / Red-Flag */}
+      {step === 8 && (
+        <div className="step-container">
+          {isRedFlag(form.anliegen) ? (
+            <>
+              <h2>Vielen Dank für deine Offenheit</h2>
+              <p>
+                Leider können wir dein Thema nicht im Online-Setting
+                begleiten. Bitte wende dich an eine{" "}
+                <strong>ambulante psychotherapeutische Praxis</strong>,
+                den <strong>ärztlichen Notdienst</strong> oder im
+                Notfall direkt an den <strong>Notruf</strong>.
+              </p>
+              <div className="footer-buttons">
+                <button onClick={back}>Zurück</button>
+                <button onClick={next}>Weiter</button>
+              </div>
+            </>
+          ) : (
+            <>
+              <h2>Wer könnte gut zu dir passen?</h2>
+              <TeamCarousel
+                members={sortedTeam}
+                onSelect={(name) => {
+                  setForm({ ...form, wunschtherapeut: name });
+                  next();
+                }}
+              />
+              <div className="footer-buttons">
+                <button onClick={back}>Zurück</button>
+              </div>
+            </>
+          )}
+        </div>
+      )}
 
-        const slides = [
-          {
-            title: "Schön, dass du da bist 🤍",
-            text: `Danke für dein Vertrauen.
+      {/* STEP 9 – Story / Infos zum Ablauf */}
+      {step === 9 &&
+        (() => {
+          const t = getTherapistInfo(form.wunschtherapeut);
+
+          const slides = [
+            {
+              title: "Schön, dass du da bist 🤍",
+              text: `Danke für dein Vertrauen.
 
 Du hast **${t.name || "deine Begleitung"}** ausgewählt — eine sehr gute Wahl.
 
 Wir führen dich jetzt ganz kurz durch den Ablauf,
 bevor du deinen Termin auswählst.`,
-          },
-          {
-            title: "Wie startet der Prozess?",
-            text: `Ihr beginnt mit einem **kostenlosen Erstgespräch (30 Min)** im Video-Call.
+            },
+            {
+              title: "Wie startet der Prozess?",
+              text: `Ihr beginnt mit einem **kostenlosen Erstgespräch (30 Min)** im Video-Call.
 
 Ihr lernt euch kennen, besprecht das Anliegen
 und klärt organisatorische Fragen.
 
 Danach entscheiden beide frei, ob ihr weiter zusammenarbeitet.`,
-          },
-          {
-            title: "Wie geht es danach weiter?",
-            text: `Wenn ihr weitermacht:
+            },
+            {
+              title: "Wie geht es danach weiter?",
+              text: `Wenn ihr weitermacht:
 
 • Sitzungen à **60 Minuten**
 • Online per Video-Call
 • Ca. 8–10 Sitzungen im Durchschnitt
 • Offenes Tempo & Anpassung jederzeit möglich`,
-          },
-          {
-            title: `Kosten bei ${t.name || "deiner Begleitung"}`,
-            text: `Standardtarif: **${t.preis_std ?? "–"}€ / 60 Min**
+            },
+            {
+              title: `Kosten bei ${t.name || "deiner Begleitung"}`,
+              text: `Standardtarif: **${t.preis_std ?? "–"}€ / 60 Min**
 Ermäßigt (Studierende / Azubi): **${t.preis_ermaessigt ?? "–"}€**
 
 Unser Angebot richtet sich grundsätzlich an Selbstzahler.
 Eine Kostenübernahme kann möglich sein — individuell klären.`,
-          },
-        ];
+            },
+          ];
 
-        const isLast = subStep9 === slides.length - 1;
+          const isLast = subStep9 === slides.length - 1;
 
-        return (
-          <div className="step-container">
-            <h2>{slides[subStep9].title}</h2>
+          return (
+            <div className="step-container">
+              <h2>{slides[subStep9].title}</h2>
 
-            <p style={{ whiteSpace: "pre-line", lineHeight: 1.55 }}>
-              {slides[subStep9].text}
-            </p>
+              <p
+                style={{
+                  whiteSpace: "pre-line",
+                  lineHeight: 1.55,
+                }}
+              >
+                {slides[subStep9].text}
+              </p>
 
-            <div className="footer-buttons">
-              {subStep9 > 0 ? (
-                <button
-                  onClick={() => setSubStep9((v) => v - 1)}
-                >
-                  Zurück
-                </button>
-              ) : (
-                <button onClick={back}>Zurück</button>
-              )}
+              <div className="footer-buttons">
+                {subStep9 > 0 ? (
+                  <button
+                    onClick={() => setSubStep9((v) => v - 1)}
+                  >
+                    Zurück
+                  </button>
+                ) : (
+                  <button onClick={back}>Zurück</button>
+                )}
 
-              {!isLast ? (
-                <button
-                  onClick={() => setSubStep9((v) => v + 1)}
-                >
-                  Weiter
-                </button>
-              ) : (
-                <button
-                  onClick={() => {
-                    setSubStep9(0);
-                    next();
-                  }}
-                >
-                  Weiter zur Terminwahl
-                </button>
-              )}
+                {!isLast ? (
+                  <button
+                    onClick={() => setSubStep9((v) => v + 1)}
+                  >
+                    Weiter
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => {
+                      setSubStep9(0);
+                      next();
+                    }}
+                  >
+                    Weiter zur Terminwahl
+                  </button>
+                )}
+              </div>
             </div>
-          </div>
-        );
-      })()}
+          );
+        })()}
 
       {/* STEP 10 – Terminwahl */}
       {step === 10 && (
