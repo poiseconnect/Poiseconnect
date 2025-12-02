@@ -1,24 +1,58 @@
-import { supabase } from "../../../lib/supabase";
+export const dynamic = "force-dynamic";
+
+import { NextResponse } from "next/server";
+import { supabase } from "@/app/lib/supabase";
 
 export async function POST(req) {
   try {
-    const { requestId, client, vorname } = await req.json();
+    const body = await req.json();
+    const { requestId, client, vorname } = body;
 
-    const { error } = await supabase
+    if (!requestId || !client) {
+      return NextResponse.json(
+        { error: "MISSING_FIELDS" },
+        { status: 400 }
+      );
+    }
+
+    // Anfrage freigeben
+    await supabase
       .from("anfragen")
       .update({
-        status: "weitergeleitet",
+        wunschtherapeut: null,
+        bevorzugte_zeit: null,
+        status: "team_neu",
       })
       .eq("id", requestId);
 
-    if (error) {
-      console.error("Forward Error:", error);
-      return new Response(JSON.stringify({ error: error.message }), { status: 500 });
-    }
+    // Email an Klient → resume=5
+    await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        from: "Poise <noreply@mypoise.de>",
+        to: client,
+        subject: "Bitte wähle ein anderes Teammitglied",
+        html: `
+          <p>Hallo ${vorname},</p>
+          <p>Bitte wähle ein anderes Teammitglied aus.</p>
+          <p>
+            <a href="https://poiseconnect.vercel.app?resume=5&email=${client}">
+              Hier klicken
+            </a>
+          </p>
+        `,
+      }),
+    });
 
-    return new Response(JSON.stringify({ ok: true }), { status: 200 });
+    return NextResponse.json({ ok: true });
   } catch (err) {
-    console.error("Forward Catch:", err);
-    return new Response(JSON.stringify({ error: err.message }), { status: 500 });
+    return NextResponse.json(
+      { error: "SERVER_ERROR", detail: String(err) },
+      { status: 500 }
+    );
   }
 }
