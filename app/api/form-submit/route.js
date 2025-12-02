@@ -2,6 +2,7 @@ export const dynamic = "force-dynamic";
 
 import { createClient } from "@supabase/supabase-js";
 
+// Sicheres JSON
 function JSONResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
     status,
@@ -28,19 +29,20 @@ export async function POST(req) {
   try {
     const body = await req.json();
     const supabase = getSupabase();
-    if (!supabase) return JSONResponse({ error: "SUPABASE_NOT_CONFIGURED" }, 500);
+    if (!supabase) {
+      return JSONResponse({ error: "SUPABASE_NOT_CONFIGURED" }, 500);
+    }
 
-    // --------------------------
-    // 1️⃣ Wunschtherapeut reparieren
-    // --------------------------
+    // ---------------------------------
+    // 🔧 WUNSCHTHERAPEUT FIX
+    // ---------------------------------
     let therapist = body.wunschtherapeut;
 
-    // Falls resume=10 genutzt wurde, kommt "therapist" aus der URL
+    // Falls resume=10 oder resume=8 aus URL kommt
     if (!therapist && body.therapist_from_url) {
       therapist = body.therapist_from_url;
     }
 
-    // Falls immer noch leer → NICHT SPEICHERN!
     if (!therapist) {
       return JSONResponse(
         { error: "THERAPIST_MISSING", detail: "wunschtherapeut ist leer" },
@@ -48,9 +50,10 @@ export async function POST(req) {
       );
     }
 
-    // --------------------------
-    // 2️⃣ Insert in DB
-    // --------------------------
+    // ---------------------------------
+    // 🔧 INSERT
+    // ---------------------------------
+
     const { error } = await supabase.from("anfragen").insert({
       vorname: body.vorname,
       nachname: body.nachname,
@@ -67,25 +70,31 @@ export async function POST(req) {
       verlauf: body.verlauf,
       ziel: body.ziel,
 
-      wunschtherapeut: therapist,               // ⭐ FIXED ⭐
+      wunschtherapeut: therapist,
       bevorzugte_zeit: body.terminDisplay || "",
 
       check_suizid: body.check_gesundheit || false,
       check_datenschutz: body.check_datenschutz || false,
       check_online_setting: body.check_online_setting || false,
 
-      // STATUS neu
+      // ⭐ FIX: status existiert jetzt in Supabase
       status: "neu"
     });
 
     if (error) {
       console.error("❌ DB ERROR:", error);
-      return JSONResponse({ error: "DB_INSERT_FAILED", detail: error.message }, 500);
+      return JSONResponse(
+        { error: "DB_INSERT_FAILED", detail: error.message },
+        500
+      );
     }
 
     return JSONResponse({ ok: true });
   } catch (err) {
     console.error("❌ SERVER ERROR:", err);
-    return JSONResponse({ error: "SERVER_ERROR", detail: String(err) }, 500);
+    return JSONResponse(
+      { error: "SERVER_ERROR", detail: String(err) },
+      500
+    );
   }
 }
