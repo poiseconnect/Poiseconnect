@@ -8,37 +8,38 @@ export default function Callback() {
   const router = useRouter();
 
   useEffect(() => {
-    async function handleLogin() {
+    async function checkUser() {
       const { data: { session } } = await supabase.auth.getSession();
 
+      // Falls keine Session → Login
       if (!session?.user) {
         router.push("/login");
         return;
       }
 
-      const email = session.user.email;
+      const email = session.user.email?.toLowerCase();
 
-      // Liste deiner Team-E-Mails
+      // HIER alle Team-Mails eintragen
       const teamEmails = [
         "hallo@mypoise.de",
         "support@mypoise.de",
         "linda@mypoise.de",
         "anna@mypoise.de",
-        "ann@mypoise.de"
-        // … alle aus deinem Sheets
+        "ann@mypoise.de",
+        // … ergänzen, so wie im Google Sheet
       ];
 
-      // Wenn Team-Mitglied → Dashboard
-      if (teamEmails.includes(email.toLowerCase())) {
+      // Team → Dashboard
+      if (teamEmails.includes(email)) {
         router.push("/dashboard");
         return;
       }
 
-      // Sonst → Formular Step 1
+      // Alle anderen → Klientenformular
       router.push("/");
     }
 
-    handleLogin();
+    checkUser();
   }, []);
 
   return <p>Bitte warten…</p>;
