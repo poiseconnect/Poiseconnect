@@ -5,110 +5,60 @@ import { supabase } from "../lib/supabase";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
-  const [message, setMessage] = useState(null);
-  const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
 
   async function sendMagicLink(e) {
     e.preventDefault();
-    setError(null);
-    setMessage(null);
     setLoading(true);
 
-    const redirectUrl = "https://poiseconnect.vercel.app/auth/callback";
-
     const { error } = await supabase.auth.signInWithOtp({
-      email: email.trim().toLowerCase(),
+      email,
       options: {
-        emailRedirectTo: redirectUrl,
+        emailRedirectTo: "https://poiseconnect.vercel.app/dashboard",
       },
     });
 
     setLoading(false);
 
     if (error) {
-      setError("Fehler – Magic Link konnte nicht gesendet werden.");
-      return;
+      return alert("Fehler – Magic Link konnte nicht gesendet werden.");
     }
 
-    setMessage("Magic Link wurde gesendet! Bitte Posteingang prüfen.");
+    alert("Magic Link wurde gesendet!");
   }
 
   return (
-    <div
-      style={{
-        maxWidth: 400,
-        margin: "60px auto",
-        padding: "30px",
-        border: "1px solid #ddd",
-        borderRadius: 12,
-      }}
-    >
-      <h1 style={{ textAlign: "center", marginBottom: 20 }}>Team Login</h1>
-
-      <form onSubmit={sendMagicLink}>
-        <label style={{ display: "block", marginBottom: 10 }}>
-          Team E-Mail
-        </label>
-
+    <div style={{ padding: 40 }}>
+      <h1>Team Login</h1>
+      <form onSubmit={sendMagicLink} style={{ marginTop: 20 }}>
         <input
           type="email"
-          required
+          placeholder="Deine Email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          placeholder="name@mypoise.de"
           style={{
             width: "100%",
             padding: 12,
-            marginBottom: 20,
             borderRadius: 8,
             border: "1px solid #ccc",
+            marginBottom: 12,
           }}
         />
-
         <button
           type="submit"
           disabled={loading}
           style={{
-            width: "100%",
-            padding: 12,
+            padding: "12px 20px",
             borderRadius: 8,
-            background: "#b87c6a",
+            background: "#c7afa4",
             color: "white",
-            fontSize: 16,
-            cursor: "pointer",
-            opacity: loading ? 0.6 : 1,
+            border: "none",
+            width: "100%",
           }}
         >
-          {loading ? "Sende…" : "Magic Link senden"}
+          {loading ? "Senden..." : "Magic Link senden"}
         </button>
       </form>
-
-      {message && (
-        <p
-          style={{
-            marginTop: 20,
-            color: "green",
-            fontWeight: "bold",
-            textAlign: "center",
-          }}
-        >
-          {message}
-        </p>
-      )}
-
-      {error && (
-        <p
-          style={{
-            marginTop: 20,
-            color: "red",
-            fontWeight: "bold",
-            textAlign: "center",
-          }}
-        >
-          {error}
-        </p>
-      )}
     </div>
   );
 }
