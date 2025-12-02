@@ -1,25 +1,57 @@
-import { supabase } from "../../../lib/supabase";
+export const dynamic = "force-dynamic";
+
+import { NextResponse } from "next/server";
+import { supabase } from "@/app/lib/supabase";
 
 export async function POST(req) {
   try {
-    const { requestId, client, therapist } = await req.json();
+    const body = await req.json();
+    const { requestId, client, therapist } = body;
 
-    const { error } = await supabase
+    if (!requestId || !client || !therapist) {
+      return NextResponse.json(
+        { error: "MISSING_FIELDS" },
+        { status: 400 }
+      );
+    }
+
+    // Anfrage zurücksetzen
+    await supabase
       .from("anfragen")
       .update({
-        status: "neuer-termin-angefragt",
-        angefragt_von: therapist,
+        bevorzugte_zeit: null,
+        status: "termin_neu",
       })
       .eq("id", requestId);
 
-    if (error) {
-      console.error("New Appointment Error:", error);
-      return new Response(JSON.stringify({ error: error.message }), { status: 500 });
-    }
+    // Email an Klient → resume=10
+    await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        from: "Poise <noreply@mypoise.de>",
+        to: client,
+        subject: "Bitte neuen Termin auswählen",
+        html: `
+          <p>Hallo,</p>
+          <p>Bitte wähle einen neuen Termin aus.</p>
+          <p>
+            <a href="https://poiseconnect.vercel.app?resume=10&email=${client}&therapist=${therapist}">
+              Hier klicken
+            </a>
+          </p>
+        `,
+      }),
+    });
 
-    return new Response(JSON.stringify({ ok: true }), { status: 200 });
+    return NextResponse.json({ ok: true });
   } catch (err) {
-    console.error("New Appointment Catch:", err);
-    return new Response(JSON.stringify({ error: err.message }), { status: 500 });
+    return NextResponse.json(
+      { error: "SERVER_ERROR", detail: String(err) },
+      { status: 500 }
+    );
   }
 }
