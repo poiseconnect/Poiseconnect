@@ -2,7 +2,6 @@ export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { teamData } from "../../teamData";   // ← FIXED IMPORT
 
 function getSupabase() {
   return createClient(
@@ -23,21 +22,19 @@ export async function POST(req) {
     const baseUrl =
       process.env.NEXT_PUBLIC_SITE_URL || "https://poiseconnect.vercel.app";
 
-    // Termin resetten
     await supabase
       .from("anfragen")
       .update({
         bevorzugte_zeit: null,
-        status: "termin_neu",
+        status: "termin_neu"
       })
       .eq("id", requestId);
 
-    // Email senden
     await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
-        "Content-Type": "application/json",
+        "Content-Type": "application/json"
       },
       body: JSON.stringify({
         from: "Poise <noreply@mypoise.de>",
@@ -46,25 +43,24 @@ export async function POST(req) {
         html: `
           <p>Hallo ${vorname || ""},</p>
 
-          <p>${therapist} bittet dich, einen <strong>neuen Termin</strong> auszuwählen.</p>
+          <p>${therapist} bittet dich um einen neuen Termin.</p>
 
           <p>
             <a href="${baseUrl}?resume=10&email=${encodeURIComponent(
-        client
-      )}&therapist=${encodeURIComponent(therapist)}"
+          client
+        )}&therapist=${encodeURIComponent(therapist)}"
                style="color:#6f4f49; font-weight:bold;">
-              Hier neuen Termin auswählen
+              Neuen Termin auswählen
             </a>
           </p>
 
           <p>Liebe Grüße,<br>dein Poise-Team 🤍</p>
-        `,
-      }),
+        `
+      })
     });
 
     return NextResponse.json({ ok: true });
   } catch (err) {
-    console.error("❌ NEW APPOINTMENT ERROR:", err);
     return NextResponse.json({ error: "SERVER_ERROR" }, { status: 500 });
   }
 }
