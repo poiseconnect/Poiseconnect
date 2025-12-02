@@ -38,18 +38,20 @@ export async function POST(req) {
       );
     }
 
+    // Anfrage für Weiterleitung markieren
     await supabase
       .from("anfragen")
       .update({
-        wunschtherapeut: null,
-        bevorzugte_zeit: null,
-        status: "team_neu",
+        wunschtherapeut: "",
+        status: "weitergeleitet",
+        bevorzugte_zeit: null
       })
       .eq("id", requestId);
 
-    if (process.env.RESEND_API_KEY) {
-      const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://poiseconnect.vercel.app";
+    // ---- EMAIL SENDEN -------
+    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://poiseconnect.vercel.app";
 
+    if (process.env.RESEND_API_KEY) {
       await fetch("https://api.resend.com/emails", {
         method: "POST",
         headers: {
@@ -62,13 +64,12 @@ export async function POST(req) {
           subject: "Bitte wähle ein anderes Teammitglied",
           html: `
             <p>Hallo ${vorname || ""},</p>
-            <p>deine Anfrage wird an ein anderes Teammitglied weitergeleitet.</p>
             <p>
-              Du kannst hier ein neues Teammitglied auswählen:
-              <a href="${baseUrl}?resume=5&email=${encodeURIComponent(
-                client
-              )}">
-                Zur Auswahl
+              bitte wähle ein anderes Teammitglied für dein Erstgespräch aus.
+            </p>
+            <p>
+              <a href="${baseUrl}?resume=8&email=${encodeURIComponent(client)}">
+                Hier klicken, um eine neue Person auszuwählen
               </a>
             </p>
           `,
