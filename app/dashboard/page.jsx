@@ -182,42 +182,6 @@ export default function Dashboard() {
           marginBottom: 24,
         }}
       >
-        {isAdmin && (
-  <div
-    style={{
-      position: "absolute",
-      right: 40,
-      top: 40,
-      display: "flex",
-      alignItems: "center",
-      gap: 8,
-    }}
-  >
-    <label style={{ fontSize: 13, color: "#7D5D43" }}>Teamfilter:</label>
-    <select
-      value={teamFilter}
-      onChange={(e) => setTeamFilter(e.target.value)}
-      style={{
-        padding: "6px 10px",
-        borderRadius: 999,
-        border: "1px solid #D8C5B2",
-        background: "white",
-        fontSize: 13,
-        cursor: "pointer",
-      }}
-    >
-      <option value="alle">Alle</option>
-      {requests
-        .map((r) => r.wunschtherapeut)
-        .filter((x, i, arr) => x && arr.indexOf(x) === i)
-        .map((email) => (
-          <option key={email} value={email}>
-            {email}
-          </option>
-        ))}
-    </select>
-  </div>
-)}
         <div>
           <h1
             style={{
