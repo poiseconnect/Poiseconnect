@@ -82,20 +82,20 @@ if (email !== "hallo@mypoise.de") {
   }
 
   // 5) Neuer Termin
-  async function newAppointment(req) {
-    const res = await fetch("/api/new-appointment", {
-      method: "POST",
-      body: JSON.stringify({
-        requestId: req.id,
-        client: req.email,
-        therapist: user.email,
-      }),
-    });
+async function newAppointment(req) {
+  const res = await fetch("/api/new-appointment", {
+    method: "POST",
+    body: JSON.stringify({
+      requestId: req.id,
+      client: req.email,
+      therapist: req.wunschtherapeut  // ⭐ FIXED ⭐
+    }),
+  });
 
-    if (!res.ok) return alert("Fehler beim Senden!");
-    alert("Klient wählt neuen Termin aus.");
-    window.location.reload();
-  }
+  if (!res.ok) return alert("Fehler beim Senden!");
+  alert("Klient wählt neuen Termin aus.");
+  window.location.reload();
+}
 
   // 6) Weiterleiten an anderes Teammitglied
   async function reassign(req) {
