@@ -27,7 +27,7 @@ export default function Dashboard() {
       let query = supabase
         .from("anfragen")
         .select("*")
-        .order("id", { ascending: false });
+        .order("created_at", { ascending: false })
 
       // Admin sieht ALLES
 if (email !== "hallo@mypoise.de") {
