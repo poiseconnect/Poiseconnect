@@ -11,6 +11,7 @@ export const teamData = [
     preis_ermaessigt: 120,
     status: "frei",
     ics: "https://calendar.google.com/calendar/ical/75f62df4c63554a1436d49c3a381da84502728a0457c9c8b56d30e21fa5021c5%40group.calendar.google.com/public/basic.ics"
+    email: "sebastian.kickinger@icloud.com",
   },
   {
     name: "Anna",
