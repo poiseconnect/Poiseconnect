@@ -29,10 +29,10 @@ export default function Dashboard() {
         .select("*")
         .order("id", { ascending: false });
 
-      // 🔑 ADMIN: hallo@mypoise.de sieht ALLE
-      if (email !== "hallo@mypoise.de") {
-        query = query.eq("wunschtherapeut", user.email);
-      }
+      // Admin sieht ALLES
+if (email !== "hallo@mypoise.de") {
+  query = query.eq("wunschtherapeut", user.email);
+}
 
       const { data, error } = await query;
 
