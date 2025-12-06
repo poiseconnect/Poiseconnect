@@ -156,6 +156,9 @@ export default function Home() {
     terminDisplay: "",
   });
 
+  // Validierungs-Fehler für Step "Kontaktdaten"
+  const [errors, setErrors] = useState({});
+
   // Termine
   const [slots, setSlots] = useState([]);
   const [loadingSlots, setLoadingSlots] = useState(false);
@@ -196,6 +199,50 @@ export default function Home() {
 
   const next = () => setStep((s) => s + 1);
   const back = () => setStep((s) => s - 1);
+
+  // ----------------------------
+  // Validierung Step "Kontaktdaten"
+  // ----------------------------
+  function validateClientData(form) {
+    const newErrors = {};
+
+    if (!form.vorname?.trim()) {
+      newErrors.vorname = "Bitte Vornamen eingeben.";
+    }
+
+    if (!form.nachname?.trim()) {
+      newErrors.nachname = "Bitte Nachnamen eingeben.";
+    }
+
+    if (!form.email?.trim()) {
+      newErrors.email = "Bitte E-Mail eingeben.";
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) {
+      newErrors.email = "Bitte eine gültige E-Mail-Adresse eingeben.";
+    }
+
+    if (!form.telefon?.trim()) {
+      newErrors.telefon = "Bitte Telefonnummer eingeben.";
+    }
+
+    if (!form.adresse?.trim()) {
+      newErrors.adresse = "Bitte Adresse eingeben.";
+    }
+
+    if (!form.geburtsdatum?.trim()) {
+      newErrors.geburtsdatum = "Bitte Geburtsdatum eingeben.";
+    } else {
+      const d = new Date(form.geburtsdatum);
+      if (Number.isNaN(d.getTime())) {
+        newErrors.geburtsdatum = "Bitte gültiges Datum wählen.";
+      } else if (!isAdult(form.geburtsdatum)) {
+        newErrors.geburtsdatum =
+          "Du musst mindestens 18 Jahre alt sein.";
+      }
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  }
 
   // -------------------------------------
   // Resume-Flow (Therapist-Response Links)
@@ -339,10 +386,10 @@ export default function Home() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-        ...form,
-        therapist_from_url: form.wunschtherapeut,
-      }),
-    });
+          ...form,
+          therapist_from_url: form.wunschtherapeut,
+        }),
+      });
 
       let json = null;
       try {
@@ -500,7 +547,15 @@ export default function Home() {
             onChange={(e) =>
               setForm({ ...form, vorname: e.target.value })
             }
+            style={
+              errors.vorname
+                ? { borderColor: "#d33", borderWidth: 2 }
+                : {}
+            }
           />
+          {errors.vorname && (
+            <p style={{ color: "#d33", fontSize: 14 }}>{errors.vorname}</p>
+          )}
 
           <input
             placeholder="Nachname"
@@ -508,7 +563,15 @@ export default function Home() {
             onChange={(e) =>
               setForm({ ...form, nachname: e.target.value })
             }
+            style={
+              errors.nachname
+                ? { borderColor: "#d33", borderWidth: 2 }
+                : {}
+            }
           />
+          {errors.nachname && (
+            <p style={{ color: "#d33", fontSize: 14 }}>{errors.nachname}</p>
+          )}
 
           <input
             placeholder="E-Mail"
@@ -517,7 +580,15 @@ export default function Home() {
             onChange={(e) =>
               setForm({ ...form, email: e.target.value })
             }
+            style={
+              errors.email
+                ? { borderColor: "#d33", borderWidth: 2 }
+                : {}
+            }
           />
+          {errors.email && (
+            <p style={{ color: "#d33", fontSize: 14 }}>{errors.email}</p>
+          )}
 
           <input
             placeholder="Telefonnummer"
@@ -526,7 +597,15 @@ export default function Home() {
             onChange={(e) =>
               setForm({ ...form, telefon: e.target.value })
             }
+            style={
+              errors.telefon
+                ? { borderColor: "#d33", borderWidth: 2 }
+                : {}
+            }
           />
+          {errors.telefon && (
+            <p style={{ color: "#d33", fontSize: 14 }}>{errors.telefon}</p>
+          )}
 
           <input
             placeholder="Adresse"
@@ -534,7 +613,15 @@ export default function Home() {
             onChange={(e) =>
               setForm({ ...form, adresse: e.target.value })
             }
+            style={
+              errors.adresse
+                ? { borderColor: "#d33", borderWidth: 2 }
+                : {}
+            }
           />
+          {errors.adresse && (
+            <p style={{ color: "#d33", fontSize: 14 }}>{errors.adresse}</p>
+          )}
 
           <input
             type="date"
@@ -542,25 +629,24 @@ export default function Home() {
             onChange={(e) =>
               setForm({ ...form, geburtsdatum: e.target.value })
             }
+            style={
+              errors.geburtsdatum
+                ? { borderColor: "#d33", borderWidth: 2 }
+                : {}
+            }
           />
-
-          {!isAdult(form.geburtsdatum) && form.geburtsdatum && (
-            <p style={{ color: "red" }}>Du musst mindestens 18 sein.</p>
+          {errors.geburtsdatum && (
+            <p style={{ color: "#d33", fontSize: 14 }}>
+              {errors.geburtsdatum}
+            </p>
           )}
 
           <div className="footer-buttons">
             <button onClick={back}>Zurück</button>
             <button
-              disabled={
-                !form.vorname ||
-                !form.nachname ||
-                !form.email ||
-                !form.telefon ||
-                !form.adresse ||
-                !form.geburtsdatum ||
-                !isAdult(form.geburtsdatum)
-              }
-              onClick={next}
+              onClick={() => {
+                if (validateClientData(form)) next();
+              }}
             >
               Weiter
             </button>
@@ -839,7 +925,7 @@ Eine Kostenübernahme kann möglich sein — individuell klären.`,
                           form.terminISO ===
                           s.start.toISOString()
                             ? "2px solid #A27C77"
-                            : "1px solid #ddd",
+                            : "1px solid "#ddd",
                         background:
                           form.terminISO ===
                           s.start.toISOString()
