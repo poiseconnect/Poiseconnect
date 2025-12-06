@@ -1,6 +1,7 @@
 export const dynamic = "force-dynamic";
 
 import { createClient } from "@supabase/supabase-js";
+import { teamData } from "@/app/teamData";
 
 // Sichere JSON Antwort
 function JSONResponse(data, status = 200) {
@@ -33,9 +34,9 @@ export async function POST(req) {
       return JSONResponse({ error: "SUPABASE_NOT_CONFIGURED" }, 500);
     }
 
-    // ----------------------------
+    // ---------------------------------
     // 1️⃣ WUNSCHTHERAPEUT FIX
-    // ----------------------------
+    // ---------------------------------
     let therapist = body.wunschtherapeut;
 
     if (!therapist && body.therapist_from_url) {
@@ -49,9 +50,17 @@ export async function POST(req) {
       );
     }
 
-    // ----------------------------
-    // 2️⃣ INSERT INTO DATABASE
-    // ----------------------------
+    // ---------------------------------
+    // 2️⃣ TEAM-MAIL FIX
+    // ---------------------------------
+    const therapistObj = teamData.find(t => t.name === therapist);
+    const therapistEmail = therapistObj?.email || therapist;  
+    // Fällt zurück auf "Ann" falls noch keine Email eingetragen ist
+
+    // ---------------------------------
+    // 3️⃣ INSERT INTO DATABASE
+    // ---------------------------------
+
     const insertPayload = {
       vorname: body.vorname,
       nachname: body.nachname,
@@ -88,9 +97,9 @@ export async function POST(req) {
       );
     }
 
-    // ------------------------------------------------------
-    // 3️⃣ EMAILS (3 Stück) – RESEND
-    // ------------------------------------------------------
+    // ---------------------------------
+    // 4️⃣ EMAILS VERSENDEN (3 Stück)
+    // ---------------------------------
     const baseUrl =
       process.env.NEXT_PUBLIC_SITE_URL ||
       "https://poiseconnect.vercel.app";
@@ -114,7 +123,7 @@ export async function POST(req) {
 
       const clientName = `${body.vorname} ${body.nachname}`;
 
-      // 3.1 📩 Eingangsbestätigung an Klient
+      // 4.1 📩 Klient
       sendMail(
         body.email,
         "Deine Anfrage bei Poise ist eingegangen 🤍",
@@ -122,13 +131,12 @@ export async function POST(req) {
           <h2>Hallo ${body.vorname},</h2>
           <p>vielen Dank für deine Anfrage und dein Vertrauen.</p>
           <p>${therapist} wird sich zeitnah bei dir melden.</p>
-          <p>Wir freuen uns, dich begleiten zu dürfen.</p>
           <br />
           <p>🤍 Dein Poise Team</p>
         `
       );
 
-      // 3.2 📩 Kopie an Admin
+      // 4.2 📩 Admin
       sendMail(
         "hallo@mypoise.de",
         `Neue Anfrage eingegangen von ${clientName}`,
@@ -144,9 +152,9 @@ export async function POST(req) {
         `
       );
 
-      // 3.3 📩 Info an Teammitglied
+      // 4.3 📩 Teammitglied (Team-Daten-Mail-Adresse!)
       sendMail(
-        therapist,
+        therapistEmail,
         `Neue Anfrage für dich von ${clientName}`,
         `
           <h2>Neue Anfrage für dich 🤍</h2>
@@ -160,9 +168,9 @@ export async function POST(req) {
       );
     }
 
-    // ----------------------------
-    // 4️⃣ RESPONSE
-    // ----------------------------
+    // ---------------------------------
+    // 5️⃣ RESPONSE
+    // ---------------------------------
     return JSONResponse({ ok: true });
   } catch (err) {
     console.error("❌ SERVER ERROR:", err);
