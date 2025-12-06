@@ -925,7 +925,7 @@ Eine Kostenübernahme kann möglich sein — individuell klären.`,
                           form.terminISO ===
                           s.start.toISOString()
                             ? "2px solid #A27C77"
-                            : "1px solid "#ddd",
+                            : "1px solid #ddd",
                         background:
                           form.terminISO ===
                           s.start.toISOString()
