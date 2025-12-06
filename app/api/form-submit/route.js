@@ -1,7 +1,7 @@
 export const dynamic = "force-dynamic";
 
 import { createClient } from "@supabase/supabase-js";
-import { teamData } from "@/app/teamData";
+import { teamData } from "../../teamData";
 
 // Sichere JSON Antwort
 function JSONResponse(data, status = 200) {
