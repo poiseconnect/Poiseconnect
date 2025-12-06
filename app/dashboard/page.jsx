@@ -101,22 +101,30 @@ export default function Dashboard() {
     window.location.reload();
   }
 
-  // 5) Neuer Termin
-  async function newAppointment(req) {
-    const res = await fetch("/api/new-appointment", {
-      method: "POST",
-      body: JSON.stringify({
-        requestId: req.id,
-        client: req.email,
-        therapist: user.email,
-        vorname: req.vorname,
-      }),
-    });
+ // 5) Neuer Termin
+async function newAppointment(req) {
+  const res = await fetch("/api/new-appointment", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      requestId: req.id,
+      client: req.email,                // Klient:in
+      therapistEmail: user.email,       // eingeloggtes Teammitglied / Admin
+      therapistName: req.wunschtherapeut, // 🔥 WICHTIG: Name aus der Anfrage, z.B. "Ann"
+      vorname: req.vorname,
+    }),
+  });
 
-    if (!res.ok) return alert("Fehler beim Senden!");
-    alert("Klient wählt neuen Termin aus.");
-    window.location.reload();
+  if (!res.ok) {
+    alert("Fehler beim Senden!");
+    return;
   }
+
+  alert("Klient:in bekommt einen Link zur neuen Terminauswahl.");
+  window.location.reload();
+}
 
   // 6) Weiterleiten an anderes Teammitglied
   async function reassign(req) {
