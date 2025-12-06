@@ -1,9 +1,10 @@
 export const dynamic = "force-dynamic";
 
 import { createClient } from "@supabase/supabase-js";
-import { teamData } from "../../teamData";
 
-// Sichere JSON Antwort
+// -----------------------------------------
+// 🔧 JSON Helper
+// -----------------------------------------
 function JSONResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
     status,
@@ -11,55 +12,45 @@ function JSONResponse(data, status = 200) {
   });
 }
 
-// Supabase Client
+// -----------------------------------------
+// 🔧 Supabase Client (Service Role)
+// -----------------------------------------
 function getSupabase() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
   if (!url || !key) {
-    console.error("❌ SUPABASE ENV FEHLT:", {
-      hasUrl: !!url,
-      hasKey: !!key,
-    });
+    console.error("❌ ENV fehlt", { url: !!url, key: !!key });
     return null;
   }
+
   return createClient(url, key);
 }
 
+// -----------------------------------------
+// 🚀 POST: FORMULAR ABSENDEN
+// -----------------------------------------
 export async function POST(req) {
   try {
     const body = await req.json();
     const supabase = getSupabase();
     if (!supabase) return JSONResponse({ error: "SUPABASE_NOT_CONFIGURED" }, 500);
 
-    // ----------------------------
-    // 1️⃣ WUNSCHTHERAPEUT FIX
-    // ----------------------------
+    // -----------------------------------------
+    // 1️⃣ Wunschtherapeut Fix
+    // -----------------------------------------
     let therapist = body.wunschtherapeut;
 
-    if (!therapist && body.therapist_from_url) {
-      therapist = body.therapist_from_url;
-    }
+    if (!therapist && body.therapist_from_url) therapist = body.therapist_from_url;
 
     if (!therapist) {
-      return JSONResponse(
-        { error: "THERAPIST_MISSING", detail: "wunschtherapeut ist leer" },
-        400
-      );
+      return JSONResponse({ error: "THERAPIST_MISSING", detail: "wunschtherapeut leer" }, 400);
     }
 
-    // ----------------------------
-    // 1.1️⃣ Email des Therapeuten aus teamData holen
-    // ----------------------------
-    const therapistObj = teamData.find((t) => t.name === therapist);
-    const therapistEmail = therapistObj?.email || null;
-
-    console.log("Therapeut gewählt:", therapist, "Email:", therapistEmail);
-
-    // ----------------------------
-    // 2️⃣ INSERT INTO DATABASE
-    // ----------------------------
-    const insertPayload = {
+    // -----------------------------------------
+    // 2️⃣ Insert in Supabase
+    // -----------------------------------------
+    const payload = {
       vorname: body.vorname,
       nachname: body.nachname,
       email: body.email,
@@ -85,64 +76,53 @@ export async function POST(req) {
       status: "neu",
     };
 
-    const { error } = await supabase.from("anfragen").insert(insertPayload);
+    const { error } = await supabase.from("anfragen").insert(payload);
 
     if (error) {
-      console.error("❌ DB ERROR:", error);
-      return JSONResponse(
-        { error: "DB_INSERT_FAILED", detail: error.message },
-        500
-      );
+      console.error("❌ Insert Error:", error);
+      return JSONResponse({ error: "DB_INSERT_FAILED", detail: error.message }, 500);
     }
 
-    // ----------------------------
-    // 3️⃣ EMAILS SENDEN – RESEND
-    // ----------------------------
+    // -----------------------------------------
+    // 3️⃣ Emails senden – Resend
+    // -----------------------------------------
+    const resendKey = process.env.RESEND_API_KEY;
     const baseUrl =
       process.env.NEXT_PUBLIC_SITE_URL || "https://poiseconnect.vercel.app";
 
-    const resendKey = process.env.RESEND_API_KEY;
-
     if (resendKey) {
-      const sendMail = async (to, subject, html) => {
-        try {
-          if (!to) return;
-
-          await fetch("https://api.resend.com/emails", {
-            method: "POST",
-            headers: {
-              Authorization: `Bearer ${resendKey}`,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              from: "Poise <noreply@mypoise.de>",
-              to,
-              subject,
-              html,
-            }),
-          });
-        } catch (e) {
-          console.error("❌ MAIL ERROR:", e);
-        }
-      };
+      const sendMail = (to, subject, html) =>
+        fetch("https://api.resend.com/emails", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${resendKey}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            from: "Poise <noreply@mypoise.de>",
+            to,
+            subject,
+            html,
+          }),
+        });
 
       const clientName = `${body.vorname} ${body.nachname}`;
 
-      // 3.1 📩 Client – Eingangsbestätigung
-      sendMail(
+      // 📩 3.1 Klient
+      await sendMail(
         body.email,
-        "Deine Anfrage bei Poise ist eingegangen 🤍",
+        "Deine Anfrage ist eingegangen 🤍",
         `
           <h2>Hallo ${body.vorname},</h2>
-          <p>vielen Dank für deine Anfrage.</p>
-          <p>${therapist} meldet sich bald bei dir.</p>
-          <br />
+          <p>Vielen Dank für deine Anfrage! Deine ausgewählte Begleitung <strong>${therapist}</strong> meldet sich so bald wie möglich bei dir.</p>
+          <p>Wir freuen uns, dich begleiten zu dürfen.</p>
+          <br/>
           <p>🤍 Dein Poise Team</p>
         `
       );
 
-      // 3.2 📩 Admin
-      sendMail(
+      // 📩 3.2 Admin
+      await sendMail(
         "hallo@mypoise.de",
         `Neue Anfrage eingegangen von ${clientName}`,
         `
@@ -150,37 +130,35 @@ export async function POST(req) {
           <p><strong>Name:</strong> ${clientName}</p>
           <p><strong>Email:</strong> ${body.email}</p>
           <p><strong>Anliegen:</strong> ${body.anliegen}</p>
-          <p><strong>Wunschtherapeut:</strong> ${therapist}</p>
-          <br />
-          <a href="${baseUrl}/dashboard">➡ Dashboard öffnen</a>
+          <p><strong>Therapeut:</strong> ${therapist}</p>
+          <p><strong>Termin:</strong> ${body.terminDisplay || "—"}</p>
+          <br/>
+          <a href="${baseUrl}/dashboard">➡ Zum Dashboard</a>
         `
       );
 
-      // 3.3 📩 Teammitglied  
-      sendMail(
-        therapistEmail,
+      // 📩 3.3 Teammitglied
+      await sendMail(
+        therapist,
         `Neue Anfrage für dich von ${clientName}`,
         `
-          <h2>Neue Anfrage für dich 🤍</h2>
+          <h2>Neue Anfrage 🤍</h2>
           <p><strong>Name:</strong> ${clientName}</p>
           <p><strong>Email:</strong> ${body.email}</p>
           <p><strong>Anliegen:</strong> ${body.anliegen}</p>
-          <p><strong>Bevorzugte Zeit:</strong> ${body.terminDisplay || "—"}</p>
-          <br />
-          <a href="${baseUrl}/dashboard">➡ Anfrage im Dashboard öffnen</a>
+          <p><strong>Terminwunsch:</strong> ${body.terminDisplay || "—"}</p>
+          <br/>
+          <a href="${baseUrl}/dashboard">➡ Im Dashboard ansehen</a>
         `
       );
     }
 
-    // ----------------------------
-    // 4️⃣ RESPONSE
-    // ----------------------------
+    // -----------------------------------------
+    // 4️⃣ OK Response
+    // -----------------------------------------
     return JSONResponse({ ok: true });
   } catch (err) {
     console.error("❌ SERVER ERROR:", err);
-    return JSONResponse(
-      { error: "SERVER_ERROR", detail: String(err) },
-      500
-    );
+    return JSONResponse({ error: "SERVER_ERROR", detail: String(err) }, 500);
   }
 }
