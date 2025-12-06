@@ -7,7 +7,7 @@ import { teamData } from "@/app/teamData";
 function JSONResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
     status,
-    headers: { "Content-Type": "application/json" }
+    headers: { "Content-Type": "application/json" },
   });
 }
 
@@ -19,7 +19,7 @@ function getSupabase() {
   if (!url || !key) {
     console.error("❌ SUPABASE ENV FEHLT:", {
       hasUrl: !!url,
-      hasKey: !!key
+      hasKey: !!key,
     });
     return null;
   }
@@ -30,13 +30,11 @@ export async function POST(req) {
   try {
     const body = await req.json();
     const supabase = getSupabase();
-    if (!supabase) {
-      return JSONResponse({ error: "SUPABASE_NOT_CONFIGURED" }, 500);
-    }
+    if (!supabase) return JSONResponse({ error: "SUPABASE_NOT_CONFIGURED" }, 500);
 
-    // ---------------------------------
+    // ----------------------------
     // 1️⃣ WUNSCHTHERAPEUT FIX
-    // ---------------------------------
+    // ----------------------------
     let therapist = body.wunschtherapeut;
 
     if (!therapist && body.therapist_from_url) {
@@ -50,17 +48,17 @@ export async function POST(req) {
       );
     }
 
-    // ---------------------------------
-    // 2️⃣ TEAM-MAIL FIX
-    // ---------------------------------
-    const therapistObj = teamData.find(t => t.name === therapist);
-    const therapistEmail = therapistObj?.email || therapist;  
-    // Fällt zurück auf "Ann" falls noch keine Email eingetragen ist
+    // ----------------------------
+    // 1.1️⃣ Email des Therapeuten aus teamData holen
+    // ----------------------------
+    const therapistObj = teamData.find((t) => t.name === therapist);
+    const therapistEmail = therapistObj?.email || null;
 
-    // ---------------------------------
-    // 3️⃣ INSERT INTO DATABASE
-    // ---------------------------------
+    console.log("Therapeut gewählt:", therapist, "Email:", therapistEmail);
 
+    // ----------------------------
+    // 2️⃣ INSERT INTO DATABASE
+    // ----------------------------
     const insertPayload = {
       vorname: body.vorname,
       nachname: body.nachname,
@@ -84,7 +82,7 @@ export async function POST(req) {
       check_datenschutz: body.check_datenschutz || false,
       check_online_setting: body.check_online_setting || false,
 
-      status: "neu"
+      status: "neu",
     };
 
     const { error } = await supabase.from("anfragen").insert(insertPayload);
@@ -97,46 +95,53 @@ export async function POST(req) {
       );
     }
 
-    // ---------------------------------
-    // 4️⃣ EMAILS VERSENDEN (3 Stück)
-    // ---------------------------------
+    // ----------------------------
+    // 3️⃣ EMAILS SENDEN – RESEND
+    // ----------------------------
     const baseUrl =
-      process.env.NEXT_PUBLIC_SITE_URL ||
-      "https://poiseconnect.vercel.app";
+      process.env.NEXT_PUBLIC_SITE_URL || "https://poiseconnect.vercel.app";
 
     const resendKey = process.env.RESEND_API_KEY;
+
     if (resendKey) {
-      const sendMail = (to, subject, html) =>
-        fetch("https://api.resend.com/emails", {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${resendKey}`,
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({
-            from: "Poise <noreply@mypoise.de>",
-            to,
-            subject,
-            html
-          })
-        });
+      const sendMail = async (to, subject, html) => {
+        try {
+          if (!to) return;
+
+          await fetch("https://api.resend.com/emails", {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${resendKey}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              from: "Poise <noreply@mypoise.de>",
+              to,
+              subject,
+              html,
+            }),
+          });
+        } catch (e) {
+          console.error("❌ MAIL ERROR:", e);
+        }
+      };
 
       const clientName = `${body.vorname} ${body.nachname}`;
 
-      // 4.1 📩 Klient
+      // 3.1 📩 Client – Eingangsbestätigung
       sendMail(
         body.email,
         "Deine Anfrage bei Poise ist eingegangen 🤍",
         `
           <h2>Hallo ${body.vorname},</h2>
-          <p>vielen Dank für deine Anfrage und dein Vertrauen.</p>
-          <p>${therapist} wird sich zeitnah bei dir melden.</p>
+          <p>vielen Dank für deine Anfrage.</p>
+          <p>${therapist} meldet sich bald bei dir.</p>
           <br />
           <p>🤍 Dein Poise Team</p>
         `
       );
 
-      // 4.2 📩 Admin
+      // 3.2 📩 Admin
       sendMail(
         "hallo@mypoise.de",
         `Neue Anfrage eingegangen von ${clientName}`,
@@ -146,13 +151,12 @@ export async function POST(req) {
           <p><strong>Email:</strong> ${body.email}</p>
           <p><strong>Anliegen:</strong> ${body.anliegen}</p>
           <p><strong>Wunschtherapeut:</strong> ${therapist}</p>
-          <p><strong>Terminwunsch:</strong> ${body.terminDisplay || "—"}</p>
           <br />
-          <a href="${baseUrl}/dashboard">➡ Zum Dashboard</a>
+          <a href="${baseUrl}/dashboard">➡ Dashboard öffnen</a>
         `
       );
 
-      // 4.3 📩 Teammitglied (Team-Daten-Mail-Adresse!)
+      // 3.3 📩 Teammitglied  
       sendMail(
         therapistEmail,
         `Neue Anfrage für dich von ${clientName}`,
@@ -162,15 +166,15 @@ export async function POST(req) {
           <p><strong>Email:</strong> ${body.email}</p>
           <p><strong>Anliegen:</strong> ${body.anliegen}</p>
           <p><strong>Bevorzugte Zeit:</strong> ${body.terminDisplay || "—"}</p>
-          <br/>
+          <br />
           <a href="${baseUrl}/dashboard">➡ Anfrage im Dashboard öffnen</a>
         `
       );
     }
 
-    // ---------------------------------
-    // 5️⃣ RESPONSE
-    // ---------------------------------
+    // ----------------------------
+    // 4️⃣ RESPONSE
+    // ----------------------------
     return JSONResponse({ ok: true });
   } catch (err) {
     console.error("❌ SERVER ERROR:", err);
