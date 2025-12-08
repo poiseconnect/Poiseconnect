@@ -1,10 +1,8 @@
-// /app/api/add-session/route.js
-import { supabase } from "@/app/lib/supabase";
+import { supabase } from "../../lib/supabase";
 
 export async function POST(req) {
   const { anfrageId, therapist, date, duration } = await req.json();
 
-  // Tarif laden
   const { data: row, error: loadError } = await supabase
     .from("anfragen")
     .select("honorar_klient")
@@ -17,7 +15,6 @@ export async function POST(req) {
   }
 
   const honorar = row.honorar_klient;
-
   const price = (honorar / 60) * duration;
   const commission = price * 0.3;
   const payout = price * 0.7;
