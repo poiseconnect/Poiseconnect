@@ -3,20 +3,27 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 
-// Neue Stati
+// -------------------------------
+// STATUS DEFINITIONS (REAL)
+// -------------------------------
 const STATUS_LABELS = {
-  FIRST_MEETING_SCHEDULED: "Erstgespräch geplant",
-  ACTIVE: "Begleitung aktiv",
-  NO_MATCH: "Kein Match",
-  FINISHED: "Abgeschlossen",
+  neu: "Neu",
+  termin_bestaetigt: "Termin bestätigt",
+  termin_neu: "Neuer Termin",
+  weitergeleitet: "Weitergeleitet",
+  active: "Begleitung aktiv",
+  no_match: "Kein Match",
+  finished: "Abgeschlossen",
 };
 
-// Farben
 const STATUS_COLORS = {
-  FIRST_MEETING_SCHEDULED: { bg: "#EFF3FF", border: "#9AAAF5", text: "#304085" },
-  ACTIVE: { bg: "#EAF8EF", border: "#9AD0A0", text: "#2F6E3A" },
-  NO_MATCH: { bg: "#FEECEC", border: "#F1A5A5", text: "#8B1E2B" },
-  FINISHED: { bg: "#F9F5FF", border: "#C8B0F5", text: "#54358B" },
+  neu: { bg: "#FFF7EC", border: "#E3C29A", text: "#8B5A2B" },
+  termin_bestaetigt: { bg: "#EAF8EF", border: "#9AD0A0", text: "#2F6E3A" },
+  termin_neu: { bg: "#EFF3FF", border: "#9AAAF5", text: "#304085" },
+  weitergeleitet: { bg: "#F9F5FF", border: "#C8B0F5", text: "#54358B" },
+  active: { bg: "#E2F7F0", border: "#79C2A1", text: "#1E6348" },
+  no_match: { bg: "#FDECEC", border: "#F2A6A6", text: "#8B1E2B" },
+  finished: { bg: "#EEEAFD", border: "#B6A6F2", text: "#3B2D7A" },
 };
 
 export default function Dashboard() {
@@ -24,50 +31,49 @@ export default function Dashboard() {
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // Modals
-  const [matchModal, setMatchModal] = useState(null); // Anfrage für Match
-  const [sessionModal, setSessionModal] = useState(null); // Anfrage für neue Sitzung
-
-  // Stundensatz + Sitzung für Modals
+  // MATCH MODAL
+  const [matchModal, setMatchModal] = useState(null);
   const [tarif, setTarif] = useState("");
   const [sessionDate, setSessionDate] = useState("");
   const [sessionDuration, setSessionDuration] = useState(60);
 
-  // ---------------------------
-  // 1) Login laden
-  // ---------------------------
+  // SESSION MODAL
+  const [sessionModal, setSessionModal] = useState(null);
+
+  // -------------------------------
+  // 1) USER LADEN
+  // -------------------------------
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
       setUser(data?.user || null);
     });
   }, []);
 
-  // ---------------------------
-  // 2) Anfragen laden
-  // ---------------------------
+  // -------------------------------
+  // 2) ANFRAGEN LADEN
+  // -------------------------------
   useEffect(() => {
     if (!user?.email) return;
 
     async function load() {
       setLoading(true);
 
-      // Jede/r Therapeut:in sieht nur eigene Klient:innen
       const { data, error } = await supabase
         .from("anfragen")
         .select("*")
         .eq("therapist_email", user.email)
         .order("id", { ascending: false });
 
-      if (!error) setRequests(data || []);
+      if (!error) setRequests(data);
       setLoading(false);
     }
 
     load();
   }, [user]);
 
-  // -----------------------------------
+  // ------------------------------------------
   // API: NO MATCH
-  // -----------------------------------
+  // ------------------------------------------
   async function noMatch(req) {
     const res = await fetch("/api/no-match", {
       method: "POST",
@@ -75,19 +81,17 @@ export default function Dashboard() {
     });
 
     if (res.ok) {
-      alert("Anfrage wurde als 'Kein Match' beendet.");
+      alert("Kein Match gespeichert.");
       window.location.reload();
     }
   }
 
-  // -----------------------------------
-  // API: MATCH
-  // -----------------------------------
+  // ------------------------------------------
+  // API: MATCH (BEGIN COACHING)
+  // ------------------------------------------
   async function saveMatch() {
-    if (!matchModal) return;
-
     if (!tarif || !sessionDate) {
-      alert("Bitte Tarif und nächsten Termin eingeben.");
+      alert("Bitte Tarif und ersten Termin eingeben.");
       return;
     }
 
@@ -95,30 +99,29 @@ export default function Dashboard() {
       method: "POST",
       body: JSON.stringify({
         anfrageId: matchModal.id,
-        honorar: Number(tarif),
+        honorar_klient: Number(tarif),
         therapistEmail: user.email,
         nextDate: sessionDate,
         duration: sessionDuration,
       }),
     });
 
-    if (res.ok) {
-      alert("Begleitung gestartet!");
-      setMatchModal(null);
-      setTarif("");
-      setSessionDate("");
-      window.location.reload();
-    } else {
-      alert("Fehler beim Start der Begleitung");
+    if (!res.ok) {
+      alert("Fehler bei MATCH.");
+      return;
     }
+
+    alert("Match erfolgreich – Coaching gestartet.");
+    setMatchModal(null);
+    setTarif("");
+    setSessionDate("");
+    window.location.reload();
   }
 
-  // -----------------------------------
-  // API: Sitzung hinzufügen
-  // -----------------------------------
+  // ------------------------------------------
+  // API: Neue Sitzung speichern
+  // ------------------------------------------
   async function saveSession() {
-    if (!sessionModal) return;
-
     if (!sessionDate) {
       alert("Bitte Datum wählen.");
       return;
@@ -134,32 +137,38 @@ export default function Dashboard() {
       }),
     });
 
-    if (res.ok) {
-      alert("Sitzung gespeichert!");
-      setSessionModal(null);
-      setSessionDate("");
-      window.location.reload();
+    if (!res.ok) {
+      alert("Fehler beim Speichern der Sitzung.");
+      return;
     }
+
+    alert("Sitzung gespeichert.");
+    setSessionModal(null);
+    setSessionDate("");
+    window.location.reload();
   }
 
-  // -----------------------------------
+  // ------------------------------------------
   // API: Coaching beenden
-  // -----------------------------------
+  // ------------------------------------------
   async function finishCoaching(req) {
     const res = await fetch("/api/finish-coaching", {
       method: "POST",
       body: JSON.stringify({ anfrageId: req.id }),
     });
 
-    if (res.ok) {
-      alert("Coaching beendet.");
-      window.location.reload();
+    if (!res.ok) {
+      alert("Fehler beim Beenden.");
+      return;
     }
+
+    alert("Coaching beendet.");
+    window.location.reload();
   }
 
-  // -----------------------------
-  // UI Rendering
-  // -----------------------------
+  // ------------------------------------------
+  // DASHBOARD UI
+  // ------------------------------------------
   if (!user)
     return <div style={{ padding: 40 }}>Bitte einloggen…</div>;
 
@@ -171,8 +180,7 @@ export default function Dashboard() {
 
       {!loading &&
         requests.map((r) => {
-          const status = r.status || "FIRST_MEETING_SCHEDULED";
-          const colors = STATUS_COLORS[status];
+          const colors = STATUS_COLORS[r.status] || STATUS_COLORS["neu"];
 
           return (
             <article
@@ -202,14 +210,14 @@ export default function Dashboard() {
                 }}
               >
                 <span style={{ color: colors.text }}>
-                  {STATUS_LABELS[status]}
+                  {STATUS_LABELS[r.status] || "?"}
                 </span>
               </div>
 
-              {/* ----------------------------------------------------
-                PHASE 1: Erstgespräch – nur anzeigen, wenn noch nicht ACTIVE
-              ---------------------------------------------------- */}
-              {status === "FIRST_MEETING_SCHEDULED" && (
+              {/* ---------------------------------------------
+                  PHASE: ERSTGESPRÄCH (solange NICHT active/no_match/finished)
+              --------------------------------------------- */}
+              {["neu", "termin_neu", "termin_bestaetigt", "weitergeleitet"].includes(r.status) && (
                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                   <button onClick={() => confirmAppointment(r)}>
                     ✔ Termin bestätigen
@@ -222,28 +230,25 @@ export default function Dashboard() {
                   </button>
 
                   <button onClick={() => reassign(r)}>
-                    👥 anderes Team
+                    👥 Weiterleiten
                   </button>
 
-                  {/* MATCH / NO MATCH */}
-                  <button onClick={() => setMatchModal(r)}>
-                    💚 Match
-                  </button>
+                  {/* NEW: MATCH */}
+                  <button onClick={() => setMatchModal(r)}>💚 Match</button>
 
+                  {/* NEW: NO MATCH */}
                   <button onClick={() => noMatch(r)}>❌ No Match</button>
                 </div>
               )}
 
-              {/* ----------------------------------------------------
-                PHASE 2: Aktive Begleitung
-              ---------------------------------------------------- */}
-              {status === "ACTIVE" && (
+              {/* ---------------------------------------------
+                  PHASE: COACHING (active)
+              --------------------------------------------- */}
+              {r.status === "active" && (
                 <div style={{ marginTop: 10 }}>
                   <p>
-                    <strong>Tarif:</strong>{" "}
-                    {r.honorar_klient
-                      ? r.honorar_klient + " € / h"
-                      : "Kein Tarif gespeichert"}
+                    <strong>Tarif: </strong>
+                    {r.honorar_klient} € / Stunde
                   </p>
 
                   <div style={{ display: "flex", gap: 8 }}>
@@ -260,13 +265,28 @@ export default function Dashboard() {
                   </div>
                 </div>
               )}
+
+              {/* ---------------------------------------------
+                  PHASE: ABGESCHLOSSEN
+              --------------------------------------------- */}
+              {r.status === "finished" && (
+                <p style={{ marginTop: 10, fontStyle: "italic" }}>
+                  Coaching abgeschlossen.
+                </p>
+              )}
+
+              {r.status === "no_match" && (
+                <p style={{ marginTop: 10, color: "#a33" }}>
+                  Kein Match — Anfrage beendet.
+                </p>
+              )}
             </article>
           );
         })}
 
-      {/* ------------------------------------------------------
-         MATCH MODAL
-      ------------------------------------------------------ */}
+      {/* ---------------------------------------------
+          MATCH MODAL
+      --------------------------------------------- */}
       {matchModal && (
         <div style={modalStyle}>
           <div style={modalInner}>
@@ -285,7 +305,7 @@ export default function Dashboard() {
               onChange={(e) => setSessionDate(e.target.value)}
             />
 
-            <label>Dauer (Minuten)</label>
+            <label>Dauer</label>
             <select
               value={sessionDuration}
               onChange={(e) => setSessionDuration(Number(e.target.value))}
@@ -303,13 +323,13 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* ------------------------------------------------------
-         SESSION MODAL
-      ------------------------------------------------------ */}
+      {/* ---------------------------------------------
+          SESSION MODAL
+      --------------------------------------------- */}
       {sessionModal && (
         <div style={modalStyle}>
           <div style={modalInner}>
-            <h3>Nächste Sitzung</h3>
+            <h3>Nächste Sitzung eintragen</h3>
 
             <label>Datum</label>
             <input
@@ -328,7 +348,7 @@ export default function Dashboard() {
               <option value={75}>75 Minuten</option>
             </select>
 
-            <div style={{ marginTop: 12 }}>
+            <div style={{ marginTop: 12, display: "flex", gap: 8 }}>
               <button onClick={saveSession}>Speichern</button>
               <button onClick={() => setSessionModal(null)}>Abbrechen</button>
             </div>
@@ -339,6 +359,9 @@ export default function Dashboard() {
   );
 }
 
+// --------------------------------
+// SIMPLE MODAL STYLES
+// --------------------------------
 const modalStyle = {
   position: "fixed",
   left: 0,
