@@ -3,480 +3,357 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 
+// Neue Stati
 const STATUS_LABELS = {
-  neu: "Neu",
-  termin_bestaetigt: "Termin bestätigt",
-  termin_neu: "Neuen Termin wählen",
-  abgesagt: "Abgesagt",
-  weitergeleitet: "Weitergeleitet",
+  FIRST_MEETING_SCHEDULED: "Erstgespräch geplant",
+  ACTIVE: "Begleitung aktiv",
+  NO_MATCH: "Kein Match",
+  FINISHED: "Abgeschlossen",
 };
 
+// Farben
 const STATUS_COLORS = {
-  neu: { bg: "#FFF7EC", border: "#E3C29A", text: "#8B5A2B" },              // Beige
-  termin_bestaetigt: { bg: "#EAF8EF", border: "#9AD0A0", text: "#2F6E3A" }, // Grün
-  termin_neu: { bg: "#EFF3FF", border: "#9AAAF5", text: "#304085" },        // Blau
-  abgesagt: { bg: "#FEECEC", border: "#F1A5A5", text: "#8B1E2B" },          // Rot
-  weitergeleitet: { bg: "#F9F5FF", border: "#C8B0F5", text: "#54358B" },    // Lila
+  FIRST_MEETING_SCHEDULED: { bg: "#EFF3FF", border: "#9AAAF5", text: "#304085" },
+  ACTIVE: { bg: "#EAF8EF", border: "#9AD0A0", text: "#2F6E3A" },
+  NO_MATCH: { bg: "#FEECEC", border: "#F1A5A5", text: "#8B1E2B" },
+  FINISHED: { bg: "#F9F5FF", border: "#C8B0F5", text: "#54358B" },
 };
 
 export default function Dashboard() {
   const [user, setUser] = useState(null);
   const [requests, setRequests] = useState([]);
-  const [filter, setFilter] = useState("neu"); // "neu" | "bearbeitet" | "alle"
   const [loading, setLoading] = useState(true);
 
-  // 1) Magic-Link Login prüfen
+  // Modals
+  const [matchModal, setMatchModal] = useState(null); // Anfrage für Match
+  const [sessionModal, setSessionModal] = useState(null); // Anfrage für neue Sitzung
+
+  // Stundensatz + Sitzung für Modals
+  const [tarif, setTarif] = useState("");
+  const [sessionDate, setSessionDate] = useState("");
+  const [sessionDuration, setSessionDuration] = useState(60);
+
+  // ---------------------------
+  // 1) Login laden
+  // ---------------------------
   useEffect(() => {
-    async function loadUser() {
-      const { data } = await supabase.auth.getUser();
+    supabase.auth.getUser().then(({ data }) => {
       setUser(data?.user || null);
-    }
-    loadUser();
+    });
   }, []);
 
+  // ---------------------------
   // 2) Anfragen laden
+  // ---------------------------
   useEffect(() => {
     if (!user?.email) return;
 
     async function load() {
       setLoading(true);
-      const email = user.email.toLowerCase();
 
-      let query = supabase
+      // Jede/r Therapeut:in sieht nur eigene Klient:innen
+      const { data, error } = await supabase
         .from("anfragen")
         .select("*")
+        .eq("therapist_email", user.email)
         .order("id", { ascending: false });
 
-      // Admin sieht alle, andere nur eigene
-      if (email !== "hallo@mypoise.de") {
-        query = query.eq("wunschtherapeut", user.email);
-      }
-
-      const { data, error } = await query;
-
-      if (error) {
-        console.error("Supabase Fehler beim Laden:", error);
-        setRequests([]);
-      } else {
-        setRequests(data || []);
-      }
-
+      if (!error) setRequests(data || []);
       setLoading(false);
     }
 
     load();
   }, [user]);
 
-  // 3) Termin bestätigen
-  async function confirmAppointment(req) {
-    const res = await fetch("/api/confirm-appointment", {
+  // -----------------------------------
+  // API: NO MATCH
+  // -----------------------------------
+  async function noMatch(req) {
+    const res = await fetch("/api/no-match", {
       method: "POST",
-      body: JSON.stringify({
-        requestId: req.id,
-        therapist: user.email,
-        client: req.email,
-        slot: req.bevorzugte_zeit,
-      }),
+      body: JSON.stringify({ anfrageId: req.id }),
     });
 
-    if (!res.ok) return alert("Fehler beim Bestätigen!");
-    alert("Termin bestätigt 🤍");
-    window.location.reload();
+    if (res.ok) {
+      alert("Anfrage wurde als 'Kein Match' beendet.");
+      window.location.reload();
+    }
   }
 
-  // 4) Absagen
-  async function decline(req) {
-    const res = await fetch("/api/reject-appointment", {
-      method: "POST",
-      body: JSON.stringify({
-        requestId: req.id,
-        therapist: user.email,
-        client: req.email,
-        vorname: req.vorname,
-      }),
-    });
+  // -----------------------------------
+  // API: MATCH
+  // -----------------------------------
+  async function saveMatch() {
+    if (!matchModal) return;
 
-    if (!res.ok) return alert("Fehler beim Absagen!");
-    alert("Klient wurde informiert (Absage).");
-    window.location.reload();
-  }
-
- // 5) Neuer Termin
-async function newAppointment(req) {
-  const res = await fetch("/api/new-appointment", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      requestId: req.id,
-      client: req.email,                // Klient:in
-      therapistEmail: user.email,       // eingeloggtes Teammitglied / Admin
-      therapistName: req.wunschtherapeut, // 🔥 WICHTIG: Name aus der Anfrage, z.B. "Ann"
-      vorname: req.vorname,
-    }),
-  });
-
-  if (!res.ok) {
-    alert("Fehler beim Senden!");
-    return;
-  }
-
-  alert("Klient:in bekommt einen Link zur neuen Terminauswahl.");
-  window.location.reload();
-}
-
-  // 6) Weiterleiten an anderes Teammitglied
-  async function reassign(req) {
-    const res = await fetch("/api/forward-request", {
-      method: "POST",
-      body: JSON.stringify({
-        requestId: req.id,
-        client: req.email,
-        vorname: req.vorname,
-      }),
-    });
-
-    if (!res.ok) return alert("Fehler beim Weiterleiten!");
-    alert("Anfrage wurde weitergeleitet.");
-    window.location.reload();
-  }
-
-  // 7) Filter anwenden
-  const filteredRequests = requests.filter((r) => {
-    const status = (r.status || "neu").toLowerCase();
-
-    if (filter === "neu") {
-      return status === "neu" || status === "";
+    if (!tarif || !sessionDate) {
+      alert("Bitte Tarif und nächsten Termin eingeben.");
+      return;
     }
 
-    if (filter === "bearbeitet") {
-      return status !== "neu" && status !== "";
+    const res = await fetch("/api/match-client", {
+      method: "POST",
+      body: JSON.stringify({
+        anfrageId: matchModal.id,
+        honorar: Number(tarif),
+        therapistEmail: user.email,
+        nextDate: sessionDate,
+        duration: sessionDuration,
+      }),
+    });
+
+    if (res.ok) {
+      alert("Begleitung gestartet!");
+      setMatchModal(null);
+      setTarif("");
+      setSessionDate("");
+      window.location.reload();
+    } else {
+      alert("Fehler beim Start der Begleitung");
+    }
+  }
+
+  // -----------------------------------
+  // API: Sitzung hinzufügen
+  // -----------------------------------
+  async function saveSession() {
+    if (!sessionModal) return;
+
+    if (!sessionDate) {
+      alert("Bitte Datum wählen.");
+      return;
     }
 
-    return true; // "alle"
-  });
+    const res = await fetch("/api/add-session", {
+      method: "POST",
+      body: JSON.stringify({
+        anfrageId: sessionModal.id,
+        therapist: user.email,
+        date: sessionDate,
+        duration: sessionDuration,
+      }),
+    });
 
-  // ----------------- UI -----------------
+    if (res.ok) {
+      alert("Sitzung gespeichert!");
+      setSessionModal(null);
+      setSessionDate("");
+      window.location.reload();
+    }
+  }
+
+  // -----------------------------------
+  // API: Coaching beenden
+  // -----------------------------------
+  async function finishCoaching(req) {
+    const res = await fetch("/api/finish-coaching", {
+      method: "POST",
+      body: JSON.stringify({ anfrageId: req.id }),
+    });
+
+    if (res.ok) {
+      alert("Coaching beendet.");
+      window.location.reload();
+    }
+  }
+
+  // -----------------------------
+  // UI Rendering
+  // -----------------------------
   if (!user)
-    return (
-      <div style={{ padding: 40 }}>
-        Bitte per Magic Link einloggen…
-      </div>
-    );
-
-  const isAdmin = user.email.toLowerCase() === "hallo@mypoise.de";
-
-  const countNeu = requests.filter(
-    (r) => (r.status || "neu").toLowerCase() === "neu" || !r.status
-  ).length;
-  const countBearbeitet = requests.length - countNeu;
+    return <div style={{ padding: 40 }}>Bitte einloggen…</div>;
 
   return (
-    <div
-      style={{
-        padding: 40,
-        maxWidth: 960,
-        margin: "0 auto",
-        fontFamily: "system-ui, -apple-system, BlinkMacSystemFont, sans-serif",
-      }}
-    >
-      <header
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          gap: 16,
-          alignItems: "center",
-          marginBottom: 24,
-        }}
-      >
-        <div>
-          <h1
-            style={{
-              margin: 0,
-              fontSize: 26,
-              fontWeight: 600,
-              letterSpacing: 0.2,
-            }}
-          >
-            Poise Dashboard
-          </h1>
-          <p style={{ margin: "6px 0 0", color: "#666", fontSize: 14 }}>
-            Eingeloggt als <strong>{user.email}</strong>{" "}
-            {isAdmin && (
-              <span style={{ color: "#A3754A" }}>
-                · Admin-Ansicht (alle Anfragen)
-              </span>
-            )}
-          </p>
-        </div>
-
-        {/* Status-Filter */}
-        <div
-          style={{
-            display: "flex",
-            background: "#F4ECE4",
-            borderRadius: 999,
-            padding: 4,
-            gap: 4,
-            minWidth: 260,
-            justifyContent: "space-between",
-          }}
-        >
-          <button
-            onClick={() => setFilter("neu")}
-            style={{
-              flex: 1,
-              borderRadius: 999,
-              border: "none",
-              padding: "6px 12px",
-              fontSize: 13,
-              cursor: "pointer",
-              background:
-                filter === "neu" ? "#FFFFFF" : "transparent",
-              fontWeight: filter === "neu" ? 600 : 400,
-              color: filter === "neu" ? "#5A3B24" : "#7D5D43",
-            }}
-          >
-            Neu ({countNeu})
-          </button>
-          <button
-            onClick={() => setFilter("bearbeitet")}
-            style={{
-              flex: 1,
-              borderRadius: 999,
-              border: "none",
-              padding: "6px 12px",
-              fontSize: 13,
-              cursor: "pointer",
-              background:
-                filter === "bearbeitet" ? "#FFFFFF" : "transparent",
-              fontWeight: filter === "bearbeitet" ? 600 : 400,
-              color: filter === "bearbeitet" ? "#5A3B24" : "#7D5D43",
-            }}
-          >
-            Bearbeitet ({countBearbeitet})
-          </button>
-          <button
-            onClick={() => setFilter("alle")}
-            style={{
-              flex: 1,
-              borderRadius: 999,
-              border: "none",
-              padding: "6px 12px",
-              fontSize: 13,
-              cursor: "pointer",
-              background:
-                filter === "alle" ? "#FFFFFF" : "transparent",
-              fontWeight: filter === "alle" ? 600 : 400,
-              color: filter === "alle" ? "#5A3B24" : "#7D5D43",
-            }}
-          >
-            Alle ({requests.length})
-          </button>
-        </div>
-      </header>
-
-      <hr
-        style={{
-          border: "none",
-          borderTop: "1px solid #eee",
-          marginBottom: 20,
-        }}
-      />
+    <div style={{ padding: 40, maxWidth: 900, margin: "0 auto" }}>
+      <h1>Poise Dashboard</h1>
 
       {loading && <p>Wird geladen…</p>}
 
-      {!loading && filteredRequests.length === 0 && (
-        <p style={{ color: "#777" }}>Keine Anfragen in diesem Filter.</p>
-      )}
-
       {!loading &&
-        filteredRequests.map((r) => {
-          const statusKey = (r.status || "neu").toLowerCase();
-          const label = STATUS_LABELS[statusKey] || "Neu";
-          const colors =
-            STATUS_COLORS[statusKey] || STATUS_COLORS["neu"];
+        requests.map((r) => {
+          const status = r.status || "FIRST_MEETING_SCHEDULED";
+          const colors = STATUS_COLORS[status];
 
           return (
             <article
               key={r.id}
               style={{
-                padding: 18,
+                padding: 20,
+                marginBottom: 16,
                 borderRadius: 12,
-                border: "1px solid #e5e5e5",
-                marginBottom: 14,
-                background: "#fff",
-                boxShadow:
-                  statusKey === "neu"
-                    ? "0 6px 16px rgba(0,0,0,0.03)"
-                    : "0 2px 6px rgba(0,0,0,0.02)",
+                border: `1px solid ${colors.border}`,
+                background: colors.bg,
               }}
             >
+              <h3>
+                {r.vorname} {r.nachname}
+              </h3>
+              <p>{r.email}</p>
+
+              {/* STATUS BADGE */}
               <div
                 style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  gap: 12,
-                  alignItems: "flex-start",
-                  marginBottom: 8,
+                  display: "inline-flex",
+                  padding: "4px 10px",
+                  borderRadius: 999,
+                  background: "#fff",
+                  border: `1px solid ${colors.border}`,
+                  marginBottom: 12,
                 }}
               >
-                <div>
-                  <h3
-                    style={{
-                      margin: 0,
-                      fontSize: 18,
-                      fontWeight: 600,
-                    }}
-                  >
-                    {r.vorname} {r.nachname}
-                  </h3>
-                  <p
-                    style={{
-                      margin: "4px 0 0",
-                      fontSize: 13,
-                      color: "#777",
-                    }}
-                  >
-                    {r.email}
-                    {r.wunschtherapeut && (
-                      <>
-                        {" · "}Wunsch:{" "}
-                        <strong>{r.wunschtherapeut}</strong>
-                      </>
-                    )}
-                  </p>
-                </div>
-
-                {/* Status Badge */}
-                <div
-                  style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: 6,
-                    padding: "4px 10px",
-                    borderRadius: 999,
-                    background: colors.bg,
-                    border: `1px solid ${colors.border}`,
-                    fontSize: 12,
-                    color: colors.text,
-                    fontWeight: 500,
-                  }}
-                >
-                  <span
-                    style={{
-                      width: 7,
-                      height: 7,
-                      borderRadius: "50%",
-                      backgroundColor: colors.text,
-                    }}
-                  />
-                  <span>{label}</span>
-                </div>
+                <span style={{ color: colors.text }}>
+                  {STATUS_LABELS[status]}
+                </span>
               </div>
 
-              {r.anliegen && (
-                <p
-                  style={{
-                    margin: "8px 0 4px",
-                    fontSize: 14,
-                    lineHeight: 1.5,
-                  }}
-                >
-                  <strong>Anliegen:</strong> {r.anliegen}
-                </p>
+              {/* ----------------------------------------------------
+                PHASE 1: Erstgespräch – nur anzeigen, wenn noch nicht ACTIVE
+              ---------------------------------------------------- */}
+              {status === "FIRST_MEETING_SCHEDULED" && (
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  <button onClick={() => confirmAppointment(r)}>
+                    ✔ Termin bestätigen
+                  </button>
+
+                  <button onClick={() => decline(r)}>✖ Absagen</button>
+
+                  <button onClick={() => newAppointment(r)}>
+                    🔁 Neuer Termin
+                  </button>
+
+                  <button onClick={() => reassign(r)}>
+                    👥 anderes Team
+                  </button>
+
+                  {/* MATCH / NO MATCH */}
+                  <button onClick={() => setMatchModal(r)}>
+                    💚 Match
+                  </button>
+
+                  <button onClick={() => noMatch(r)}>❌ No Match</button>
+                </div>
               )}
 
-              <p
-                style={{
-                  margin: "4px 0",
-                  fontSize: 13,
-                  color: "#555",
-                }}
-              >
-                <strong>Bevorzugte Zeit:</strong>{" "}
-                {r.bevorzugte_zeit || "Noch kein Termin gewählt"}
-              </p>
+              {/* ----------------------------------------------------
+                PHASE 2: Aktive Begleitung
+              ---------------------------------------------------- */}
+              {status === "ACTIVE" && (
+                <div style={{ marginTop: 10 }}>
+                  <p>
+                    <strong>Tarif:</strong>{" "}
+                    {r.honorar_klient
+                      ? r.honorar_klient + " € / h"
+                      : "Kein Tarif gespeichert"}
+                  </p>
 
-              <p
-                style={{
-                  margin: "4px 0 0",
-                  fontSize: 12,
-                  color: "#999",
-                }}
-              >
-                ID: #{r.id}
-              </p>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <button onClick={() => setSessionModal(r)}>
+                      ➕ nächste Sitzung
+                    </button>
 
-              {/* Aktionen */}
-              <div
-                style={{
-                  marginTop: 12,
-                  display: "flex",
-                  gap: 8,
-                  flexWrap: "wrap",
-                }}
-              >
-                <button
-                  onClick={() => confirmAppointment(r)}
-                  style={{
-                    padding: "6px 12px",
-                    borderRadius: 999,
-                    background: "#D4F8D4",
-                    border: "1px solid #8BC48B",
-                    fontSize: 13,
-                    cursor: "pointer",
-                  }}
-                >
-                  ✔ Termin bestätigen
-                </button>
-
-                <button
-                  onClick={() => decline(r)}
-                  style={{
-                    padding: "6px 12px",
-                    borderRadius: 999,
-                    background: "#FFDADA",
-                    border: "1px solid #E88",
-                    fontSize: 13,
-                    cursor: "pointer",
-                  }}
-                >
-                  ✖ Absagen
-                </button>
-
-                <button
-                  onClick={() => newAppointment(r)}
-                  style={{
-                    padding: "6px 12px",
-                    borderRadius: 999,
-                    background: "#E8E8FF",
-                    border: "1px solid #9990ff",
-                    fontSize: 13,
-                    cursor: "pointer",
-                  }}
-                >
-                  🔁 Neuen Termin
-                </button>
-
-                <button
-                  onClick={() => reassign(r)}
-                  style={{
-                    padding: "6px 12px",
-                    borderRadius: 999,
-                    background: "#FFF1D6",
-                    border: "1px solid #E0B96F",
-                    fontSize: 13,
-                    cursor: "pointer",
-                  }}
-                >
-                  👥 anderes Teammitglied
-                </button>
-              </div>
+                    <button
+                      onClick={() => finishCoaching(r)}
+                      style={{ background: "#FDD" }}
+                    >
+                      🔴 Coaching beendet
+                    </button>
+                  </div>
+                </div>
+              )}
             </article>
           );
         })}
+
+      {/* ------------------------------------------------------
+         MATCH MODAL
+      ------------------------------------------------------ */}
+      {matchModal && (
+        <div style={modalStyle}>
+          <div style={modalInner}>
+            <h3>Begleitung starten</h3>
+
+            <label>Stundensatz (€)</label>
+            <input
+              value={tarif}
+              onChange={(e) => setTarif(e.target.value)}
+            />
+
+            <label>Nächster Termin</label>
+            <input
+              type="datetime-local"
+              value={sessionDate}
+              onChange={(e) => setSessionDate(e.target.value)}
+            />
+
+            <label>Dauer (Minuten)</label>
+            <select
+              value={sessionDuration}
+              onChange={(e) => setSessionDuration(Number(e.target.value))}
+            >
+              <option value={50}>50 Minuten</option>
+              <option value={60}>60 Minuten</option>
+              <option value={75}>75 Minuten</option>
+            </select>
+
+            <div style={{ marginTop: 12, display: "flex", gap: 8 }}>
+              <button onClick={saveMatch}>Speichern</button>
+              <button onClick={() => setMatchModal(null)}>Abbrechen</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ------------------------------------------------------
+         SESSION MODAL
+      ------------------------------------------------------ */}
+      {sessionModal && (
+        <div style={modalStyle}>
+          <div style={modalInner}>
+            <h3>Nächste Sitzung</h3>
+
+            <label>Datum</label>
+            <input
+              type="datetime-local"
+              value={sessionDate}
+              onChange={(e) => setSessionDate(e.target.value)}
+            />
+
+            <label>Dauer</label>
+            <select
+              value={sessionDuration}
+              onChange={(e) => setSessionDuration(Number(e.target.value))}
+            >
+              <option value={50}>50 Minuten</option>
+              <option value={60}>60 Minuten</option>
+              <option value={75}>75 Minuten</option>
+            </select>
+
+            <div style={{ marginTop: 12 }}>
+              <button onClick={saveSession}>Speichern</button>
+              <button onClick={() => setSessionModal(null)}>Abbrechen</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
+
+const modalStyle = {
+  position: "fixed",
+  left: 0,
+  top: 0,
+  right: 0,
+  bottom: 0,
+  background: "rgba(0,0,0,0.3)",
+  display: "flex",
+  justifyContent: "center",
+  alignItems: "center",
+};
+
+const modalInner = {
+  background: "#fff",
+  padding: 20,
+  borderRadius: 12,
+  minWidth: 300,
+};
