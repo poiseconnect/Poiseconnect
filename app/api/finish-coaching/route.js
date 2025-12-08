@@ -1,5 +1,4 @@
-// /app/api/finish-coaching/route.js
-import { supabase } from "@/app/lib/supabase";
+import { supabase } from "../../lib/supabase";
 
 export async function POST(req) {
   const { anfrageId } = await req.json();
