@@ -1,42 +1,64 @@
 import { supabase } from "../../lib/supabase";
 
 export async function POST(req) {
-  const { anfrageId, honorar, therapistEmail, nextDate, duration } =
-    await req.json();
+  try {
+    const {
+      id,                  // Anfrage-ID
+      honorar_klient,      // Stundensatz
+      therapist,           // user.email
+      date,                // erste Sitzung
+      duration_min         // Dauer in Minuten
+    } = await req.json();
 
-  const { error: updateError } = await supabase
-    .from("anfragen")
-    .update({
-      status: "active",
-      honorar_klient: honorar
-    })
-    .eq("id", anfrageId);
+    // 1) Anfrage auf active setzen
+    const { error: updateError } = await supabase
+      .from("anfragen")
+      .update({
+        status: "active",
+        honorar_klient: honorar_klient
+      })
+      .eq("id", id);
 
-  if (updateError) {
-    console.error(updateError);
-    return new Response(JSON.stringify({ error: "update_failed" }), { status: 500 });
-  }
+    if (updateError) {
+      console.error("UPDATE ERROR:", updateError);
+      return new Response(
+        JSON.stringify({ error: "update_failed" }),
+        { status: 500 }
+      );
+    }
 
-  const price = (honorar / 60) * duration;
-  const commission = price * 0.3;
-  const payout = price * 0.7;
+    // Preis berechnen
+    const price = honorar_klient;
+    const commission = honorar_klient * 0.3;
+    const payout = honorar_klient * 0.7;
 
-  const { error: sessionError } = await supabase
-    .from("sessions")
-    .insert({
-      anfrage_id: anfrageId,
-      therapist: therapistEmail,
-      date: nextDate,
-      duration_min: duration,
-      price,
-      commission,
-      payout
+    // 2) Erste Sitzung eintragen
+    const { error: sessionError } = await supabase
+      .from("sessions")
+      .insert({
+        anfrage_id: id,
+        therapist: therapist,
+        date: date,
+        duration_min: duration_min,
+        price: price,
+        commission: commission,
+        payout: payout
+      });
+
+    if (sessionError) {
+      console.error("SESSION ERROR:", sessionError);
+      return new Response(
+        JSON.stringify({ error: "session_failed" }),
+        { status: 500 }
+      );
+    }
+
+    return new Response(JSON.stringify({ ok: true }), { status: 200 });
+
+  } catch (e) {
+    console.error("SERVER ERROR:", e);
+    return new Response(JSON.stringify({ error: "server_error" }), {
+      status: 500
     });
-
-  if (sessionError) {
-    console.error(sessionError);
-    return new Response(JSON.stringify({ error: "session_failed" }), { status: 500 });
   }
-
-  return new Response(JSON.stringify({ ok: true }), { status: 200 });
 }
