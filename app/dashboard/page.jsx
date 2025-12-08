@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 
 // -------------------------------
-// STATUS DEFINITIONS (REAL)
+// STATUS DEFINITIONS
 // -------------------------------
 const STATUS_LABELS = {
   neu: "Neu",
@@ -31,17 +31,17 @@ export default function Dashboard() {
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // MATCH MODAL
+  // MATCH modal
   const [matchModal, setMatchModal] = useState(null);
   const [tarif, setTarif] = useState("");
   const [sessionDate, setSessionDate] = useState("");
   const [sessionDuration, setSessionDuration] = useState(60);
 
-  // SESSION MODAL
+  // SESSION modal
   const [sessionModal, setSessionModal] = useState(null);
 
   // -------------------------------
-  // 1) USER LADEN
+  // USER LADEN
   // -------------------------------
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
@@ -50,7 +50,7 @@ export default function Dashboard() {
   }, []);
 
   // -------------------------------
-  // 2) ANFRAGEN LADEN
+  // ANFRAGEN + SESSIONS LADEN
   // -------------------------------
   useEffect(() => {
     if (!user?.email) return;
@@ -58,22 +58,119 @@ export default function Dashboard() {
     async function load() {
       setLoading(true);
 
+      // Nur Anfragen für eingeloggten Therapeuten
       const { data, error } = await supabase
         .from("anfragen")
         .select("*")
         .eq("therapist_email", user.email)
         .order("id", { ascending: false });
 
-      if (!error) setRequests(data);
+      if (!error && data) {
+        // Sessions für jede Anfrage laden
+        const withSessions = await Promise.all(
+          data.map(async (req) => {
+            const { data: sessions } = await supabase
+              .from("sessions")
+              .select("*")
+              .eq("anfrage_id", req.id)
+              .order("date", { ascending: true });
+
+            return { ...req, sessions: sessions || [] };
+          })
+        );
+
+        setRequests(withSessions);
+      }
+
       setLoading(false);
     }
 
     load();
   }, [user]);
 
-  // ------------------------------------------
+  // -------------------------------
+  // API: Termin bestätigen
+  // -------------------------------
+  async function confirmAppointment(req) {
+    const res = await fetch("/api/confirm-appointment", {
+      method: "POST",
+      body: JSON.stringify({
+        requestId: req.id,
+        therapist: user.email,
+        client: req.email,
+        slot: req.bevorzugte_zeit,
+      }),
+    });
+
+    if (res.ok) {
+      alert("Termin bestätigt.");
+      window.location.reload();
+    } else alert("Fehler beim Bestätigen.");
+  }
+
+  // -------------------------------
+  // API: Absagen
+  // -------------------------------
+  async function decline(req) {
+    const res = await fetch("/api/reject-appointment", {
+      method: "POST",
+      body: JSON.stringify({
+        requestId: req.id,
+        therapist: user.email,
+        client: req.email,
+        vorname: req.vorname,
+      }),
+    });
+
+    if (res.ok) {
+      alert("Absage gesendet.");
+      window.location.reload();
+    } else alert("Fehler beim Absagen.");
+  }
+
+  // -------------------------------
+  // API: Neuer Termin-Link
+  // -------------------------------
+  async function newAppointment(req) {
+    const res = await fetch("/api/new-appointment", {
+      method: "POST",
+      body: JSON.stringify({
+        requestId: req.id,
+        client: req.email,
+        therapistEmail: user.email,
+        therapistName: req.wunschtherapeut,
+        vorname: req.vorname,
+      }),
+    });
+
+    if (res.ok) {
+      alert("Neuer Termin-Link wurde gesendet.");
+      window.location.reload();
+    } else alert("Fehler beim Senden.");
+  }
+
+  // -------------------------------
+  // API: Weiterleiten
+  // -------------------------------
+  async function reassign(req) {
+    const res = await fetch("/api/forward-request", {
+      method: "POST",
+      body: JSON.stringify({
+        requestId: req.id,
+        client: req.email,
+        vorname: req.vorname,
+      }),
+    });
+
+    if (res.ok) {
+      alert("Anfrage weitergeleitet.");
+      window.location.reload();
+    } else alert("Fehler beim Weiterleiten.");
+  }
+
+  // -------------------------------
   // API: NO MATCH
-  // ------------------------------------------
+  // -------------------------------
   async function noMatch(req) {
     const res = await fetch("/api/no-match", {
       method: "POST",
@@ -83,15 +180,15 @@ export default function Dashboard() {
     if (res.ok) {
       alert("Kein Match gespeichert.");
       window.location.reload();
-    }
+    } else alert("Fehler.");
   }
 
-  // ------------------------------------------
-  // API: MATCH (BEGIN COACHING)
-  // ------------------------------------------
+  // -------------------------------
+  // API: MATCH → COACHING START
+  // -------------------------------
   async function saveMatch() {
     if (!tarif || !sessionDate) {
-      alert("Bitte Tarif und ersten Termin eingeben.");
+      alert("Bitte Tarif & Termin eintragen.");
       return;
     }
 
@@ -106,21 +203,15 @@ export default function Dashboard() {
       }),
     });
 
-    if (!res.ok) {
-      alert("Fehler bei MATCH.");
-      return;
-    }
-
-    alert("Match erfolgreich – Coaching gestartet.");
-    setMatchModal(null);
-    setTarif("");
-    setSessionDate("");
-    window.location.reload();
+    if (res.ok) {
+      alert("Match gespeichert – Begleitung gestartet.");
+      window.location.reload();
+    } else alert("Fehler beim Match.");
   }
 
-  // ------------------------------------------
-  // API: Neue Sitzung speichern
-  // ------------------------------------------
+  // -------------------------------
+  // API: Neue Sitzung
+  // -------------------------------
   async function saveSession() {
     if (!sessionDate) {
       alert("Bitte Datum wählen.");
@@ -137,38 +228,30 @@ export default function Dashboard() {
       }),
     });
 
-    if (!res.ok) {
-      alert("Fehler beim Speichern der Sitzung.");
-      return;
-    }
-
-    alert("Sitzung gespeichert.");
-    setSessionModal(null);
-    setSessionDate("");
-    window.location.reload();
+    if (res.ok) {
+      alert("Sitzung gespeichert.");
+      window.location.reload();
+    } else alert("Fehler beim Speichern.");
   }
 
-  // ------------------------------------------
+  // -------------------------------
   // API: Coaching beenden
-  // ------------------------------------------
+  // -------------------------------
   async function finishCoaching(req) {
     const res = await fetch("/api/finish-coaching", {
       method: "POST",
       body: JSON.stringify({ anfrageId: req.id }),
     });
 
-    if (!res.ok) {
-      alert("Fehler beim Beenden.");
-      return;
-    }
-
-    alert("Coaching beendet.");
-    window.location.reload();
+    if (res.ok) {
+      alert("Coaching beendet.");
+      window.location.reload();
+    } else alert("Fehler beim Beenden.");
   }
 
-  // ------------------------------------------
-  // DASHBOARD UI
-  // ------------------------------------------
+  // -------------------------------
+  // UI
+  // -------------------------------
   if (!user)
     return <div style={{ padding: 40 }}>Bitte einloggen…</div>;
 
@@ -210,12 +293,12 @@ export default function Dashboard() {
                 }}
               >
                 <span style={{ color: colors.text }}>
-                  {STATUS_LABELS[r.status] || "?"}
+                  {STATUS_LABELS[r.status]}
                 </span>
               </div>
 
               {/* ---------------------------------------------
-                  PHASE: ERSTGESPRÄCH (solange NICHT active/no_match/finished)
+                  PHASE: ERSTGESPRÄCH
               --------------------------------------------- */}
               {["neu", "termin_neu", "termin_bestaetigt", "weitergeleitet"].includes(r.status) && (
                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
@@ -233,22 +316,19 @@ export default function Dashboard() {
                     👥 Weiterleiten
                   </button>
 
-                  {/* NEW: MATCH */}
                   <button onClick={() => setMatchModal(r)}>💚 Match</button>
 
-                  {/* NEW: NO MATCH */}
                   <button onClick={() => noMatch(r)}>❌ No Match</button>
                 </div>
               )}
 
               {/* ---------------------------------------------
-                  PHASE: COACHING (active)
+                  PHASE: COACHING
               --------------------------------------------- */}
               {r.status === "active" && (
                 <div style={{ marginTop: 10 }}>
                   <p>
-                    <strong>Tarif: </strong>
-                    {r.honorar_klient} € / Stunde
+                    <strong>Tarif:</strong> {r.honorar_klient} € / Stunde
                   </p>
 
                   <div style={{ display: "flex", gap: 8 }}>
@@ -280,103 +360,151 @@ export default function Dashboard() {
                   Kein Match — Anfrage beendet.
                 </p>
               )}
+
+              {/* ---------------------------------------------
+                  SITZUNGSLISTE
+              --------------------------------------------- */}
+              {r.sessions?.length > 0 && (
+                <div style={{ marginTop: 20 }}>
+                  <h4>Bisherige Sitzungen</h4>
+
+                  <div
+                    style={{
+                      background: "#fff",
+                      border: "1px solid #eee",
+                      borderRadius: 8,
+                      padding: 12,
+                    }}
+                  >
+                    {r.sessions.map((s, i) => (
+                      <div
+                        key={s.id}
+                        style={{
+                          padding: "6px 0",
+                          borderBottom:
+                            i === r.sessions.length - 1
+                              ? "none"
+                              : "1px solid #eee",
+                        }}
+                      >
+                        <div style={{ fontSize: 14 }}>
+                          <strong>
+                            {new Date(s.date).toLocaleString("de-AT")}
+                          </strong>{" "}
+                          · {s.duration_min} Min
+                        </div>
+
+                        <div style={{ fontSize: 13, color: "#444" }}>
+                          Honorar: {s.price.toFixed(2)} € • Provision:{" "}
+                          {s.commission.toFixed(2)} € • Auszahlung:{" "}
+                          {s.payout.toFixed(2)} €
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </article>
           );
         })}
 
-      {/* ---------------------------------------------
+      {/* -------------------------
           MATCH MODAL
-      --------------------------------------------- */}
+      ------------------------- */}
       {matchModal && (
-        <div style={modalStyle}>
-          <div style={modalInner}>
-            <h3>Begleitung starten</h3>
+        <Modal>
+          <h3>Begleitung starten</h3>
 
-            <label>Stundensatz (€)</label>
-            <input
-              value={tarif}
-              onChange={(e) => setTarif(e.target.value)}
-            />
+          <label>Stundensatz (€)</label>
+          <input
+            value={tarif}
+            onChange={(e) => setTarif(e.target.value)}
+          />
 
-            <label>Nächster Termin</label>
-            <input
-              type="datetime-local"
-              value={sessionDate}
-              onChange={(e) => setSessionDate(e.target.value)}
-            />
+          <label>Erste Sitzung</label>
+          <input
+            type="datetime-local"
+            value={sessionDate}
+            onChange={(e) => setSessionDate(e.target.value)}
+          />
 
-            <label>Dauer</label>
-            <select
-              value={sessionDuration}
-              onChange={(e) => setSessionDuration(Number(e.target.value))}
-            >
-              <option value={50}>50 Minuten</option>
-              <option value={60}>60 Minuten</option>
-              <option value={75}>75 Minuten</option>
-            </select>
+          <label>Dauer</label>
+          <select
+            value={sessionDuration}
+            onChange={(e) => setSessionDuration(Number(e.target.value))}
+          >
+            <option value={50}>50 Minuten</option>
+            <option value={60}>60 Minuten</option>
+            <option value={75}>75 Minuten</option>
+          </select>
 
-            <div style={{ marginTop: 12, display: "flex", gap: 8 }}>
-              <button onClick={saveMatch}>Speichern</button>
-              <button onClick={() => setMatchModal(null)}>Abbrechen</button>
-            </div>
+          <div style={{ marginTop: 12, display: "flex", gap: 8 }}>
+            <button onClick={saveMatch}>Speichern</button>
+            <button onClick={() => setMatchModal(null)}>Abbrechen</button>
           </div>
-        </div>
+        </Modal>
       )}
 
-      {/* ---------------------------------------------
+      {/* -------------------------
           SESSION MODAL
-      --------------------------------------------- */}
+      ------------------------- */}
       {sessionModal && (
-        <div style={modalStyle}>
-          <div style={modalInner}>
-            <h3>Nächste Sitzung eintragen</h3>
+        <Modal>
+          <h3>Nächste Sitzung</h3>
 
-            <label>Datum</label>
-            <input
-              type="datetime-local"
-              value={sessionDate}
-              onChange={(e) => setSessionDate(e.target.value)}
-            />
+          <label>Datum</label>
+          <input
+            type="datetime-local"
+            value={sessionDate}
+            onChange={(e) => setSessionDate(e.target.value)}
+          />
 
-            <label>Dauer</label>
-            <select
-              value={sessionDuration}
-              onChange={(e) => setSessionDuration(Number(e.target.value))}
-            >
-              <option value={50}>50 Minuten</option>
-              <option value={60}>60 Minuten</option>
-              <option value={75}>75 Minuten</option>
-            </select>
+          <label>Dauer</label>
+          <select
+            value={sessionDuration}
+            onChange={(e) => setSessionDuration(Number(e.target.value))}
+          >
+            <option value={50}>50 Minuten</option>
+            <option value={60}>60 Minuten</option>
+            <option value={75}>75 Minuten</option>
+          </select>
 
-            <div style={{ marginTop: 12, display: "flex", gap: 8 }}>
-              <button onClick={saveSession}>Speichern</button>
-              <button onClick={() => setSessionModal(null)}>Abbrechen</button>
-            </div>
+          <div style={{ marginTop: 12, display: "flex", gap: 8 }}>
+            <button onClick={saveSession}>Speichern</button>
+            <button onClick={() => setSessionModal(null)}>Abbrechen</button>
           </div>
-        </div>
+        </Modal>
       )}
     </div>
   );
 }
 
-// --------------------------------
-// SIMPLE MODAL STYLES
-// --------------------------------
-const modalStyle = {
-  position: "fixed",
-  left: 0,
-  top: 0,
-  right: 0,
-  bottom: 0,
-  background: "rgba(0,0,0,0.3)",
-  display: "flex",
-  justifyContent: "center",
-  alignItems: "center",
-};
-
-const modalInner = {
-  background: "#fff",
-  padding: 20,
-  borderRadius: 12,
-  minWidth: 300,
-};
+// -------------------------------
+// MODAL COMPONENT
+// -------------------------------
+function Modal({ children }) {
+  return (
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        background: "rgba(0,0,0,0.35)",
+        display: "flex",
+        justifyContent: "center",
+        alignItems: "center",
+        zIndex: 99,
+      }}
+    >
+      <div
+        style={{
+          background: "#fff",
+          padding: 20,
+          borderRadius: 12,
+          minWidth: 300,
+        }}
+      >
+        {children}
+      </div>
+    </div>
+  );
+}
