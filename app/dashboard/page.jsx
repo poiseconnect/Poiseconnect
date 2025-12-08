@@ -3,725 +3,396 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 
-// ----------------------------------------
-// STATUS-DEFINITIONEN (wir normalisieren auf diese Keys)
-// ----------------------------------------
+// ---------------------------------------------------------
+// STATUS LABELLING
+// ---------------------------------------------------------
 const STATUS_LABELS = {
-  offen: "Offen",
+  offen: "Neu",
+  termin_neu: "Neuen Termin wählen",
   termin_bestaetigt: "Termin bestätigt",
-  termin_neu: "Neuer Termin",
   weitergeleitet: "Weitergeleitet",
   active: "Begleitung aktiv",
-  no_match: "Kein Match",
-  finished: "Abgeschlossen",
+  beendet: "Beendet",
+  kein_match: "Kein Match",
 };
 
 const STATUS_COLORS = {
   offen: { bg: "#FFF7EC", border: "#E3C29A", text: "#8B5A2B" },
-  termin_bestaetigt: { bg: "#EAF8EF", border: "#9AD0A0", text: "#2F6E3A" },
   termin_neu: { bg: "#EFF3FF", border: "#9AAAF5", text: "#304085" },
+  termin_bestaetigt: { bg: "#EAF8EF", border: "#9AD0A0", text: "#2F6E3A" },
   weitergeleitet: { bg: "#F9F5FF", border: "#C8B0F5", text: "#54358B" },
-  active: { bg: "#E2F7F0", border: "#79C2A1", text: "#1E6348" },
-  no_match: { bg: "#FDECEC", border: "#F2A6A6", text: "#8B1E2B" },
-  finished: { bg: "#EEEAFD", border: "#B6A6F2", text: "#3B2D7A" },
+  active: { bg: "#E7FFE7", border: "#52C352", text: "#1A6B1A" },
+  beendet: { bg: "#EEE", border: "#CCC", text: "#666" },
+  kein_match: { bg: "#FEECEC", border: "#F1A5A5", text: "#8B1E2B" },
 };
 
-// Hilfsfunktion: rohen Status aus DB auf unsere Keys mappen
-function normalizeStatus(raw) {
-  if (!raw) return "offen";
-  const s = String(raw).toLowerCase();
-
-  if (s === "offen" || s === "neu") return "offen";
-  if (s === "termin_bestaetigt") return "termin_bestaetigt";
-  if (s === "termin_neu") return "termin_neu";
-  if (s === "weitergeleitet") return "weitergeleitet";
-  if (s === "active" || s === "aktiv") return "active";
-  if (s === "no_match" || s === "kein_match") return "no_match";
-  if (s === "finished" || s === "beendet") return "finished";
-
-  return "offen";
-}
-
-// ----------------------------------------
-// HAUPT-KOMPONENTE
-// ----------------------------------------
+// ---------------------------------------------------------
+// MAIN COMPONENT
+// ---------------------------------------------------------
 export default function Dashboard() {
   const [user, setUser] = useState(null);
   const [requests, setRequests] = useState([]);
-  const [filter, setFilter] = useState("neu");
-  const [loading, setLoading] = useState(true);
+  const [sessions, setSessions] = useState([]);
+  const [filter, setFilter] = useState("unbearbeitet");
 
-  // MATCH MODAL
+  // Modal states
   const [matchModal, setMatchModal] = useState(null);
+  const [sessionModal, setSessionModal] = useState(null);
+
+  // Form states
   const [tarif, setTarif] = useState("");
   const [sessionDate, setSessionDate] = useState("");
   const [sessionDuration, setSessionDuration] = useState(60);
 
-  // SESSION MODAL
-  const [sessionModal, setSessionModal] = useState(null);
-
-  // ----------------------------------------
-  // LOGIN LADEN
-  // ----------------------------------------
+  // -----------------------------------------------------
+  // Load logged user
+  // -----------------------------------------------------
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
+    async function loadUser() {
+      const { data } = await supabase.auth.getUser();
       setUser(data?.user || null);
-    });
+    }
+    loadUser();
   }, []);
 
-  // ----------------------------------------
-  // ANFRAGEN + SESSIONS LADEN
-  // ----------------------------------------
+  // -----------------------------------------------------
+  // Load requests + sessions
+  // -----------------------------------------------------
   useEffect(() => {
     if (!user?.email) return;
 
     async function load() {
-      setLoading(true);
-
       const email = user.email.toLowerCase();
-      const isAdmin = email === "hallo@mypoise.de";
 
-      let query = supabase
-        .from("anfragen")
-        .select("*")
-        .order("id", { ascending: false });
+      let query = supabase.from("anfragen").select("*").order("id", {
+        ascending: false,
+      });
 
-      // Nicht-Admin: nur eigene Anfragen (per Mail im Feld wunschtherapeut)
-      if (!isAdmin) {
+      // Admin sees all
+      if (email !== "hallo@mypoise.de") {
         query = query.eq("wunschtherapeut", user.email);
       }
 
-      const { data, error } = await query;
+      const { data: req, error } = await query;
+      if (!error) setRequests(req || []);
 
-      if (error || !data) {
-        console.error("Fehler beim Laden der Anfragen:", error);
-        setRequests([]);
-        setLoading(false);
-        return;
-      }
+      // load sessions
+      const { data: sess } = await supabase
+        .from("sessions")
+        .select("*")
+        .order("date", { ascending: true });
 
-      // Zu jeder Anfrage die Sessions laden
-      const withSessions = await Promise.all(
-        data.map(async (req) => {
-          const { data: sessions, error: sesErr } = await supabase
-            .from("sessions")
-            .select("*")
-            .eq("anfrage_id", req.id)
-            .order("date", { ascending: true });
-
-          if (sesErr) {
-            console.error("Fehler beim Laden der Sessions:", sesErr);
-          }
-
-          return { ...req, sessions: sessions || [] };
-        })
-      );
-
-      setRequests(withSessions);
-      setLoading(false);
+      setSessions(sess || []);
     }
 
     load();
   }, [user]);
 
-  // ----------------------------------------
-  // API-AKTIONEN
-  // ----------------------------------------
-  async function confirmAppointment(req) {
-    await fetch("/api/confirm-appointment", {
-      method: "POST",
-      body: JSON.stringify({
-        requestId: req.id,
-        therapist: user.email,
-        client: req.email,
-        slot: req.bevorzugte_zeit || req.bevorzugt || "",
-      }),
-    });
-    alert("Termin bestätigt.");
-    window.location.reload();
-  }
+  // -----------------------------------------------------
+  // Normalize requests with sessions
+  // -----------------------------------------------------
+  const normalizedRequests = requests.map((r) => {
+    const sess = sessions.filter((s) => Number(s.anfrage_id) === Number(r.id));
+    return { ...r, _sessions: sess, _status: r.status || "offen" };
+  });
 
-  async function decline(req) {
-    await fetch("/api/reject-appointment", {
-      method: "POST",
-      body: JSON.stringify({
-        requestId: req.id,
-        therapist: user.email,
-        client: req.email,
-        vorname: req.vorname,
-      }),
-    });
-    alert("Absage gesendet.");
-    window.location.reload();
-  }
+  // -----------------------------------------------------
+  // FILTER
+  // -----------------------------------------------------
+  const filteredRequests = normalizedRequests.filter((r) => {
+    const s = r._status;
 
-  async function newAppointment(req) {
-    await fetch("/api/new-appointment", {
-      method: "POST",
-      body: JSON.stringify({
-        requestId: req.id,
-        client: req.email,
-        therapistEmail: user.email,
-        therapistName: req.wunschtherapeut,
-        vorname: req.vorname,
-      }),
-    });
-    alert("Neuer Terminauswahl-Link gesendet.");
-    window.location.reload();
-  }
+    if (filter === "unbearbeitet") {
+      return ["offen", "termin_neu", "termin_bestaetigt", "weitergeleitet"].includes(s);
+    }
 
-  async function reassign(req) {
-    await fetch("/api/forward-request", {
-      method: "POST",
-      body: JSON.stringify({
-        requestId: req.id,
-        client: req.email,
-        vorname: req.vorname,
-      }),
-    });
-    alert("Anfrage weitergeleitet.");
-    window.location.reload();
-  }
+    if (filter === "active") return s === "active";
 
-  async function noMatch(req) {
-    await fetch("/api/no-match", {
-      method: "POST",
-      body: JSON.stringify({ anfrageId: req.id }),
-    });
-    alert("Kein Match gespeichert.");
-    window.location.reload();
-  }
+    return true; // all
+  });
 
+  // -----------------------------------------------------
+  // API ACTIONS
+  // -----------------------------------------------------
   async function saveMatch() {
-    if (!tarif || !sessionDate) {
-      alert("Bitte Stundensatz und ersten Termin eintragen.");
+    if (!matchModal) return;
+
+    const { id } = matchModal;
+
+    const { error } = await supabase
+      .from("anfragen")
+      .update({
+        status: "active",
+        honorar_klient: tarif,
+      })
+      .eq("id", id);
+
+    if (error) {
+      alert("Fehler beim Match!");
       return;
     }
 
-    await fetch("/api/match-client", {
-      method: "POST",
-      body: JSON.stringify({
-        anfrageId: matchModal.id,
-        honorar_klient: Number(tarif),
-        therapistEmail: user.email,
-        nextDate: sessionDate,
-        duration: sessionDuration,
-      }),
+    // erste Sitzung speichern
+    await supabase.from("sessions").insert({
+      anfrage_id: id,
+      therapist: user.email,
+      date: sessionDate,
+      price: tarif,
+      commission: tarif * 0.3,
+      payout: tarif * 0.7,
+      duration_min: sessionDuration,
     });
 
-    alert("Begleitung gestartet.");
+    alert("Begleitung gestartet!");
     window.location.reload();
   }
 
   async function saveSession() {
-    if (!sessionDate) {
-      alert("Bitte Datum für die Sitzung angeben.");
-      return;
-    }
+    if (!sessionModal) return;
 
-    await fetch("/api/add-session", {
-      method: "POST",
-      body: JSON.stringify({
-        anfrageId: sessionModal.id,
-        therapist: user.email,
-        date: sessionDate,
-        duration: sessionDuration,
-      }),
+    const { id, honorar_klient } = sessionModal;
+
+    await supabase.from("sessions").insert({
+      anfrage_id: id,
+      therapist: user.email,
+      date: sessionDate,
+      price: honorar_klient,
+      commission: honorar_klient * 0.3,
+      payout: honorar_klient * 0.7,
+      duration_min: sessionDuration,
     });
 
-    alert("Sitzung gespeichert.");
+    alert("Sitzung gespeichert!");
     window.location.reload();
   }
 
-  async function finishCoaching(req) {
-    await fetch("/api/finish-coaching", {
-      method: "POST",
-      body: JSON.stringify({ anfrageId: req.id }),
-    });
-
+  async function endCoaching(req) {
+    await supabase.from("anfragen").update({ status: "beendet" }).eq("id", req.id);
     alert("Coaching beendet.");
     window.location.reload();
   }
 
-  // ----------------------------------------
-  // FILTERLOGIK
-  // ----------------------------------------
-  const normalizedRequests = requests.map((r) => ({
-    ...r,
-    _status: normalizeStatus(r.status),
-  }));
-
-  const filteredRequests = normalizedRequests.filter((r) => {
-    const s = r._status;
-
-    if (filter === "neu") {
-      // alles, was noch in der Erstgesprächsphase ist
-      return ["offen", "termin_neu", "termin_bestaetigt", "weitergeleitet"].includes(
-        s
-      );
-    }
-
-    if (filter === "bearbeitet") {
-      return !["offen", "termin_neu", "termin_bestaetigt", "weitergeleitet"].includes(
-        s
-      );
-    }
-
-    return true; // alle
-  });
-
-  const countNeu = normalizedRequests.filter((r) =>
-    ["offen", "termin_neu", "termin_bestaetigt", "weitergeleitet"].includes(
-      r._status
-    )
-  ).length;
-
-  const countBearbeitet = normalizedRequests.length - countNeu;
-
-  // ----------------------------------------
-  // ABRECHNUNG (A) + MONATSSTATISTIK (B) für Admin
-  // ----------------------------------------
-  const isAdmin = user?.email?.toLowerCase() === "hallo@mypoise.de";
-
-  const allSessions = normalizedRequests.flatMap((r) =>
-    (r.sessions || []).map((s) => ({
-      ...s,
-      therapist: s.therapist || r.wunschtherapeut || "",
-    }))
-  );
-
-  const totalUmsatz = allSessions.reduce((sum, s) => sum + (s.price || 0), 0);
-  const totalProvision = allSessions.reduce(
-    (sum, s) => sum + (s.commission || 0),
-    0
-  );
-  const totalAuszahlung = allSessions.reduce(
-    (sum, s) => sum + (s.payout || 0),
-    0
-  );
-
-  const perMonth = {};
-  allSessions.forEach((s) => {
-    if (!s.date) return;
-    const d = new Date(s.date);
-    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(
-      2,
-      "0"
-    )}`;
-    if (!perMonth[key]) {
-      perMonth[key] = { umsatz: 0, provision: 0, auszahlung: 0 };
-    }
-    perMonth[key].umsatz += s.price || 0;
-    perMonth[key].provision += s.commission || 0;
-    perMonth[key].auszahlung += s.payout || 0;
-  });
-
-  // ----------------------------------------
+  // -----------------------------------------------------
   // UI
-  // ----------------------------------------
-  if (!user)
-    return <div style={{ padding: 40 }}>Bitte per Magic Link einloggen…</div>;
+  // -----------------------------------------------------
+  if (!user) return <div style={{ padding: 30 }}>Bitte einloggen…</div>;
 
   return (
-    <div
-      style={{
-        padding: 20,
-        maxWidth: 960,
-        margin: "0 auto",
-        fontFamily: "system-ui, -apple-system, BlinkMacSystemFont, sans-serif",
-      }}
-    >
-      {/* HEADER */}
-      <header
+    <div style={{ padding: 24, maxWidth: 900, margin: "0 auto" }}>
+      <h1>Poise Dashboard</h1>
+
+      {/* FILTER */}
+      <div
         style={{
           display: "flex",
-          justifyContent: "space-between",
-          gap: 16,
-          alignItems: "center",
+          gap: 6,
+          background: "#F4ECE4",
+          padding: 4,
+          borderRadius: 999,
           marginBottom: 20,
         }}
       >
-        <div>
-          <h1 style={{ margin: 0, fontSize: 26 }}>Poise Dashboard</h1>
-          <p style={{ margin: "6px 0 0", color: "#666" }}>
-            Eingeloggt als <strong>{user.email}</strong>
-            {isAdmin && " · Admin-Ansicht"}
-          </p>
-        </div>
-
-        {/* FILTER */}
-        <div
+        <button
+          type="button"
+          onClick={() => setFilter("unbearbeitet")}
           style={{
-            display: "flex",
-            background: "#F4ECE4",
+            flex: 1,
+            padding: "8px",
             borderRadius: 999,
-            padding: 4,
-            gap: 4,
-            minWidth: 260,
+            background: filter === "unbearbeitet" ? "#fff" : "transparent",
           }}
         >
-          <button
-            type="button"
-            onClick={() => setFilter("neu")}
-            style={{
-              flex: 1,
-              borderRadius: 999,
-              border: "none",
-              padding: "6px 12px",
-              cursor: "pointer",
-              background: filter === "neu" ? "#fff" : "transparent",
-              fontWeight: filter === "neu" ? 600 : 400,
-            }}
-          >
-            Neu ({countNeu})
-          </button>
-          <button
-            type="button"
-            onClick={() => setFilter("bearbeitet")}
-            style={{
-              flex: 1,
-              borderRadius: 999,
-              border: "none",
-              padding: "6px 12px",
-              cursor: "pointer",
-              background: filter === "bearbeitet" ? "#fff" : "transparent",
-              fontWeight: filter === "bearbeitet" ? 600 : 400,
-            }}
-          >
-            Bearbeitet ({countBearbeitet})
-          </button>
-          <button
-            type="button"
-            onClick={() => setFilter("alle")}
-            style={{
-              flex: 1,
-              borderRadius: 999,
-              border: "none",
-              padding: "6px 12px",
-              cursor: "pointer",
-              background: filter === "alle" ? "#fff" : "transparent",
-              fontWeight: filter === "alle" ? 600 : 400,
-            }}
-          >
-            Alle ({normalizedRequests.length})
-          </button>
-        </div>
-      </header>
+          Unbearbeitet
+        </button>
 
-      {/* ADMIN-ABRECHNUNG (A + B) */}
-      {isAdmin && (
-        <section
+        <button
+          type="button"
+          onClick={() => setFilter("active")}
           style={{
-            marginBottom: 24,
-            padding: 16,
-            borderRadius: 12,
-            border: "1px solid #e5e5e5",
-            background: "#FBF7F3",
+            flex: 1,
+            padding: "8px",
+            borderRadius: 999,
+            background: filter === "active" ? "#fff" : "transparent",
           }}
         >
-          <h2 style={{ marginTop: 0, fontSize: 18 }}>Abrechnung (gesamt)</h2>
-          <p>Umsatz: {totalUmsatz.toFixed(2)} €</p>
-          <p>Provision (30%): {totalProvision.toFixed(2)} €</p>
-          <p>Auszahlung: {totalAuszahlung.toFixed(2)} €</p>
+          Aktiv
+        </button>
 
-          <h3 style={{ marginTop: 16, fontSize: 16 }}>Monatsübersicht</h3>
-          {Object.keys(perMonth).length === 0 && (
-            <p style={{ color: "#777" }}>Noch keine Sitzungen erfasst.</p>
-          )}
-          {Object.entries(perMonth).map(([month, v]) => (
-            <div key={month} style={{ fontSize: 14, marginBottom: 6 }}>
-              <strong>{month}</strong>: Umsatz {v.umsatz.toFixed(2)} € ·
-              Provision {v.provision.toFixed(2)} € · Auszahlung{" "}
-              {v.auszahlung.toFixed(2)} €
-            </div>
-          ))}
-        </section>
-      )}
+        <button
+          type="button"
+          onClick={() => setFilter("alle")}
+          style={{
+            flex: 1,
+            padding: "8px",
+            borderRadius: 999,
+            background: filter === "alle" ? "#fff" : "transparent",
+          }}
+        >
+          Alle
+        </button>
+      </div>
 
-      {/* ANFRAGENLISTE */}
-      {loading && <p>Wird geladen…</p>}
+      {/* REQUEST LIST */}
+      {filteredRequests.map((r) => {
+        const colors = STATUS_COLORS[r._status] || STATUS_COLORS.offen;
 
-      {!loading && filteredRequests.length === 0 && (
-        <p style={{ color: "#777" }}>Keine Anfragen im aktuellen Filter.</p>
-      )}
+        return (
+          <div
+            key={r.id}
+            style={{
+              padding: 16,
+              border: "1px solid #ddd",
+              borderRadius: 12,
+              marginBottom: 16,
+              background: "#fff",
+            }}
+          >
+            {/* Header */}
+            <div style={{ display: "flex", justifyContent: "space-between" }}>
+              <strong>
+                {r.vorname} {r.nachname}
+              </strong>
 
-      {!loading &&
-        filteredRequests.map((r) => {
-          const statusKey = r._status;
-          const colors = STATUS_COLORS[statusKey] || STATUS_COLORS.offen;
-
-          return (
-            <article
-              key={r.id}
-              style={{
-                padding: 18,
-                borderRadius: 12,
-                border: "1px solid #e5e5e5",
-                marginBottom: 14,
-                background: "#fff",
-              }}
-            >
-              {/* HEADER PRO KLIENT:IN */}
               <div
                 style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  gap: 12,
-                  alignItems: "flex-start",
-                  marginBottom: 8,
+                  background: colors.bg,
+                  border: `1px solid ${colors.border}`,
+                  color: colors.text,
+                  padding: "2px 10px",
+                  borderRadius: 999,
+                  fontSize: 12,
                 }}
               >
-                <div>
-                  <h3
-                    style={{
-                      margin: 0,
-                      fontSize: 18,
-                      fontWeight: 600,
-                    }}
-                  >
-                    {r.vorname} {r.nachname}
-                  </h3>
-                  <p
-                    style={{
-                      margin: "4px 0 0",
-                      fontSize: 13,
-                      color: "#777",
-                    }}
-                  >
-                    {r.email}
-                    {r.wunschtherapeut && (
-                      <>
-                        {" · "}Wunsch:{" "}
-                        <strong>{r.wunschtherapeut}</strong>
-                      </>
-                    )}
-                  </p>
-                </div>
-
-                {/* STATUS-BADGE */}
-                <div
-                  style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: 6,
-                    padding: "4px 10px",
-                    borderRadius: 999,
-                    background: colors.bg,
-                    border: `1px solid ${colors.border}`,
-                    fontSize: 12,
-                    color: colors.text,
-                    fontWeight: 500,
-                  }}
-                >
-                  <span
-                    style={{
-                      width: 7,
-                      height: 7,
-                      borderRadius: "50%",
-                      backgroundColor: colors.text,
-                    }}
-                  />
-                  <span>{STATUS_LABELS[statusKey]}</span>
-                </div>
+                {STATUS_LABELS[r._status]}
               </div>
+            </div>
 
-              {/* ANLIEGEN KURZ */}
-              {r.anliegen && (
-                <p
-                  style={{
-                    margin: "8px 0 10px",
-                    fontSize: 14,
-                    lineHeight: 1.5,
-                  }}
-                >
-                  <strong>Anliegen:</strong> {r.anliegen}
+            <div style={{ color: "#777", fontSize: 13 }}>
+              {r.email} · Wunsch: {r.wunschtherapeut}
+            </div>
+
+            {r.anliegen && (
+              <p style={{ marginTop: 8 }}>
+                <strong>Anliegen:</strong> {r.anliegen}
+              </p>
+            )}
+
+            {/* ACTIVE COACHING UI */}
+            {r._status === "active" && (
+              <>
+                <p style={{ marginTop: 8 }}>
+                  <strong>Stundensatz:</strong>{" "}
+                  {r.honorar_klient ? `${r.honorar_klient} €` : "– (kein Honorar gespeichert)"}
                 </p>
-              )}
 
-              {/* ERSTGESPRÄCHS-PHASE */}
-              {["offen", "termin_neu", "termin_bestaetigt", "weitergeleitet"].includes(
-                statusKey
-              ) && (
-                <div
-                  style={{
-                    marginTop: 4,
-                    display: "flex",
-                    gap: 8,
-                    flexWrap: "wrap",
-                  }}
-                >
-                  <button
-                    type="button"
-                    onClick={() => confirmAppointment(r)}
-                  >
-                    ✔ Termin bestätigen
-                  </button>
-
-                  <button type="button" onClick={() => decline(r)}>
-                    ✖ Absagen
-                  </button>
-
-                  <button type="button" onClick={() => newAppointment(r)}>
-                    🔁 Neuer Termin
-                  </button>
-
-                  <button type="button" onClick={() => reassign(r)}>
-                    👥 Weiterleiten
-                  </button>
-
-                  <button type="button" onClick={() => setMatchModal(r)}>
-                    💚 Match
-                  </button>
-
-                  <button type="button" onClick={() => noMatch(r)}>
-                    ❌ Kein Match
-                  </button>
-                </div>
-              )}
-
-              {/* COACHING-PHASE */}
-              {statusKey === "active" && (
-                <div style={{ marginTop: 10 }}>
-                  <p style={{ marginBottom: 8 }}>
-                    <strong>Stundensatz:</strong>{" "}
-                    {r.honorar_klient
-                      ? `${r.honorar_klient} €`
-                      : "– (kein Honorar gespeichert)"}
-                  </p>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSessionModal(r);
-                      setSessionDate("");
-                      setSessionDuration(60);
-                    }}
-                  >
-                    ➕ nächste Sitzung
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => finishCoaching(r)}
-                    style={{
-                      marginLeft: 8,
-                      background: "#FDD",
-                    }}
-                  >
-                    🔴 Coaching beenden
-                  </button>
-                </div>
-              )}
-
-              {/* ABGESCHLOSSEN / KEIN MATCH */}
-              {statusKey === "finished" && (
-                <p style={{ marginTop: 10, color: "#555" }}>
-                  Coaching wurde abgeschlossen.
-                </p>
-              )}
-
-              {statusKey === "no_match" && (
-                <p style={{ marginTop: 10, color: "#a33" }}>
-                  Kein Match – Anfrage abgeschlossen.
-                </p>
-              )}
-
-              {/* SITZUNGSLISTE */}
-              {r.sessions && r.sessions.length > 0 && (
-                <div style={{ marginTop: 16 }}>
-                  <h4 style={{ marginBottom: 8 }}>Bisherige Sitzungen</h4>
-
-                  <div
-                    style={{
-                      background: "#fff",
-                      border: "1px solid #eee",
-                      borderRadius: 8,
-                      padding: 12,
-                    }}
-                  >
-                    {r.sessions.map((s, idx) => (
-                      <div
-                        key={s.id || idx}
-                        style={{
-                          padding: "6px 0",
-                          borderBottom:
-                            idx === r.sessions.length - 1
-                              ? "none"
-                              : "1px solid #eee",
-                        }}
-                      >
-                        <div style={{ fontSize: 14 }}>
-                          <strong>
-                            {s.date
-                              ? new Date(s.date).toLocaleString("de-AT")
-                              : "ohne Datum"}
-                          </strong>{" "}
-                          · {s.duration_min} Min
-                        </div>
-
-                        <div style={{ fontSize: 13, color: "#444" }}>
-                          Honorar: {Number(s.price || 0).toFixed(2)} € •
-                          Provision: {Number(s.commission || 0).toFixed(2)} € •
-                          Auszahlung: {Number(s.payout || 0).toFixed(2)} €
-                        </div>
+                {/* Sessions List */}
+                {r._sessions.length > 0 && (
+                  <div style={{ marginTop: 12 }}>
+                    <strong>Sitzungen:</strong>
+                    {r._sessions.map((s) => (
+                      <div key={s.id} style={{ marginTop: 6 }}>
+                        ● {new Date(s.date).toLocaleString()} — {s.duration_min} min — {s.price} €
                       </div>
                     ))}
                   </div>
+                )}
+
+                {/* Buttons */}
+                <div style={{ marginTop: 12, display: "flex", gap: 8 }}>
+                  <button
+                    type="button"
+                    onClick={() => setSessionModal(r)}
+                    style={{
+                      padding: 10,
+                      borderRadius: 12,
+                      background: "#e8f0ff",
+                    }}
+                  >
+                    + nächste Sitzung
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => endCoaching(r)}
+                    style={{
+                      padding: 10,
+                      borderRadius: 12,
+                      background: "#ffdada",
+                    }}
+                  >
+                    Coaching beenden
+                  </button>
                 </div>
-              )}
-            </article>
-          );
-        })}
+              </>
+            )}
+
+            {/* UNBEARBEITETE / ERSTGESPRÄCH */}
+            {r._status !== "active" && (
+              <>
+                <div style={{ marginTop: 12, display: "flex", gap: 8 }}>
+                  <button
+                    type="button"
+                    onClick={() => setMatchModal(r)}
+                    style={{
+                      padding: 10,
+                      borderRadius: 12,
+                      background: "#d4f8d4",
+                    }}
+                  >
+                    ❤️ Match
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      await supabase.from("anfragen").update({ status: "kein_match" }).eq("id", r.id);
+                      window.location.reload();
+                    }}
+                    style={{
+                      padding: 10,
+                      borderRadius: 12,
+                      background: "#ffdada",
+                    }}
+                  >
+                    ✖ Kein Match
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        );
+      })}
 
       {/* MATCH MODAL */}
       {matchModal && (
         <Modal>
           <h3>Begleitung starten</h3>
 
-          <label style={{ fontSize: 13, marginTop: 8 }}>
-            Stundensatz (€)
-          </label>
-          <input
-            type="number"
-            value={tarif}
-            onChange={(e) => setTarif(e.target.value)}
-            style={{ width: "100%", marginBottom: 10 }}
-          />
+          <label>Stundensatz (€)</label>
+          <input type="number" value={tarif} onChange={(e) => setTarif(e.target.value)} />
 
-          <label style={{ fontSize: 13 }}>Erste Sitzung</label>
+          <label style={{ marginTop: 12 }}>Erste Sitzung</label>
           <input
             type="datetime-local"
             value={sessionDate}
             onChange={(e) => setSessionDate(e.target.value)}
-            style={{ width: "100%", marginBottom: 10 }}
           />
 
-          <label style={{ fontSize: 13 }}>Dauer</label>
+          <label style={{ marginTop: 12 }}>Dauer</label>
           <select
             value={sessionDuration}
-            onChange={(e) =>
-              setSessionDuration(Number(e.target.value))
-            }
-            style={{ width: "100%", marginBottom: 16 }}
+            onChange={(e) => setSessionDuration(Number(e.target.value))}
           >
             <option value={50}>50 Minuten</option>
             <option value={60}>60 Minuten</option>
             <option value={75}>75 Minuten</option>
           </select>
 
-          <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
+          <div style={{ marginTop: 20, display: "flex", gap: 8 }}>
             <button type="button" onClick={saveMatch}>
               Speichern
             </button>
-            <button
-              type="button"
-              onClick={() => {
-                setMatchModal(null);
-                setTarif("");
-                setSessionDate("");
-              }}
-              style={{ background: "#eee" }}
-            >
+            <button type="button" onClick={() => setMatchModal(null)}>
               Abbrechen
             </button>
           </div>
@@ -733,39 +404,28 @@ export default function Dashboard() {
         <Modal>
           <h3>Nächste Sitzung</h3>
 
-          <label style={{ fontSize: 13, marginTop: 8 }}>Datum</label>
+          <label>Datum</label>
           <input
             type="datetime-local"
             value={sessionDate}
             onChange={(e) => setSessionDate(e.target.value)}
-            style={{ width: "100%", marginBottom: 10 }}
           />
 
-          <label style={{ fontSize: 13 }}>Dauer</label>
+          <label style={{ marginTop: 12 }}>Dauer</label>
           <select
             value={sessionDuration}
-            onChange={(e) =>
-              setSessionDuration(Number(e.target.value))
-            }
-            style={{ width: "100%", marginBottom: 16 }}
+            onChange={(e) => setSessionDuration(Number(e.target.value))}
           >
             <option value={50}>50 Minuten</option>
             <option value={60}>60 Minuten</option>
             <option value={75}>75 Minuten</option>
           </select>
 
-          <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
+          <div style={{ marginTop: 20, display: "flex", gap: 8 }}>
             <button type="button" onClick={saveSession}>
               Speichern
             </button>
-            <button
-              type="button"
-              onClick={() => {
-                setSessionModal(null);
-                setSessionDate("");
-              }}
-              style={{ background: "#eee" }}
-            >
+            <button type="button" onClick={() => setSessionModal(null)}>
               Abbrechen
             </button>
           </div>
@@ -775,9 +435,9 @@ export default function Dashboard() {
   );
 }
 
-// ----------------------------------------
-// MODAL KOMPONENTE
-// ----------------------------------------
+// ---------------------------------------------------------
+// MODAL UI
+// ---------------------------------------------------------
 function Modal({ children }) {
   return (
     <div
@@ -788,20 +448,11 @@ function Modal({ children }) {
         display: "flex",
         justifyContent: "center",
         alignItems: "center",
+        padding: 20,
         zIndex: 9999,
-        padding: 16,
       }}
     >
-      <div
-        style={{
-          background: "#fff",
-          padding: 18,
-          borderRadius: 12,
-          width: "100%",
-          maxWidth: 380,
-          boxShadow: "0 6px 20px rgba(0,0,0,0.25)",
-        }}
-      >
+      <div style={{ background: "#fff", padding: 20, borderRadius: 12, width: "100%", maxWidth: 360 }}>
         {children}
       </div>
     </div>
