@@ -1,11 +1,9 @@
-// /app/api/match-client/route.js
-import { supabase } from "@/app/lib/supabase";
+import { supabase } from "../../lib/supabase";
 
 export async function POST(req) {
   const { anfrageId, honorar, therapistEmail, nextDate, duration } =
     await req.json();
 
-  // 1) Anfrage auf "active" setzen
   const { error: updateError } = await supabase
     .from("anfragen")
     .update({
@@ -19,10 +17,9 @@ export async function POST(req) {
     return new Response(JSON.stringify({ error: "update_failed" }), { status: 500 });
   }
 
-  // 2) Erste Sitzung speichern
   const price = (honorar / 60) * duration;
-  const commission = price * 0.30;
-  const payout = price * 0.70;
+  const commission = price * 0.3;
+  const payout = price * 0.7;
 
   const { error: sessionError } = await supabase
     .from("sessions")
