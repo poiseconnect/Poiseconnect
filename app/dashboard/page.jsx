@@ -30,7 +30,7 @@ export default function Dashboard() {
   const [user, setUser] = useState(null);
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<"neu" | "bearbeitet" | "alle">("neu");
+  const [filter, setFilter] = useState("neu");
 
   // MATCH-Modal
   const [matchModal, setMatchModal] = useState(null);
@@ -67,7 +67,6 @@ export default function Dashboard() {
         .select("*")
         .order("id", { ascending: false });
 
-      // wie vorher: Nicht-Admin sieht nur eigene Anfragen
       if (!isAdmin) {
         query = query.eq("wunschtherapeut", user.email);
       }
@@ -75,24 +74,19 @@ export default function Dashboard() {
       const { data, error } = await query;
 
       if (error) {
-        console.error("Supabase anfragen Fehler:", error);
+        console.error("Fehler beim Laden der Anfragen:", error);
         setRequests([]);
         setLoading(false);
         return;
       }
 
-      // Sessions je Anfrage laden
       const withSessions = await Promise.all(
         (data || []).map(async (req) => {
-          const { data: sessions, error: sesErr } = await supabase
+          const { data: sessions } = await supabase
             .from("sessions")
             .select("*")
             .eq("anfrage_id", req.id)
             .order("date", { ascending: true });
-
-          if (sesErr) {
-            console.error("Supabase sessions Fehler:", sesErr);
-          }
 
           return { ...req, sessions: sessions || [] };
         })
@@ -105,8 +99,6 @@ export default function Dashboard() {
     load();
   }, [user]);
 
-  // -------------------------------
-  // API: Termin bestätigen
   // -------------------------------
   async function confirmAppointment(req) {
     const res = await fetch("/api/confirm-appointment", {
@@ -122,12 +114,9 @@ export default function Dashboard() {
     if (res.ok) {
       alert("Termin bestätigt.");
       window.location.reload();
-    } else alert("Fehler beim Bestätigen.");
+    }
   }
 
-  // -------------------------------
-  // API: Absagen
-  // -------------------------------
   async function decline(req) {
     const res = await fetch("/api/reject-appointment", {
       method: "POST",
@@ -142,12 +131,9 @@ export default function Dashboard() {
     if (res.ok) {
       alert("Absage gesendet.");
       window.location.reload();
-    } else alert("Fehler beim Absagen.");
+    }
   }
 
-  // -------------------------------
-  // API: Neuer Termin-Link
-  // -------------------------------
   async function newAppointment(req) {
     const res = await fetch("/api/new-appointment", {
       method: "POST",
@@ -163,12 +149,9 @@ export default function Dashboard() {
     if (res.ok) {
       alert("Neuer Termin-Link wurde gesendet.");
       window.location.reload();
-    } else alert("Fehler beim Senden.");
+    }
   }
 
-  // -------------------------------
-  // API: Weiterleiten
-  // -------------------------------
   async function reassign(req) {
     const res = await fetch("/api/forward-request", {
       method: "POST",
@@ -182,12 +165,9 @@ export default function Dashboard() {
     if (res.ok) {
       alert("Anfrage weitergeleitet.");
       window.location.reload();
-    } else alert("Fehler beim Weiterleiten.");
+    }
   }
 
-  // -------------------------------
-  // API: NO MATCH
-  // -------------------------------
   async function noMatch(req) {
     const res = await fetch("/api/no-match", {
       method: "POST",
@@ -197,12 +177,9 @@ export default function Dashboard() {
     if (res.ok) {
       alert("Kein Match gespeichert.");
       window.location.reload();
-    } else alert("Fehler.");
+    }
   }
 
-  // -------------------------------
-  // API: MATCH → COACHING START
-  // -------------------------------
   async function saveMatch() {
     if (!tarif || !sessionDate) {
       alert("Bitte Tarif & ersten Termin eintragen.");
@@ -223,12 +200,9 @@ export default function Dashboard() {
     if (res.ok) {
       alert("Match gespeichert – Begleitung gestartet.");
       window.location.reload();
-    } else alert("Fehler beim Match.");
+    }
   }
 
-  // -------------------------------
-  // API: Neue Sitzung
-  // -------------------------------
   async function saveSession() {
     if (!sessionDate) {
       alert("Bitte Datum wählen.");
@@ -248,12 +222,9 @@ export default function Dashboard() {
     if (res.ok) {
       alert("Sitzung gespeichert.");
       window.location.reload();
-    } else alert("Fehler beim Speichern.");
+    }
   }
 
-  // -------------------------------
-  // API: Coaching beenden
-  // -------------------------------
   async function finishCoaching(req) {
     const res = await fetch("/api/finish-coaching", {
       method: "POST",
@@ -263,27 +234,30 @@ export default function Dashboard() {
     if (res.ok) {
       alert("Coaching beendet.");
       window.location.reload();
-    } else alert("Fehler beim Beenden.");
+    }
   }
 
   // -------------------------------
-  // FILTER AUF STATUS
+  // FILTER LOGIK
   // -------------------------------
   const filteredRequests = requests.filter((r) => {
     const status = r.status || "neu";
 
     if (filter === "neu") {
-      return status === "neu" || status === "termin_neu" || status === "termin_bestaetigt";
+      return ["neu", "termin_neu", "termin_bestaetigt"].includes(status);
     }
+
     if (filter === "bearbeitet") {
       return !["neu", "termin_neu", "termin_bestaetigt"].includes(status);
     }
-    return true; // alle
+
+    return true;
   });
 
   const countNeu = requests.filter((r) =>
     ["neu", "termin_neu", "termin_bestaetigt"].includes(r.status || "neu")
   ).length;
+
   const countBearbeitet = requests.length - countNeu;
 
   // -------------------------------
@@ -298,7 +272,7 @@ export default function Dashboard() {
         padding: 40,
         maxWidth: 960,
         margin: "0 auto",
-        fontFamily: "system-ui, -apple-system, BlinkMacSystemFont, sans-serif",
+        fontFamily: "system-ui",
       }}
     >
       <header
@@ -311,22 +285,13 @@ export default function Dashboard() {
         }}
       >
         <div>
-          <h1
-            style={{
-              margin: 0,
-              fontSize: 26,
-              fontWeight: 600,
-              letterSpacing: 0.2,
-            }}
-          >
-            Poise Dashboard
-          </h1>
-          <p style={{ margin: "6px 0 0", color: "#666", fontSize: 14 }}>
+          <h1 style={{ margin: 0, fontSize: 26 }}>Poise Dashboard</h1>
+          <p style={{ marginTop: 6, color: "#666" }}>
             Eingeloggt als <strong>{user.email}</strong>
           </p>
         </div>
 
-        {/* Status-Filter */}
+        {/* Filter */}
         <div
           style={{
             display: "flex",
@@ -335,7 +300,6 @@ export default function Dashboard() {
             padding: 4,
             gap: 4,
             minWidth: 260,
-            justifyContent: "space-between",
           }}
         >
           <button
@@ -343,45 +307,41 @@ export default function Dashboard() {
             style={{
               flex: 1,
               borderRadius: 999,
-              border: "none",
               padding: "6px 12px",
               fontSize: 13,
               cursor: "pointer",
-              background: filter === "neu" ? "#FFFFFF" : "transparent",
+              background: filter === "neu" ? "#fff" : "transparent",
               fontWeight: filter === "neu" ? 600 : 400,
-              color: filter === "neu" ? "#5A3B24" : "#7D5D43",
             }}
           >
             Neu ({countNeu})
           </button>
+
           <button
             onClick={() => setFilter("bearbeitet")}
             style={{
               flex: 1,
               borderRadius: 999,
-              border: "none",
               padding: "6px 12px",
               fontSize: 13,
               cursor: "pointer",
-              background: filter === "bearbeitet" ? "#FFFFFF" : "transparent",
+              background: filter === "bearbeitet" ? "#fff" : "transparent",
               fontWeight: filter === "bearbeitet" ? 600 : 400,
-              color: filter === "bearbeitet" ? "#5A3B24" : "#7D5D43",
             }}
           >
             Bearbeitet ({countBearbeitet})
           </button>
+
           <button
             onClick={() => setFilter("alle")}
             style={{
               flex: 1,
               borderRadius: 999,
-              border: "none",
               padding: "6px 12px",
               fontSize: 13,
               cursor: "pointer",
-              background: filter === "alle" ? "#FFFFFF" : "transparent",
+              background: filter === "alle" ? "#fff" : "transparent",
               fontWeight: filter === "alle" ? 600 : 400,
-              color: filter === "alle" ? "#5A3B24" : "#7D5D43",
             }}
           >
             Alle ({requests.length})
@@ -389,24 +349,18 @@ export default function Dashboard() {
         </div>
       </header>
 
-      <hr
-        style={{
-          border: "none",
-          borderTop: "1px solid #eee",
-          marginBottom: 20,
-        }}
-      />
+      <hr style={{ marginBottom: 20 }} />
 
       {loading && <p>Wird geladen…</p>}
 
       {!loading && filteredRequests.length === 0 && (
-        <p style={{ color: "#777" }}>Keine Anfragen.</p>
+        <p style={{ color: "#777" }}>Keine Anfragen gefunden.</p>
       )}
 
       {!loading &&
         filteredRequests.map((r) => {
-          const statusKey = r.status || "neu";
-          const colors = STATUS_COLORS[statusKey] || STATUS_COLORS["neu"];
+          const status = r.status || "neu";
+          const colors = STATUS_COLORS[status];
 
           return (
             <article
@@ -417,101 +371,32 @@ export default function Dashboard() {
                 border: "1px solid #e5e5e5",
                 marginBottom: 14,
                 background: "#fff",
-                boxShadow:
-                  statusKey === "neu"
-                    ? "0 6px 16px rgba(0,0,0,0.03)"
-                    : "0 2px 6px rgba(0,0,0,0.02)",
               }}
             >
+              <h3 style={{ margin: 0 }}>
+                {r.vorname} {r.nachname}
+              </h3>
+              <p style={{ marginTop: 4, color: "#777" }}>{r.email}</p>
+
               <div
                 style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  gap: 12,
-                  alignItems: "flex-start",
-                  marginBottom: 8,
+                  display: "inline-flex",
+                  padding: "4px 10px",
+                  borderRadius: 999,
+                  background: colors.bg,
+                  border: `1px solid ${colors.border}`,
+                  marginBottom: 12,
+                  color: colors.text,
                 }}
               >
-                <div>
-                  <h3
-                    style={{
-                      margin: 0,
-                      fontSize: 18,
-                      fontWeight: 600,
-                    }}
-                  >
-                    {r.vorname} {r.nachname}
-                  </h3>
-                  <p
-                    style={{
-                      margin: "4px 0 0",
-                      fontSize: 13,
-                      color: "#777",
-                    }}
-                  >
-                    {r.email}
-                    {r.wunschtherapeut && (
-                      <>
-                        {" · "}Wunsch:{" "}
-                        <strong>{r.wunschtherapeut}</strong>
-                      </>
-                    )}
-                  </p>
-                </div>
-
-                {/* Status Badge */}
-                <div
-                  style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: 6,
-                    padding: "4px 10px",
-                    borderRadius: 999,
-                    background: colors.bg,
-                    border: `1px solid ${colors.border}`,
-                    fontSize: 12,
-                    color: colors.text,
-                    fontWeight: 500,
-                  }}
-                >
-                  <span
-                    style={{
-                      width: 7,
-                      height: 7,
-                      borderRadius: "50%",
-                      backgroundColor: colors.text,
-                    }}
-                  />
-                  <span>{STATUS_LABELS[statusKey] || "Neu"}</span>
-                </div>
+                {STATUS_LABELS[status]}
               </div>
 
-              {r.anliegen && (
-                <p
-                  style={{
-                    margin: "8px 0 4px",
-                    fontSize: 14,
-                    lineHeight: 1.5,
-                  }}
-                >
-                  <strong>Anliegen:</strong> {r.anliegen}
-                </p>
-              )}
-
-              {/* ---------------------------------------------
-                  PHASE: ERSTGESPRÄCH
-              --------------------------------------------- */}
+              {/* Erstgespräch-Phase */}
               {["neu", "termin_neu", "termin_bestaetigt", "weitergeleitet"].includes(
-                statusKey
+                status
               ) && (
-                <div
-                  style={{
-                    marginTop: 10,
-                    display: "flex",
-                    gap: 8,
-                    flexWrap: "wrap",
-                  }}
-                >
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                   <button onClick={() => confirmAppointment(r)}>
                     ✔ Termin bestätigen
                   </button>
@@ -532,54 +417,39 @@ export default function Dashboard() {
                 </div>
               )}
 
-              {/* ---------------------------------------------
-                  PHASE: COACHING
-              --------------------------------------------- */}
-              {statusKey === "active" && (
+              {/* Coaching-Phase */}
+              {status === "active" && (
                 <div style={{ marginTop: 10 }}>
                   <p>
-                    <strong>Tarif:</strong>{" "}
-                    {r.honorar_klient
-                      ? `${r.honorar_klient} € / Stunde`
-                      : "Kein Tarif gespeichert"}
+                    <strong>Tarif:</strong> {r.honorar_klient} € / Stunde
                   </p>
 
-                  <div style={{ display: "flex", gap: 8 }}>
-                    <button onClick={() => setSessionModal(r)}>
-                      ➕ nächste Sitzung
-                    </button>
-
-                    <button
-                      onClick={() => finishCoaching(r)}
-                      style={{ background: "#FDD" }}
-                    >
-                      🔴 Coaching beendet
-                    </button>
-                  </div>
+                  <button onClick={() => setSessionModal(r)}>
+                    ➕ nächste Sitzung
+                  </button>
+                  <button
+                    onClick={() => finishCoaching(r)}
+                    style={{ background: "#FDD", marginLeft: 8 }}
+                  >
+                    🔴 Coaching beendet
+                  </button>
                 </div>
               )}
 
-              {/* ---------------------------------------------
-                  PHASE: ABGESCHLOSSEN
-              --------------------------------------------- */}
-              {statusKey === "finished" && (
-                <p style={{ marginTop: 10, fontStyle: "italic" }}>
-                  Coaching abgeschlossen.
-                </p>
+              {status === "finished" && (
+                <p style={{ marginTop: 10 }}>Coaching abgeschlossen.</p>
               )}
 
-              {statusKey === "no_match" && (
+              {status === "no_match" && (
                 <p style={{ marginTop: 10, color: "#a33" }}>
                   Kein Match — Anfrage beendet.
                 </p>
               )}
 
-              {/* ---------------------------------------------
-                  SITZUNGSLISTE
-              --------------------------------------------- */}
+              {/* Sitzungsliste */}
               {r.sessions?.length > 0 && (
-                <div style={{ marginTop: 12 }}>
-                  <h4 style={{ marginBottom: 8 }}>Bisherige Sitzungen</h4>
+                <div style={{ marginTop: 20 }}>
+                  <h4>Bisherige Sitzungen</h4>
 
                   <div
                     style={{
@@ -600,14 +470,14 @@ export default function Dashboard() {
                               : "1px solid #eee",
                         }}
                       >
-                        <div style={{ fontSize: 14 }}>
+                        <div>
                           <strong>
                             {new Date(s.date).toLocaleString("de-AT")}
                           </strong>{" "}
                           · {s.duration_min} Min
                         </div>
 
-                        <div style={{ fontSize: 13, color: "#444" }}>
+                        <div style={{ color: "#444" }}>
                           Honorar: {s.price.toFixed(2)} € • Provision:{" "}
                           {s.commission.toFixed(2)} € • Auszahlung:{" "}
                           {s.payout.toFixed(2)} €
@@ -621,18 +491,13 @@ export default function Dashboard() {
           );
         })}
 
-      {/* -------------------------
-          MATCH MODAL
-      ------------------------- */}
+      {/* MATCH MODAL */}
       {matchModal && (
         <Modal>
           <h3>Begleitung starten</h3>
 
           <label>Stundensatz (€)</label>
-          <input
-            value={tarif}
-            onChange={(e) => setTarif(e.target.value)}
-          />
+          <input value={tarif} onChange={(e) => setTarif(e.target.value)} />
 
           <label>Erste Sitzung</label>
           <input
@@ -651,16 +516,16 @@ export default function Dashboard() {
             <option value={75}>75 Minuten</option>
           </select>
 
-          <div style={{ marginTop: 12, display: "flex", gap: 8 }}>
+          <div style={{ marginTop: 12 }}>
             <button onClick={saveMatch}>Speichern</button>
-            <button onClick={() => setMatchModal(null)}>Abbrechen</button>
+            <button onClick={() => setMatchModal(null)} style={{ marginLeft: 8 }}>
+              Abbrechen
+            </button>
           </div>
         </Modal>
       )}
 
-      {/* -------------------------
-          SESSION MODAL
-      ------------------------- */}
+      {/* SESSION MODAL */}
       {sessionModal && (
         <Modal>
           <h3>Nächste Sitzung</h3>
@@ -682,9 +547,11 @@ export default function Dashboard() {
             <option value={75}>75 Minuten</option>
           </select>
 
-          <div style={{ marginTop: 12, display: "flex", gap: 8 }}>
+          <div style={{ marginTop: 12 }}>
             <button onClick={saveSession}>Speichern</button>
-            <button onClick={() => setSessionModal(null)}>Abbrechen</button>
+            <button onClick={() => setSessionModal(null)} style={{ marginLeft: 8 }}>
+              Abbrechen
+            </button>
           </div>
         </Modal>
       )}
