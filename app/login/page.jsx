@@ -14,7 +14,7 @@ export default function LoginPage() {
     const { error } = await supabase.auth.signInWithOtp({
       email,
       options: {
-        // 🔥 Wichtig: Session wird NUR über /auth/callback gesetzt
+        // 🔥 EINZIGER FIX → MUSS auf /auth/callback zeigen
         emailRedirectTo: "https://poiseconnect.vercel.app/auth/callback",
       },
     });
@@ -22,7 +22,6 @@ export default function LoginPage() {
     setLoading(false);
 
     if (error) {
-      console.error(error);
       return alert("Fehler – Magic Link konnte nicht gesendet werden.");
     }
 
@@ -32,7 +31,6 @@ export default function LoginPage() {
   return (
     <div style={{ padding: 40 }}>
       <h1>Team Login</h1>
-
       <form onSubmit={sendMagicLink} style={{ marginTop: 20 }}>
         <input
           type="email"
@@ -47,7 +45,6 @@ export default function LoginPage() {
             marginBottom: 12,
           }}
         />
-
         <button
           type="submit"
           disabled={loading}
@@ -60,7 +57,7 @@ export default function LoginPage() {
             width: "100%",
           }}
         >
-          {loading ? "Senden…" : "Magic Link senden"}
+          {loading ? "Senden..." : "Magic Link senden"}
         </button>
       </form>
     </div>
