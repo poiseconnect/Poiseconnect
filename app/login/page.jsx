@@ -9,18 +9,26 @@ export default function LoginPage() {
 
   async function sendMagicLink(e) {
     e.preventDefault();
+
+    if (!email || !email.includes("@")) {
+      alert("Bitte gültige Email eingeben.");
+      return;
+    }
+
     setLoading(true);
 
     const { error } = await supabase.auth.signInWithOtp({
       email,
       options: {
-        emailRedirectTo: "https://poiseconnect.vercel.app/dashboard",
+        // WICHTIG: Hier darf NICHT das Dashboard stehen!
+        emailRedirectTo: "https://poiseconnect.vercel.app/auth/callback",
       },
     });
 
     setLoading(false);
 
     if (error) {
+      console.error(error);
       return alert("Fehler – Magic Link konnte nicht gesendet werden.");
     }
 
@@ -28,9 +36,17 @@ export default function LoginPage() {
   }
 
   return (
-    <div style={{ padding: 40 }}>
-      <h1>Team Login</h1>
-      <form onSubmit={sendMagicLink} style={{ marginTop: 20 }}>
+    <div
+      style={{
+        padding: 40,
+        maxWidth: 360,
+        margin: "0 auto",
+        fontFamily: "system-ui, sans-serif",
+      }}
+    >
+      <h1 style={{ marginBottom: 20 }}>Team Login</h1>
+
+      <form onSubmit={sendMagicLink}>
         <input
           type="email"
           placeholder="Deine Email"
@@ -41,22 +57,27 @@ export default function LoginPage() {
             padding: 12,
             borderRadius: 8,
             border: "1px solid #ccc",
-            marginBottom: 12,
+            marginBottom: 16,
+            fontSize: 15,
           }}
         />
+
         <button
           type="submit"
           disabled={loading}
           style={{
-            padding: "12px 20px",
-            borderRadius: 8,
-            background: "#c7afa4",
-            color: "white",
-            border: "none",
             width: "100%",
+            padding: "12px 18px",
+            borderRadius: 8,
+            background: "#A27C77",
+            color: "white",
+            fontSize: 15,
+            border: "none",
+            cursor: "pointer",
+            opacity: loading ? 0.6 : 1,
           }}
         >
-          {loading ? "Senden..." : "Magic Link senden"}
+          {loading ? "Senden…" : "Magic Link senden"}
         </button>
       </form>
     </div>
