@@ -9,18 +9,12 @@ export default function LoginPage() {
 
   async function sendMagicLink(e) {
     e.preventDefault();
-
-    if (!email || !email.includes("@")) {
-      alert("Bitte gültige Email eingeben.");
-      return;
-    }
-
     setLoading(true);
 
     const { error } = await supabase.auth.signInWithOtp({
       email,
       options: {
-        // WICHTIG: Hier darf NICHT das Dashboard stehen!
+        // 🔥 Wichtig: Session wird NUR über /auth/callback gesetzt
         emailRedirectTo: "https://poiseconnect.vercel.app/auth/callback",
       },
     });
@@ -36,17 +30,10 @@ export default function LoginPage() {
   }
 
   return (
-    <div
-      style={{
-        padding: 40,
-        maxWidth: 360,
-        margin: "0 auto",
-        fontFamily: "system-ui, sans-serif",
-      }}
-    >
-      <h1 style={{ marginBottom: 20 }}>Team Login</h1>
+    <div style={{ padding: 40 }}>
+      <h1>Team Login</h1>
 
-      <form onSubmit={sendMagicLink}>
+      <form onSubmit={sendMagicLink} style={{ marginTop: 20 }}>
         <input
           type="email"
           placeholder="Deine Email"
@@ -57,8 +44,7 @@ export default function LoginPage() {
             padding: 12,
             borderRadius: 8,
             border: "1px solid #ccc",
-            marginBottom: 16,
-            fontSize: 15,
+            marginBottom: 12,
           }}
         />
 
@@ -66,15 +52,12 @@ export default function LoginPage() {
           type="submit"
           disabled={loading}
           style={{
-            width: "100%",
-            padding: "12px 18px",
+            padding: "12px 20px",
             borderRadius: 8,
-            background: "#A27C77",
+            background: "#c7afa4",
             color: "white",
-            fontSize: 15,
             border: "none",
-            cursor: "pointer",
-            opacity: loading ? 0.6 : 1,
+            width: "100%",
           }}
         >
           {loading ? "Senden…" : "Magic Link senden"}
