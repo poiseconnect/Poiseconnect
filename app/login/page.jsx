@@ -14,14 +14,15 @@ export default function LoginPage() {
     const { error } = await supabase.auth.signInWithOtp({
       email,
       options: {
-        // wieder zurück auf das alte Ziel:
-        emailRedirectTo: "https://poiseconnect.vercel.app/dashboard",
+        // 🔥 Nur so funktioniert der Magic Link auf iPhone:
+        emailRedirectTo: "https://poiseconnect.vercel.app/auth/callback",
       },
     });
 
     setLoading(false);
 
     if (error) {
+      console.error(error);
       return alert("Fehler – Magic Link konnte nicht gesendet werden.");
     }
 
@@ -31,6 +32,7 @@ export default function LoginPage() {
   return (
     <div style={{ padding: 40 }}>
       <h1>Team Login</h1>
+
       <form onSubmit={sendMagicLink} style={{ marginTop: 20 }}>
         <input
           type="email"
@@ -45,6 +47,7 @@ export default function LoginPage() {
             marginBottom: 12,
           }}
         />
+
         <button
           type="submit"
           disabled={loading}
