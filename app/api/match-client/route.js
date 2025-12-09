@@ -1,4 +1,4 @@
-import { supabase } from "@/app/lib/supabase";
+import { supabase } from "@/lib/supabase";       // ✅ richtig
 
 export async function POST(req) {
   try {
