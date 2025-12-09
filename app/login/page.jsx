@@ -14,7 +14,6 @@ export default function LoginPage() {
     const { error } = await supabase.auth.signInWithOtp({
       email,
       options: {
-        // 🔥 Nur so funktioniert der Magic Link auf iPhone:
         emailRedirectTo: "https://poiseconnect.vercel.app/auth/callback",
       },
     });
