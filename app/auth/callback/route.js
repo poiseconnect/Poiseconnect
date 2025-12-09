@@ -4,11 +4,16 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
 export async function GET(req) {
+  console.log("📩 Callback reached");
+
   try {
     const url = new URL(req.url);
     const code = url.searchParams.get("code");
 
+    console.log("➡️ Code received:", code);
+
     if (!code) {
+      console.log("❌ No code found → redirect login");
       return NextResponse.redirect("https://poiseconnect.vercel.app/login");
     }
 
@@ -17,37 +22,33 @@ export async function GET(req) {
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
     );
 
-    // Session tauschen
+    console.log("🔌 Exchanging code for session…");
+
     const { data, error } = await supabase.auth.exchangeCodeForSession(code);
 
-    if (error || !data?.session?.user) {
-      console.error("Callback error:", error);
+    if (error) {
+      console.log("❌ exchange error:", error);
+    }
+
+    if (!data?.session?.user) {
+      console.log("❌ No session.user after exchange");
       return NextResponse.redirect("https://poiseconnect.vercel.app/login");
     }
 
-    const email = data.session.user.email.toLowerCase();
+    console.log("✅ Session OK, user:", data.session.user.email);
 
-    const teamEmails = [
-      "hallo@mypoise.de",
-      "support@mypoise.de",
-      "linda@mypoise.de",
-      "anna@mypoise.de",
-      "ann@mypoise.de",
-    ];
+    const email = data.session.user.email?.toLowerCase();
 
-    // 👇 Safari-/iPhone-sicherer Redirect
-    const redirectUrl = teamEmails.includes(email)
-      ? "https://poiseconnect.vercel.app/dashboard"
-      : "https://poiseconnect.vercel.app/";
+    if (email === "hallo@mypoise.de") {
+      console.log("➡️ Routing to dashboard");
+      return NextResponse.redirect("https://poiseconnect.vercel.app/dashboard");
+    }
 
-    return new Response(null, {
-      status: 302,
-      headers: {
-        Location: redirectUrl,
-      },
-    });
+    console.log("➡️ Routing to homepage");
+    return NextResponse.redirect("https://poiseconnect.vercel.app/");
+    
   } catch (err) {
-    console.error("Callback crash:", err);
+    console.log("💥 CRASH:", err);
     return NextResponse.redirect("https://poiseconnect.vercel.app/login");
   }
 }
