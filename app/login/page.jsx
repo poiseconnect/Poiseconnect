@@ -14,8 +14,8 @@ export default function LoginPage() {
     const { error } = await supabase.auth.signInWithOtp({
       email,
       options: {
-        // 🔥 EINZIGER FIX → MUSS auf /auth/callback zeigen
-        emailRedirectTo: "https://poiseconnect.vercel.app/auth/callback",
+        // wieder zurück auf das alte Ziel:
+        emailRedirectTo: "https://poiseconnect.vercel.app/dashboard",
       },
     });
 
