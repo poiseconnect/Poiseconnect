@@ -152,115 +152,149 @@ export default function DashboardFull() {
   // API-FUNKTIONEN — mit repariertem Content-Type
   // -----------------------------------------------------
   async function confirmAppointment(r) {
-    const res = await fetch("/api/confirm-appointment", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        requestId: r.id,
-        therapist: user.email,
-        client: r.email,
-        slot: r.bevorzugte_zeit || "",
-      }),
-    });
-    if (!res.ok) return alert("Fehler beim Bestätigen");
-    alert("Termin bestätigt"); location.reload();
-  }
+  const res = await fetch("/api/confirm-appointment", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      requestId: r.id,
+      therapist: user.email,
+      client: r.email,
+      slot: r.bevorzugte_zeit || "",
+    }),
+  });
 
-  async function declineAppointment(r) {
-    const res = await fetch("/api/reject-appointment", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        requestId: r.id,
-        therapist: user.email,
-        client: r.email,
-        vorname: r.vorname,
-      }),
-    });
-    if (!res.ok) return alert("Fehler beim Absagen");
-    alert("Absage gesendet"); location.reload();
-  }
+  if (!res.ok) return alert("Fehler beim Bestätigen");
+  alert("Termin bestätigt");
+  location.reload();
+}
 
-  async function newAppointment(r) {
-    const res = await fetch("/api/new-appointment", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        requestId: r.id,
-        client: r.email,
-        therapistEmail: user.email,
-        therapistName: r.wunschtherapeut,
-        vorname: r.vorname,
-      }),
-    });
-    if (!res.ok) return alert("Fehler beim Senden");
-    alert("Neuer Terminlink gesendet"); location.reload();
-  }
 
-  async function forwardRequest(r) {
-    const res = await fetch("/api/forward-request", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        requestId: r.id,
-        client: r.email,
-        vorname: r.vorname,
-      }),
-    });
-    if (!res.ok) return alert("Fehler beim Weiterleiten");
-    alert("Anfrage weitergeleitet"); location.reload();
-  }
+ async function declineAppointment(r) {
+  const res = await fetch("/api/reject-appointment", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      requestId: r.id,
+      therapist: user.email,
+      client: r.email,
+      vorname: r.vorname,
+    }),
+  });
+
+  if (!res.ok) return alert("Fehler beim Absagen");
+  alert("Absage gesendet");
+  location.reload();
+}
+
+
+ async function newAppointment(r) {
+  const res = await fetch("/api/new-appointment", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      requestId: r.id,
+      client: r.email,
+      therapistEmail: user.email,
+      therapistName: r.wunschtherapeut,
+      vorname: r.vorname,
+    }),
+  });
+
+  if (!res.ok) return alert("Fehler beim Senden");
+  alert("Neuer Terminlink wurde versendet");
+  location.reload();
+}
+
+
+ async function forwardRequest(r) {
+  const res = await fetch("/api/forward-request", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      requestId: r.id,
+      client: r.email,
+      vorname: r.vorname,
+    }),
+  });
+
+  if (!res.ok) return alert("Fehler beim Weiterleiten");
+  alert("Anfrage wurde weitergeleitet");
+  location.reload();
+}
+
 
   async function noMatch(r) {
-    const res = await fetch("/api/no-match", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ anfrageId: r.id }),
-    });
-    if (!res.ok) return alert("Fehler bei Kein Match");
-    alert("Kein Match gespeichert"); location.reload();
-  }
+  const res = await fetch("/api/no-match", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ anfrageId: r.id }),
+  });
+
+  if (!res.ok) return alert("Fehler bei Kein Match");
+  alert("Kein Match eingetragen");
+  location.reload();
+}
+
 
   async function saveMatch() {
-    const res = await fetch("/api/match-client", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        anfrageId: matchModal.id,
-        honorar: Number(matchTarif),
-        therapistEmail: user.email,
-        nextDate: matchDate,
-        duration: matchDuration,
-      }),
-    });
-    if (!res.ok) return alert("Fehler beim Match");
-    alert("Begleitung gestartet"); location.reload();
-  }
+  const res = await fetch("/api/match-client", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      anfrageId: matchModal.id,
+      honorar: Number(matchTarif),
+      therapistEmail: user.email,
+      nextDate: matchDate,
+      duration: matchDuration,
+    }),
+  });
+
+  if (!res.ok) return alert("Fehler beim Speichern");
+  alert("Begleitung gestartet");
+  location.reload();
+}
+
 
   async function saveSession() {
-    const res = await fetch("/api/add-session", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        anfrageId: sessionModal.id,
-        therapist: user.email,
-        date: sessionDate,
-        duration: sessionDuration,
-      }),
-    });
-    if (!res.ok) return alert("Fehler beim Speichern");
-    alert("Sitzung gespeichert"); location.reload();
+  if (!sessionModal) return;
+  if (!sessionDate) return alert("Datum fehlt");
+
+  const res = await fetch("/api/add-session", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      anfrageId: sessionModal.id,
+      therapist: user.email,
+      date: sessionDate,
+      duration: sessionDuration,
+    }),
+  });
+
+  if (!res.ok) {
+    alert("Fehler beim Speichern der Sitzung");
+    return;
   }
 
+  alert("Sitzung gespeichert");
+  location.reload();
+}
+
+
   async function finishCoaching(r) {
-    const res = await fetch("/api/finish-coaching", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ anfrageId: r.id }),
-    });
-    if (!res.ok) return alert("Fehler beim Beenden");
-    alert("Coaching beendet"); location.reload();
-  }
+  const res = await fetch("/api/finish-coaching", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      anfrageId: r.id,
+      therapist: user.email,
+    }),
+  });
+
+  if (!res.ok) return alert("Fehler beim Beenden");
+  alert("Coaching beendet");
+  location.reload();
+}
+
 
   // -----------------------------------------------------
   // UI — LOGIN
