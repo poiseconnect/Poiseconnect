@@ -1,33 +1,16 @@
 import { NextResponse } from "next/server";
-import { supabase } from "../../lib/supabase";
+import { supabase } from "../../app/lib/supabase";
 
 export async function POST(req) {
   try {
-    const body = await req.json();
+    const { id, honorar_klient, therapist, date, duration_min } =
+      await req.json();
 
-    const {
-      anfrageId,
-      honorar,
-      therapistEmail,
-      nextDate,
-      duration
-    } = body;
-
-    if (!anfrageId || !honorar || !therapistEmail) {
-      return NextResponse.json(
-        { error: "missing_fields", body },
-        { status: 400 }
-      );
-    }
-
-    // --- Anfrage auf active setzen
+    // 1) Anfrage nur auf active setzen
     const { error: updateError } = await supabase
       .from("anfragen")
-      .update({
-        status: "active",
-        honorar_klient: honorar
-      })
-      .eq("id", anfrageId);
+      .update({ status: "active" })
+      .eq("id", id);
 
     if (updateError) {
       console.error("UPDATE ERROR:", updateError);
@@ -35,35 +18,29 @@ export async function POST(req) {
     }
 
     // Preisberechnung
-    const price = honorar;
-    const commission = honorar * 0.3;
-    const payout = honorar * 0.7;
+    const price = Number(honorar_klient);
+    const commission = price * 0.3;
+    const payout = price * 0.7;
 
-    // --- Erste Sitzung anlegen
-    const { error: insertError } = await supabase
-      .from("sessions")
-      .insert({
-        anfrage_id: anfrageId,
-        therapist: therapistEmail,
-        date: nextDate,
-        duration_min: duration,
-        price,
-        commission,
-        payout
-      });
+    // 2) Erste Sitzung speichern
+    const { error: sessionError } = await supabase.from("sessions").insert({
+      anfrage_id: id,
+      therapist,
+      date,
+      duration_min,
+      price,
+      commission,
+      payout,
+    });
 
-    if (insertError) {
-      console.error("SESSION ERROR:", insertError);
+    if (sessionError) {
+      console.error("SESSION ERROR:", sessionError);
       return NextResponse.json({ error: "session_failed" }, { status: 500 });
     }
 
     return NextResponse.json({ ok: true }, { status: 200 });
-
   } catch (e) {
     console.error("SERVER ERROR:", e);
-    return NextResponse.json(
-      { error: "server_exception", detail: String(e) },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "server_error" }, { status: 500 });
   }
 }
