@@ -1,68 +1,45 @@
-"use client";
+import { NextResponse } from "next/server";
+import { createClient } from "@supabase/supabase-js";
 
-import { useState } from "react";
-import { supabase } from "../lib/supabase";
+export async function POST(req) {
+  try {
+    const { email } = await req.json();
 
-export default function LoginPage() {
-  const [email, setEmail] = useState("");
-  const [loading, setLoading] = useState(false);
+    if (!email) {
+      return NextResponse.json(
+        { error: "NO_EMAIL" },
+        { status: 400 }
+      );
+    }
 
-  async function sendMagicLink(e) {
-    e.preventDefault();
-    setLoading(true);
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    );
 
+    // Magic Link senden
     const { error } = await supabase.auth.signInWithOtp({
       email,
       options: {
-        // WICHTIG: Redirect auf die neue CLIENTSEITIGE Callback-Seite
+        // 🔥 Der einzig korrekte Callback:
         emailRedirectTo: "https://poiseconnect.vercel.app/auth/callback",
       },
     });
 
-    setLoading(false);
-
     if (error) {
-      console.error(error);
-      return alert("Fehler – Magic Link konnte nicht gesendet werden.");
+      console.error("Magic Link Error:", error);
+      return NextResponse.json(
+        { error: "SEND_FAILED", detail: error.message },
+        { status: 500 }
+      );
     }
 
-    alert("Magic Link wurde gesendet!");
+    return NextResponse.json({ ok: true });
+  } catch (err) {
+    console.error("Login Route Error:", err);
+    return NextResponse.json(
+      { error: "SERVER_ERROR", detail: String(err) },
+      { status: 500 }
+    );
   }
-
-  return (
-    <div style={{ padding: 40 }}>
-      <h1>Team Login</h1>
-
-      <form onSubmit={sendMagicLink} style={{ marginTop: 20 }}>
-        <input
-          type="email"
-          placeholder="Deine Email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          style={{
-            width: "100%",
-            padding: 12,
-            borderRadius: 8,
-            border: "1px solid #ccc",
-            marginBottom: 12,
-          }}
-        />
-
-        <button
-          type="submit"
-          disabled={loading}
-          style={{
-            padding: "12px 20px",
-            borderRadius: 8,
-            background: "#c7afa4",
-            color: "white",
-            border: "none",
-            width: "100%",
-          }}
-        >
-          {loading ? "Senden..." : "Magic Link senden"}
-        </button>
-      </form>
-    </div>
-  );
 }
