@@ -34,7 +34,7 @@ const STATUS_META = {
 };
 
 // ---------------------------------------------------------
-// KLEINES MODAL
+// MODAL
 // ---------------------------------------------------------
 function Modal({ children, onClose }) {
   return (
@@ -80,7 +80,6 @@ export default function DashboardFull() {
   const [filter, setFilter] = useState("unbearbeitet");
   const [loading, setLoading] = useState(true);
 
-  // Modals
   const [matchModal, setMatchModal] = useState(null);
   const [matchTarif, setMatchTarif] = useState("");
   const [matchDate, setMatchDate] = useState("");
@@ -149,152 +148,148 @@ export default function DashboardFull() {
   });
 
   // -----------------------------------------------------
-  // API-FUNKTIONEN — mit repariertem Content-Type
+  // API-FUNKTIONEN — Button Fixes
   // -----------------------------------------------------
+
   async function confirmAppointment(r) {
-  const res = await fetch("/api/confirm-appointment", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      requestId: r.id,
-      therapist: user.email,
-      client: r.email,
-      slot: r.bevorzugte_zeit || "",
-    }),
-  });
+    const res = await fetch("/api/confirm-appointment", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        requestId: r.id,
+        therapist: user.email,
+        client: r.email,
+        slot: r.bevorzugte_zeit || "",
+      }),
+    });
 
-  if (!res.ok) return alert("Fehler beim Bestätigen");
-  alert("Termin bestätigt");
-  location.reload();
-}
-
-
- async function declineAppointment(r) {
-  const res = await fetch("/api/reject-appointment", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      requestId: r.id,
-      therapist: user.email,
-      client: r.email,
-      vorname: r.vorname,
-    }),
-  });
-
-  if (!res.ok) return alert("Fehler beim Absagen");
-  alert("Absage gesendet");
-  location.reload();
-}
-
-
- async function newAppointment(r) {
-  const res = await fetch("/api/new-appointment", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      requestId: r.id,
-      client: r.email,
-      therapistEmail: user.email,
-      therapistName: r.wunschtherapeut,
-      vorname: r.vorname,
-    }),
-  });
-
-  if (!res.ok) return alert("Fehler beim Senden");
-  alert("Neuer Terminlink wurde versendet");
-  location.reload();
-}
-
-
- async function forwardRequest(r) {
-  const res = await fetch("/api/forward-request", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      requestId: r.id,
-      client: r.email,
-      vorname: r.vorname,
-    }),
-  });
-
-  if (!res.ok) return alert("Fehler beim Weiterleiten");
-  alert("Anfrage wurde weitergeleitet");
-  location.reload();
-}
-
-
-  async function noMatch(r) {
-  const res = await fetch("/api/no-match", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ anfrageId: r.id }),
-  });
-
-  if (!res.ok) return alert("Fehler bei Kein Match");
-  alert("Kein Match eingetragen");
-  location.reload();
-}
-
-
-  async function saveMatch() {
-  const res = await fetch("/api/match-client", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      anfrageId: matchModal.id,
-      honorar: Number(matchTarif),
-      therapistEmail: user.email,
-      nextDate: matchDate,
-      duration: matchDuration,
-    }),
-  });
-
-  if (!res.ok) return alert("Fehler beim Speichern");
-  alert("Begleitung gestartet");
-  location.reload();
-}
-
-
-  async function saveSession() {
-  if (!sessionModal) return;
-  if (!sessionDate) return alert("Datum fehlt");
-
-  const res = await fetch("/api/add-session", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      anfrageId: sessionModal.id,
-      therapist: user.email,
-      date: sessionDate,
-      duration: sessionDuration,
-    }),
-  });
-
-  if (!res.ok) {
-    alert("Fehler beim Speichern der Sitzung");
-    return;
+    if (!res.ok) return alert("Fehler beim Bestätigen");
+    alert("Termin bestätigt");
+    location.reload();
   }
 
-  alert("Sitzung gespeichert");
-  location.reload();
-}
+  async function declineAppointment(r) {
+    const res = await fetch("/api/reject-appointment", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        requestId: r.id,
+        therapist: user.email,
+        client: r.email,
+        vorname: r.vorname,
+      }),
+    });
 
+    if (!res.ok) return alert("Fehler beim Absagen");
+    alert("Absage gesendet");
+    location.reload();
+  }
 
+  async function newAppointment(r) {
+    const res = await fetch("/api/new-appointment", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        requestId: r.id,
+        client: r.email,
+        therapistEmail: user.email,
+        therapistName: r.wunschtherapeut,
+        vorname: r.vorname,
+      }),
+    });
+
+    if (!res.ok) return alert("Fehler beim Senden");
+    alert("Neuer Terminlink wurde versendet");
+    location.reload();
+  }
+
+  async function forwardRequest(r) {
+    const res = await fetch("/api/forward-request", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        requestId: r.id,
+        client: r.email,
+        vorname: r.vorname,
+      }),
+    });
+
+    if (!res.ok) return alert("Fehler beim Weiterleiten");
+    alert("Anfrage wurde weitergeleitet");
+    location.reload();
+  }
+
+  async function noMatch(r) {
+    const res = await fetch("/api/no-match", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ anfrageId: r.id }), // unverändert
+    });
+
+    if (!res.ok) return alert("Fehler bei Kein Match");
+    alert("Kein Match eingetragen");
+    location.reload();
+  }
+
+  // ✅ FIX 1 — MATCH BUTTON
+  async function saveMatch() {
+    const res = await fetch("/api/match-client", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        requestId: matchModal.id,
+        honorar: Number(matchTarif),
+        therapistEmail: user.email,
+        nextDate: matchDate,
+        duration: matchDuration,
+      }),
+    });
+
+    if (!res.ok) return alert("Fehler beim Speichern");
+    alert("Begleitung gestartet");
+    location.reload();
+  }
+
+  // ✅ FIX 2 — NÄCHSTE SITZUNG
+  async function saveSession() {
+    if (!sessionModal) return;
+    if (!sessionDate) return alert("Datum fehlt");
+
+    const res = await fetch("/api/add-session", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        requestId: sessionModal.id,
+        therapistEmail: user.email,
+        date: sessionDate,
+        duration: sessionDuration,
+      }),
+    });
+
+    if (!res.ok) {
+      alert("Fehler beim Speichern der Sitzung");
+      return;
+    }
+
+    alert("Sitzung gespeichert");
+    location.reload();
+  }
+
+  // ✅ FIX 3 — COACHING BEENDEN
   async function finishCoaching(r) {
-  const res = await fetch("/api/finish-coaching", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      anfrageId: r.id,
-      therapist: user.email,
-    }),
-  });
+    const res = await fetch("/api/finish-coaching", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        requestId: r.id,
+        therapistEmail: user.email,
+      }),
+    });
 
-  if (!res.ok) return alert("Fehler beim Beenden");
-  alert("Coaching beendet");
-  location.reload();
-}
-
+    if (!res.ok) return alert("Fehler beim Beenden");
+    alert("Coaching beendet");
+    location.reload();
+  }
 
   // -----------------------------------------------------
   // UI — LOGIN
@@ -335,15 +330,20 @@ export default function DashboardFull() {
 
       {loading && <p>Wird geladen…</p>}
 
-      {/* REQUEST LIST */}
+      {/* REQUESTS */}
       {!loading && filteredRequests.map((r) => {
         const status = STATUS_META[r._status];
         const sessionList = sessionsByRequest[String(r.id)] || [];
 
         return (
           <article key={r.id}
-            style={{ padding: 16, borderRadius: 16,
-              border: "1px solid #ddd", marginBottom: 16, background: "#fff" }}>
+            style={{
+              padding: 16,
+              borderRadius: 16,
+              border: "1px solid #ddd",
+              marginBottom: 16,
+              background: "#fff"
+            }}>
 
             {/* HEADER */}
             <div style={{ display: "flex", justifyContent: "space-between" }}>
@@ -353,8 +353,12 @@ export default function DashboardFull() {
               </div>
 
               <div style={{
-                padding: "4px 10px", borderRadius: 999, background: status.bg,
-                border: `1px solid ${status.border}`, color: status.text, fontSize: 12,
+                padding: "4px 10px",
+                borderRadius: 999,
+                background: status.bg,
+                border: `1px solid ${status.border}`,
+                color: status.text,
+                fontSize: 12,
               }}>
                 {status.label}
               </div>
@@ -368,32 +372,41 @@ export default function DashboardFull() {
             <button
               onClick={() => setDetailsModal(r)}
               style={{
-                padding: "4px 10px", borderRadius: 8,
-                background: "#f5f5f5", border: "1px solid #ccc", fontSize: 13,
+                padding: "4px 10px",
+                borderRadius: 8,
+                background: "#f5f5f5",
+                border: "1px solid #ccc",
+                fontSize: 13,
               }}>
               Details anzeigen
             </button>
 
-            {/* ACTIVE MODE */}
+            {/* ACTIVE */}
             {r._status === "active" && (
               <>
                 <p style={{ marginTop: 10 }}>
-                  <strong>Stundensatz:</strong>{" "}
-                  {r.honorar_klient ? `${r.honorar_klient}€` : "–"}
+                  <strong>Stundensatz:</strong> {r.honorar_klient ? `${r.honorar_klient}€` : "–"}
                 </p>
 
-                {/* Sitzungen */}
+                {/* SESSIONS */}
                 {sessionList.length > 0 && (
                   <div style={{
-                    marginTop: 8, background: "#F9F9FF",
-                    border: "1px solid #ddd", borderRadius: 12, padding: 10,
+                    marginTop: 8,
+                    background: "#F9F9FF",
+                    border: "1px solid #ddd",
+                    borderRadius: 12,
+                    padding: 10
                   }}>
                     <h4 style={{ marginTop: 0 }}>Sitzungen</h4>
 
                     {sessionList.map((s) => (
                       <div key={s.id}
-                        style={{ display: "flex", justifyContent: "space-between",
-                          padding: "4px 0", fontSize: 13 }}>
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          padding: "4px 0",
+                          fontSize: 13
+                        }}>
                         <span>{new Date(s.date).toLocaleString("de-AT")}</span>
                         <span>{s.duration_min} Min</span>
                         <span>{s.price.toFixed(2)} €</span>
@@ -402,13 +415,15 @@ export default function DashboardFull() {
                   </div>
                 )}
 
-                {/* Buttons */}
                 <div style={{ display: "flex", gap: 10, marginTop: 14 }}>
                   <button
                     onClick={() => { setSessionModal(r); setSessionDate(""); }}
                     style={{
-                      flex: 1, padding: 10, borderRadius: 999,
-                      background: "rgba(150,170,255,0.25)", border: "1px solid #9AAAF5",
+                      flex: 1,
+                      padding: 10,
+                      borderRadius: 999,
+                      background: "rgba(150,170,255,0.25)",
+                      border: "1px solid #9AAAF5",
                     }}>
                     ➕ nächste Sitzung
                   </button>
@@ -416,8 +431,11 @@ export default function DashboardFull() {
                   <button
                     onClick={() => finishCoaching(r)}
                     style={{
-                      flex: 1, padding: 10, borderRadius: 999,
-                      background: "#FFDADA", border: "1px solid #E99999",
+                      flex: 1,
+                      padding: 10,
+                      borderRadius: 999,
+                      background: "#FFDADA",
+                      border: "1px solid #E99999",
                     }}>
                     🔴 Coaching beenden
                   </button>
@@ -429,13 +447,18 @@ export default function DashboardFull() {
             {UNBEARBEITET.includes(r._status) && (
               <>
                 <div style={{
-                  marginTop: 14, display: "flex", gap: 8, flexWrap: "wrap",
+                  marginTop: 14,
+                  display: "flex",
+                  gap: 8,
+                  flexWrap: "wrap"
                 }}>
                   <button
                     onClick={() => confirmAppointment(r)}
                     style={{
-                      padding: "8px 12px", background: "#D4F8D4",
-                      border: "1px solid #88C688", borderRadius: 999,
+                      padding: "8px 12px",
+                      background: "#D4F8D4",
+                      border: "1px solid #88C688",
+                      borderRadius: 999,
                     }}>
                     ✔ Termin bestätigen
                   </button>
@@ -443,8 +466,10 @@ export default function DashboardFull() {
                   <button
                     onClick={() => declineAppointment(r)}
                     style={{
-                      padding: "8px 12px", background: "#FFDADA",
-                      border: "1px solid #E99999", borderRadius: 999,
+                      padding: "8px 12px",
+                      background: "#FFDADA",
+                      border: "1px solid #E99999",
+                      borderRadius: 999,
                     }}>
                     ✖ Absagen
                   </button>
@@ -452,8 +477,10 @@ export default function DashboardFull() {
                   <button
                     onClick={() => newAppointment(r)}
                     style={{
-                      padding: "8px 12px", background: "#E6E8FF",
-                      border: "1px solid #9AAAF5", borderRadius: 999,
+                      padding: "8px 12px",
+                      background: "#E6E8FF",
+                      border: "1px solid #9AAAF5",
+                      borderRadius: 999,
                     }}>
                     🔁 Neuer Termin
                   </button>
@@ -461,8 +488,10 @@ export default function DashboardFull() {
                   <button
                     onClick={() => forwardRequest(r)}
                     style={{
-                      padding: "8px 12px", background: "#FFF1D6",
-                      border: "1px solid #E0B96F", borderRadius: 999,
+                      padding: "8px 12px",
+                      background: "#FFF1D6",
+                      border: "1px solid #E0B96F",
+                      borderRadius: 999,
                     }}>
                     👥 Weiterleiten
                   </button>
@@ -476,8 +505,11 @@ export default function DashboardFull() {
                       setMatchDate("");
                     }}
                     style={{
-                      flex: 1, padding: "10px 12px", background: "#D5F8D5",
-                      border: "1px solid #88C688", borderRadius: 999,
+                      flex: 1,
+                      padding: "10px 12px",
+                      background: "#D5F8D5",
+                      border: "1px solid #88C688",
+                      borderRadius: 999,
                     }}>
                     ❤️ Match
                   </button>
@@ -485,8 +517,11 @@ export default function DashboardFull() {
                   <button
                     onClick={() => noMatch(r)}
                     style={{
-                      flex: 1, padding: "10px 12px", background: "#FFE1E1",
-                      border: "1px solid #E99999", borderRadius: 999,
+                      flex: 1,
+                      padding: "10px 12px",
+                      background: "#FFE1E1",
+                      border: "1px solid #E99999",
+                      borderRadius: 999,
                     }}>
                     ❌ Kein Match
                   </button>
@@ -508,8 +543,11 @@ export default function DashboardFull() {
             value={matchTarif}
             onChange={(e) => setMatchTarif(e.target.value)}
             style={{
-              width: "100%", padding: 8, marginTop: 4,
-              borderRadius: 6, border: "1px solid #ddd",
+              width: "100%",
+              padding: 8,
+              marginTop: 4,
+              borderRadius: 6,
+              border: "1px solid #ddd",
             }}
           />
 
@@ -519,8 +557,11 @@ export default function DashboardFull() {
             value={matchDate}
             onChange={(e) => setMatchDate(e.target.value)}
             style={{
-              width: "100%", padding: 8, marginTop: 4,
-              borderRadius: 6, border: "1px solid #ddd",
+              width: "100%",
+              padding: 8,
+              marginTop: 4,
+              borderRadius: 6,
+              border: "1px solid #ddd",
             }}
           />
 
@@ -529,8 +570,11 @@ export default function DashboardFull() {
             value={matchDuration}
             onChange={(e) => setMatchDuration(Number(e.target.value))}
             style={{
-              width: "100%", padding: 8, marginTop: 4,
-              borderRadius: 6, border: "1px solid #ddd",
+              width: "100%",
+              padding: 8,
+              marginTop: 4,
+              borderRadius: 6,
+              border: "1px solid #ddd",
             }}
           >
             <option value={50}>50 Min</option>
@@ -539,14 +583,18 @@ export default function DashboardFull() {
           </select>
 
           <div style={{
-            display: "flex", justifyContent: "flex-end",
-            gap: 10, marginTop: 16,
+            display: "flex",
+            justifyContent: "flex-end",
+            gap: 10,
+            marginTop: 16
           }}>
             <button
               onClick={() => setMatchModal(null)}
               style={{
-                padding: "8px 14px", background: "#eee",
-                borderRadius: 999, border: "1px solid #ccc",
+                padding: "8px 14px",
+                background: "#eee",
+                borderRadius: 999,
+                border: "1px solid #ccc",
               }}>
               Abbrechen
             </button>
@@ -554,8 +602,10 @@ export default function DashboardFull() {
             <button
               onClick={saveMatch}
               style={{
-                padding: "8px 14px", background: "#D5F8D5",
-                borderRadius: 999, border: "1px solid #88C688",
+                padding: "8px 14px",
+                background: "#D5F8D5",
+                borderRadius: 999,
+                border: "1px solid #88C688",
               }}>
               Speichern
             </button>
@@ -574,8 +624,11 @@ export default function DashboardFull() {
             value={sessionDate}
             onChange={(e) => setSessionDate(e.target.value)}
             style={{
-              width: "100%", padding: 8, marginTop: 4,
-              borderRadius: 6, border: "1px solid #ddd",
+              width: "100%",
+              padding: 8,
+              marginTop: 4,
+              borderRadius: 6,
+              border: "1px solid #ddd",
             }}
           />
 
@@ -584,8 +637,11 @@ export default function DashboardFull() {
             value={sessionDuration}
             onChange={(e) => setSessionDuration(Number(e.target.value))}
             style={{
-              width: "100%", padding: 8, marginTop: 4,
-              borderRadius: 6, border: "1px solid #ddd",
+              width: "100%",
+              padding: 8,
+              marginTop: 4,
+              borderRadius: 6,
+              border: "1px solid #ddd",
             }}
           >
             <option value={50}>50 Min</option>
@@ -594,14 +650,18 @@ export default function DashboardFull() {
           </select>
 
           <div style={{
-            display: "flex", justifyContent: "flex-end",
-            gap: 10, marginTop: 16,
+            display: "flex",
+            justifyContent: "flex-end",
+            gap: 10,
+            marginTop: 16
           }}>
             <button
               onClick={() => setSessionModal(null)}
               style={{
-                padding: "8px 14px", background: "#eee",
-                borderRadius: 999, border: "1px solid #ccc",
+                padding: "8px 14px",
+                background: "#eee",
+                borderRadius: 999,
+                border: "1px solid #ccc",
               }}>
               Abbrechen
             </button>
@@ -644,8 +704,10 @@ export default function DashboardFull() {
             <button
               onClick={() => setDetailsModal(null)}
               style={{
-                padding: "8px 14px", background: "#eee",
-                borderRadius: 999, border: "1px solid #ccc",
+                padding: "8px 14px",
+                background: "#eee",
+                borderRadius: 999,
+                border: "1px solid #ccc",
               }}>
               Schließen
             </button>
