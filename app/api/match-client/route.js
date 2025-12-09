@@ -1,4 +1,4 @@
-import { supabase } from "@/lib/supabase";       // ✅ richtig
+import { supabase } from "../../lib/supabase";
 
 export async function POST(req) {
   try {
