@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { supabase } from "../../../lib/supabase";
+import { supabase } from "../../lib/supabase";  // ✅ absolut korrekt
 
 export async function POST(req) {
   try {
@@ -19,9 +19,7 @@ export async function POST(req) {
       return NextResponse.json({ error: "missing_anfrageId" }, { status: 400 });
     }
 
-    // ---------------------------
     // 1) Anfrage auf active setzen
-    // ---------------------------
     const { error: updateError } = await supabase
       .from("anfragen")
       .update({ status: "active" })
@@ -37,9 +35,7 @@ export async function POST(req) {
     const commission = price * 0.3;
     const payout = price * 0.7;
 
-    // ---------------------------
     // 2) Sitzung speichern
-    // ---------------------------
     const { error: sessionError } = await supabase
       .from("sessions")
       .insert({
@@ -54,12 +50,12 @@ export async function POST(req) {
 
     if (sessionError) {
       console.error("SESSION ERROR:", sessionError);
-      return NextResponse.json({ error: "session_failed", detail: sessionError }, { status: 500 });
+      return NextResponse.json(
+        { error: "session_failed", detail: sessionError },
+        { status: 500 }
+      );
     }
 
-    // ---------------------------
-    // ERFOLG
-    // ---------------------------
     return NextResponse.json({ ok: true });
 
   } catch (err) {
