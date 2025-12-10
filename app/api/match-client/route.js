@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { supabase } from "../../lib/supabase";  // ✅ absolut korrekt
+import { supabase } from "../../lib/supabase";
 
 export async function POST(req) {
   try {
@@ -16,10 +16,13 @@ export async function POST(req) {
     } = body;
 
     if (!anfrageId) {
-      return NextResponse.json({ error: "missing_anfrageId" }, { status: 400 });
+      return NextResponse.json(
+        { error: "missing_anfrageId" },
+        { status: 400 }
+      );
     }
 
-    // 1) Anfrage auf active setzen
+    // Anfrage auf active setzen
     const { error: updateError } = await supabase
       .from("anfragen")
       .update({ status: "active" })
@@ -27,15 +30,18 @@ export async function POST(req) {
 
     if (updateError) {
       console.error("UPDATE ERROR:", updateError);
-      return NextResponse.json({ error: "update_failed" }, { status: 500 });
+      return NextResponse.json(
+        { error: "update_failed", detail: updateError },
+        { status: 500 }
+      );
     }
 
-    // Preisberechnung
+    // Preis
     const price = Number(honorar);
     const commission = price * 0.3;
     const payout = price * 0.7;
 
-    // 2) Sitzung speichern
+    // Sitzung eintragen
     const { error: sessionError } = await supabase
       .from("sessions")
       .insert({
@@ -56,10 +62,13 @@ export async function POST(req) {
       );
     }
 
-    return NextResponse.json({ ok: true });
+    return NextResponse.json({ ok: true }, { status: 200 });
 
   } catch (err) {
     console.error("SERVER ERROR:", err);
-    return NextResponse.json({ error: "server_error" }, { status: 500 });
+    return NextResponse.json(
+      { error: "server_error", detail: String(err) },
+      { status: 500 }
+    );
   }
 }
