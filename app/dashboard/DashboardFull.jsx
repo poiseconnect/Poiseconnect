@@ -100,28 +100,49 @@ export default function DashboardFull() {
     loadUser();
   }, []);
 
-  // ANFRAGEN LADEN
-  useEffect(() => {
-    if (!user?.email) return;
+// ANFRAGEN LADEN
+useEffect(() => {
+  if (!user?.email) return;
 
-    async function load() {
-      setLoading(true);
-      const email = user.email.toLowerCase();
-      const isAdmin = email === "hallo@mypoise.de";
+  async function load() {
+    setLoading(true);
+    const email = user.email.toLowerCase();
+    const isAdmin = email === "hallo@mypoise.de";
 
-      let query = supabase
-  .from("anfragen")
-  .select("*")
-  .order("created_at", { ascending: false });
-      if (!isAdmin) query = query.eq("wunschtherapeut", user.email);
+    let query = supabase
+      .from("anfragen")
+      .select(`
+        id,
+        created_at,
+        vorname,
+        nachname,
+        email,
+        anliegen,
+        status,
+        bevorzugte_zeit,
+        wunschtherapeut,
+        honorar_klient
+      `)
+      .order("created_at", { ascending: false });
 
-      const { data } = await query;
-      setRequests((data || []).map((r) => ({ ...r, _status: normalizeStatus(r.status) })));
-      setLoading(false);
+    if (!isAdmin) {
+      query = query.eq("wunschtherapeut", user.email);
     }
 
-    load();
-  }, [user]);
+    const { data } = await query;
+
+    setRequests(
+      (data || []).map((r) => ({
+        ...r,
+        _status: normalizeStatus(r.status),
+      }))
+    );
+
+    setLoading(false);
+  }
+
+  load();
+}, [user]);
 
   // SESSIONS LADEN
   useEffect(() => {
