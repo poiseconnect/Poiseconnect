@@ -4,42 +4,33 @@ import { supabase } from "../../lib/supabase";
 
 export async function POST(request) {
   try {
-    const body = await request.text();
-    const data = JSON.parse(body);
+    const { anfrageId, therapist, date, duration } = await request.json();
 
-    console.log("ADD-SESSION BODY:", data);
-
-    const {
-      anfrageId,
-      therapist,
-      date,
-      duration,
-      price
-    } = data;
-
-    if (
-      !anfrageId ||
-      !therapist ||
-      !date ||
-      !duration ||
-      price === undefined
-    ) {
+    if (!anfrageId || !therapist || !date || !duration) {
       return new Response(
         JSON.stringify({ error: "MISSING_FIELDS" }),
         { status: 400 }
       );
     }
 
-    const p = Number(price);
-    if (isNaN(p)) {
+    // ✅ Preis aus ANFRAGEN holen (honorar_klient)
+    const { data: anfrage, error: loadError } = await supabase
+      .from("anfragen")
+      .select("honorar_klient")
+      .eq("id", anfrageId)
+      .single();
+
+    if (loadError || anfrage?.honorar_klient == null) {
+      console.error("HONORAR NOT FOUND:", loadError);
       return new Response(
-        JSON.stringify({ error: "INVALID_PRICE" }),
+        JSON.stringify({ error: "HONORAR_NOT_FOUND" }),
         { status: 400 }
       );
     }
 
-    const commission = p * 0.3;
-    const payout = p * 0.7;
+    const price = Number(anfrage.honorar_klient);
+    const commission = price * 0.3;
+    const payout = price * 0.7;
 
     const { error } = await supabase
       .from("sessions")
@@ -48,15 +39,15 @@ export async function POST(request) {
         therapist,
         date,
         duration_min: Number(duration),
-        price: p,
+        price,
         commission,
-        payout
+        payout,
       });
 
     if (error) {
       console.error("INSERT ERROR:", error);
       return new Response(
-        JSON.stringify({ error: "session_failed", detail: error }),
+        JSON.stringify({ error: "SESSION_INSERT_FAILED" }),
         { status: 500 }
       );
     }
@@ -66,7 +57,7 @@ export async function POST(request) {
   } catch (err) {
     console.error("SERVER ERROR (add-session):", err);
     return new Response(
-      JSON.stringify({ error: "server_error", detail: String(err) }),
+      JSON.stringify({ error: "SERVER_ERROR" }),
       { status: 500 }
     );
   }
