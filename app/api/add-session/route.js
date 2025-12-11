@@ -3,6 +3,7 @@ import { supabase } from "../../lib/supabase";
 
 export async function POST(req) {
   try {
+    // ✅ IMMER req.json()
     const body = await req.json();
 
     const {
@@ -10,12 +11,12 @@ export async function POST(req) {
       therapist,
       date,
       duration,
-      price,       // ⬅️ kommt vom Frontend
+      price,
     } = body;
 
     if (!anfrageId || !therapist || !date || !price) {
       return NextResponse.json(
-        { error: "missing_fields" },
+        { error: "MISSING_FIELDS" },
         { status: 400 }
       );
     }
@@ -39,7 +40,7 @@ export async function POST(req) {
     if (error) {
       console.error("INSERT ERROR:", error);
       return NextResponse.json(
-        { error: "session_failed", detail: error },
+        { error: "SESSION_FAILED", detail: error },
         { status: 500 }
       );
     }
@@ -47,9 +48,9 @@ export async function POST(req) {
     return NextResponse.json({ ok: true });
 
   } catch (err) {
-    console.error("SERVER ERROR:", err);
+    console.error("SERVER ERROR (add-session):", err);
     return NextResponse.json(
-      { error: "server_error" },
+      { error: "SERVER_ERROR", detail: String(err) },
       { status: 500 }
     );
   }
