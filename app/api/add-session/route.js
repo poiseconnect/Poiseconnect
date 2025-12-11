@@ -1,5 +1,6 @@
 export const dynamic = "force-dynamic";
 
+import { NextResponse } from "next/server";
 import { supabase } from "../../lib/supabase";
 
 export async function POST(req) {
@@ -9,49 +10,46 @@ export async function POST(req) {
     console.log("ADD-SESSION BODY:", body);
 
     const {
-      id,            // Anfrage-ID
-      therapist,     // user.email
-      date,          // Datum der Sitzung
-      duration_min   // Dauer in Minuten
+      anfrageId,
+      therapist,
+      date,
+      duration,
     } = body;
 
-    if (!id || !date || !duration_min) {
-      return new Response(
-        JSON.stringify({ error: "missing_fields" }),
+    if (!anfrageId || !therapist || !date || !duration) {
+      return NextResponse.json(
+        { error: "MISSING_FIELDS" },
         { status: 400 }
       );
     }
 
-    // 1) Honorar der Anfrage laden
-    const { data: row, error: loadError } = await supabase
+    // 🔹 Honorar aus Anfrage laden
+    const { data: anfrage, error: loadError } = await supabase
       .from("anfragen")
       .select("honorar_klient")
-      .eq("id", id)
+      .eq("id", anfrageId)
       .single();
 
-    if (loadError || !row) {
+    if (loadError || !anfrage) {
       console.error("LOAD ERROR:", loadError);
-      return new Response(
-        JSON.stringify({ error: "tarif_missing", detail: loadError }),
+      return NextResponse.json(
+        { error: "HONORAR_NOT_FOUND" },
         { status: 500 }
       );
     }
 
-    const honorar = Number(row.honorar_klient);
+    const price = Number(anfrage.honorar_klient);
+    const commission = price * 0.3;
+    const payout = price * 0.7;
 
-    // 2) Preisberechnung
-    const price = honorar;
-    const commission = honorar * 0.3;
-    const payout = honorar * 0.7;
-
-    // 3) Sitzung speichern
+    // 🔹 Session anlegen
     const { error: insertError } = await supabase
       .from("sessions")
       .insert({
-        anfrage_id: id,
+        anfrage_id: anfrageId,
         therapist,
         date,
-        duration_min,
+        duration_min: duration,
         price,
         commission,
         payout,
@@ -59,21 +57,17 @@ export async function POST(req) {
 
     if (insertError) {
       console.error("INSERT ERROR:", insertError);
-      return new Response(
-        JSON.stringify({ error: "session_failed", detail: insertError }),
+      return NextResponse.json(
+        { error: "SESSION_INSERT_FAILED", detail: insertError },
         { status: 500 }
       );
     }
 
-    return new Response(
-      JSON.stringify({ ok: true }),
-      { status: 200 }
-    );
-
+    return NextResponse.json({ ok: true });
   } catch (err) {
-    console.error("ADD-SESSION SERVER ERROR:", err);
-    return new Response(
-      JSON.stringify({ error: "server_error", detail: String(err) }),
+    console.error("SERVER ERROR (add-session):", err);
+    return NextResponse.json(
+      { error: "SERVER_ERROR", detail: String(err) },
       { status: 500 }
     );
   }
