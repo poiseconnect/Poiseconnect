@@ -153,7 +153,7 @@ export default function DashboardFull() {
 
   async function confirmAppointment(r) {
 
-  // ✅ HIER – VOR dem fetch
+  // ✅ Validierung VOR dem fetch
   if (!r.bevorzugte_zeit) {
     alert("Bitte zuerst einen Termin auswählen.");
     return;
@@ -166,14 +166,19 @@ export default function DashboardFull() {
       requestId: r.id,
       therapist: user.email,
       client: r.email,
-      slot: r.bevorzugte_zeit, // ← KEIN leerer String mehr
+      slot: r.bevorzugte_zeit, // kein leerer String
     }),
   });
-}
-    if (!res.ok) return alert("Fehler beim Bestätigen");
-    alert("Termin bestätigt");
-    location.reload();
+
+  // ✅ DAS MUSS INNERHALB DER FUNKTION SEIN
+  if (!res.ok) {
+    alert("Fehler beim Bestätigen");
+    return;
   }
+
+  alert("Termin bestätigt");
+  location.reload();
+}
 
   async function declineAppointment(r) {
     const res = await fetch("/api/reject-appointment", {
