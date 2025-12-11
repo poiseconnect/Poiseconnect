@@ -1,29 +1,31 @@
 export const dynamic = "force-dynamic";
 
-import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
-
-function getSupabase() {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.SUPABASE_SERVICE_ROLE_KEY
-  );
-}
+import { supabase } from "../../lib/supabase";
 
 export async function POST(req) {
   try {
-    const { requestId, client, vorname } = await req.json();
+    const body = await req.json();
+
+    console.log("FORWARD BODY:", body);
+
+    const {
+      requestId,
+      client,
+      vorname
+    } = body;
 
     if (!requestId || !client) {
-      return NextResponse.json({ error: "MISSING_FIELDS" }, { status: 400 });
+      return new Response(
+        JSON.stringify({ error: "missing_fields" }),
+        { status: 400 }
+      );
     }
 
-    const supabase = getSupabase();
     const baseUrl =
       process.env.NEXT_PUBLIC_SITE_URL || "https://poiseconnect.vercel.app";
 
-    // Wunschtherapeut wird bewusst gelöscht → Formular startet bei Step 8 (Therapeut auswählen)
-    await supabase
+    // 1) Anfrage zurücksetzen & weiterleiten
+    const { error: updateError } = await supabase
       .from("anfragen")
       .update({
         wunschtherapeut: null,
@@ -32,7 +34,16 @@ export async function POST(req) {
       })
       .eq("id", requestId);
 
-    await fetch("https://api.resend.com/emails", {
+    if (updateError) {
+      console.error("FORWARD UPDATE ERROR:", updateError);
+      return new Response(
+        JSON.stringify({ error: "update_failed", detail: updateError }),
+        { status: 500 }
+      );
+    }
+
+    // 2) Mail an Klient
+    const mailRes = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
@@ -45,7 +56,7 @@ export async function POST(req) {
         html: `
           <p>Hallo ${vorname || ""},</p>
 
-          <p>Wir leiten deine Anfrage an eine passende Begleitung weiter.</p>
+          <p>wir leiten deine Anfrage an eine passende Begleitung weiter.</p>
 
           <p>
             <a href="${baseUrl}?resume=8&email=${encodeURIComponent(client)}"
@@ -54,13 +65,25 @@ export async function POST(req) {
             </a>
           </p>
 
-          <p>Liebe Grüße,<br>dein Poise-Team 🤍</p>
+          <p>Liebe Grüße<br>dein Poise-Team 🤍</p>
         `
       })
     });
 
-    return NextResponse.json({ ok: true });
+    if (!mailRes.ok) {
+      console.warn("FORWARD MAIL FAILED – DB UPDATE OK");
+    }
+
+    return new Response(
+      JSON.stringify({ ok: true }),
+      { status: 200 }
+    );
+
   } catch (err) {
-    return NextResponse.json({ error: "SERVER_ERROR" }, { status: 500 });
+    console.error("FORWARD SERVER ERROR:", err);
+    return new Response(
+      JSON.stringify({ error: "server_error", detail: String(err) }),
+      { status: 500 }
+    );
   }
 }
