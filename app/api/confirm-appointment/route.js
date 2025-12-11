@@ -1,39 +1,50 @@
 export const dynamic = "force-dynamic";
 
-import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
-import { teamData } from "../../teamData";   // ← FIXED IMPORT
-
-function getSupabase() {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.SUPABASE_SERVICE_ROLE_KEY
-  );
-}
+import { supabase } from "../../lib/supabase";
 
 export async function POST(req) {
   try {
-    const { requestId, therapist, client, slot, vorname } = await req.json();
+    const body = await req.json();
+
+    console.log("CONFIRM BODY:", body);
+
+    const {
+      requestId,
+      therapist,
+      client,
+      slot,
+      vorname
+    } = body;
 
     if (!requestId || !therapist || !client || !slot) {
-      return NextResponse.json({ error: "MISSING_FIELDS" }, { status: 400 });
+      return new Response(
+        JSON.stringify({ error: "missing_fields" }),
+        { status: 400 }
+      );
     }
 
-    const supabase = getSupabase();
     const baseUrl =
       process.env.NEXT_PUBLIC_SITE_URL || "https://poiseconnect.vercel.app";
 
-    // Termin speichern
-    await supabase
+    // 1) Anfrage aktualisieren
+    const { error: updateError } = await supabase
       .from("anfragen")
       .update({
         bevorzugte_zeit: slot,
-        status: "bestätigt",
+        status: "termin_bestaetigt"
       })
       .eq("id", requestId);
 
-    // Email an Klient
-    await fetch("https://api.resend.com/emails", {
+    if (updateError) {
+      console.error("CONFIRM UPDATE ERROR:", updateError);
+      return new Response(
+        JSON.stringify({ error: "update_failed", detail: updateError }),
+        { status: 500 }
+      );
+    }
+
+    // 2) Mail an Klient senden
+    const mailRes = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
@@ -45,7 +56,7 @@ export async function POST(req) {
         subject: "Dein Termin ist bestätigt 🤍",
         html: `
           <p>Hallo ${vorname || ""},</p>
-          <p>dein Termin wurde soeben bestätigt.</p>
+          <p>dein Termin wurde bestätigt.</p>
           <p>
             <a href="${baseUrl}?resume=confirmed"
                style="color:#6f4f49; font-weight:bold;">
@@ -56,9 +67,20 @@ export async function POST(req) {
       }),
     });
 
-    return NextResponse.json({ ok: true });
+    if (!mailRes.ok) {
+      console.warn("MAIL SEND FAILED, but DB update succeeded");
+    }
+
+    return new Response(
+      JSON.stringify({ ok: true }),
+      { status: 200 }
+    );
+
   } catch (err) {
-    console.error("❌ CONFIRM ERROR:", err);
-    return NextResponse.json({ error: "SERVER_ERROR" }, { status: 500 });
+    console.error("CONFIRM SERVER ERROR:", err);
+    return new Response(
+      JSON.stringify({ error: "server_error", detail: String(err) }),
+      { status: 500 }
+    );
   }
 }
