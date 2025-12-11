@@ -152,17 +152,24 @@ export default function DashboardFull() {
   // -----------------------------------------------------
 
   async function confirmAppointment(r) {
-    const res = await fetch("/api/confirm-appointment", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        requestId: r.id,
-        therapist: user.email,
-        client: r.email,
-        slot: r.bevorzugte_zeit || "",
-      }),
-    });
 
+  // ✅ HIER – VOR dem fetch
+  if (!r.bevorzugte_zeit) {
+    alert("Bitte zuerst einen Termin auswählen.");
+    return;
+  }
+
+  const res = await fetch("/api/confirm-appointment", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      requestId: r.id,
+      therapist: user.email,
+      client: r.email,
+      slot: r.bevorzugte_zeit, // ← KEIN leerer String mehr
+    }),
+  });
+}
     if (!res.ok) return alert("Fehler beim Bestätigen");
     alert("Termin bestätigt");
     location.reload();
