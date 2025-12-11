@@ -282,10 +282,11 @@ export default function DashboardFull() {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      anfrageId: sessionModal.id,    // ✅ richtiger Name
-      therapist: user.email,         // ✅ so heißt das Feld in der Route
+      anfrageId: sessionModal.id,
+      therapist: user.email,
       date: sessionDate,
       duration: sessionDuration,
+      price: sessionModal.honorar_klient, // ✅ DAS war die fehlende Zeile
     }),
   });
 
@@ -297,7 +298,6 @@ export default function DashboardFull() {
   alert("Sitzung gespeichert");
   location.reload();
 }
-
 
   // ✅ FIX 3 — COACHING BEENDEN
   async function finishCoaching(r) {
