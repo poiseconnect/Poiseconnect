@@ -109,7 +109,10 @@ export default function DashboardFull() {
       const email = user.email.toLowerCase();
       const isAdmin = email === "hallo@mypoise.de";
 
-      let query = supabase.from("anfragen").select("*").order("id", { ascending: false });
+      let query = supabase
+  .from("anfragen")
+  .select("*")
+  .order("created_at", { ascending: false });
       if (!isAdmin) query = query.eq("wunschtherapeut", user.email);
 
       const { data } = await query;
