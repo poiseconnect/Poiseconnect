@@ -2,60 +2,40 @@ export const dynamic = "force-dynamic";
 
 import { supabase } from "../../lib/supabase";
 
-export async function POST(request) {
+function json(data, status = 200) {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: { "Content-Type": "application/json" },
+  });
+}
+
+export async function POST(req) {
   try {
-    const { anfrageId, therapist, date, duration, price } = await request.json();
+    const body = await req.json();
 
-    if (!anfrageId || !therapist || !date || !duration) {
-      return new Response(JSON.stringify({ error: "MISSING_FIELDS" }), {
-        status: 400,
-        headers: { "Content-Type": "application/json" },
-      });
+    console.log("ADD-SESSION BODY:", body);
+
+    const {
+      anfrageId,
+      therapist,
+      date,
+      duration,
+      price, // ✅ MUSS vom Frontend kommen
+    } = body;
+
+    if (!anfrageId || !therapist || !date || !duration || price == null) {
+      return json({ error: "MISSING_FIELDS" }, 400);
     }
 
-    // ✅ Preisquelle: Wenn price nicht mitkommt -> letzten price aus sessions nehmen
-    let finalPrice = price;
-
-    if (finalPrice == null) {
-      const { data: lastSession, error: lastErr } = await supabase
-        .from("sessions")
-        .select("price")
-        .eq("anfrage_id", anfrageId)
-        .order("date", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      if (lastErr) {
-        console.error("LOAD LAST SESSION ERROR:", lastErr);
-        return new Response(JSON.stringify({ error: "LOAD_LAST_SESSION_FAILED" }), {
-          status: 500,
-          headers: { "Content-Type": "application/json" },
-        });
-      }
-
-      if (!lastSession?.price && lastSession?.price !== 0) {
-        // Es gibt noch keine Session => dann MUSS price vom Client kommen
-        return new Response(JSON.stringify({ error: "PRICE_REQUIRED_FIRST_SESSION" }), {
-          status: 400,
-          headers: { "Content-Type": "application/json" },
-        });
-      }
-
-      finalPrice = lastSession.price;
-    }
-
-    const p = Number(finalPrice);
-    if (Number.isNaN(p)) {
-      return new Response(JSON.stringify({ error: "INVALID_PRICE" }), {
-        status: 400,
-        headers: { "Content-Type": "application/json" },
-      });
+    const p = Number(price);
+    if (isNaN(p)) {
+      return json({ error: "INVALID_PRICE" }, 400);
     }
 
     const commission = p * 0.3;
     const payout = p * 0.7;
 
-    const { error: insertErr } = await supabase.from("sessions").insert({
+    const { error } = await supabase.from("sessions").insert({
       anfrage_id: anfrageId,
       therapist,
       date,
@@ -65,23 +45,15 @@ export async function POST(request) {
       payout,
     });
 
-    if (insertErr) {
-      console.error("INSERT ERROR:", insertErr);
-      return new Response(JSON.stringify({ error: "SESSION_INSERT_FAILED", detail: insertErr }), {
-        status: 500,
-        headers: { "Content-Type": "application/json" },
-      });
+    if (error) {
+      console.error("INSERT ERROR:", error);
+      return json({ error: "session_failed", detail: error }, 500);
     }
 
-    return new Response(JSON.stringify({ ok: true }), {
-      status: 200,
-      headers: { "Content-Type": "application/json" },
-    });
+    return json({ ok: true });
+
   } catch (err) {
     console.error("SERVER ERROR (add-session):", err);
-    return new Response(JSON.stringify({ error: "SERVER_ERROR", detail: String(err) }), {
-      status: 500,
-      headers: { "Content-Type": "application/json" },
-    });
+    return json({ error: "server_error" }, 500);
   }
 }
