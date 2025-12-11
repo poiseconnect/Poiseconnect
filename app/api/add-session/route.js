@@ -1,20 +1,17 @@
+export const dynamic = "force-dynamic";
+
 import { NextResponse } from "next/server";
 import { supabase } from "../../lib/supabase";
 
 export async function POST(req) {
   try {
-    // ✅ IMMER req.json()
     const body = await req.json();
 
-    const {
-      anfrageId,
-      therapist,
-      date,
-      duration,
-      price,
-    } = body;
+    console.log("ADD-SESSION BODY:", body);
 
-    if (!anfrageId || !therapist || !date || !price) {
+    const { anfrageId, therapist, date, duration, price } = body;
+
+    if (!anfrageId || !therapist || !date || !duration || price == null) {
       return NextResponse.json(
         { error: "MISSING_FIELDS" },
         { status: 400 }
@@ -31,7 +28,7 @@ export async function POST(req) {
         anfrage_id: anfrageId,
         therapist,
         date,
-        duration_min: duration,
+        duration_min: Number(duration),
         price: p,
         commission,
         payout,
@@ -40,17 +37,16 @@ export async function POST(req) {
     if (error) {
       console.error("INSERT ERROR:", error);
       return NextResponse.json(
-        { error: "SESSION_FAILED", detail: error },
+        { error: "session_failed", detail: error },
         { status: 500 }
       );
     }
 
     return NextResponse.json({ ok: true });
-
   } catch (err) {
     console.error("SERVER ERROR (add-session):", err);
     return NextResponse.json(
-      { error: "SERVER_ERROR", detail: String(err) },
+      { error: "server_error", detail: String(err) },
       { status: 500 }
     );
   }
