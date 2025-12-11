@@ -17,13 +17,12 @@ export async function POST(req) {
 
     const {
       anfrageId,
-      honorar,          // ✅ kommt vom Frontend
+      honorar,
       therapistEmail,
       nextDate,
       duration,
     } = body;
 
-    // 🔒 Pflichtfelder
     if (
       !anfrageId ||
       honorar === undefined ||
@@ -39,10 +38,13 @@ export async function POST(req) {
       return json({ error: "INVALID_HONORAR" }, 400);
     }
 
-    // 1️⃣ Anfrage aktiv setzen
+    // 1️⃣ Anfrage aktiv setzen + Preis speichern
     const { error: updateError } = await supabase
       .from("anfragen")
-      .update({ status: "active" })
+      .update({
+        status: "active",
+        honorar_klient: price, // ✅ ENTSCHEIDEND
+      })
       .eq("id", anfrageId);
 
     if (updateError) {
