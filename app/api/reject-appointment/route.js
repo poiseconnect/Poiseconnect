@@ -1,28 +1,29 @@
 export const dynamic = "force-dynamic";
 
-import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
-import { teamData } from "../../teamData";   // ← FIXED IMPORT
-
-function getSupabase() {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.SUPABASE_SERVICE_ROLE_KEY
-  );
-}
+import { supabase } from "../../lib/supabase";
 
 export async function POST(req) {
   try {
-    const { requestId, client, vorname, therapist } = await req.json();
+    const body = await req.json();
+
+    console.log("REJECT BODY:", body);
+
+    const {
+      requestId,
+      client,
+      vorname,
+      therapist
+    } = body;
 
     if (!requestId || !client) {
-      return NextResponse.json({ error: "MISSING_FIELDS" }, { status: 400 });
+      return new Response(
+        JSON.stringify({ error: "missing_fields" }),
+        { status: 400 }
+      );
     }
 
-    const supabase = getSupabase();
-
-    // Anfrage updaten
-    await supabase
+    // 1️⃣ Anfrage updaten
+    const { error: updateError } = await supabase
       .from("anfragen")
       .update({
         status: "abgelehnt",
@@ -30,8 +31,16 @@ export async function POST(req) {
       })
       .eq("id", requestId);
 
-    // Email senden
-    await fetch("https://api.resend.com/emails", {
+    if (updateError) {
+      console.error("REJECT UPDATE ERROR:", updateError);
+      return new Response(
+        JSON.stringify({ error: "update_failed", detail: updateError }),
+        { status: 500 }
+      );
+    }
+
+    // 2️⃣ Mail an Klient:in
+    const mailRes = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
@@ -43,15 +52,30 @@ export async function POST(req) {
         subject: "Termin wurde abgesagt 🤍",
         html: `
           <p>Hallo ${vorname || ""},</p>
-          <p>Leider musste ${therapist} deinen Termin absagen.</p>
+
+          <p>Leider musste ${therapist || "die Begleitung"} deinen Termin absagen.</p>
+
           <p>Du kannst jederzeit eine neue Anfrage stellen.</p>
+
+          <p>Liebe Grüße<br>dein Poise-Team 🤍</p>
         `,
       }),
     });
 
-    return NextResponse.json({ ok: true });
+    if (!mailRes.ok) {
+      console.warn("REJECT MAIL FAILED – DB UPDATE OK");
+    }
+
+    return new Response(
+      JSON.stringify({ ok: true }),
+      { status: 200 }
+    );
+
   } catch (err) {
-    console.error("❌ REJECT ERROR:", err);
-    return NextResponse.json({ error: "SERVER_ERROR" }, { status: 500 });
+    console.error("REJECT SERVER ERROR:", err);
+    return new Response(
+      JSON.stringify({ error: "server_error", detail: String(err) }),
+      { status: 500 }
+    );
   }
 }
