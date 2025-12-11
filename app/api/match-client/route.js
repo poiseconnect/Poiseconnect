@@ -13,50 +13,48 @@ export async function POST(req) {
   try {
     const body = await req.json();
 
-    const anfrageId = body?.anfrageId;
-    const honorar = body?.honorar;
-    const therapistEmail = body?.therapistEmail;
-    const nextDate = body?.nextDate;
-    const duration = body?.duration;
+    const { anfrageId, therapist, date, duration } = body;
 
-    console.log("BODY RECEIVED:", body);
-
-    if (!anfrageId) return json({ error: "missing_anfrageId" }, 400);
-
-    // 1) Anfrage auf active setzen
-    const { error: updateError } = await supabase
-      .from("anfragen")
-      .update({ status: "active" })
-      .eq("id", anfrageId);
-
-    if (updateError) {
-      console.error("UPDATE ERROR:", updateError);
-      return json({ error: "update_failed", detail: updateError }, 500);
+    if (!anfrageId || !therapist || !date || !duration) {
+      return json({ error: "MISSING_FIELDS" }, 400);
     }
 
-    // 2) Session speichern
-    const price = Number(honorar);
+    // ✅ Preis aus letzter Session holen
+    const { data: lastSession, error: loadError } = await supabase
+      .from("sessions")
+      .select("price")
+      .eq("anfrage_id", anfrageId)
+      .order("date", { ascending: false })
+      .limit(1)
+      .single();
+
+    if (loadError || !lastSession) {
+      console.error("HONORAR NOT FOUND:", loadError);
+      return json({ error: "PRICE_NOT_FOUND" }, 500);
+    }
+
+    const price = Number(lastSession.price);
     const commission = price * 0.3;
     const payout = price * 0.7;
 
-    const { error: sessionError } = await supabase.from("sessions").insert({
+    const { error } = await supabase.from("sessions").insert({
       anfrage_id: anfrageId,
-      therapist: therapistEmail,
-      date: nextDate,
-      duration_min: duration,
+      therapist,
+      date,
+      duration_min: Number(duration),
       price,
       commission,
       payout,
     });
 
-    if (sessionError) {
-      console.error("SESSION ERROR:", sessionError);
-      return json({ error: "session_failed", detail: sessionError }, 500);
+    if (error) {
+      console.error("INSERT ERROR:", error);
+      return json({ error: "session_failed", detail: error }, 500);
     }
 
-    return json({ ok: true }, 200);
+    return json({ ok: true });
   } catch (e) {
-    console.error("SERVER ERROR:", e);
+    console.error("SERVER ERROR (add-session):", e);
     return json({ error: "server_error", detail: String(e) }, 500);
   }
 }
