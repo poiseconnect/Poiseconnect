@@ -77,6 +77,7 @@ const formatTime = (d) =>
   });
 
 // ----------------------
+// ----------------------
 // ICS PARSER
 // ----------------------
 function parseICSDate(line) {
@@ -93,6 +94,9 @@ function parseICSDate(line) {
   );
 }
 
+// ----------------------
+// ICS → Slots
+// ----------------------
 async function loadIcsSlots(icsUrl, daysAhead = 21) {
   const res = await fetch(`/api/ics?url=${encodeURIComponent(icsUrl)}`);
   const text = await res.text();
@@ -114,7 +118,7 @@ async function loadIcsSlots(icsUrl, daysAhead = 21) {
 
     let t = new Date(start);
     while (t < end) {
-      const tEnd = new Date(t.getTime() + 30 * 60000); // 30 Minuten
+      const tEnd = new Date(t.getTime() + 30 * 60000);
       if (tEnd > end || tEnd <= now) break;
 
       slots.push({ start: new Date(t) });
@@ -125,6 +129,20 @@ async function loadIcsSlots(icsUrl, daysAhead = 21) {
   return slots.sort((a, b) => a.start - b.start);
 }
 
+// ----------------------
+// CHECK: Therapeut hat freie Slots?
+// ----------------------
+async function therapistHasFreeSlots(therapist) {
+  if (!therapist?.ics) return false;
+
+  try {
+    const slots = await loadIcsSlots(therapist.ics, 21);
+    return slots.length > 0;
+  } catch (e) {
+    console.error("ICS error for", therapist?.name, e);
+    return false;
+  }
+}
 // --------------------------------------------------
 // PAGE COMPONENT
 // --------------------------------------------------
@@ -164,7 +182,8 @@ const [slots, setSlots] = useState([]);
 const [loadingSlots, setLoadingSlots] = useState(false);
 const [slotsError, setSlotsError] = useState("");
 const [selectedDay, setSelectedDay] = useState(null);
-
+const [availableTherapists, setAvailableTherapists] = useState([]);
+const [checkingAvailability, setCheckingAvailability] = useState(false);
 
 
   // -------------------------------------
@@ -299,7 +318,49 @@ const [selectedDay, setSelectedDay] = useState(null);
     // Query-Parameter entfernen
     window.history.replaceState({}, "", window.location.pathname);
   }, []);
+  // -------------------------------------
+// STEP 8 – Verfügbarkeit der Therapeut:innen laden
+// -------------------------------------
+useEffect(() => {
+  if (step !== 8) return;
 
+  let isMounted = true;
+
+  async function loadAvailability() {
+    setLoadingAvailability(true);
+
+    try {
+      const result = [];
+
+      for (const therapist of teamData) {
+        if (!therapist.ics) continue;
+
+        try {
+          const slots = await loadIcsSlots(therapist.ics, 21);
+
+          if (slots.length > 0) {
+            result.push(therapist.name);
+          }
+        } catch (e) {
+          console.error("ICS Fehler bei", therapist.name, e);
+        }
+      }
+
+      if (isMounted) {
+        setAvailableTherapists(result); // Array mit NAMES
+      }
+    } finally {
+      if (isMounted) setLoadingAvailability(false);
+    }
+  }
+
+  loadAvailability();
+
+  return () => {
+    isMounted = false;
+  };
+}, [step]);
+  
 // -------------------------------------
 // STEP 10 – ICS + Supabase (booked_appointments)
 // -------------------------------------
@@ -767,40 +828,58 @@ const slotsByMonth = useMemo(() => {
       )}
 
       {/* STEP 8 – Therapeut:in auswählen / Red-Flag */}
-      {step === 8 && (
-        <div className="step-container">
-          {isRedFlag(form.anliegen) ? (
-            <>
-              <h2>Vielen Dank für deine Offenheit</h2>
-              <p>
-                Leider können wir dein Thema nicht im Online-Setting
-                begleiten. Bitte wende dich an eine{" "}
-                <strong>ambulante psychotherapeutische Praxis</strong>,
-                den <strong>ärztlichen Notdienst</strong> oder im
-                Notfall direkt an den <strong>Notruf</strong>.
-              </p>
-              <div className="footer-buttons">
-                <button onClick={back}>Zurück</button>
-                <button onClick={next}>Weiter</button>
-              </div>
-            </>
-          ) : (
-            <>
-              <h2>Wer könnte gut zu dir passen?</h2>
-              <TeamCarousel
-                members={sortedTeam}
-                onSelect={(name) => {
-                  setForm({ ...form, wunschtherapeut: name });
-                  next();
-                }}
-              />
-              <div className="footer-buttons">
-                <button onClick={back}>Zurück</button>
-              </div>
-            </>
-          )}
+{step === 8 && (
+  <div className="step-container">
+    {isRedFlag(form.anliegen) ? (
+      <>
+        <h2>Vielen Dank für deine Offenheit</h2>
+        <p>
+          Leider können wir dein Thema nicht im Online-Setting begleiten.
+          Bitte wende dich an eine{" "}
+          <strong>ambulante psychotherapeutische Praxis</strong>,
+          den <strong>ärztlichen Notdienst</strong> oder im Notfall
+          direkt an den <strong>Notruf</strong>.
+        </p>
+
+        <div className="footer-buttons">
+          <button onClick={back}>Zurück</button>
+          <button onClick={next}>Weiter</button>
         </div>
-      )}
+      </>
+    ) : (
+      <>
+        <h2>Wer könnte gut zu dir passen?</h2>
+
+        {loadingAvailability && (
+          <p>Verfügbarkeiten werden geprüft…</p>
+        )}
+
+        {!loadingAvailability && availableTherapists.length === 0 && (
+          <p>
+            Aktuell sind leider keine freien Termine verfügbar.
+            Bitte versuche es später erneut.
+          </p>
+        )}
+
+        {!loadingAvailability && availableTherapists.length > 0 && (
+          <TeamCarousel
+            members={sortedTeam.filter((t) =>
+              availableTherapists.includes(t.name)
+            )}
+            onSelect={(name) => {
+              setForm({ ...form, wunschtherapeut: name });
+              next();
+            }}
+          />
+        )}
+
+        <div className="footer-buttons">
+          <button onClick={back}>Zurück</button>
+        </div>
+      </>
+    )}
+  </div>
+)}
 
       {/* STEP 9 – Story / Infos zum Ablauf */}
       {step === 9 &&
