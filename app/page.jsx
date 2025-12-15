@@ -177,13 +177,15 @@ export default function Home() {
   // Validierungs-Fehler für Step "Kontaktdaten"
   const [errors, setErrors] = useState({});
 
-  // STEP 10 – Terminwahl
+// STEP 8 – Verfügbarkeit
+const [availableTherapists, setAvailableTherapists] = useState([]);
+const [loadingAvailability, setLoadingAvailability] = useState(false);
+
+// STEP 10 – Termine
 const [slots, setSlots] = useState([]);
 const [loadingSlots, setLoadingSlots] = useState(false);
 const [slotsError, setSlotsError] = useState("");
 const [selectedDay, setSelectedDay] = useState(null);
-const [availableTherapists, setAvailableTherapists] = useState([]);
-const [checkingAvailability, setCheckingAvailability] = useState(false);
 
 
   // -------------------------------------
@@ -827,20 +829,17 @@ const slotsByMonth = useMemo(() => {
         </div>
       )}
 
-{/* STEP 8 – Therapeut:in auswählen */}
 {step === 8 && (
   <div className="step-container">
     {loadingAvailability ? (
       <p>Verfügbare Begleitungen werden geprüft…</p>
-    ) : sortedTeam.length === 0 ? (
+    ) : availableTherapists.length === 0 ? (
       <>
         <h2>Aktuell keine freien Termine</h2>
         <p>
           Leider sind im Moment keine Begleiter:innen mit freien
-          Terminen verfügbar.  
-          Bitte versuche es später erneut.
+          Terminen verfügbar. Bitte versuche es später erneut.
         </p>
-
         <div className="footer-buttons">
           <button onClick={back}>Zurück</button>
         </div>
@@ -850,10 +849,12 @@ const slotsByMonth = useMemo(() => {
         <h2>Wer könnte gut zu dir passen?</h2>
 
         <TeamCarousel
-          members={sortedTeam}
+          members={sortedTeam.filter((t) =>
+            availableTherapists.includes(t.name)
+          )}
           onSelect={(name) => {
             setForm({ ...form, wunschtherapeut: name });
-            next(); // → STEP 9
+            next();
           }}
         />
 
@@ -864,6 +865,7 @@ const slotsByMonth = useMemo(() => {
     )}
   </div>
 )}
+
 
       {/* STEP 9 – Story / Infos zum Ablauf */}
       {step === 9 &&
