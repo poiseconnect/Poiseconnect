@@ -833,38 +833,37 @@ const slotsByMonth = useMemo(() => {
   <div className="step-container">
     {loadingAvailability ? (
       <p>Verfügbare Begleitungen werden geprüft…</p>
-    ) : availableTherapists.length === 0 ? (
+    ) : matchedAvailableTeam.length === 0 ? (
       <>
         <h2>Aktuell keine freien Termine</h2>
         <p>
-          Leider sind im Moment keine Begleiter:innen mit freien
-          Terminen verfügbar. Bitte versuche es später erneut.
+          Leider sind im Moment keine passenden Begleiter:innen
+          mit freien Terminen verfügbar.
         </p>
-        <div className="footer-buttons">
-          <button onClick={back}>Zurück</button>
-        </div>
+        <button onClick={back}>Zurück</button>
       </>
     ) : (
       <>
         <h2>Wer könnte gut zu dir passen?</h2>
 
         <TeamCarousel
-          members={sortedTeam.filter((t) =>
-            availableTherapists.includes(t.name)
-          )}
+          members={matchedAvailableTeam}
           onSelect={(name) => {
             setForm({ ...form, wunschtherapeut: name });
             next();
           }}
         />
 
-        <div className="footer-buttons">
-          <button onClick={back}>Zurück</button>
-        </div>
+        <p style={{ fontSize: 13, opacity: 0.7 }}>
+          Sortiert nach fachlicher Passung & Verfügbarkeit
+        </p>
+
+        <button onClick={back}>Zurück</button>
       </>
     )}
   </div>
 )}
+
 
 
       {/* STEP 9 – Story / Infos zum Ablauf */}
