@@ -159,10 +159,13 @@ export default function Home() {
   // Validierungs-Fehler für Step "Kontaktdaten"
   const [errors, setErrors] = useState({});
 
-  // Termine
-  const [slots, setSlots] = useState([]);
-  const [loadingSlots, setLoadingSlots] = useState(false);
-  const [slotsError, setSlotsError] = useState("");
+  // STEP 10 – Terminwahl
+const [slots, setSlots] = useState([]);
+const [loadingSlots, setLoadingSlots] = useState(false);
+const [slotsError, setSlotsError] = useState("");
+const [selectedDay, setSelectedDay] = useState(null);
+
+
 
   // -------------------------------------
   // Matching – Team-Sortierung nach Tags
@@ -297,85 +300,80 @@ export default function Home() {
     window.history.replaceState({}, "", window.location.pathname);
   }, []);
 
-  // -------------------------------------
-  // STEP 10 – ICS + Supabase (booked_appointments)
-  // -------------------------------------
-  useEffect(() => {
-    if (step !== 10 || !form.wunschtherapeut) return;
+// -------------------------------------
+// STEP 10 – ICS + Supabase (booked_appointments)
+// -------------------------------------
+useEffect(() => {
+  if (step !== 10 || !form.wunschtherapeut) return;
 
-    let isMounted = true;
+  let isMounted = true;
 
-    async function loadData() {
-      setLoadingSlots(true);
-      setSlotsError("");
+  async function loadData() {
+    setLoadingSlots(true);
+    setSlotsError("");
 
-      try {
-        const therapistObj = teamData.find(
-          (t) => t.name === form.wunschtherapeut
-        );
+    try {
+      const therapistObj = teamData.find(
+        (t) => t.name === form.wunschtherapeut
+      );
 
-        if (!therapistObj || !therapistObj.ics) {
-          if (isMounted) {
-            setSlots([]);
-            setSlotsError("Kein Kalender hinterlegt.");
-            setLoadingSlots(false);
-          }
-          return;
-        }
-
-        const allSlots = await loadIcsSlots(therapistObj.ics);
-
-        let freeSlots = allSlots;
-
-        try {
-          const { data, error } = await supabase
-            .from("booked_appointments")
-            .select("termin_iso")
-            .eq("therapist", form.wunschtherapeut);
-
-          if (error) {
-            console.error("Supabase load error:", error);
-          } else if (data && data.length > 0) {
-            const bookedSet = new Set(data.map((r) => r.termin_iso));
-            freeSlots = allSlots.filter(
-              (s) => !bookedSet.has(s.start.toISOString())
-            );
-          }
-        } catch (e) {
-          console.error("Supabase client error:", e);
-        }
-
+      if (!therapistObj?.ics) {
         if (isMounted) {
-          setSlots(freeSlots);
+          setSlots([]);
+          setSlotsError("Kein Kalender hinterlegt.");
+          setLoadingSlots(false);
         }
-      } catch (err) {
-        console.error("Slot-Load error:", err);
-        if (isMounted) {
-          setSlotsError("Kalender konnte nicht geladen werden.");
-        }
+        return;
       }
 
-      if (isMounted) setLoadingSlots(false);
+      const allSlots = await loadIcsSlots(therapistObj.ics);
+
+      let freeSlots = allSlots;
+
+      const { data } = await supabase
+        .from("booked_appointments")
+        .select("termin_iso")
+        .eq("therapist", form.wunschtherapeut);
+
+      if (data?.length) {
+        const bookedSet = new Set(data.map((r) => r.termin_iso));
+        freeSlots = allSlots.filter(
+          (s) => !bookedSet.has(s.start.toISOString())
+        );
+      }
+
+      if (isMounted) {
+        setSlots(freeSlots);
+      }
+    } catch (err) {
+      console.error("Slot-Load error:", err);
+      if (isMounted) setSlotsError("Kalender konnte nicht geladen werden.");
     }
 
-    loadData();
-    return () => {
-      isMounted = false;
-    };
-  }, [step, form.wunschtherapeut]);
+    if (isMounted) setLoadingSlots(false);
+  }
+
+  loadData();
+  return () => {
+    isMounted = false;
+  };
+}, [step, form.wunschtherapeut]);
+
 
   // Slots nach Tagen gruppieren
-  const groupedSlots = useMemo(() => {
-    const map = new Map();
+  
+ const groupedSlots = useMemo(() => {
+  const map = new Map();
 
-    for (const s of slots) {
-      const key = s.start.toDateString();
-      if (!map.has(key)) map.set(key, []);
-      map.get(key).push(s);
-    }
+  for (const s of slots) {
+    const key = s.start.toISOString().slice(0, 10); // YYYY-MM-DD
+    if (!map.has(key)) map.set(key, []);
+    map.get(key).push(s);
+  }
 
-    return Array.from(map.entries());
-  }, [slots]);
+  return Array.from(map.entries()); // [ [day, slots[]], ... ]
+}, [slots]);
+
 
   // -------------------------------------
   // Formular absenden
@@ -878,83 +876,106 @@ Eine Kostenübernahme kann möglich sein — individuell klären.`,
         })()}
 
       {/* STEP 10 – Terminwahl */}
-      {step === 10 && (
-        <div className="step-container">
-          <h2>Erstgespräch – Termin wählen</h2>
+{step === 10 && (
+  <div className="step-container">
+    <h2>Erstgespräch – Termin wählen</h2>
 
-          {loadingSlots && <p>Kalender wird geladen…</p>}
-          {slotsError && (
-            <p style={{ color: "red" }}>{slotsError}</p>
-          )}
-          {!loadingSlots &&
-            !slotsError &&
-            groupedSlots.length === 0 && (
-              <p>Keine freien Termine verfügbar.</p>
-            )}
+    {loadingSlots && <p>Kalender wird geladen…</p>}
+    {slotsError && <p style={{ color: "red" }}>{slotsError}</p>}
 
-          {!loadingSlots &&
-            groupedSlots.length > 0 &&
-            groupedSlots.map(([day, list]) => (
-              <div key={day} style={{ marginBottom: 14 }}>
-                <strong>{formatDate(list[0].start)}</strong>
+    {!loadingSlots && !slotsError && groupedSlots.length === 0 && (
+      <p>Keine freien Termine verfügbar.</p>
+    )}
 
-                <div
-                  style={{
-                    display: "flex",
-                    flexWrap: "wrap",
-                    gap: 8,
-                    marginTop: 6,
-                  }}
-                >
-                  {list.map((s) => (
-                    <button
-                      key={s.start.toISOString()}
-                      onClick={() =>
-                        setForm({
-                          ...form,
-                          terminISO: s.start.toISOString(),
-                          terminDisplay: `${formatDate(
-                            s.start
-                          )} ${formatTime(s.start)}`,
-                        })
-                      }
-                      style={{
-                        padding: "6px 10px",
-                        borderRadius: 10,
-                        border:
-                          form.terminISO ===
-                          s.start.toISOString()
-                            ? "2px solid #A27C77"
-                            : "1px solid #ddd",
-                        background:
-                          form.terminISO ===
-                          s.start.toISOString()
-                            ? "#F3E9E7"
-                            : "#fff",
-                        cursor: "pointer",
-                      }}
-                    >
-                      {formatTime(s.start)}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            ))}
+    {/* 📅 DATUM AUSWÄHLEN */}
+    {!loadingSlots && groupedSlots.length > 0 && (
+      <>
+        <h3>Datum auswählen</h3>
 
-          {form.terminISO && (
-            <p style={{ marginTop: 12 }}>
-              Gewählt: <strong>{form.terminDisplay}</strong>
-            </p>
-          )}
-
-          <div className="footer-buttons" style={{ marginTop: 16 }}>
-            <button onClick={back}>Zurück</button>
-            <button disabled={!form.terminISO} onClick={send}>
-              Anfrage senden
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+          {groupedSlots.map(([day, list]) => (
+            <button
+              key={day}
+              onClick={() => {
+                setSelectedDay(day);
+                setForm({ ...form, terminISO: "", terminDisplay: "" });
+              }}
+              style={{
+                padding: "8px 12px",
+                borderRadius: 12,
+                border:
+                  selectedDay === day
+                    ? "2px solid #A27C77"
+                    : "1px solid #ddd",
+                background:
+                  selectedDay === day ? "#F3E9E7" : "#fff",
+              }}
+            >
+              {formatDate(list[0].start)}
             </button>
-          </div>
+          ))}
         </div>
-      )}
+      </>
+    )}
+
+    {/* ⏰ UHRZEIT AUSWÄHLEN */}
+    {selectedDay && (
+      <>
+        <h3 style={{ marginTop: 16 }}>Uhrzeit auswählen</h3>
+
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(3, 1fr)",
+            gap: 10,
+            marginTop: 8,
+          }}
+        >
+          {groupedSlots
+            .find(([day]) => day === selectedDay)?.[1]
+            .map((s) => (
+              <button
+                key={s.start.toISOString()}
+                onClick={() =>
+                  setForm({
+                    ...form,
+                    terminISO: s.start.toISOString(),
+                    terminDisplay: `${formatDate(
+                      s.start
+                    )} ${formatTime(s.start)}`,
+                  })
+                }
+                style={{
+                  padding: "10px 0",
+                  borderRadius: 999,
+                  border:
+                    form.terminISO === s.start.toISOString()
+                      ? "2px solid #A27C77"
+                      : "1px solid #ddd",
+                  background:
+                    form.terminISO === s.start.toISOString()
+                      ? "#F3E9E7"
+                      : "#fff",
+                }}
+              >
+                {formatTime(s.start)}
+              </button>
+            ))}
+        </div>
+      </>
+    )}
+
+    {form.terminISO && (
+      <p style={{ marginTop: 12 }}>
+        Gewählt: <strong>{form.terminDisplay}</strong>
+      </p>
+    )}
+
+    <div className="footer-buttons" style={{ marginTop: 16 }}>
+      <button onClick={back}>Zurück</button>
+      <button disabled={!form.terminISO} onClick={send}>
+        Anfrage senden
+      </button>
     </div>
-  );
-}
+  </div>
+)}
