@@ -52,7 +52,7 @@ export const teamData = [
     preis_std: 160,
     preis_ermaessigt: 120,
     status: "frei",
-    ics: null
+    ics: "https://calendar.google.com/calendar/ical/a950b84b7fcb581bf1de6d341275ffee44f3dc9ff3ea621833d9cd69edff56e0%40group.calendar.google.com/public/basic.ics"
   },
   {
     name: "Carolin",
@@ -66,7 +66,7 @@ export const teamData = [
     preis_std: 160,
     preis_ermaessigt: 120,
     status: "frei",
-    ics: null
+    ics: "https://calendar.google.com/calendar/ical/93fad123ee38ccfa2f9a25423889e2b941c943c7679f2259dbb322387ce0f98b%40group.calendar.google.com/public/basic.ics"
   },
   {
     name: "Caroline",
@@ -80,7 +80,7 @@ export const teamData = [
     preis_std: 170,
     preis_ermaessigt: 120,
     status: "frei",
-    ics: null
+    ics: "https://calendar.google.com/calendar/ical/a6b036ba257178278f5c92b72e04e9120ea076157959112266c8ec220ed2217f%40group.calendar.google.com/public/basic.ics"
   },
   {
     name: "Elena",
@@ -94,7 +94,7 @@ export const teamData = [
     preis_std: 150,
     preis_ermaessigt: 120,
     status: "frei",
-    ics: null
+    ics: "https://calendar.google.com/calendar/ical/3fa5a5955038a6f744313415c7f2052720ff0cc72cc61245dcfca9207e92411f%40group.calendar.google.com/public/basic.ics"
   },
   {
     name: "Franziska",
@@ -108,7 +108,7 @@ export const teamData = [
     preis_std: 150,
     preis_ermaessigt: 120,
     status: "frei",
-    ics: null
+    ics: "https://calendar.google.com/calendar/ical/ca7d425f824b9b777b6ba5697cc7b905d7bec811f7b4839a54fa1ce318587ed2%40group.calendar.google.com/public/basic.ics"
   },
   {
     name: "Gerhard",
@@ -136,7 +136,7 @@ export const teamData = [
     preis_std: 180,
     preis_ermaessigt: 120,
     status: "frei",
-    ics: null
+    ics: "https://calendar.google.com/calendar/ical/f3f21fee63e77164d204d3fd0f296e64837dccf4242a6b3f9482f1ba842fedab%40group.calendar.google.com/public/basic.ics"
   },
   {
     name: "Isabella",
@@ -150,7 +150,7 @@ export const teamData = [
     preis_std: 170,
     preis_ermaessigt: 120,
     status: "frei",
-    ics: null
+    ics: "https://calendar.google.com/calendar/ical/8e6975d60569a919f44359f9e7272f66b2345b1aa29b2f391ac2237e092e7994%40group.calendar.google.com/public/basic.ics"
   },
   {
     name: "Jennifer",
@@ -164,7 +164,7 @@ export const teamData = [
     preis_std: 160,
     preis_ermaessigt: 120,
     status: "frei",
-    ics: null
+    ics: "https://calendar.google.com/calendar/ical/aa848084588fd6e79f8f7056180a78ca0602df5ec8e305cfc50c600a36da43e6%40group.calendar.google.com/public/basic.ics"
   },
   {
     name: "Judith",
@@ -178,7 +178,7 @@ export const teamData = [
     preis_std: 170,
     preis_ermaessigt: 120,
     status: "frei",
-    ics: null
+    ics: "https://calendar.google.com/calendar/ical/75c37902f254fc6e9b8e4c73238eb7bd74d1e11a7709a144683a092097335781%40group.calendar.google.com/public/basic.ics"
   },
   {
     name: "Julius",
@@ -191,7 +191,7 @@ export const teamData = [
     preis_std: 160,
     preis_ermaessigt: 120,
     status: "frei",
-    ics: null
+    ics: "https://calendar.google.com/calendar/ical/8a00eded0b43b92f02470e3ee4791aee343a9e4226c20e758b5ba2cbca2ba0fc%40group.calendar.google.com/public/basic.ics"
   },
   {
     name: "Kristin",
@@ -205,7 +205,7 @@ export const teamData = [
     preis_std: 110,
     preis_ermaessigt: 120,
     status: "frei",
-    ics: null
+    ics: "https://calendar.google.com/calendar/ical/693a5cd58448b0e4b9bd86d347a9efc125ed2e8967778fb8386e99c25e4d761b%40group.calendar.google.com/public/basic.ics"
   },
   {
     name: "Kristin-Sofie",
@@ -219,7 +219,7 @@ export const teamData = [
     preis_std: 160,
     preis_ermaessigt: 120,
     status: "frei",
-    ics: null
+    ics: "https://calendar.google.com/calendar/ical/0796b382bb757d367c469af13358ae1bba96756ee606c256bb1e5985cf7f4b82%40group.calendar.google.com/public/basic.ics"
   },
   {
     name: "Livia",
@@ -233,7 +233,7 @@ export const teamData = [
     preis_std: 180,
     preis_ermaessigt: 120,
     status: "frei",
-    ics: null
+    ics: "https://calendar.google.com/calendar/ical/e985ea19fe89a072bbef17114d85ffb8b49227dd9f0170b556c4b98fc55c5881%40group.calendar.google.com/public/basic.ics"
   },
   {
     name: "Magdalena",
@@ -247,7 +247,7 @@ export const teamData = [
     preis_std: 150,
     preis_ermaessigt: 120,
     status: "frei",
-    ics: null
+    ics: "https://calendar.google.com/calendar/ical/857518f623143d4ba427588f9c5bf2d690fd3082137a06298b53c289d3046fb1%40group.calendar.google.com/public/basic.ics"
   },
   {
     name: "Marisa",
@@ -261,7 +261,7 @@ export const teamData = [
     preis_std: 160,
     preis_ermaessigt: 120,
     status: "frei",
-    ics: null
+    ics: "https://calendar.google.com/calendar/ical/a68d390ae0f3766da51d30eb7beab68d400dbbedae7343247cf2e87a57ab0fde%40group.calendar.google.com/public/basic.ics"
   },
   {
     name: "Marleen",
@@ -290,7 +290,7 @@ export const teamData = [
     preis_std: 200,
     preis_ermaessigt: 150,
     status: "frei",
-    ics: null
+    ics: "https://calendar.google.com/calendar/ical/7de0d517cd8d5ca144fdca0b7c64c96550a43b9fdf0a6071e44bc8b4437aabae%40group.calendar.google.com/public/basic.ics"
   },
   {
     name: "Yanina",
@@ -305,6 +305,6 @@ export const teamData = [
     preis_std: 180,
     preis_ermaessigt: 120,
     status: "frei",
-    ics: null
+    ics: "https://calendar.google.com/calendar/ical/cf502bdfe6fe6de7fcfe7634f4dab305baaa01a1c04adf21781e4949ad6c0a62%40group.calendar.google.com/public/basic.ics"
   }
 ];
