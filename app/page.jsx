@@ -920,7 +920,7 @@ Eine Kostenübernahme kann möglich sein — individuell klären.`,
 
     {/* ⏰ UHRZEIT AUSWÄHLEN */}
     {selectedDay && (
-      <>
+      <div>
         <h3 style={{ marginTop: 16 }}>Uhrzeit auswählen</h3>
 
         <div
@@ -933,7 +933,7 @@ Eine Kostenübernahme kann möglich sein — individuell klären.`,
         >
           {groupedSlots
             .find(([day]) => day === selectedDay)?.[1]
-            .map((s) => (
+            ?.map((s) => (
               <button
                 key={s.start.toISOString()}
                 onClick={() =>
@@ -962,7 +962,7 @@ Eine Kostenübernahme kann möglich sein — individuell klären.`,
               </button>
             ))}
         </div>
-      </>
+      </div>
     )}
 
     {form.terminISO && (
