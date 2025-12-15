@@ -876,106 +876,113 @@ Eine Kostenübernahme kann möglich sein — individuell klären.`,
         })()}
 
       {/* STEP 10 – Terminwahl */}
-{step === 10 && (
-  <div className="step-container">
-    <h2>Erstgespräch – Termin wählen</h2>
+      {step === 10 && (
+        <div className="step-container">
+          <h2>Erstgespräch – Termin wählen</h2>
 
-    {loadingSlots && <p>Kalender wird geladen…</p>}
-    {slotsError && <p style={{ color: "red" }}>{slotsError}</p>}
+          {loadingSlots && <p>Kalender wird geladen…</p>}
+          {slotsError && <p style={{ color: "red" }}>{slotsError}</p>}
 
-    {!loadingSlots && !slotsError && groupedSlots.length === 0 && (
-      <p>Keine freien Termine verfügbar.</p>
-    )}
+          {!loadingSlots && !slotsError && groupedSlots.length === 0 && (
+            <p>Keine freien Termine verfügbar.</p>
+          )}
 
-    {/* 📅 DATUM AUSWÄHLEN */}
-    {!loadingSlots && groupedSlots.length > 0 && (
-      <>
-        <h3>Datum auswählen</h3>
+          {/* 📅 DATUM AUSWÄHLEN */}
+          {!loadingSlots && groupedSlots.length > 0 && (
+            <div>
+              <h3>Datum auswählen</h3>
 
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-          {groupedSlots.map(([day, list]) => (
-            <button
-              key={day}
-              onClick={() => {
-                setSelectedDay(day);
-                setForm({ ...form, terminISO: "", terminDisplay: "" });
-              }}
-              style={{
-                padding: "8px 12px",
-                borderRadius: 12,
-                border:
-                  selectedDay === day
-                    ? "2px solid #A27C77"
-                    : "1px solid #ddd",
-                background:
-                  selectedDay === day ? "#F3E9E7" : "#fff",
-              }}
-            >
-              {formatDate(list[0].start)}
-            </button>
-          ))}
-        </div>
-      </>
-    )}
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                {groupedSlots.map(([day, list]) => (
+                  <button
+                    key={day}
+                    onClick={() => {
+                      setSelectedDay(day);
+                      setForm({
+                        ...form,
+                        terminISO: "",
+                        terminDisplay: "",
+                      });
+                    }}
+                    style={{
+                      padding: "8px 12px",
+                      borderRadius: 12,
+                      border:
+                        selectedDay === day
+                          ? "2px solid #A27C77"
+                          : "1px solid #ddd",
+                      background:
+                        selectedDay === day ? "#F3E9E7" : "#fff",
+                    }}
+                  >
+                    {formatDate(list[0].start)}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
-    {/* ⏰ UHRZEIT AUSWÄHLEN */}
-    {selectedDay && (
-      <div>
-        <h3 style={{ marginTop: 16 }}>Uhrzeit auswählen</h3>
+          {/* ⏰ UHRZEIT AUSWÄHLEN */}
+          {selectedDay && (
+            <div>
+              <h3 style={{ marginTop: 16 }}>Uhrzeit auswählen</h3>
 
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(3, 1fr)",
-            gap: 10,
-            marginTop: 8,
-          }}
-        >
-          {groupedSlots
-            .find(([day]) => day === selectedDay)?.[1]
-            ?.map((s) => (
-              <button
-                key={s.start.toISOString()}
-                onClick={() =>
-                  setForm({
-                    ...form,
-                    terminISO: s.start.toISOString(),
-                    terminDisplay: `${formatDate(
-                      s.start
-                    )} ${formatTime(s.start)}`,
-                  })
-                }
+              <div
                 style={{
-                  padding: "10px 0",
-                  borderRadius: 999,
-                  border:
-                    form.terminISO === s.start.toISOString()
-                      ? "2px solid #A27C77"
-                      : "1px solid #ddd",
-                  background:
-                    form.terminISO === s.start.toISOString()
-                      ? "#F3E9E7"
-                      : "#fff",
+                  display: "grid",
+                  gridTemplateColumns: "repeat(3, 1fr)",
+                  gap: 10,
+                  marginTop: 8,
                 }}
               >
-                {formatTime(s.start)}
-              </button>
-            ))}
+                {groupedSlots
+                  .find(([day]) => day === selectedDay)?.[1]
+                  ?.map((s) => (
+                    <button
+                      key={s.start.toISOString()}
+                      onClick={() =>
+                        setForm({
+                          ...form,
+                          terminISO: s.start.toISOString(),
+                          terminDisplay: `${formatDate(
+                            s.start
+                          )} ${formatTime(s.start)}`,
+                        })
+                      }
+                      style={{
+                        padding: "10px 0",
+                        borderRadius: 999,
+                        border:
+                          form.terminISO === s.start.toISOString()
+                            ? "2px solid #A27C77"
+                            : "1px solid #ddd",
+                        background:
+                          form.terminISO === s.start.toISOString()
+                            ? "#F3E9E7"
+                            : "#fff",
+                      }}
+                    >
+                      {formatTime(s.start)}
+                    </button>
+                  ))}
+              </div>
+            </div>
+          )}
+
+          {form.terminISO && (
+            <p style={{ marginTop: 12 }}>
+              Gewählt: <strong>{form.terminDisplay}</strong>
+            </p>
+          )}
+
+          <div className="footer-buttons" style={{ marginTop: 16 }}>
+            <button onClick={back}>Zurück</button>
+            <button disabled={!form.terminISO} onClick={send}>
+              Anfrage senden
+            </button>
+          </div>
         </div>
-      </div>
-    )}
-
-    {form.terminISO && (
-      <p style={{ marginTop: 12 }}>
-        Gewählt: <strong>{form.terminDisplay}</strong>
-      </p>
-    )}
-
-    <div className="footer-buttons" style={{ marginTop: 16 }}>
-      <button onClick={back}>Zurück</button>
-      <button disabled={!form.terminISO} onClick={send}>
-        Anfrage senden
-      </button>
+      )}
     </div>
-  </div>
-)}
+  );
+}
