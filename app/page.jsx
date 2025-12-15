@@ -827,51 +827,35 @@ const slotsByMonth = useMemo(() => {
         </div>
       )}
 
-      {/* STEP 8 – Therapeut:in auswählen / Red-Flag */}
+{/* STEP 8 – Therapeut:in auswählen */}
 {step === 8 && (
   <div className="step-container">
-    {isRedFlag(form.anliegen) ? (
+    {loadingAvailability ? (
+      <p>Verfügbare Begleitungen werden geprüft…</p>
+    ) : sortedTeam.length === 0 ? (
       <>
-        <h2>Vielen Dank für deine Offenheit</h2>
+        <h2>Aktuell keine freien Termine</h2>
         <p>
-          Leider können wir dein Thema nicht im Online-Setting begleiten.
-          Bitte wende dich an eine{" "}
-          <strong>ambulante psychotherapeutische Praxis</strong>,
-          den <strong>ärztlichen Notdienst</strong> oder im Notfall
-          direkt an den <strong>Notruf</strong>.
+          Leider sind im Moment keine Begleiter:innen mit freien
+          Terminen verfügbar.  
+          Bitte versuche es später erneut.
         </p>
 
         <div className="footer-buttons">
           <button onClick={back}>Zurück</button>
-          <button onClick={next}>Weiter</button>
         </div>
       </>
     ) : (
       <>
         <h2>Wer könnte gut zu dir passen?</h2>
 
-        {loadingAvailability && (
-          <p>Verfügbarkeiten werden geprüft…</p>
-        )}
-
-        {!loadingAvailability && availableTherapists.length === 0 && (
-          <p>
-            Aktuell sind leider keine freien Termine verfügbar.
-            Bitte versuche es später erneut.
-          </p>
-        )}
-
-        {!loadingAvailability && availableTherapists.length > 0 && (
-          <TeamCarousel
-            members={sortedTeam.filter((t) =>
-              availableTherapists.includes(t.name)
-            )}
-            onSelect={(name) => {
-              setForm({ ...form, wunschtherapeut: name });
-              next();
-            }}
-          />
-        )}
+        <TeamCarousel
+          members={sortedTeam}
+          onSelect={(name) => {
+            setForm({ ...form, wunschtherapeut: name });
+            next(); // → STEP 9
+          }}
+        />
 
         <div className="footer-buttons">
           <button onClick={back}>Zurück</button>
