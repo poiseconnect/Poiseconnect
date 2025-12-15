@@ -122,7 +122,7 @@ export const teamData = [
     preis_std: 160,
     preis_ermaessigt: 120,
     status: "frei",
-    ics: null
+    ics: https://calendar.google.com/calendar/ical/337c7badcffe966991eb34f4b885fcffffba011562b751a085383346708d6263%40group.calendar.google.com/public/basic.ics
   },
   {
     name: "Gesine",
