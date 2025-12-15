@@ -373,6 +373,23 @@ useEffect(() => {
 
   return Array.from(map.entries()); // [ [day, slots[]], ... ]
 }, [slots]);
+  // 🔹 Slots nach MONAT → TAG gruppieren
+const slotsByMonth = useMemo(() => {
+  const map = new Map();
+
+  groupedSlots.forEach(([dayKey, daySlots]) => {
+    const date = daySlots[0].start;
+    const monthKey = date.toLocaleDateString("de-AT", {
+      month: "long",
+      year: "numeric",
+    });
+
+    if (!map.has(monthKey)) map.set(monthKey, []);
+    map.get(monthKey).push([dayKey, daySlots]);
+  });
+
+  return Array.from(map.entries());
+}, [groupedSlots]);
 
 
   // -------------------------------------
@@ -876,68 +893,52 @@ Eine Kostenübernahme kann möglich sein — individuell klären.`,
         })()}
 
       {/* STEP 10 – Terminwahl */}
-      {step === 10 && (
-        <div className="step-container">
-          <h2>Erstgespräch – Termin wählen</h2>
+{step === 10 && (
+  <div className="step-container">
+    <h2>Erstgespräch – Termin wählen</h2>
 
-          {loadingSlots && <p>Kalender wird geladen…</p>}
-          {slotsError && <p style={{ color: "red" }}>{slotsError}</p>}
+    {loadingSlots && <p>Kalender wird geladen…</p>}
+    {slotsError && <p style={{ color: "red" }}>{slotsError}</p>}
 
-          {!loadingSlots && !slotsError && groupedSlots.length === 0 && (
-            <p>Keine freien Termine verfügbar.</p>
-          )}
+    {!loadingSlots && !slotsError && slotsByMonth.length === 0 && (
+      <p>Keine freien Termine verfügbar.</p>
+    )}
 
-          {/* 📅 DATUM AUSWÄHLEN */}
-          {!loadingSlots && groupedSlots.length > 0 && (
-            <div>
-              <h3>Datum auswählen</h3>
+    {/* 🗓️ MONATE */}
+    {!loadingSlots &&
+      slotsByMonth.map(([monthLabel, days]) => (
+        <div key={monthLabel} style={{ marginBottom: 24 }}>
+          {/* 🔹 MONATSÜBERSCHRIFT */}
+          <h3
+            style={{
+              marginBottom: 8,
+              borderBottom: "1px solid #ddd",
+              paddingBottom: 4,
+              textTransform: "capitalize",
+            }}
+          >
+            {monthLabel}
+          </h3>
 
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                {groupedSlots.map(([day, list]) => (
-                  <button
-                    key={day}
-                    onClick={() => {
-                      setSelectedDay(day);
-                      setForm({
-                        ...form,
-                        terminISO: "",
-                        terminDisplay: "",
-                      });
-                    }}
-                    style={{
-                      padding: "8px 12px",
-                      borderRadius: 12,
-                      border:
-                        selectedDay === day
-                          ? "2px solid #A27C77"
-                          : "1px solid #ddd",
-                      background:
-                        selectedDay === day ? "#F3E9E7" : "#fff",
-                    }}
-                  >
-                    {formatDate(list[0].start)}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
+          {/* 📅 TAGE */}
+          {days.map(([dayKey, daySlots]) => {
+            const isoDay =
+              daySlots[0].start.toISOString().slice(0, 10);
 
-          {/* ⏰ UHRZEIT AUSWÄHLEN */}
-          {selectedDay && (
-            <div>
-              <h3 style={{ marginTop: 16 }}>Uhrzeit auswählen</h3>
+            return (
+              <div key={dayKey} style={{ marginBottom: 14 }}>
+                <strong>{formatDate(daySlots[0].start)}</strong>
 
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "repeat(3, 1fr)",
-                  gap: 10,
-                  marginTop: 8,
-                }}
-              >
-                {groupedSlots
-                  .find(([day]) => day === selectedDay)?.[1]
-                  ?.map((s) => (
+                {/* ⏰ UHRZEITEN */}
+                <div
+                  style={{
+                    display: "flex",
+                    flexWrap: "wrap",
+                    gap: 8,
+                    marginTop: 6,
+                  }}
+                >
+                  {daySlots.map((s) => (
                     <button
                       key={s.start.toISOString()}
                       onClick={() =>
@@ -950,7 +951,7 @@ Eine Kostenübernahme kann möglich sein — individuell klären.`,
                         })
                       }
                       style={{
-                        padding: "10px 0",
+                        padding: "6px 12px",
                         borderRadius: 999,
                         border:
                           form.terminISO === s.start.toISOString()
@@ -965,24 +966,24 @@ Eine Kostenübernahme kann möglich sein — individuell klären.`,
                       {formatTime(s.start)}
                     </button>
                   ))}
+                </div>
               </div>
-            </div>
-          )}
-
-          {form.terminISO && (
-            <p style={{ marginTop: 12 }}>
-              Gewählt: <strong>{form.terminDisplay}</strong>
-            </p>
-          )}
-
-          <div className="footer-buttons" style={{ marginTop: 16 }}>
-            <button onClick={back}>Zurück</button>
-            <button disabled={!form.terminISO} onClick={send}>
-              Anfrage senden
-            </button>
-          </div>
+            );
+          })}
         </div>
-      )}
+      ))}
+
+    {form.terminISO && (
+      <p style={{ marginTop: 12 }}>
+        Gewählt: <strong>{form.terminDisplay}</strong>
+      </p>
+    )}
+
+    <div className="footer-buttons" style={{ marginTop: 16 }}>
+      <button onClick={back}>Zurück</button>
+      <button disabled={!form.terminISO} onClick={send}>
+        Anfrage senden
+      </button>
     </div>
-  );
-}
+  </div>
+)}
