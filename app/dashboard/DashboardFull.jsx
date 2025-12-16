@@ -322,14 +322,14 @@ export default function DashboardFull() {
             <p>
               <strong>Wunschtherapeut:</strong> {detailsModal.wunschtherapeut}
             </p>
-            {detailsModal.bevorzugte_zeit && (
-              <p>
-                <strong>Ersttermin:</strong>{" "}
-                {new Date(
-                  detailsModal.bevorzugte_zeit
-                ).toLocaleString("de-AT")}
-              </p>
-            )}
+{detailsModal.bevorzugte_zeit &&
+ !isNaN(Date.parse(detailsModal.bevorzugte_zeit)) && (
+  <p>
+    <strong>Ersttermin:</strong>{" "}
+    {new Date(detailsModal.bevorzugte_zeit).toLocaleString("de-AT")}
+  </p>
+)}
+
           </section>
 
           {/* AKTIV-BEREICH */}
@@ -439,20 +439,25 @@ export default function DashboardFull() {
               </button>
 
               <button
-                onClick={() =>
-                  fetch("/api/add-sessions-batch", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                      anfrageId: detailsModal.id,
-                      sessions: newSessions,
-                      price: editTarif,
-                    }),
-                  }).then(() => location.reload())
-                }
-              >
-                💾 Sitzungen speichern
-              </button>
+  onClick={() =>
+    fetch("/api/add-sessions-batch", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        anfrageId: detailsModal.id,
+        therapist: user.email,
+        sessions: newSessions.map((s) => ({
+          date: s.date,
+          duration: s.duration,
+          price: Number(editTarif),
+        })),
+      }),
+    }).then(() => location.reload())
+  }
+>
+  💾 Sitzungen speichern
+</button>
+
             </>
           )}
         </Modal>
