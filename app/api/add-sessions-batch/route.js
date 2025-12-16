@@ -3,9 +3,7 @@ import { supabase } from "../../lib/supabase";
 
 export async function POST(request) {
   try {
-    const body = await request.json();
-
-    const { anfrageId, sessions, therapist } = body;
+    const { anfrageId, sessions } = await request.json();
 
     if (!anfrageId || !Array.isArray(sessions) || sessions.length === 0) {
       return NextResponse.json(
@@ -19,7 +17,6 @@ export async function POST(request) {
       date: s.date,
       duration_min: s.duration,
       price: Number(s.price),
-    
     }));
 
     const { error } = await supabase.from("sessions").insert(inserts);
@@ -36,7 +33,7 @@ export async function POST(request) {
   } catch (err) {
     console.error("add-sessions-batch error", err);
     return NextResponse.json(
-      { error: "Serverfehler", detail: err.message },
+      { error: err.message },
       { status: 500 }
     );
   }
