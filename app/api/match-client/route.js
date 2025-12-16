@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
-import { supabase } from "../../lib/supabase";
+import { supabase } from "@/app/lib/supabase"; // ⚠️ wichtiger Fix: absoluter Pfad
 
-export async function POST(req) {
+export async function POST(request) {
   try {
-    const body = await req.json();
+    // ✅ Request sauber parsen
+    const body = await request.json();
     const { anfrageId, therapistEmail, honorar } = body;
 
     if (!anfrageId) {
@@ -29,23 +30,23 @@ export async function POST(req) {
 
     const status = String(anfrage.status || "").toLowerCase();
 
-    // 2️⃣ Sicherheits-Gate: Match nur nach bestätigtem Ersttermin
-    if (
-      ![
-        "termin_bestaetigt",
-        "termin bestätigt",
-        "confirmed",
-        "appointment_confirmed",
-        "bestaetigt",
-      ].includes(status)
-    ) {
+    // 2️⃣ Sicherheits-Gate
+    const allowed = [
+      "termin_bestaetigt",
+      "termin bestätigt",
+      "confirmed",
+      "appointment_confirmed",
+      "bestaetigt",
+    ];
+
+    if (!allowed.includes(status)) {
       return NextResponse.json(
         { error: "Match erst nach bestätigtem Ersttermin möglich" },
         { status: 400 }
       );
     }
 
-    // 3️⃣ Status auf active setzen + Tarif speichern
+    // 3️⃣ Anfrage aktiv setzen
     const { error: updateError } = await supabase
       .from("anfragen")
       .update({
@@ -62,10 +63,13 @@ export async function POST(req) {
       );
     }
 
+    // ✅ SAUBERE RESPONSE
     return NextResponse.json({ success: true });
+
   } catch (err) {
+    console.error("MATCH CLIENT ERROR:", err);
     return NextResponse.json(
-      { error: "Serverfehler", detail: err.message },
+      { error: "Serverfehler", detail: err?.message },
       { status: 500 }
     );
   }
