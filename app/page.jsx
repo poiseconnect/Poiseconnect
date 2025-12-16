@@ -849,38 +849,55 @@ const slotsByMonth = useMemo(() => {
 {step === 8 && (
   <div className="step-container">
     {loadingAvailability ? (
-      <p>Verfügbare Begleitungen werden geprüft…</p>
-    ) : matchedAvailableTeam.length === 0 ? (
-      <>
-        <h2>Aktuell keine freien Termine</h2>
-        <p>
-          Leider sind im Moment keine passenden Begleiter:innen
-          mit freien Terminen verfügbar.
-        </p>
-        <button onClick={back}>Zurück</button>
-      </>
-    ) : (
+      <p>Verfügbarkeiten werden geprüft…</p>
+    ) : matchedAvailableTeam.length > 0 ? (
       <>
         <h2>Wer könnte gut zu dir passen?</h2>
 
         <TeamCarousel
-  members={matchedAvailableTeam}
-  onSelect={(name) => {
-    setForm({ ...form, wunschtherapeut: name });
-    next();
-  }}
-/>
+          members={matchedAvailableTeam}
+          onSelect={(name) => {
+            setForm({ ...form, wunschtherapeut: name });
+            next();
+          }}
+        />
 
+        <div className="footer-buttons">
+          <button onClick={back}>Zurück</button>
+        </div>
+      </>
+    ) : (
+      /* 🔁 UX FALLBACK */
+      <>
+        <h2>Wir haben keine eindeutige Zuordnung gefunden</h2>
 
-        <p style={{ fontSize: 13, opacity: 0.7 }}>
-          Sortiert nach fachlicher Passung & Verfügbarkeit
+        <p>
+          Dein Anliegen ist sehr individuell – aktuell konnten wir
+          keine klare thematische Übereinstimmung berechnen.
         </p>
 
-        <button onClick={back}>Zurück</button>
+        <p>
+          Du kannst trotzdem eine Begleitung auswählen:
+        </p>
+
+        <TeamCarousel
+          members={availableTherapists
+            .map((name) => teamData.find((t) => t.name === name))
+            .filter(Boolean)}
+          onSelect={(name) => {
+            setForm({ ...form, wunschtherapeut: name });
+            next();
+          }}
+        />
+
+        <div className="footer-buttons">
+          <button onClick={back}>Zurück</button>
+        </div>
       </>
     )}
   </div>
 )}
+
 
 
 
