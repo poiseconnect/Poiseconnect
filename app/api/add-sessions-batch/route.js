@@ -1,46 +1,42 @@
 import { NextResponse } from "next/server";
 import { supabase } from "../../lib/supabase";
 
-
-
-export async function POST(req) {
+export async function POST(request) {
   try {
-    const { anfrageId, sessions, price } = await req.json();
+    const body = await request.json();
 
-    if (!anfrageId || !Array.isArray(sessions) || !price) {
+    const { anfrageId, sessions, therapist } = body;
+
+    if (!anfrageId || !Array.isArray(sessions) || sessions.length === 0) {
       return NextResponse.json(
         { error: "Ungültige Daten" },
         { status: 400 }
       );
     }
 
-    const inserts = sessions
-      .filter((s) => s.date)
-      .map((s) => ({
-        anfrage_id: anfrageId,
-        date: s.date,
-        duration_min: s.duration || 60,
-        price: price,
-      }));
+    const inserts = sessions.map((s) => ({
+      anfrage_id: anfrageId,
+      date: s.date,
+      duration_min: s.duration,
+      price: Number(s.price),
+      therapist_email: therapist,
+    }));
 
-    if (inserts.length === 0) {
+    const { error } = await supabase.from("sessions").insert(inserts);
+
+    if (error) {
+      console.error("DB insert error", error);
       return NextResponse.json(
-        { error: "Keine gültigen Sitzungen" },
-        { status: 400 }
+        { error: error.message },
+        { status: 500 }
       );
     }
 
-    const { error } = await supabase
-      .from("sessions")
-      .insert(inserts);
-
-    if (error) throw error;
-
     return NextResponse.json({ success: true });
   } catch (err) {
-    console.error("add-sessions-batch error:", err);
+    console.error("add-sessions-batch error", err);
     return NextResponse.json(
-      { error: "Sitzungen konnten nicht gespeichert werden" },
+      { error: "Serverfehler", detail: err.message },
       { status: 500 }
     );
   }
