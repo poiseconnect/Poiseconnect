@@ -1,30 +1,26 @@
 import { NextResponse } from "next/server";
 import { supabase } from "../../lib/supabase";
 
-
-export async function POST(req) {
+export async function POST(request) {
   try {
-    const { anfrageId, tarif } = await req.json();
-
-    if (!anfrageId || typeof tarif !== "number") {
-      return NextResponse.json(
-        { error: "Ungültige Daten" },
-        { status: 400 }
-      );
-    }
+    const { anfrageId, tarif } = await request.json();
 
     const { error } = await supabase
       .from("anfragen")
       .update({ honorar_klient: tarif })
       .eq("id", anfrageId);
 
-    if (error) throw error;
+    if (error) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: 500 }
+      );
+    }
 
     return NextResponse.json({ success: true });
   } catch (err) {
-    console.error("update-tarif error:", err);
     return NextResponse.json(
-      { error: "Tarif konnte nicht gespeichert werden" },
+      { error: err.message },
       { status: 500 }
     );
   }
