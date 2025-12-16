@@ -5,9 +5,16 @@ export async function POST(request) {
   try {
     const { anfrageId, tarif } = await request.json();
 
+    if (!anfrageId || tarif == null) {
+      return NextResponse.json(
+        { error: "Ungültige Daten" },
+        { status: 400 }
+      );
+    }
+
     const { error } = await supabase
       .from("anfragen")
-      .update({ honorar_klient: tarif })
+      .update({ honorar_klient: Number(tarif) })
       .eq("id", anfrageId);
 
     if (error) {
