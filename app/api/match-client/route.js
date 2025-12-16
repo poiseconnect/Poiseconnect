@@ -8,6 +8,18 @@ function json(data, status = 200) {
     headers: { "Content-Type": "application/json" },
   });
 }
+const { data: anfrage } = await supabase
+  .from("anfragen")
+  .select("status")
+  .eq("id", anfrageId)
+  .single();
+
+if (!["termin_bestaetigt", "confirmed"].includes(anfrage.status)) {
+  return NextResponse.json(
+    { error: "Match erst nach bestätigtem Ersttermin möglich" },
+    { status: 400 }
+  );
+}
 
 export async function POST(req) {
   try {
