@@ -1,13 +1,11 @@
 import { NextResponse } from "next/server";
 import { supabase } from "../../lib/supabase";
 
-export async function POST(request) {
+export async function POST(req) {
   try {
-    const body = await request.json();
+    const { anfrageId, sessions, therapist } = await req.json();
 
-    const { anfrageId, sessions, therapist } = body;
-
-    if (!anfrageId || !therapist || !Array.isArray(sessions)) {
+    if (!anfrageId || !Array.isArray(sessions) || !therapist) {
       return NextResponse.json(
         { error: "Ungültige Daten" },
         { status: 400 }
@@ -19,7 +17,7 @@ export async function POST(request) {
       date: s.date,
       duration_min: s.duration,
       price: Number(s.price),
-      therapist: therapist,
+      therapist: therapist, // 🔴 WICHTIG: Feld heißt EXACT so in DB
     }));
 
     const { error } = await supabase
@@ -27,6 +25,7 @@ export async function POST(request) {
       .insert(inserts);
 
     if (error) {
+      console.error("DB insert error", error);
       return NextResponse.json(
         { error: error.message },
         { status: 500 }
@@ -35,8 +34,9 @@ export async function POST(request) {
 
     return NextResponse.json({ success: true });
   } catch (err) {
+    console.error("add-sessions-batch error", err);
     return NextResponse.json(
-      { error: err.message },
+      { error: "Serverfehler" },
       { status: 500 }
     );
   }
