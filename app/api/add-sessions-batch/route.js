@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 import { supabase } from "../../lib/supabase";
 
-export async function POST(req) {
+export async function POST(request) {
   try {
-    const { anfrageId, sessions, therapist } = await req.json();
+    const { anfrageId, sessions, therapist } = await request.json();
 
     if (!anfrageId || !Array.isArray(sessions) || !therapist) {
       return NextResponse.json(
@@ -17,7 +17,7 @@ export async function POST(req) {
       date: s.date,
       duration_min: s.duration,
       price: Number(s.price),
-      therapist: therapist, // 🔴 WICHTIG: Feld heißt EXACT so in DB
+      therapist: therapist,
     }));
 
     const { error } = await supabase
@@ -25,7 +25,6 @@ export async function POST(req) {
       .insert(inserts);
 
     if (error) {
-      console.error("DB insert error", error);
       return NextResponse.json(
         { error: error.message },
         { status: 500 }
@@ -34,7 +33,6 @@ export async function POST(req) {
 
     return NextResponse.json({ success: true });
   } catch (err) {
-    console.error("add-sessions-batch error", err);
     return NextResponse.json(
       { error: "Serverfehler" },
       { status: 500 }
