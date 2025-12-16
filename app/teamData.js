@@ -1088,91 +1088,325 @@ export const teamData = [
 
  {
   name: "Magdalena",
-  role: "Klinische Psychologin, Kinder- & Jugendpsychologin",
-  image: "https://mypoise.de/wp-content/uploads/2023/01/Magdalena-e1672744279356-700x700.jpg",
+  role: "Klinische Psychologin, Kinder- und Jugendpsychologin",
+  qualificationLevel: 2,
+
+  image:
+    "https://mypoise.de/wp-content/uploads/2023/01/Magdalena-e1672744279356-700x700.jpg",
+
   short:
     "Ich begleite Kinder, Jugendliche, Familien und Erwachsene durch schwierige Entwicklungs- und Lebensphasen.",
+
   video: "https://youtu.be/b06MFP9AxTg",
-  tags: [
+
+  themes: {
+    familie: 3,
+    beziehung: 3,
+    entwicklung: 3,
+    stress: 2,
+    konfliktthemen: 2,
+    trauer: 1,
+  },
+
+  keywords: [
+    // Familie
     "familie",
     "familienkonflikte",
-    "beziehung",
     "elternschaft",
-    "kinder",
-    "jugendliche",
+    "kindererziehung",
+    "belastung in der familie",
+
+    // Beziehung
+    "beziehung",
+    "paarprobleme",
+    "konflikte",
+
+    // Entwicklung
     "entwicklung",
+    "lebensphasen",
     "übergänge",
-    "krisen",
-    "trennung",
+    "veränderung",
+
+    // Stress
+    "stress",
+    "überforderung",
+
+    // Trauer
+    "verlust",
+    "abschied",
+
+    // Arbeitsweise
     "systemisch",
     "ressourcenorientiert",
-    "bindung",
-    "kommunikation",
-    "schwangerschaft",
-    "lebensphasen"
+    "zugewandt",
+    "klar",
   ],
+
+  tags: ["familie", "beziehung", "entwicklung"],
+
   preis_std: 150,
   preis_ermaessigt: 120,
   status: "frei",
-  ics: "https://calendar.google.com/calendar/ical/857518f623143d4ba427588f9c5bf2d690fd3082137a06298b53c289d3046fb1%40group.calendar.google.com/public/basic.ics"
 
+  ics:
+    "https://calendar.google.com/calendar/ical/857518f623143d4ba427588f9c5bf2d690fd3082137a06298b53c289d3046fb1%40group.calendar.google.com/public/basic.ics",
+},
+{
+  name: "Marleen",
+  role: "Ärztin, Psychotherapeutin",
+  qualificationLevel: 1,
 
-  },
-  {
-  name: "Marisa",
-  role: "Psychologin, Psychotherapeutin",
-  image: "https://mypoise.de/wp-content/uploads/2022/12/IMG_9908-e1669989498337-700x700.jpeg",
+  image:
+    "https://mypoise.de/wp-content/uploads/2022/11/Foto-Homepage-1300x1300.jpg",
+
   short:
-    "Ich unterstütze dich darin, deine eigenen Bedürfnisse ernst zu nehmen und deinen Weg selbstbewusst zu gehen.",
-  video: "https://youtu.be/ge-l5t2V5WM",
-  tags: [
-    "selbstwert",
-    "grenzen",
-    "beziehungen",
-    "selbstfürsorge",
-    "bedürfnisse",
-    "durchsetzung",
-    "konflikte",
-    "abhängigkeit",
-    "anpassung",
-    "emotionale klarheit",
+    "Ich verbinde medizinische Erfahrung, Psychotherapie und Kommunikation – ganzheitlich und reflektiert.",
+
+  video: "https://youtu.be/yXHYgCmN2ug",
+
+  themes: {
+    psychosomatik: 3,
+    stress: 3,
+    depressive_verstimmung: 2,
+    burnout: 2,
+    selbstführung: 2,
+    angst_panik: 1,
+  },
+
+  keywords: [
+    // Psychosomatik
+    "psychosomatik",
+    "körperliche symptome",
+    "magen",
+    "brustenge",
+    "schmerzen ohne befund",
+
+    // Stress
+    "stress",
+    "überlastung",
+    "anspannung",
+
+    // Depressive Verstimmung
+    "traurigkeit",
+    "erschöpfung",
+
+    // Burnout
+    "burnout",
+    "ausgebrannt",
+
+    // Selbstführung
+    "selbstführung",
     "selbstwirksamkeit",
-    "identität",
-    "psychotherapie"
+    "klarheit",
+
+    // Arbeitsweise
+    "medizinisch",
+    "ganzheitlich",
+    "reflektiert",
   ],
+
+  tags: ["psychosomatik", "stress", "ganzheitlich"],
+
   preis_std: 160,
   preis_ermaessigt: 120,
   status: "frei",
-  ics: "https://calendar.google.com/calendar/ical/a68d390ae0f3766da51d30eb7beab68d400dbbedae7343247cf2e87a57ab0fde%40group.calendar.google.com/public/basic.ics"
-  },
+
+  ics:
+    "https://calendar.google.com/calendar/ical/f04835be069493481a3237bc58af0993bebf5ebf93267c8be3a1c2b77ba54800%40group.calendar.google.com/public/basic.ics",
+},
+
   {
-    name: "Sophie",
-    role:
-      "Klinische und Entwicklungspsychologin, Heilpraktikerin für Psychotherapie und Coach",
-    image:
-      "https://mypoise.de/wp-content/uploads/2022/11/Foto-sophie-crop-1-e1668080175188.png",
-    short:
-      "Ich helfe dir, deine Geschichte zu verstehen — und sie so umzuschreiben, dass sie dich stärkt.",
-    video: "https://youtu.be/OA4nNWg1nq4",
-    tags: ["biografie", "innere anteile", "selbstmitgefühl", "verarbeitung"],
-    preis_std: 200,
-    preis_ermaessigt: 150,
-    status: "frei",
-    ics: "https://calendar.google.com/calendar/ical/7de0d517cd8d5ca144fdca0b7c64c96550a43b9fdf0a6071e44bc8b4437aabae%40group.calendar.google.com/public/basic.ics"
+  name: "Marisa",
+  role: "Psychologin, Psychotherapeutin",
+  qualificationLevel: 1,
+
+  image:
+    "https://mypoise.de/wp-content/uploads/2022/12/IMG_9908-e1669989498337-700x700.jpeg",
+
+  short:
+    "Ich unterstütze dich darin, deine eigenen Bedürfnisse ernst zu nehmen, Grenzen zu setzen und deinen Weg selbstbewusst zu gehen.",
+
+  video: "https://youtu.be/ge-l5t2V5WM",
+
+  themes: {
+    selbstwert: 3,
+    beziehung: 3,
+    grenzsetzung: 3,
+    depressive_verstimmung: 2,
+    stress: 2,
+    identität: 1,
   },
+
+  keywords: [
+    // Selbstwert
+    "selbstwert",
+    "selbstvertrauen",
+    "sich klein machen",
+    "nicht genug sein",
+    "innere sicherheit",
+
+    // Grenzen
+    "grenzen",
+    "abgrenzung",
+    "nein sagen",
+    "für sich einstehen",
+    "überangepasst",
+
+    // Beziehung
+    "beziehung",
+    "beziehungsprobleme",
+    "emotionale abhängigkeit",
+    "konflikte",
+
+    // Depressive Verstimmung
+    "traurigkeit",
+    "erschöpfung",
+    "innere leere",
+
+    // Stress
+    "stress",
+    "überforderung",
+    "daueranspannung",
+
+    // Arbeitsweise
+    "klar",
+    "ermutigend",
+    "stärkend",
+    "ressourcenorientiert",
+  ],
+
+  tags: ["selbstwert", "grenzen", "beziehung"],
+
+  preis_std: 160,
+  preis_ermaessigt: 120,
+  status: "frei",
+
+  ics:
+    "https://calendar.google.com/calendar/ical/a68d390ae0f3766da51d30eb7beab68d400dbbedae7343247cf2e87a57ab0fde%40group.calendar.google.com/public/basic.ics",
+},
+
   {
-    name: "Yanina",
-    role:
-      "Psychologische Psychotherapeutin (tiefenpsychologisch fundiert)",
-    image:
-      "https://mypoise.de/wp-content/uploads/2024/11/IMG_7943-scaled-e1732804924432-1022x1024.jpg",
-    short:
-      "Ich begleite dich fundiert, tief und klar — ohne Druck und ohne Bewertung.",
-    video: "https://youtu.be/2axjVpI5vus",
-    tags: ["tiefenpsychologie", "beziehung", "identität", "selbstklärung"],
-    preis_std: 180,
-    preis_ermaessigt: 120,
-    status: "frei",
-    ics: "https://calendar.google.com/calendar/ical/cf502bdfe6fe6de7fcfe7634f4dab305baaa01a1c04adf21781e4949ad6c0a62%40group.calendar.google.com/public/basic.ics"
-  }
+  name: "Sophie",
+  role: "Psychologin, Heilpraktikerin für Psychotherapie",
+  qualificationLevel: 3,
+
+  image:
+    "https://mypoise.de/wp-content/uploads/2022/11/Foto-sophie-crop-1-e1668080175188.png",
+
+  short:
+    "Ich helfe dir, deine Geschichte zu verstehen und emotionale Muster liebevoll zu verändern.",
+
+  video: "https://youtu.be/OA4nNWg1nq4",
+
+  themes: {
+    identität: 3,
+    innere_anteile: 3,
+    selbstmitgefühl: 3,
+    depressive_verstimmung: 2,
+    beziehung: 2,
+  },
+
+  keywords: [
+    // Identität
+    "identität",
+    "wer bin ich",
+    "selbstbild",
+
+    // Innere Anteile
+    "innere anteile",
+    "inneres kind",
+    "innere konflikte",
+
+    // Selbstmitgefühl
+    "selbstmitgefühl",
+    "selbstannahme",
+    "freundlich mit sich sein",
+
+    // Depressive Verstimmung
+    "traurigkeit",
+    "innere leere",
+
+    // Beziehung
+    "beziehung",
+    "bindung",
+
+    // Arbeitsweise
+    "biografisch",
+    "achtsam",
+    "tiefgehend",
+  ],
+
+  tags: ["identität", "innere anteile", "selbstmitgefühl"],
+
+  preis_std: 200,
+  preis_ermaessigt: 150,
+  status: "frei",
+
+  ics:
+    "https://calendar.google.com/calendar/ical/7de0d517cd8d5ca144fdca0b7c64c96550a43b9fdf0a6071e44bc8b4437aabae%40group.calendar.google.com/public/basic.ics",
+},
+
+  {
+  name: "Yanina",
+  role: "Psychologin, Psychotherapeutin",
+  qualificationLevel: 1,
+
+  image:
+    "https://mypoise.de/wp-content/uploads/2024/11/IMG_7943-scaled-e1732804924432-1022x1024.jpg",
+
+  short:
+    "Ich begleite dich fundiert, tiefenpsychologisch und klar durch emotionale Prozesse.",
+
+  video: "https://youtu.be/2axjVpI5vus",
+
+  themes: {
+    tiefenpsychologie: 3,
+    beziehung: 3,
+    identität: 3,
+    selbstwert: 2,
+    depressive_verstimmung: 2,
+    angst_panik: 1,
+  },
+
+  keywords: [
+    // Tiefenpsychologie
+    "tiefenpsychologie",
+    "unbewusste muster",
+    "frühe prägungen",
+
+    // Beziehung
+    "beziehung",
+    "bindung",
+    "beziehungsdynamiken",
+
+    // Identität
+    "identität",
+    "selbstbild",
+    "innere konflikte",
+
+    // Selbstwert
+    "selbstwert",
+    "selbstzweifel",
+
+    // Depressive Verstimmung
+    "traurigkeit",
+    "innere leere",
+
+    // Arbeitsweise
+    "tief",
+    "klar",
+    "therapeutisch",
+    "sicherer rahmen",
+  ],
+
+  tags: ["tiefenpsychologie", "beziehung", "identität"],
+
+  preis_std: 180,
+  preis_ermaessigt: 120,
+  status: "frei",
+
+  ics:
+    "https://calendar.google.com/calendar/ical/cf502bdfe6fe6de7fcfe7634f4dab305baaa01a1c04adf21781e4949ad6c0a62%40group.calendar.google.com/public/basic.ics",
+},
+
 ];
