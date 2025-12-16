@@ -814,77 +814,277 @@ export const teamData = [
 
   ics: "https://calendar.google.com/calendar/ical/aa848084588fd6e79f8f7056180a78ca0602df5ec8e305cfc50c600a36da43e6%40group.calendar.google.com/public/basic.ics",
 },
+{
+  name: "Judith",
+  role: "Klinische Psychologin",
+  qualificationLevel: 2,
 
-  {
-    name: "Julius",
-    role: "Psychologe, systemischer Coach und Mediator",
-    image: "https://mypoise.de/wp-content/uploads/2023/09/Poise_bild-1300x1300.jpg",
-    short:
-      "Ich arbeite klar, realistisch und ressourcenorientiert — wir finden Schritte, die wirklich funktionieren.",
-    video: "https://youtu.be/YNS5APSbV8Y",
-    tags: ["neuorientierung", "entscheidungen", "identität", "struktur"],
-    preis_std: 160,
-    preis_ermaessigt: 120,
-    status: "frei",
-    ics: "https://calendar.google.com/calendar/ical/8a00eded0b43b92f02470e3ee4791aee343a9e4226c20e758b5ba2cbca2ba0fc%40group.calendar.google.com/public/basic.ics"
-  },
-  {
-    name: "Kristin",
-    role: "Trauerbegleiterin, Heilpraktikerin Psychotherapie",
-    image:
-      "https://mypoise.de/wp-content/uploads/2024/01/202411_CG_LiliKristin_276-1300x1300.jpg",
-    short:
-      "Ich begleite dich, wenn du Verlust erlebt hast — behutsam, würdevoll und klar.",
-    video: "https://youtu.be/z7LUAXxzW7I",
-    tags: ["trauer", "abschied", "verarbeitung", "neubeginn"],
-    preis_std: 110,
-    preis_ermaessigt: 120,
-    status: "frei",
-    ics: "https://calendar.google.com/calendar/ical/693a5cd58448b0e4b9bd86d347a9efc125ed2e8967778fb8386e99c25e4d761b%40group.calendar.google.com/public/basic.ics"
-  },
-  {
-    name: "Kristin-Sofie",
-    role: "Klinische Psychologin",
-    image:
-      "https://mypoise.de/wp-content/uploads/2024/07/DSCF6979-1300x1300.jpg",
-    short:
-      "Ich begleite dich dabei, innere Stabilität und emotionale Klarheit aufzubauen — ruhig, klar, strukturiert.",
-    video: "https://youtu.be/pExhqepTZRQ",
-    tags: ["selbstwert", "emotionale regulation", "unsicherheit", "klarheit"],
-    preis_std: 160,
-    preis_ermaessigt: 120,
-    status: "frei",
-    ics: "https://calendar.google.com/calendar/ical/0796b382bb757d367c469af13358ae1bba96756ee606c256bb1e5985cf7f4b82%40group.calendar.google.com/public/basic.ics"
-  },
-  {
-  name: "Livia",
-  role: "Psychologin, Psychotherapeutin in Ausbildung",
-  image: "https://mypoise.de/wp-content/uploads/2025/10/Foto-11-1300x1300.jpg",
+  image: "https://mypoise.de/wp-content/uploads/2022/11/Judith_Gross-1300x1300.jpg",
+
   short:
-    "Ich helfe dir, wieder Nähe zu dir selbst aufzubauen — mit Feingefühl, Tiefgang und psychotherapeutischer Kompetenz.",
-  video: "",
-  tags: [
-    "identität",
-    "selbstfindung",
-    "selbstkontakt",
-    "emotionale nähe",
-    "erschöpfung",
-    "überforderung",
-    "anpassung",
-    "alte verletzungen",
-    "innere leere",
-    "selbstwert",
-    "beziehung zu sich",
-    "bindung",
-    "innere stabilität",
-    "achtsamkeit",
-    "psychotherapie"
+    "Ich unterstütze dich dabei, innere Belastung zu verstehen, einzuordnen und wieder mehr Stabilität & Leichtigkeit zu finden.",
+
+  video: "https://youtu.be/-BBED_bocu0",
+
+  themes: {
+    selbstwert: 3,
+    stress: 3,
+    depressive_verstimmung: 3,
+    emotionales_essen: 3,
+    angehoerige: 3,
+    krankheit_psychosomatik: 3,
+    beziehung_partnerschaft: 3,
+    angst_panikattacken: 3,
+    beruf_ziele_orientierung: 3,
+    burnout: 3,
+    trauer: 3,
+    sexualitaet: 3,
+  },
+
+  keywords: [
+    // Selbstwert / Selbstliebe
+    "selbstwert", "selbstliebe", "selbstbewusstsein", "selbstvertrauen",
+    "ich bin nicht gut genug", "selbstzweifel", "unsicherheit",
+
+    // Stress
+    "stress", "überforderung", "innerer druck", "gedankenkreisen", "gereiztheit",
+    "schlafprobleme", "schlafstörungen", "nackenschmerzen", "rückenschmerzen",
+    "tinnitus", "verdauungsprobleme", "viren anfälligkeit", "libidoverlust", "ausbleibende periode",
+
+    // Depressive Verstimmung
+    "depressive verstimmung", "krisen", "erschöpfung", "antriebslosigkeit",
+    "leistungsabfall", "konzentrationsprobleme", "innere leere", "soziale isolation",
+    "interessenverlust", "gewichtszunahme", "gewichtsabnahme", "aggression", "traurigkeit",
+
+    // Emotionales Essen
+    "emotionales essen", "fressanfälle", "binge", "kontrolliertes essen",
+    "emotionsregulation", "essverhalten",
+
+    // Angehörige
+    "angehörige", "grenzen ziehen", "abgrenzung", "selbstfürsorge", "für andere da sein",
+    "verantwortung", "carearbeit",
+
+    // Krankheit / Psychosomatik
+    "psychosomatik", "krankheit", "diagnose", "akzeptanz", "körper und psyche",
+    "ganzheitlich", "symptome", "schmerzen", "erschöpfung durch krankheit",
+
+    // Beziehung / Partnerschaft
+    "beziehung", "partnerschaft", "trennung", "kinderwunsch", "toxische beziehung",
+    "freundschaften", "konflikte", "unzufriedener single", "bindung", "nähe", "distanz",
+
+    // Angst / Panik
+    "angst", "panik", "panikattacken", "atemnot", "herzrasen", "schwindel",
+    "durchfall", "erbrechen", "prüfungsangst", "präsentationsangst",
+
+    // Beruf / Ziele / Orientierung
+    "beruf", "job", "arbeitsstress", "umzug", "jobeinstieg", "beförderung",
+    "orientierungslos", "ziele", "entscheidungen", "überforderung im job",
+
+    // Burnout
+    "burnout", "emotionale erschöpfung", "funktionieren müssen", "dauerstress",
+    "keine energie", "ausgebrannt", "überlastung",
+
+    // Trauer
+    "trauer", "verlust", "abschied", "fehlgeburt",
+
+    // Sexualität
+    "sexualität", "lustlosigkeit", "libido", "schmerzen beim gv",
+    "sexuelle orientierungslosigkeit", "erektionsprobleme",
+
+    // Arbeitsstil (aus Profil)
+    "stabilität", "struktur", "halt", "emotionaler halt", "leichtigkeit", "erdend", "tempo",
   ],
-  preis_std: 180,
+
+  tags: ["stress", "stabilität", "erschöpfung", "beziehung"],
+
+  preis_std: 170,
   preis_ermaessigt: 120,
   status: "frei",
-  ics: "https://calendar.google.com/calendar/ical/e985ea19fe89a072bbef17114d85ffb8b49227dd9f0170b556c4b98fc55c5881%40group.calendar.google.com/public/basic.ics"
+
+  ics: "https://calendar.google.com/calendar/ical/75c37902f254fc6e9b8e4c73238eb7bd74d1e11a7709a144683a092097335781%40group.calendar.google.com/public/basic.ics",
 },
+
+  {
+  name: "Julius",
+  role: "Psychologe, Coach",
+  qualificationLevel: 4,
+
+  image: "https://mypoise.de/wp-content/uploads/2023/09/Poise_bild-1300x1300.jpg",
+
+  short:
+    "Ich arbeite ressourcenorientiert und klar — wir finden gemeinsam praktikable Schritte, die sich nicht nur gut anhören, sondern wirklich funktionieren.",
+
+  video: "https://youtu.be/YNS5APSbV8Y",
+
+  themes: {
+    selbstwert: 1,
+    stress: 3,
+    depressive_verstimmung: 3,
+    angehoerige: 1,
+    krankheit_psychosomatik: 1,
+    beziehung_partnerschaft: 1,
+    angst_panikattacken: 1,
+    beruf_ziele_orientierung: 3,
+    burnout: 3,
+  },
+
+  keywords: [
+    // Beruf / Ziele / Orientierung (Tabelle)
+    "beruf", "job", "karriere", "umzug", "jobeinstieg", "beförderung",
+    "orientierungslos", "ziele", "entscheidungen", "neuorientierung",
+    "was ist mir wirklich wichtig", "werte", "prioritäten",
+
+    // Stress (Tabelle)
+    "stress", "gedankenkreisen", "druck", "schlafprobleme", "schlafstörungen",
+    "gereiztheit", "nacken", "rücken", "tinnitus", "verdauungsprobleme",
+    "überforderung", "arbeitsbelastung",
+
+    // Burnout (Tabelle)
+    "burnout", "erschöpfung", "ausgebrannt", "funktionieren", "keine energie",
+    "leistungsabfall", "konzentrationsprobleme", "dauerstress",
+
+    // Depressive Verstimmung (Tabelle)
+    "depressive verstimmung", "krise", "antriebslosigkeit", "innere leere",
+    "interessenverlust", "soziale isolation", "hoffnungslosigkeit",
+
+    // Angst / Panik (Tabelle – begleitend möglich)
+    "angst", "panik", "prüfungsangst", "präsentationsangst", "herzrasen", "atemnot", "schwindel",
+
+    // Beziehung (Tabelle – begleitend möglich)
+    "beziehung", "konflikte", "trennung", "freundschaften",
+
+    // Arbeitsweise (Profil)
+    "ressourcenorientiert", "klar", "strukturiert", "praktikable schritte",
+    "lösungsorientiert", "auf augenhöhe",
+  ],
+
+  tags: ["neuorientierung", "entscheidungen", "stress", "burnout"],
+
+  preis_std: 160,
+  preis_ermaessigt: 120,
+  status: "frei",
+
+  ics: "https://calendar.google.com/calendar/ical/8a00eded0b43b92f02470e3ee4791aee343a9e4226c20e758b5ba2cbca2ba0fc%40group.calendar.google.com/public/basic.ics",
+},
+
+  {
+  name: "Kristin",
+  role: "Coach, Heilpraktikerin für Psychotherapie, Trauerbegleiterin",
+  qualificationLevel: 5,
+
+  image: "https://mypoise.de/wp-content/uploads/2024/01/202411_CG_LiliKristin_276-1300x1300.jpg",
+
+  short:
+    "Ich begleite dich, wenn du Verlust erlebt hast — behutsam, würdevoll und klar.",
+
+  video: "https://youtu.be/z7LUAXxzW7I",
+
+  themes: {
+    trauer: 3,
+    selbstwert: 1,
+    depressive_verstimmung: 1,
+  },
+
+  keywords: [
+    // Trauer (Tabelle)
+    "trauer", "verlust", "abschied", "fehlgeburt", "loslösung",
+    "lebensumbrüche", "neubeginn", "transformation", "wellen", "prozess",
+
+    // Depressive Verstimmung (begleitend möglich – Tabelle Begriffe)
+    "krise", "traurigkeit", "antriebslosigkeit", "innere leere",
+    "schlafstörungen", "interessenverlust", "soziale isolation",
+
+    // Selbstwert (begleitend möglich)
+    "selbstwert", "selbstvertrauen", "ich bin nicht gut genug", "selbstzweifel",
+
+    // Arbeitsstil (Profil)
+    "weich", "getragen", "würdevoll", "menschlich", "nicht alleine", "halt", "begleitung",
+  ],
+
+  tags: ["trauer", "verlust", "abschied", "neubeginn"],
+
+  preis_std: 110,
+  preis_ermaessigt: 120,
+  status: "frei",
+
+  ics: "https://calendar.google.com/calendar/ical/693a5cd58448b0e4b9bd86d347a9efc125ed2e8967778fb8386e99c25e4d761b%40group.calendar.google.com/public/basic.ics",
+},
+
+  {
+  name: "Kristin-Sofie",
+  role: "Psychologin, Psychotherapeutin",
+  qualificationLevel: 1,
+
+  image: "https://mypoise.de/wp-content/uploads/2024/07/DSCF6979-1300x1300.jpg",
+
+  short:
+    "Ich begleite dich dabei, Klarheit über deine Gefühle zu bekommen und innere Stabilität aufzubauen — achtsam, ruhig und strukturiert.",
+
+  video: "https://youtu.be/pExhqepTZRQ",
+
+  themes: {
+    selbstwert: 1,
+    stress: 2,
+    depressive_verstimmung: 3,
+    emotionales_essen: 2,
+    angehoerige: 3,
+    krankheit_psychosomatik: 2,
+    angst_panikattacken: 3,
+    beruf_ziele_orientierung: 3,
+    burnout: 3,
+    trauer: 2,
+  },
+
+  keywords: [
+    // Depressive Verstimmung (Tabelle)
+    "depressive verstimmung", "krisen", "erschöpfung", "antriebslosigkeit",
+    "leistungsabfall", "konzentrationsprobleme", "schlafstörungen",
+    "innere leere", "soziale isolation", "interessenverlust",
+
+    // Burnout (Tabelle)
+    "burnout", "ausgebrannt", "dauerstress", "funktionieren müssen", "keine energie",
+    "überlastung", "emotionale erschöpfung",
+
+    // Angst / Panik (Tabelle)
+    "angst", "panik", "panikattacken", "atemnot", "herzrasen", "schwindel",
+    "durchfall", "erbrechen", "prüfungsangst", "präsentationsangst", "kontrollverlust",
+
+    // Stress (Tabelle)
+    "stress", "gedankenkreisen", "gereiztheit", "schlafprobleme",
+    "nackenschmerzen", "rückenschmerzen", "tinnitus", "verdauungsprobleme",
+
+    // Beruf / Ziele / Orientierung (Tabelle)
+    "beruf", "job", "umzug", "jobeinstieg", "beförderung", "orientierungslos",
+    "ziele", "entscheidung", "neuorientierung",
+
+    // Angehörige (Tabelle)
+    "angehörige", "grenzen ziehen", "abgrenzung", "selbstfürsorge", "verantwortung",
+
+    // Krankheit / Psychosomatik (Tabelle)
+    "psychosomatik", "krankheit", "diagnose", "körper und psyche", "akzeptanz", "ganzheitlich",
+
+    // Emotionales Essen (Tabelle)
+    "emotionales essen", "fressanfälle", "binge", "kontrolliertes essen", "emotionsregulation",
+
+    // Trauer (Tabelle – 2)
+    "trauer", "verlust", "abschied", "fehlgeburt",
+
+    // Selbstwert (1)
+    "selbstwert", "selbstliebe", "selbstvertrauen", "selbstzweifel", "unsicherheit",
+
+    // Arbeitsstil (Profil)
+    "innere stabilität", "emotionale klarheit", "selbstführung", "ruhig", "achtsam", "auf augenhöhe",
+  ],
+
+  tags: ["burnout", "angst", "stabilität", "klarheit"],
+
+  preis_std: 160,
+  preis_ermaessigt: 120,
+  status: "frei",
+
+  ics: "https://calendar.google.com/calendar/ical/0796b382bb757d367c469af13358ae1bba96756ee606c256bb1e5985cf7f4b82%40group.calendar.google.com/public/basic.ics",
+},
+
 
  {
   name: "Magdalena",
