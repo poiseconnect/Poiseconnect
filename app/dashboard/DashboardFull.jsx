@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { teamData } from "../teamData";
 
@@ -8,25 +8,36 @@ import { teamData } from "../teamData";
 
 function normalizeStatus(raw) {
   if (!raw) return "offen";
-  let s = String(raw).toLowerCase().trim();
+  const s = String(raw).toLowerCase().trim();
+
   if (["offen", "neu", ""].includes(s)) return "offen";
-  if (["termin_neu"].includes(s)) return "termin_neu";
-  if (["termin_bestaetigt"].includes(s)) return "termin_bestaetigt";
+  if (["termin_neu", "new_appointment"].includes(s)) return "termin_neu";
+  if (
+    [
+      "termin_bestaetigt",
+      "termin bestätigt",
+      "confirmed",
+      "appointment_confirmed",
+      "bestaetigt",
+    ].includes(s)
+  )
+    return "termin_bestaetigt";
   if (["active", "aktiv"].includes(s)) return "active";
-  if (["kein_match"].includes(s)) return "kein_match";
-  if (["beendet"].includes(s)) return "beendet";
+  if (["kein_match", "no_match"].includes(s)) return "kein_match";
+  if (["beendet", "finished"].includes(s)) return "beendet";
   if (["papierkorb"].includes(s)) return "papierkorb";
+
   return "offen";
 }
 
-const STATUS_META = {
-  offen: { label: "Neu" },
-  termin_neu: { label: "Neuer Termin" },
-  termin_bestaetigt: { label: "Termin bestätigt" },
-  active: { label: "Begleitung aktiv" },
-  kein_match: { label: "Kein Match" },
-  beendet: { label: "Beendet" },
-  papierkorb: { label: "Papierkorb" },
+const STATUS_LABEL = {
+  offen: "Neu",
+  termin_neu: "Neuer Termin",
+  termin_bestaetigt: "Termin bestätigt",
+  active: "Begleitung aktiv",
+  kein_match: "Kein Match",
+  beendet: "Beendet",
+  papierkorb: "Papierkorb",
 };
 
 /* ================= MODAL ================= */
@@ -38,7 +49,7 @@ function Modal({ children, onClose }) {
       style={{
         position: "fixed",
         inset: 0,
-        background: "rgba(0,0,0,.4)",
+        background: "rgba(0,0,0,.35)",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
@@ -51,7 +62,7 @@ function Modal({ children, onClose }) {
           background: "#fff",
           padding: 20,
           borderRadius: 12,
-          maxWidth: 560,
+          maxWidth: 720,
           width: "100%",
           maxHeight: "90vh",
           overflowY: "auto",
@@ -70,6 +81,7 @@ export default function DashboardFull() {
   const [requests, setRequests] = useState([]);
   const [sessionsByRequest, setSessionsByRequest] = useState({});
   const [filter, setFilter] = useState("unbearbeitet");
+  const [therapistFilter, setTherapistFilter] = useState("alle");
 
   const [detailsModal, setDetailsModal] = useState(null);
   const [editTarif, setEditTarif] = useState("");
@@ -89,18 +101,23 @@ export default function DashboardFull() {
   useEffect(() => {
     if (!user?.email) return;
 
-    supabase
+    let query = supabase
       .from("anfragen")
       .select("*")
-      .order("created_at", { ascending: false })
-      .then(({ data }) => {
-        setRequests(
-          (data || []).map((r) => ({
-            ...r,
-            _status: normalizeStatus(r.status),
-          }))
-        );
-      });
+      .order("created_at", { ascending: false });
+
+    if (user.email !== "hallo@mypoise.de") {
+      query = query.eq("wunschtherapeut", user.email);
+    }
+
+    query.then(({ data }) => {
+      setRequests(
+        (data || []).map((r) => ({
+          ...r,
+          _status: normalizeStatus(r.status),
+        }))
+      );
+    });
   }, [user]);
 
   /* ---------- LOAD SESSIONS ---------- */
@@ -117,27 +134,48 @@ export default function DashboardFull() {
 
   /* ---------- FILTER ---------- */
   const UNBEARBEITET = ["offen", "termin_neu", "termin_bestaetigt"];
-  const filtered = requests.filter((r) => {
-    if (filter === "unbearbeitet") return UNBEARBEITET.includes(r._status);
-    if (filter === "aktiv") return r._status === "active";
-    if (filter === "papierkorb") return r._status === "papierkorb";
-    return true;
-  });
+
+  const filtered = useMemo(() => {
+    return requests.filter((r) => {
+      if (filter === "unbearbeitet" && !UNBEARBEITET.includes(r._status))
+        return false;
+      if (filter === "aktiv" && r._status !== "active") return false;
+      if (filter === "papierkorb" && r._status !== "papierkorb") return false;
+      if (
+        therapistFilter !== "alle" &&
+        r.wunschtherapeut !== therapistFilter
+      )
+        return false;
+      return true;
+    });
+  }, [requests, filter, therapistFilter]);
 
   if (!user) return <div>Bitte einloggen…</div>;
 
   /* ================= UI ================= */
 
   return (
-    <div style={{ padding: 24, maxWidth: 960, margin: "0 auto" }}>
-      <h1>Dashboard</h1>
+    <div style={{ padding: 24, maxWidth: 1100, margin: "0 auto" }}>
+      <h1>Poise Dashboard</h1>
 
       {/* FILTER */}
-      <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>
+      <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
         <button onClick={() => setFilter("unbearbeitet")}>Unbearbeitet</button>
         <button onClick={() => setFilter("aktiv")}>Aktiv</button>
         <button onClick={() => setFilter("papierkorb")}>Papierkorb</button>
         <button onClick={() => setFilter("alle")}>Alle</button>
+
+        <select
+          value={therapistFilter}
+          onChange={(e) => setTherapistFilter(e.target.value)}
+        >
+          <option value="alle">Alle Teammitglieder</option>
+          {teamData.map((t) => (
+            <option key={t.email} value={t.email}>
+              {t.name}
+            </option>
+          ))}
+        </select>
       </div>
 
       {/* KARTEN */}
@@ -154,7 +192,15 @@ export default function DashboardFull() {
           <strong>
             {r.vorname} {r.nachname}
           </strong>
-          <div>{STATUS_META[r._status]?.label}</div>
+          <div>{STATUS_LABEL[r._status]}</div>
+
+          {r.wunschtherapeut && (
+            <div style={{ fontSize: 13, color: "#555" }}>
+              👤{" "}
+              {teamData.find((t) => t.email === r.wunschtherapeut)?.name ||
+                r.wunschtherapeut}
+            </div>
+          )}
 
           <p>{r.anliegen}</p>
 
@@ -169,33 +215,88 @@ export default function DashboardFull() {
 
           {/* ENTSCHEIDUNGEN */}
           {UNBEARBEITET.includes(r._status) && (
-            <>
-              <button onClick={() => fetch("/api/confirm-appointment", { method: "POST", body: JSON.stringify({ requestId: r.id }) })}>
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+              <button
+                onClick={() =>
+                  fetch("/api/confirm-appointment", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      requestId: r.id,
+                      therapist: user.email,
+                      client: r.email,
+                      slot: r.bevorzugte_zeit,
+                    }),
+                  }).then(() => location.reload())
+                }
+              >
                 ✔ Termin bestätigen
               </button>
 
               <button onClick={() => moveToTrash(r)}>✖ Absagen</button>
               <button onClick={() => moveToTrash(r)}>🔁 Neuer Termin</button>
               <button onClick={() => moveToTrash(r)}>👥 Weiterleiten</button>
-            </>
+            </div>
           )}
 
+          {/* MATCH / NO MATCH */}
           {r._status === "termin_bestaetigt" && (
-            <>
-              <button onClick={() => fetch("/api/match-client", { method: "POST", body: JSON.stringify({ anfrageId: r.id }) })}>
+            <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+              <button
+                onClick={() =>
+                  fetch("/api/match-client", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      anfrageId: r.id,
+                      therapistEmail: user.email,
+                      honorar: r.honorar_klient,
+                    }),
+                  }).then(() => location.reload())
+                }
+              >
                 ❤️ Match
               </button>
-              <button onClick={() => fetch("/api/no-match", { method: "POST", body: JSON.stringify({ anfrageId: r.id }) })}>
+
+              <button
+                onClick={() =>
+                  fetch("/api/no-match", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ anfrageId: r.id }),
+                  }).then(() => location.reload())
+                }
+              >
                 ❌ Kein Match
               </button>
-            </>
+            </div>
           )}
 
+          {/* AKTIV */}
+          {r._status === "active" && (
+            <div style={{ marginTop: 8 }}>
+              <button
+                onClick={() =>
+                  fetch("/api/finish-coaching", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ anfrageId: r.id }),
+                  }).then(() => location.reload())
+                }
+              >
+                🔴 Coaching beenden
+              </button>
+            </div>
+          )}
+
+          {/* PAPIERKORB */}
           {r._status === "papierkorb" && (
-            <>
-              <button onClick={() => restoreFromTrash(r)}>♻️ Wiederherstellen</button>
+            <div style={{ marginTop: 8 }}>
+              <button onClick={() => restoreFromTrash(r)}>
+                ♻️ Wiederherstellen
+              </button>
               <button onClick={() => deleteForever(r)}>🗑 Löschen</button>
-            </>
+            </div>
           )}
         </article>
       ))}
@@ -207,36 +308,80 @@ export default function DashboardFull() {
             {detailsModal.vorname} {detailsModal.nachname}
           </h3>
 
+          {/* SITZUNGEN */}
           <h4>Sitzungen</h4>
-          {(sessionsByRequest[detailsModal.id] || []).map((s) => (
-            <div key={s.id}>
-              {new Date(s.date).toLocaleString()} – {s.price} € (Provision {(s.price * 0.3).toFixed(2)} €)
+          {(sessionsByRequest[detailsModal.id] || []).map((s) => {
+            const date = new Date(s.date);
+            const quarter = `Q${Math.floor(date.getMonth() / 3) + 1} ${
+              date.getFullYear()
+            }`;
+            return (
+              <div key={s.id}>
+                {date.toLocaleString()} – {s.price} € (Provision{" "}
+                {(s.price * 0.3).toFixed(2)} €) · {quarter}
+              </div>
+            );
+          })}
+
+          {/* QUARTALSSUMME */}
+          <h4>Provision quartalsweise</h4>
+          {Object.entries(
+            (sessionsByRequest[detailsModal.id] || []).reduce(
+              (acc, s) => {
+                const d = new Date(s.date);
+                const q = `Q${Math.floor(d.getMonth() / 3) + 1} ${
+                  d.getFullYear()
+                }`;
+                acc[q] = (acc[q] || 0) + s.price * 0.3;
+                return acc;
+              },
+              {}
+            )
+          ).map(([q, sum]) => (
+            <div key={q}>
+              {q}: {sum.toFixed(2)} €
             </div>
           ))}
 
-          <h4>Stundensatz</h4>
-          <input value={editTarif} onChange={(e) => setEditTarif(e.target.value)} />
-
+          {/* STUNDENSATZ */}
+          <h4>Stundensatz (€)</h4>
+          <input
+            type="number"
+            value={editTarif}
+            onChange={(e) => setEditTarif(e.target.value)}
+          />
           <button
             onClick={() =>
               fetch("/api/update-tarif", {
                 method: "POST",
-                body: JSON.stringify({ anfrageId: detailsModal.id, tarif: Number(editTarif) }),
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  anfrageId: detailsModal.id,
+                  tarif: Number(editTarif),
+                }),
               })
             }
           >
             💾 Speichern
           </button>
 
-          <button onClick={() => moveToTrash(detailsModal)}>🗑 In Papierkorb</button>
-          <button onClick={() => setReassignModal(detailsModal)}>🔀 Therapeut wechseln</button>
+          <button onClick={() => moveToTrash(detailsModal)}>
+            🗑 In Papierkorb
+          </button>
+
+          <button onClick={() => setReassignModal(detailsModal)}>
+            🔀 Therapeut wechseln
+          </button>
         </Modal>
       )}
 
       {/* REASSIGN */}
       {reassignModal && (
         <Modal onClose={() => setReassignModal(null)}>
-          <select value={newTherapist} onChange={(e) => setNewTherapist(e.target.value)}>
+          <select
+            value={newTherapist}
+            onChange={(e) => setNewTherapist(e.target.value)}
+          >
             <option value="">Bitte wählen…</option>
             {teamData.map((t) => (
               <option key={t.email} value={t.email}>
@@ -249,8 +394,12 @@ export default function DashboardFull() {
             onClick={() =>
               fetch("/api/reassign-request", {
                 method: "POST",
-                body: JSON.stringify({ anfrageId: reassignModal.id, newTherapist }),
-              })
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  anfrageId: reassignModal.id,
+                  newTherapist,
+                }),
+              }).then(() => location.reload())
             }
           >
             Speichern
@@ -261,9 +410,11 @@ export default function DashboardFull() {
   );
 
   /* ---------- HELPERS ---------- */
+
   async function moveToTrash(r) {
     await fetch("/api/update-status", {
       method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ anfrageId: r.id, status: "papierkorb" }),
     });
     location.reload();
@@ -272,6 +423,7 @@ export default function DashboardFull() {
   async function restoreFromTrash(r) {
     await fetch("/api/update-status", {
       method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ anfrageId: r.id, status: "offen" }),
     });
     location.reload();
@@ -280,6 +432,7 @@ export default function DashboardFull() {
   async function deleteForever(r) {
     await fetch("/api/delete-request", {
       method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ anfrageId: r.id }),
     });
     location.reload();
