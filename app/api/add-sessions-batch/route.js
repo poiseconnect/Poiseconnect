@@ -3,9 +3,9 @@ import { supabase } from "../../lib/supabase";
 
 export async function POST(request) {
   try {
-    const { anfrageId, sessions } = await request.json();
+    const { anfrageId, sessions, therapist } = await request.json();
 
-    if (!anfrageId || !Array.isArray(sessions) || sessions.length === 0) {
+    if (!anfrageId || !therapist || !Array.isArray(sessions)) {
       return NextResponse.json(
         { error: "Ungültige Daten" },
         { status: 400 }
@@ -17,6 +17,7 @@ export async function POST(request) {
       date: s.date,
       duration_min: s.duration,
       price: Number(s.price),
+      therapist: therapist, // ✅ PFLICHTFELD
     }));
 
     const { error } = await supabase.from("sessions").insert(inserts);
