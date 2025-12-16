@@ -7,6 +7,8 @@ import StepIndicator from "./components/StepIndicator";
 import TeamCarousel from "./components/TeamCarousel";
 import { teamData } from "./teamData";
 import { supabase } from "./lib/supabase";
+import { matchTeamMembers } from "./lib/matchTeamMembers";
+
 
 // -------------------------------------
 // Helfer & Konfiguration
