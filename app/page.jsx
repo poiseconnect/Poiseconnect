@@ -225,6 +225,21 @@ const [selectedDay, setSelectedDay] = useState(null);
 
   const next = () => setStep((s) => s + 1);
   const back = () => setStep((s) => s - 1);
+  // -------------------------------------
+// MATCHING – Anliegen → passende Therapeut:innen
+// -------------------------------------
+
+const matchedTeam = useMemo(() => {
+  return matchTeamMembers(form.anliegen, teamData);
+}, [form.anliegen]);
+
+// Nur Therapeut:innen MIT freien Terminen
+const matchedAvailableTeam = useMemo(() => {
+  return matchedTeam.filter((m) =>
+    availableTherapists.includes(m.name)
+  );
+}, [matchedTeam, availableTherapists]);
+
 
   // ----------------------------
   // Validierung Step "Kontaktdaten"
@@ -849,12 +864,13 @@ const slotsByMonth = useMemo(() => {
         <h2>Wer könnte gut zu dir passen?</h2>
 
         <TeamCarousel
-          members={matchedAvailableTeam}
-          onSelect={(name) => {
-            setForm({ ...form, wunschtherapeut: name });
-            next();
-          }}
-        />
+  members={matchedAvailableTeam}
+  onSelect={(name) => {
+    setForm({ ...form, wunschtherapeut: name });
+    next();
+  }}
+/>
+
 
         <p style={{ fontSize: 13, opacity: 0.7 }}>
           Sortiert nach fachlicher Passung & Verfügbarkeit
