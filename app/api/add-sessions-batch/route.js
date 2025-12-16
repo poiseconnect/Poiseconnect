@@ -7,9 +7,9 @@ export async function POST(req) {
   try {
     const body = await req.json();
 
-    if (!Array.isArray(body) || body.length === 0) {
+    if (!Array.isArray(body)) {
       return NextResponse.json(
-        { error: "INVALID_BODY" },
+        { error: "BODY_NOT_ARRAY" },
         { status: 400 }
       );
     }
@@ -26,12 +26,9 @@ export async function POST(req) {
       );
     }
 
-    // ✅ NUR DAS:
     return NextResponse.json({ ok: true });
-
-  } catch (e) {
-    console.error("SERVER ERROR add-sessions-batch:", e);
-
+  } catch (err) {
+    console.error("SERVER ERROR add-sessions-batch:", err);
     return NextResponse.json(
       { error: "SERVER_ERROR" },
       { status: 500 }
