@@ -19,7 +19,7 @@ export async function POST(request) {
       date: s.date,
       duration_min: s.duration,
       price: Number(s.price),
-      therapist_email: therapist,
+    
     }));
 
     const { error } = await supabase.from("sessions").insert(inserts);
