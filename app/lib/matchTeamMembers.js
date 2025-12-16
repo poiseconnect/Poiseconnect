@@ -1,30 +1,45 @@
-import { teamData } from "../teamData";
+// app/lib/matchTeamMembers.js
 
-export function matchTeamMembers(anliegenText = "") {
-  const lower = anliegenText.toLowerCase();
+export function matchTeamMembers(anliegenText = "", team = []) {
+  if (!anliegenText.trim()) return team;
 
-  const topicKeywords = {
-    beziehung: ["beziehung", "partnerschaft", "trennung", "liebe", "affäre", "freundschaft"],
-    panik: ["angst", "panik", "attacke", "überforderung", "kontrolle", "stress"],
-    selbstwert: ["selbstwert", "unsicherheit", "scham", "ich bin nicht genug", "zweifel"],
-    burnout: ["burnout", "erschöpfung", "müdigkeit", "kraftlos", "überlastung"],
-    trauer: ["trauer", "verlust", "tod", "fehlgeburt"],
-    beruf: ["job", "arbeit", "karriere", "beruf", "kündigung", "neuanfang"],
-    trauma: ["trauma", "übergrif", "ptbs", "belastung"],
-    depression: ["depression", "niedergeschlagen", "antriebslos", "traurig"],
-    stress: ["stress", "reiz", "spannung", "belastung"],
-  };
+  const text = anliegenText.toLowerCase();
 
-  const matchedTopics = Object.keys(topicKeywords).filter(topic =>
-    topicKeywords[topic].some(word => lower.includes(word))
-  );
+  return team
+    .map((member) => {
+      let score = 0;
 
-  // Score berechnen
-  const scored = teamData.map(member => ({
-    ...member,
-    score: matchedTopics.filter(t => member.tags.includes(t)).length,
-  }));
+      // 1️⃣ THEMEN-GEWICHTUNG (stark)
+      if (member.themes) {
+        Object.entries(member.themes).forEach(([theme, weight]) => {
+          const themeKey = theme.replace("_", " ");
+          if (text.includes(themeKey) || text.includes(theme)) {
+            score += weight * 5; // Hauptgewicht
+          }
+        });
+      }
 
-  // Sortierung: Höchster Score → oben
-  return scored.sort((a, b) => b.score - a.score);
+      // 2️⃣ KEYWORDS (sehr präzise)
+      if (Array.isArray(member.keywords)) {
+        member.keywords.forEach((kw) => {
+          if (text.includes(kw.toLowerCase())) {
+            score += 3;
+          }
+        });
+      }
+
+      // 3️⃣ QUALIFIKATION (sanfter Boost, kein Override)
+      if (member.qualificationLevel) {
+        score += member.qualificationLevel * 0.5;
+      }
+
+      return {
+        ...member,
+        _score: score,
+      };
+    })
+    // Nur sinnvolle Matches behalten
+    .filter((m) => m._score > 0)
+    // Beste zuerst
+    .sort((a, b) => b._score - a._score);
 }
