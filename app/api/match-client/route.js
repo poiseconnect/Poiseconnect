@@ -1,94 +1,72 @@
-export const dynamic = "force-dynamic";
-
+import { NextResponse } from "next/server";
 import { supabase } from "../../lib/supabase";
-
-function json(data, status = 200) {
-  return new Response(JSON.stringify(data), {
-    status,
-    headers: { "Content-Type": "application/json" },
-  });
-}
-const { data: anfrage } = await supabase
-  .from("anfragen")
-  .select("status")
-  .eq("id", anfrageId)
-  .single();
-
-if (!["termin_bestaetigt", "confirmed"].includes(anfrage.status)) {
-  return NextResponse.json(
-    { error: "Match erst nach bestätigtem Ersttermin möglich" },
-    { status: 400 }
-  );
-}
 
 export async function POST(req) {
   try {
     const body = await req.json();
+    const { anfrageId, therapistEmail, honorar } = body;
 
-    console.log("MATCH BODY:", body);
+    if (!anfrageId) {
+      return NextResponse.json(
+        { error: "anfrageId fehlt" },
+        { status: 400 }
+      );
+    }
 
-    const {
-      anfrageId,
-      honorar,
-      therapistEmail,
-      nextDate,
-      duration,
-    } = body;
+    // 1️⃣ Aktuellen Status laden
+    const { data: anfrage, error: statusError } = await supabase
+      .from("anfragen")
+      .select("status")
+      .eq("id", anfrageId)
+      .single();
 
+    if (statusError || !anfrage) {
+      return NextResponse.json(
+        { error: "Anfrage nicht gefunden" },
+        { status: 404 }
+      );
+    }
+
+    const status = String(anfrage.status || "").toLowerCase();
+
+    // 2️⃣ Sicherheits-Gate: Match nur nach bestätigtem Ersttermin
     if (
-      !anfrageId ||
-      honorar === undefined ||
-      !therapistEmail ||
-      !nextDate ||
-      !duration
+      ![
+        "termin_bestaetigt",
+        "termin bestätigt",
+        "confirmed",
+        "appointment_confirmed",
+        "bestaetigt",
+      ].includes(status)
     ) {
-      return json({ error: "MISSING_FIELDS" }, 400);
+      return NextResponse.json(
+        { error: "Match erst nach bestätigtem Ersttermin möglich" },
+        { status: 400 }
+      );
     }
 
-    const price = Number(honorar);
-    if (isNaN(price)) {
-      return json({ error: "INVALID_HONORAR" }, 400);
-    }
-
-    // 1️⃣ Anfrage aktiv setzen + Preis speichern
+    // 3️⃣ Status auf active setzen + Tarif speichern
     const { error: updateError } = await supabase
       .from("anfragen")
       .update({
         status: "active",
-        honorar_klient: price, // ✅ ENTSCHEIDEND
+        honorar_klient: honorar ?? null,
+        wunschtherapeut: therapistEmail ?? null,
       })
       .eq("id", anfrageId);
 
     if (updateError) {
-      console.error("UPDATE ERROR:", updateError);
-      return json({ error: "update_failed" }, 500);
+      return NextResponse.json(
+        { error: updateError.message },
+        { status: 500 }
+      );
     }
 
-    // 2️⃣ Erste Sitzung anlegen
-    const commission = price * 0.3;
-    const payout = price * 0.7;
-
-    const { error: sessionError } = await supabase
-      .from("sessions")
-      .insert({
-        anfrage_id: anfrageId,
-        therapist: therapistEmail,
-        date: nextDate,
-        duration_min: Number(duration),
-        price,
-        commission,
-        payout,
-      });
-
-    if (sessionError) {
-      console.error("SESSION ERROR:", sessionError);
-      return json({ error: "session_failed" }, 500);
-    }
-
-    return json({ ok: true });
-
+    return NextResponse.json({ success: true });
   } catch (err) {
-    console.error("MATCH SERVER ERROR:", err);
-    return json({ error: "server_error" }, 500);
+    return NextResponse.json(
+      { error: "Serverfehler", detail: err.message },
+      { status: 500 }
+    );
   }
 }
