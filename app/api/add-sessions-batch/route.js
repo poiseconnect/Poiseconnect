@@ -1,56 +1,44 @@
 import { NextResponse } from "next/server";
 import { supabase } from "../../lib/supabase";
 
-
 export async function POST(request) {
   try {
-    const body = await request.json(); // ✅ einzig erlaubter json-Call
+    const body = await request.json();
+    const { anfrageId, therapist, sessions } = body || {};
 
-    if (!body || typeof body !== "object") {
+    if (!anfrageId || !therapist || !Array.isArray(sessions)) {
       return NextResponse.json(
-        { error: "INVALID_BODY" },
+        { error: "INVALID_PAYLOAD" },
         { status: 400 }
       );
     }
 
-    const { anfrageId, therapist, date, duration, price } = body;
-
-    if (!anfrageId || !therapist || !date || !duration) {
-      return NextResponse.json(
-        { error: "MISSING_FIELDS" },
-        { status: 400 }
-      );
-    }
-
+    // Anfrage aktiv setzen
     const { error: updateError } = await supabase
       .from("anfragen")
       .update({ status: "active" })
       .eq("id", anfrageId);
 
-    if (updateError) {
-      throw updateError;
-    }
+    if (updateError) throw updateError;
 
-    const session = {
+    // Sessions vorbereiten
+    const rows = sessions.map((s) => ({
       anfrage_id: anfrageId,
       therapist,
-      date,
-      duration_min: Number(duration),
-      price: price ?? null,
-      commission: price ? price * 0.3 : null,
-      payout: price ? price * 0.7 : null,
-    };
+      date: s.date,
+      duration_min: Number(s.duration),
+      price: Number(s.price),
+      commission: s.price ? s.price * 0.3 : null,
+      payout: s.price ? s.price * 0.7 : null,
+    }));
 
     const { error: insertError } = await supabase
       .from("sessions")
-      .insert(session);
+      .insert(rows);
 
-    if (insertError) {
-      throw insertError;
-    }
+    if (insertError) throw insertError;
 
     return NextResponse.json({ ok: true });
-
   } catch (err) {
     console.error("ADD-SESSIONS-BATCH ERROR:", err);
     return NextResponse.json(
