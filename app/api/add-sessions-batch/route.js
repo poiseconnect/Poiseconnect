@@ -3,55 +3,54 @@ import { supabase } from "../../lib/supabase";
 
 export async function POST(request) {
   try {
-    const body = await request.json();
+    const body = await request.json(); // ✅ einzig erlaubter json-Call
 
-    if (!body || typeof body !== "object") {
+    const { anfrageId, therapistEmail, honorar } = body || {};
+
+    if (!anfrageId) {
       return NextResponse.json(
-        { error: "INVALID_BODY" },
+        { error: "anfrageId fehlt" },
         { status: 400 }
       );
     }
 
-    const { anfrageId, therapist, date, duration, price } = body;
+    const { data: anfrage, error } = await supabase
+      .from("anfragen")
+      .select("status")
+      .eq("id", anfrageId)
+      .single();
 
-    if (!anfrageId || !therapist || !date || !duration) {
+    if (error || !anfrage) {
       return NextResponse.json(
-        { error: "MISSING_FIELDS" },
+        { error: "Anfrage nicht gefunden" },
+        { status: 404 }
+      );
+    }
+
+    const status = String(anfrage.status || "").toLowerCase();
+
+    if (!["confirmed", "termin_bestaetigt", "bestaetigt"].includes(status)) {
+      return NextResponse.json(
+        { error: "Match erst nach bestätigtem Termin erlaubt" },
         { status: 400 }
       );
     }
 
     const { error: updateError } = await supabase
       .from("anfragen")
-      .update({ status: "active" })
+      .update({
+        status: "active",
+        honorar_klient: honorar ?? null,
+        wunschtherapeut: therapistEmail ?? null,
+      })
       .eq("id", anfrageId);
 
-    if (updateError) {
-      throw updateError;
-    }
-
-    const session = {
-      anfrage_id: anfrageId,
-      therapist,
-      date,
-      duration_min: Number(duration),
-      price: price ?? null,
-      commission: price ? price * 0.3 : null,
-      payout: price ? price * 0.7 : null,
-    };
-
-    const { error: insertError } = await supabase
-      .from("sessions")
-      .insert(session);
-
-    if (insertError) {
-      throw insertError;
-    }
+    if (updateError) throw updateError;
 
     return NextResponse.json({ ok: true });
 
   } catch (err) {
-    console.error("ADD-SESSIONS-BATCH ERROR:", err);
+    console.error("MATCH CLIENT ERROR:", err);
     return NextResponse.json(
       { error: "SERVER_ERROR", detail: String(err) },
       { status: 500 }
