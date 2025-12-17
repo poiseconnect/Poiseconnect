@@ -1,10 +1,11 @@
+// app/api/update-status/route.js
 import { NextResponse } from "next/server";
 import { supabase } from "../../lib/supabase";
 
-
 export async function POST(req) {
   try {
-    const { anfrageId, status } = await req.json();
+    const body = await req.json();
+    const { anfrageId, status } = body;
 
     if (!anfrageId || !status) {
       return NextResponse.json(
@@ -18,7 +19,13 @@ export async function POST(req) {
       .update({ status })
       .eq("id", anfrageId);
 
-    if (error) throw error;
+    if (error) {
+      console.error("Supabase update error:", error);
+      return NextResponse.json(
+        { error: error.message },
+        { status: 500 }
+      );
+    }
 
     return NextResponse.json({ success: true });
   } catch (err) {
