@@ -307,30 +307,77 @@ export default function DashboardFull() {
           <h3>
             {detailsModal.vorname} {detailsModal.nachname}
           </h3>
-
-          {/* FORMULARINFOS – IMMER */}
-          <section>
-            <p>
-              <strong>E-Mail:</strong> {detailsModal.email}
-            </p>
-            <p>
-              <strong>Telefon:</strong> {detailsModal.telefon}
-            </p>
-            <p>
-              <strong>Anliegen:</strong> {detailsModal.anliegen}
-            </p>
-            <p>
-              <strong>Wunschtherapeut:</strong> {detailsModal.wunschtherapeut}
-            </p>
-{detailsModal.bevorzugte_zeit &&
- !isNaN(Date.parse(detailsModal.bevorzugte_zeit)) && (
+{/* FORMULARINFOS – IMMER */}
+<section>
   <p>
-    <strong>Ersttermin:</strong>{" "}
-    {new Date(detailsModal.bevorzugte_zeit).toLocaleString("de-AT")}
+    <strong>Name:</strong> {detailsModal.vorname} {detailsModal.nachname}
   </p>
-)}
 
-          </section>
+  <p>
+    <strong>E-Mail:</strong> {detailsModal.email}
+  </p>
+
+  <p>
+    <strong>Telefon:</strong> {detailsModal.telefon || "–"}
+  </p>
+
+  <p>
+    <strong>Adresse:</strong> {detailsModal.adresse || "–"}
+  </p>
+
+  <p>
+    <strong>Alter:</strong>{" "}
+    {detailsModal.geburtsdatum
+      ? new Date().getFullYear() -
+        new Date(detailsModal.geburtsdatum).getFullYear()
+      : "–"}
+  </p>
+
+  <hr />
+
+  <p>
+    <strong>Anliegen:</strong> {detailsModal.anliegen}
+  </p>
+
+  <p>
+    <strong>Leidensdruck:</strong> {detailsModal.leidensdruck || "–"}
+  </p>
+
+  <p>
+    <strong>Wie lange schon:</strong> {detailsModal.verlauf || "–"}
+  </p>
+
+  <p>
+    <strong>Diagnose:</strong> {detailsModal.diagnose || "–"}
+  </p>
+
+  <p>
+    <strong>Ziel:</strong> {detailsModal.ziel || "–"}
+  </p>
+
+  <p>
+    <strong>Beschäftigungsgrad:</strong>{" "}
+    {detailsModal.beschaeftigungsgrad || "–"}
+  </p>
+
+  <hr />
+
+  <p>
+    <strong>Wunschtherapeut:</strong>{" "}
+    {teamData.find((t) => t.email === detailsModal.wunschtherapeut)?.name ||
+      detailsModal.wunschtherapeut ||
+      "–"}
+  </p>
+
+  {detailsModal.bevorzugte_zeit &&
+    !isNaN(Date.parse(detailsModal.bevorzugte_zeit)) && (
+      <p>
+        <strong>Ersttermin:</strong>{" "}
+        {new Date(detailsModal.bevorzugte_zeit).toLocaleString("de-AT")}
+      </p>
+    )}
+</section>
+
 
           {/* AKTIV-BEREICH */}
           {detailsModal._status === "active" && (
