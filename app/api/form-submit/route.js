@@ -81,7 +81,8 @@ export async function POST(req) {
       ziel: body.ziel || null,
 
       wunschtherapeut: therapist,
-      bevorzugte_zeit: bevorzugteZeit,
+      bevorzugte_zeit: body.terminISO || null,
+
 
       check_suizid: Boolean(body.check_gesundheit),
       check_datenschutz: Boolean(body.check_datenschutz),
