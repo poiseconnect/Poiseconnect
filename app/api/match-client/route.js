@@ -3,9 +3,9 @@ import { supabase } from "../../lib/supabase";
 
 export async function POST(request) {
   try {
-    // ✅ Request sauber parsen
-    const body = await request.json();
-    const { anfrageId, therapistEmail, honorar } = body;
+    const body = await request.json(); // ✅ einzig erlaubter json-Call
+
+    const { anfrageId, therapistEmail, honorar } = body || {};
 
     if (!anfrageId) {
       return NextResponse.json(
@@ -14,14 +14,13 @@ export async function POST(request) {
       );
     }
 
-    // 1️⃣ Aktuellen Status laden
-    const { data: anfrage, error: statusError } = await supabase
+    const { data: anfrage, error } = await supabase
       .from("anfragen")
       .select("status")
       .eq("id", anfrageId)
       .single();
 
-    if (statusError || !anfrage) {
+    if (error || !anfrage) {
       return NextResponse.json(
         { error: "Anfrage nicht gefunden" },
         { status: 404 }
@@ -30,23 +29,13 @@ export async function POST(request) {
 
     const status = String(anfrage.status || "").toLowerCase();
 
-    // 2️⃣ Sicherheits-Gate
-    const allowed = [
-      "termin_bestaetigt",
-      "termin bestätigt",
-      "confirmed",
-      "appointment_confirmed",
-      "bestaetigt",
-    ];
-
-    if (!allowed.includes(status)) {
+    if (!["confirmed", "termin_bestaetigt", "bestaetigt"].includes(status)) {
       return NextResponse.json(
-        { error: "Match erst nach bestätigtem Ersttermin möglich" },
+        { error: "Match erst nach bestätigtem Termin erlaubt" },
         { status: 400 }
       );
     }
 
-    // 3️⃣ Anfrage aktiv setzen
     const { error: updateError } = await supabase
       .from("anfragen")
       .update({
@@ -56,20 +45,14 @@ export async function POST(request) {
       })
       .eq("id", anfrageId);
 
-    if (updateError) {
-      return NextResponse.json(
-        { error: updateError.message },
-        { status: 500 }
-      );
-    }
+    if (updateError) throw updateError;
 
-    // ✅ SAUBERE RESPONSE
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ ok: true });
 
   } catch (err) {
     console.error("MATCH CLIENT ERROR:", err);
     return NextResponse.json(
-      { error: "Serverfehler", detail: err?.message },
+      { error: "SERVER_ERROR", detail: String(err) },
       { status: 500 }
     );
   }
