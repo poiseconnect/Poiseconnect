@@ -3,16 +3,16 @@ import { supabase } from "../../lib/supabase";
 
 export async function POST(request) {
   try {
-    // ⚠️ request.json() NUR EINMAL
     const body = await request.json();
 
-    const {
-      anfrageId,
-      therapist,
-      date,
-      duration,
-      price,
-    } = body;
+    if (!body || typeof body !== "object") {
+      return NextResponse.json(
+        { error: "INVALID_BODY" },
+        { status: 400 }
+      );
+    }
+
+    const { anfrageId, therapist, date, duration, price } = body;
 
     if (!anfrageId || !therapist || !date || !duration) {
       return NextResponse.json(
@@ -21,55 +21,39 @@ export async function POST(request) {
       );
     }
 
-    const sessionPrice =
-      typeof price === "number" ? price : null;
-
-    // Anfrage aktiv setzen
     const { error: updateError } = await supabase
       .from("anfragen")
       .update({ status: "active" })
       .eq("id", anfrageId);
 
     if (updateError) {
-      console.error("UPDATE ERROR:", updateError);
-      return NextResponse.json(
-        { error: "update_failed" },
-        { status: 500 }
-      );
+      throw updateError;
     }
 
-    const commission =
-      sessionPrice !== null ? sessionPrice * 0.3 : null;
-    const payout =
-      sessionPrice !== null ? sessionPrice * 0.7 : null;
+    const session = {
+      anfrage_id: anfrageId,
+      therapist,
+      date,
+      duration_min: Number(duration),
+      price: price ?? null,
+      commission: price ? price * 0.3 : null,
+      payout: price ? price * 0.7 : null,
+    };
 
     const { error: insertError } = await supabase
       .from("sessions")
-      .insert({
-        anfrage_id: anfrageId,
-        therapist,
-        date,
-        duration_min: Number(duration),
-        price: sessionPrice,
-        commission,
-        payout,
-      });
+      .insert(session);
 
     if (insertError) {
-      console.error("INSERT ERROR:", insertError);
-      return NextResponse.json(
-        { error: "session_failed" },
-        { status: 500 }
-      );
+      throw insertError;
     }
 
-    // ✅ NUR DAS
     return NextResponse.json({ ok: true });
 
   } catch (err) {
     console.error("ADD-SESSIONS-BATCH ERROR:", err);
     return NextResponse.json(
-      { error: "server_error", detail: String(err) },
+      { error: "SERVER_ERROR", detail: String(err) },
       { status: 500 }
     );
   }
