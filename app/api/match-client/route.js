@@ -47,7 +47,6 @@ export async function POST(request) {
     if (updateError) throw updateError;
 
     return NextResponse.json({ ok: true });
-
   } catch (err) {
     console.error("MATCH CLIENT ERROR:", err);
     return NextResponse.json(
