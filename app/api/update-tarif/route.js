@@ -24,10 +24,11 @@ export async function POST(request) {
       );
     }
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ ok: true });
   } catch (err) {
+    console.error("MATCH CLIENT ERROR:", err);
     return NextResponse.json(
-      { error: err.message },
+      { error: "SERVER_ERROR", detail: String(err) },
       { status: 500 }
     );
   }
