@@ -41,7 +41,6 @@ export async function POST(request) {
       .update({
         status: "active",
         honorar_klient: honorar ?? null,
-        wunschtherapeut: therapistEmail ?? null,
       })
       .eq("id", anfrageId);
 
