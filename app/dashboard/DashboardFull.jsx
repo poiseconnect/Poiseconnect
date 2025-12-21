@@ -103,7 +103,27 @@ export default function DashboardFull() {
 
     let query = supabase
       .from("anfragen")
-      .select("*")
+      .select(`
+  id,
+  created_at,
+  vorname,
+  nachname,
+  email,
+  telefon,
+  strasse_hausnr,
+  plz_ort,
+  geburtsdatum,
+  beschaeftigungsgrad,
+  leidensdruck,
+  anliegen,
+  verlauf,
+  ziel,
+  status,
+  bevorzugte_zeit,
+  wunschtherapeut,
+  honorar_klient
+`)
+      
       .order("created_at", { ascending: false });
 
     if (user.email !== "hallo@mypoise.de") {
