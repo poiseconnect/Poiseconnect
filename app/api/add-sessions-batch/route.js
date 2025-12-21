@@ -40,7 +40,7 @@ export async function POST(request) {
 
     return NextResponse.json({ ok: true });
   } catch (err) {
-    console.error("ADD-SESSIONS-BATCH ERROR:", err);
+    console.error("MATCH CLIENT ERROR:", err);
     return NextResponse.json(
       { error: "SERVER_ERROR", detail: String(err) },
       { status: 500 }
