@@ -49,11 +49,12 @@ export async function POST(req) {
       console.error("INSERT ERROR:", error);
       return json({ error: "session_failed", detail: error }, 500);
     }
-
-    return json({ ok: true });
-
+    return NextResponse.json({ ok: true });
   } catch (err) {
-    console.error("SERVER ERROR (add-session):", err);
-    return json({ error: "server_error" }, 500);
+    console.error("MATCH CLIENT ERROR:", err);
+    return NextResponse.json(
+      { error: "SERVER_ERROR", detail: String(err) },
+      { status: 500 }
+    );
   }
 }
