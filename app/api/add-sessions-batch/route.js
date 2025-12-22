@@ -1,10 +1,15 @@
 import { NextResponse } from "next/server";
-import { supabase } from "../../lib/supabase";
+import { createClient } from "@supabase/supabase-js";
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY
+);
 
 export async function POST(request) {
   try {
     const body = await request.json();
-    const { anfrageId, therapist, sessions } = body || {};
+    const { anfrageId, therapist, sessions, price } = body || {};
 
     if (!anfrageId || !therapist || !Array.isArray(sessions)) {
       return NextResponse.json(
@@ -25,11 +30,14 @@ export async function POST(request) {
     const rows = sessions.map((s) => ({
       anfrage_id: anfrageId,
       therapist,
-      date: s.date,
+      date:
+        s.date && !isNaN(Date.parse(s.date))
+          ? s.date
+          : null,
       duration_min: Number(s.duration),
-      price: Number(s.price),
-      commission: s.price ? s.price * 0.3 : null,
-      payout: s.price ? s.price * 0.7 : null,
+      price: Number(price),
+      commission: price ? price * 0.3 : null,
+      payout: price ? price * 0.7 : null,
     }));
 
     const { error: insertError } = await supabase
@@ -40,7 +48,7 @@ export async function POST(request) {
 
     return NextResponse.json({ ok: true });
   } catch (err) {
-    console.error("MATCH CLIENT ERROR:", err);
+    console.error("ADD SESSIONS ERROR:", err);
     return NextResponse.json(
       { error: "SERVER_ERROR", detail: String(err) },
       { status: 500 }
