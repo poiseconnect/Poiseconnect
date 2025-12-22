@@ -1,9 +1,22 @@
-import { NextResponse } from "next/server";
-import { supabase } from "../../lib/supabase";
+export const dynamic = "force-dynamic";
 
-export async function POST(request) {
+import { NextResponse } from "next/server";
+import { createClient } from "@supabase/supabase-js";
+
+// -----------------------------------------
+// 🔧 Supabase SERVER Client (wie batch)
+// -----------------------------------------
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY
+);
+
+// -----------------------------------------
+// 🚀 POST: MATCH CLIENT
+// -----------------------------------------
+export async function POST(req) {
   try {
-    const body = await request.json(); // ✅ einzig erlaubter json-Call
+    const body = await req.json(); // ✅ genau ein json()
 
     const { anfrageId, therapistEmail, honorar } = body || {};
 
@@ -14,6 +27,7 @@ export async function POST(request) {
       );
     }
 
+    // 1️⃣ Status prüfen
     const { data: anfrage, error } = await supabase
       .from("anfragen")
       .select("status")
@@ -29,13 +43,16 @@ export async function POST(request) {
 
     const status = String(anfrage.status || "").toLowerCase();
 
-    if (!["confirmed", "termin_bestaetigt", "bestaetigt"].includes(status)) {
+    if (
+      !["confirmed", "termin_bestaetigt", "bestaetigt"].includes(status)
+    ) {
       return NextResponse.json(
         { error: "Match erst nach bestätigtem Termin erlaubt" },
         { status: 400 }
       );
     }
 
+    // 2️⃣ Anfrage aktiv setzen
     const { error: updateError } = await supabase
       .from("anfragen")
       .update({
@@ -44,7 +61,13 @@ export async function POST(request) {
       })
       .eq("id", anfrageId);
 
-    if (updateError) throw updateError;
+    if (updateError) {
+      console.error("MATCH UPDATE ERROR:", updateError);
+      return NextResponse.json(
+        { error: "UPDATE_FAILED", detail: updateError.message },
+        { status: 500 }
+      );
+    }
 
     return NextResponse.json({ ok: true });
   } catch (err) {
