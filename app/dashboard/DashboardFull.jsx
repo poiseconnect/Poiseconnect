@@ -89,6 +89,11 @@ export default function DashboardFull() {
 
   const [reassignModal, setReassignModal] = useState(null);
   const [newTherapist, setNewTherapist] = useState("");
+  const [createBestandOpen, setCreateBestandOpen] = useState(false);
+const [bestandVorname, setBestandVorname] = useState("");
+const [bestandNachname, setBestandNachname] = useState("");
+const [bestandTherapeut, setBestandTherapeut] = useState("");
+
 
   /* ---------- LOAD USER ---------- */
   useEffect(() => {
