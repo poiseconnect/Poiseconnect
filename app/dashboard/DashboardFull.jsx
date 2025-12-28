@@ -197,6 +197,20 @@ export default function DashboardFull() {
           ))}
         </select>
       </div>
+      
+<button
+  onClick={() => setCreateBestandOpen(true)}
+  style={{
+    marginBottom: 16,
+    padding: "8px 14px",
+    borderRadius: 999,
+    background: "#E8FFF0",
+    border: "1px solid #90D5A0",
+    fontWeight: 600,
+  }}
+>
+  ➕ Bestandsklient:in anlegen
+</button>
 
       {/* KARTEN */}
       {filtered.map((r) => (
@@ -320,6 +334,7 @@ export default function DashboardFull() {
           )}
         </article>
       ))}
+      
 
       {/* DETAILANSICHT */}
       {detailsModal && (
