@@ -581,6 +581,75 @@ const [bestandTherapeut, setBestandTherapeut] = useState("");
           </button>
         </Modal>
       )}
+      {createBestandOpen && (
+  <Modal onClose={() => setCreateBestandOpen(false)}>
+    <h3>🧩 Bestandsklient:in anlegen</h3>
+
+    <label>Vorname *</label>
+    <input
+      value={bestandVorname}
+      onChange={(e) => setBestandVorname(e.target.value)}
+      style={{ width: "100%", marginBottom: 8 }}
+    />
+
+    <label>Nachname *</label>
+    <input
+      value={bestandNachname}
+      onChange={(e) => setBestandNachname(e.target.value)}
+      style={{ width: "100%", marginBottom: 8 }}
+    />
+
+    <label>Therapeut *</label>
+    <select
+      value={bestandTherapeut}
+      onChange={(e) => setBestandTherapeut(e.target.value)}
+      style={{ width: "100%", marginBottom: 12 }}
+    >
+      <option value="">Bitte wählen…</option>
+      {teamData.map((t) => (
+        <option key={t.email} value={t.email}>
+          {t.name}
+        </option>
+      ))}
+    </select>
+
+    <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+      <button onClick={() => setCreateBestandOpen(false)}>
+        Abbrechen
+      </button>
+
+      <button
+        onClick={async () => {
+          if (!bestandVorname || !bestandNachname || !bestandTherapeut) {
+            alert("Bitte alle Pflichtfelder ausfüllen");
+            return;
+          }
+
+          const res = await fetch("/api/create-bestand", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              vorname: bestandVorname,
+              nachname: bestandNachname,
+              wunschtherapeut: bestandTherapeut,
+            }),
+          });
+
+          if (!res.ok) {
+            alert("Fehler beim Anlegen");
+            return;
+          }
+
+          setCreateBestandOpen(false);
+          location.reload();
+        }}
+      >
+        ✔ Anlegen
+      </button>
+    </div>
+  </Modal>
+)}
+
     </div>
   );
 
