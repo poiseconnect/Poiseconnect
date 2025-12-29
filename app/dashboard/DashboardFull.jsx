@@ -4,6 +4,22 @@ import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { teamData } from "../teamData";
 
+function safeText(v) {
+  return typeof v === "string" && v.trim() !== "" ? v : "–";
+}
+
+function safeNumber(v) {
+  const n = Number(v);
+  return isNaN(n) ? 0 : n;
+}
+
+function safeDateString(v) {
+  if (!v) return null;
+  const t = Date.parse(v);
+  if (isNaN(t)) return null;
+  return new Date(t).toLocaleString("de-AT");
+}
+
 /* ================= STATUS ================= */
 
 function normalizeStatus(raw) {
@@ -427,25 +443,29 @@ return true;
           </h3>
 {/* FORMULARINFOS – IMMER */}
 <section>
+ <section>
   <p>
-    <strong>Name:</strong> {detailsModal.vorname} {detailsModal.nachname}
+    <strong>Name:</strong>{" "}
+    {safeText(detailsModal?.vorname)} {safeText(detailsModal?.nachname)}
   </p>
 
   <p>
-    <strong>E-Mail:</strong> {detailsModal.email}
+    <strong>E-Mail:</strong> {safeText(detailsModal?.email)}
   </p>
 
   <p>
-    <strong>Telefon:</strong> {detailsModal.telefon || "–"}
+    <strong>Telefon:</strong> {safeText(detailsModal?.telefon)}
   </p>
 
   <p>
-    <strong>Adresse:</strong> {detailsModal.adresse || "–"}
+    <strong>Adresse:</strong>{" "}
+    {safeText(detailsModal?.strasse_hausnr)}{" "}
+    {safeText(detailsModal?.plz_ort)}
   </p>
 
   <p>
     <strong>Alter:</strong>{" "}
-    {detailsModal.geburtsdatum
+    {detailsModal?.geburtsdatum && !isNaN(Date.parse(detailsModal.geburtsdatum))
       ? new Date().getFullYear() -
         new Date(detailsModal.geburtsdatum).getFullYear()
       : "–"}
@@ -454,47 +474,45 @@ return true;
   <hr />
 
   <p>
-    <strong>Anliegen:</strong> {detailsModal.anliegen}
+    <strong>Anliegen:</strong>{" "}
+    {typeof detailsModal?.anliegen === "string"
+      ? detailsModal.anliegen
+      : "–"}
   </p>
 
   <p>
-    <strong>Leidensdruck:</strong> {detailsModal.leidensdruck || "–"}
+    <strong>Leidensdruck:</strong> {safeText(detailsModal?.leidensdruck)}
   </p>
 
   <p>
-    <strong>Wie lange schon:</strong> {detailsModal.verlauf || "–"}
+    <strong>Wie lange schon:</strong> {safeText(detailsModal?.verlauf)}
   </p>
 
   <p>
-    <strong>Diagnose:</strong> {detailsModal.diagnose || "–"}
-  </p>
-
-  <p>
-    <strong>Ziel:</strong> {detailsModal.ziel || "–"}
+    <strong>Ziel:</strong> {safeText(detailsModal?.ziel)}
   </p>
 
   <p>
     <strong>Beschäftigungsgrad:</strong>{" "}
-    {detailsModal.beschaeftigungsgrad || "–"}
+    {safeText(detailsModal?.beschaeftigungsgrad)}
   </p>
 
   <hr />
 
   <p>
     <strong>Wunschtherapeut:</strong>{" "}
-    {teamData.find((t) => t.email === detailsModal.wunschtherapeut)?.name ||
-      detailsModal.wunschtherapeut ||
-      "–"}
+    {teamData.find((t) => t.email === detailsModal?.wunschtherapeut)?.name ||
+      safeText(detailsModal?.wunschtherapeut)}
   </p>
 
-  {detailsModal.bevorzugte_zeit &&
-    !isNaN(Date.parse(detailsModal.bevorzugte_zeit)) && (
-      <p>
-        <strong>Ersttermin:</strong>{" "}
-        {new Date(detailsModal.bevorzugte_zeit).toLocaleString("de-AT")}
-      </p>
-    )}
+  {safeDateString(detailsModal?.bevorzugte_zeit) && (
+    <p>
+      <strong>Ersttermin:</strong>{" "}
+      {safeDateString(detailsModal.bevorzugte_zeit)}
+    </p>
+  )}
 </section>
+
 
 
           {/* AKTIV-BEREICH */}
@@ -535,7 +553,8 @@ return true;
               <p>
                 <strong>Gesamt:</strong>{" "}
                 {(sessionsByRequest[detailsModal.id] || [])
-                  .reduce((sum, s) => sum + s.price * 0.3, 0)
+                  .reduce((sum, s) => sum + safeNumber(s.price) * 0.3, 0)
+
                   .toFixed(2)}{" "}
                 €
               </p>
@@ -561,11 +580,12 @@ return true;
 
               {/* SITZUNGEN */}
               <h4>Sitzungen</h4>
-              {(sessionsByRequest[detailsModal.id] || []).map((s) => (
-                <div key={s.id}>
-                  {new Date(s.date).toLocaleString("de-AT")} · {s.duration_min} Min
-                </div>
-              ))}
+            {(sessionsByRequest[detailsModal.id] || []).map((s, i) => (
+  <div key={s.id || `${s.date}-${i}`}>
+    {safeDateString(s.date) || "–"} · {safeNumber(s.duration_min)} Min
+  </div>
+))}
+
 
               {/* NEUE SITZUNG */}
               <h4>Neue Sitzung eintragen</h4>
