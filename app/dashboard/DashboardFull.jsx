@@ -511,61 +511,68 @@ return true;
 
 
 
-              {/* NEUE SITZUNG */}
-              <h4>Neue Sitzung eintragen</h4>
-              {newSessions.map((s, i) => (
-                <div key={i} style={{ display: "flex", gap: 8 }}>
-                  <input
-                    type="datetime-local"
-                    value={s.date}
-                    onChange={(e) => {
-                      const copy = [...newSessions];
-                      copy[i].date = e.target.value;
-                      setNewSessions(copy);
-                    }}
-                  />
-                  <select
-                    value={s.duration}
-                    onChange={(e) => {
-                      const copy = [...newSessions];
-                      copy[i].duration = Number(e.target.value);
-                      setNewSessions(copy);
-                    }}
-                  >
-                    <option value={50}>50 Min</option>
-                    <option value={60}>60 Min</option>
-                    <option value={75}>75 Min</option>
-                  </select>
-                </div>
-              ))}
+ {detailsModal._status === "active" && (
+  <div>
+    {/* NEUE SITZUNG */}
+    <h4>Neue Sitzung eintragen</h4>
 
-              <button
-                onClick={() =>
-                  setNewSessions([...newSessions, { date: "", duration: 60 }])
-                }
-              >
-                ➕ Weitere Sitzung
-              </button>
+    {newSessions.map((s, i) => (
+      <div key={i} style={{ display: "flex", gap: 8 }}>
+        <input
+          type="datetime-local"
+          value={s.date}
+          onChange={(e) => {
+            const copy = [...newSessions];
+            copy[i].date = e.target.value;
+            setNewSessions(copy);
+          }}
+        />
 
-              <button
-  onClick={() =>
-    fetch("/api/add-sessions-batch", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        anfrageId: detailsModal.id,
-        therapist: user.email,
-        sessions: newSessions.map((s) => ({
-          date: s.date,
-          duration: s.duration,
-          price: Number(editTarif),
-        })),
-      }),
-    }).then(() => location.reload())
-  }
->
-  💾 Sitzungen speichern
-</button>
+        <select
+          value={s.duration}
+          onChange={(e) => {
+            const copy = [...newSessions];
+            copy[i].duration = Number(e.target.value);
+            setNewSessions(copy);
+          }}
+        >
+          <option value={50}>50 Min</option>
+          <option value={60}>60 Min</option>
+          <option value={75}>75 Min</option>
+        </select>
+      </div>
+    ))}
+
+    <button
+      onClick={() =>
+        setNewSessions([...newSessions, { date: "", duration: 60 }])
+      }
+    >
+      ➕ Weitere Sitzung
+    </button>
+
+    <button
+      onClick={() =>
+        fetch("/api/add-sessions-batch", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            anfrageId: detailsModal.id,
+            therapist: user.email,
+            sessions: newSessions.map((s) => ({
+              date: s.date,
+              duration: s.duration,
+              price: Number(editTarif),
+            })),
+          }),
+        }).then(() => location.reload())
+      }
+    >
+      💾 Sitzungen speichern
+    </button>
+  </div>
+)}
+
 
             </>
           )}
