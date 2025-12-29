@@ -82,6 +82,9 @@ export default function DashboardFull() {
   const [sessionsByRequest, setSessionsByRequest] = useState({});
   const [filter, setFilter] = useState("unbearbeitet");
   const [therapistFilter, setTherapistFilter] = useState("alle");
+  const [search, setSearch] = useState("");
+const [sort, setSort] = useState("last"); // last | name
+
 
   const [detailsModal, setDetailsModal] = useState(null);
   const [editTarif, setEditTarif] = useState("");
@@ -166,16 +169,35 @@ const [bestandTherapeut, setBestandTherapeut] = useState("");
         return false;
       if (filter === "aktiv" && r._status !== "active") return false;
       if (filter === "papierkorb" && r._status !== "papierkorb") return false;
-      if (
-        therapistFilter !== "alle" &&
-        r.wunschtherapeut !== therapistFilter
-      )
+      if (therapistFilter !== "alle" &&
+        r.wunschtherapeut !== therapistFilter)
         return false;
-      return true;
+      if (search) {
+  const q = search.toLowerCase();
+  const name = `${r.vorname || ""} ${r.nachname || ""}`.toLowerCase();
+  if (!name.includes(q)) return false;
+}
+return true;
     });
-  }, [requests, filter, therapistFilter]);
+  }, [requests, filter, therapistFilter, search]);
 
   if (!user) return <div>Bitte einloggen…</div>;
+  
+    const sorted = useMemo(() => {
+  return [...filtered].sort((a, b) => {
+    if (sort === "name") {
+      return `${a.nachname || ""}${a.vorname || ""}`.localeCompare(
+        `${b.nachname || ""}${b.vorname || ""}`
+      );
+    }
+
+    const sa = sessionsByRequest[a.id]?.at(-1)?.date || a.created_at;
+    const sb = sessionsByRequest[b.id]?.at(-1)?.date || b.created_at;
+
+    return new Date(sb) - new Date(sa);
+  });
+}, [filtered, sort, sessionsByRequest]);
+
 
   /* ================= UI ================= */
 
@@ -201,6 +223,31 @@ const [bestandTherapeut, setBestandTherapeut] = useState("");
             </option>
           ))}
         </select>
+        <input
+  placeholder="🔍 Klientin suchen…"
+  value={search}
+  onChange={(e) => setSearch(e.target.value)}
+  style={{
+    padding: "6px 10px",
+    borderRadius: 8,
+    border: "1px solid #ccc",
+    minWidth: 220,
+  }}
+/>
+
+<select
+  value={sort}
+  onChange={(e) => setSort(e.target.value)}
+  style={{
+    padding: "6px 10px",
+    borderRadius: 8,
+    border: "1px solid #ccc",
+  }}
+>
+  <option value="last">Letzte Aktivität</option>
+  <option value="name">Name A–Z</option>
+</select>
+
       </div>
       
 <button
@@ -218,7 +265,19 @@ const [bestandTherapeut, setBestandTherapeut] = useState("");
 </button>
 
       {/* KARTEN */}
-      {filtered.map((r) => (
+     {sorted.map((r) => {
+  const sessionList = sessionsByRequest[r.id] || [];
+  const lastSessionDate = sessionList.length
+    ? sessionList[sessionList.length - 1]?.date
+    : null;
+
+  const daysSinceLast =
+    lastSessionDate && !isNaN(Date.parse(lastSessionDate))
+      ? (Date.now() - new Date(lastSessionDate).getTime()) / 86400000
+      : null;
+
+  return (
+
         <article
           key={r.id}
           style={{
@@ -240,6 +299,23 @@ const [bestandTherapeut, setBestandTherapeut] = useState("");
                 r.wunschtherapeut}
             </div>
           )}
+
+          {r._status === "active" && (
+  <div style={{ fontSize: 13, color: "#555", marginTop: 4 }}>
+    🧠 Sitzungen: {sessionList.length}
+    {lastSessionDate && !isNaN(Date.parse(lastSessionDate)) && (
+      <>
+        {" "}· letzte: {new Date(lastSessionDate).toLocaleDateString("de-AT")}
+      </>
+    )}
+  </div>
+)}
+
+{r._status === "active" && daysSinceLast != null && daysSinceLast > 30 && (
+  <div style={{ marginTop: 6, color: "darkred", fontSize: 13 }}>
+    ⚠️ keine Sitzung seit {Math.round(daysSinceLast)} Tagen
+  </div>
+)}
 
           <p>{r.anliegen}</p>
 
@@ -337,8 +413,10 @@ const [bestandTherapeut, setBestandTherapeut] = useState("");
               <button onClick={() => deleteForever(r)}>🗑 Löschen</button>
             </div>
           )}
-        </article>
-      ))}
+          </article>
+);
+})}
+
       
 
       {/* DETAILANSICHT */}
