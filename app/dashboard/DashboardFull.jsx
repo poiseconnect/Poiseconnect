@@ -516,75 +516,56 @@ return true;
 
 
           {/* AKTIV-BEREICH */}
-          {detailsModal._status === "active" && (
-            <>
-              <hr />
+{detailsModal._status === "active" && (
+  <div>
+    {/* KENNZAHLEN */}
+    <p>
+      <strong>Anzahl Sitzungen:</strong>{" "}
+      {(sessionsByRequest[detailsModal.id] || []).length}
+    </p>
 
-              {/* KENNZAHLEN */}
-              <p>
-                <strong>Anzahl Sitzungen:</strong>{" "}
-                {(sessionsByRequest[detailsModal.id] || []).length}
-              </p>
+    {/* STUNDENSATZ */}
+    <label>Stundensatz (€)</label>
+    <input
+      type="number"
+      value={editTarif}
+      onChange={(e) => setEditTarif(e.target.value)}
+    />
+    <button
+      onClick={() =>
+        fetch("/api/update-tarif", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            anfrageId: detailsModal.id,
+            tarif: Number(editTarif),
+          }),
+        })
+      }
+    >
+      💾 Speichern
+    </button>
 
-              {/* STUNDENSATZ */}
-              <label>Stundensatz (€)</label>
-              <input
-                type="number"
-                value={editTarif}
-                onChange={(e) => setEditTarif(e.target.value)}
-              />
-              <button
-                onClick={() =>
-                  fetch("/api/update-tarif", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                      anfrageId: detailsModal.id,
-                      tarif: Number(editTarif),
-                    }),
-                  })
-                }
-              >
-                💾 Speichern
-              </button>
+    {/* PROVISION */}
+    <h4>Provision</h4>
+    <p>
+      <strong>Gesamt:</strong>{" "}
+      {(sessionsByRequest[detailsModal.id] || [])
+        .reduce((sum, s) => sum + (Number(s.price) || 0) * 0.3, 0)
+        .toFixed(2)}{" "}
+      €
+    </p>
 
-              {/* PROVISION */}
-              <h4>Provision</h4>
-              <p>
-                <strong>Gesamt:</strong>{" "}
-                {(sessionsByRequest[detailsModal.id] || [])
-                  .reduce((sum, s) => sum + safeNumber(s.price) * 0.3, 0)
-
-                  .toFixed(2)}{" "}
-                €
-              </p>
-
-              <h4>Provision pro Quartal</h4>
-              {Object.entries(
-                (sessionsByRequest[detailsModal.id] || []).reduce(
-                  (acc, s) => {
-                    const d = new Date(s.date);
-                    const q = `Q${Math.floor(d.getMonth() / 3) + 1} ${
-                      d.getFullYear()
-                    }`;
-                    acc[q] = (acc[q] || 0) + s.price * 0.3;
-                    return acc;
-                  },
-                  {}
-                )
-              ).map(([q, sum]) => (
-                <div key={q}>
-                  {q}: {sum.toFixed(2)} €
-                </div>
-              ))}
-
-              {/* SITZUNGEN */}
-              <h4>Sitzungen</h4>
-            {(sessionsByRequest[detailsModal.id] || []).map((s, i) => (
-  <div key={s.id || `${s.date}-${i}`}>
-    {safeDateString(s.date) || "–"} · {safeNumber(s.duration_min)} Min
+    {/* SITZUNGEN */}
+    <h4>Sitzungen</h4>
+    {(sessionsByRequest[detailsModal.id] || []).map((s, i) => (
+      <div key={s.id || `${s.date}-${i}`}>
+        {safeDateString(s.date) || "–"} · {safeNumber(s.duration_min)} Min
+      </div>
+    ))}
   </div>
-))}
+)}
+
 
 
               {/* NEUE SITZUNG */}
