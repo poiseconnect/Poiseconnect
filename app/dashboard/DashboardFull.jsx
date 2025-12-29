@@ -444,76 +444,88 @@ return true;
         {safeText(detailsModal?.nachname)}
       </h3>
 
-      {/* FORMULARINFOS – IMMER */}
-      <section>
-        <p>
-          <strong>Name:</strong>{" "}
-          {safeText(detailsModal?.vorname)}{" "}
-          {safeText(detailsModal?.nachname)}
-        </p>
+  {/* FORMULARINFOS – IMMER */}
+<section>
+  <p>
+    <strong>Name:</strong>{" "}
+    {safeText(detailsModal?.vorname)}{" "}
+    {safeText(detailsModal?.nachname)}
+  </p>
 
-        <p>
-          <strong>E-Mail:</strong> {safeText(detailsModal?.email)}
-        </p>
+  <p>
+    <strong>E-Mail:</strong> {safeText(detailsModal?.email)}
+  </p>
 
-        <p>
-          <strong>Telefon:</strong> {safeText(detailsModal?.telefon)}
-        </p>
+  <p>
+    <strong>Telefon:</strong> {safeText(detailsModal?.telefon)}
+  </p>
 
-        <p>
-          <strong>Adresse:</strong>{" "}
-          {safeText(detailsModal?.strasse_hausnr)}{" "}
-          {safeText(detailsModal?.plz_ort)}
-        </p>
+  <p>
+    <strong>Adresse:</strong>{" "}
+    {safeText(detailsModal?.strasse_hausnr)}{" "}
+    {safeText(detailsModal?.plz_ort)}
+  </p>
 
-        <p>
-          <strong>Alter:</strong>{" "}
-          {detailsModal?.geburtsdatum &&
-          !isNaN(Date.parse(detailsModal.geburtsdatum))
-            ? new Date().getFullYear() -
-              new Date(detailsModal.geburtsdatum).getFullYear()
-            : "–"}
-        </p>
+  <p>
+    <strong>Alter:</strong>{" "}
+    {detailsModal?.geburtsdatum &&
+    !isNaN(Date.parse(detailsModal.geburtsdatum))
+      ? new Date().getFullYear() -
+        new Date(detailsModal.geburtsdatum).getFullYear()
+      : "–"}
+  </p>
 
-        <hr />
+  <hr />
 
-        <p>
-          <strong>Anliegen:</strong>{" "}
-          {typeof detailsModal?.anliegen === "string"
-            ? detailsModal.anliegen
-            : "–"}
-        </p>
+  <p>
+    <strong>Anliegen:</strong>{" "}
+    {typeof detailsModal?.anliegen === "string"
+      ? detailsModal.anliegen
+      : "–"}
+  </p>
 
-        <p>
-          <strong>Leidensdruck:</strong>{" "}
-          {safeText(detailsModal?.leidensdruck)}
-        </p>
+  <p>
+    <strong>Leidensdruck:</strong>{" "}
+    {safeText(detailsModal?.leidensdruck)}
+  </p>
 
-        <p>
-          <strong>Wie lange schon:</strong>{" "}
-          {safeText(detailsModal?.verlauf)}
-        </p>
+  <p>
+    <strong>Wie lange schon:</strong>{" "}
+    {safeText(detailsModal?.verlauf)}
+  </p>
 
-        <p>
-          <strong>Ziel:</strong> {safeText(detailsModal?.ziel)}
-        </p>
+  <p>
+    <strong>Ziel:</strong>{" "}
+    {safeText(detailsModal?.ziel)}
+  </p>
 
-        <p>
-          <strong>Beschäftigungsgrad:</strong>{" "}
-          {safeText(detailsModal?.beschaeftigungsgrad)}
-        </p>
+  <p>
+    <strong>Beschäftigungsgrad:</strong>{" "}
+    {safeText(detailsModal?.beschaeftigungsgrad)}
+  </p>
 
-        <hr />
+  <hr />
 
-        <p>
-          <strong>Wunschtherapeut:</
+  <p>
+    <strong>Wunschtherapeut:</strong>{" "}
+    {teamData.find(
+      (t) => t.email === detailsModal?.wunschtherapeut
+    )?.name || safeText(detailsModal?.wunschtherapeut)}
+  </p>
 
+  {safeDateString(detailsModal?.bevorzugte_zeit) && (
+    <p>
+      <strong>Ersttermin:</strong>{" "}
+      {safeDateString(detailsModal.bevorzugte_zeit)}
+    </p>
+  )}
+</section>
 
-
-
- {detailsModal._status === "active" && (
+{/* AKTIV-BEREICH */}
+{detailsModal._status === "active" && (
   <div>
     {/* NEUE SITZUNG */}
+
     <h4>Neue Sitzung eintragen</h4>
 
     {newSessions.map((s, i) => (
