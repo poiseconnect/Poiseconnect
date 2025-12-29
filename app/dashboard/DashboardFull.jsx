@@ -730,13 +730,14 @@ export default function DashboardFull() {
 
             <hr />
 
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-              <button onClick={() => moveToTrash(detailsModal)}>🗑 In Papierkorb</button>
-              <button onClick={() => setReassignModal(detailsModal)}>
-                🔀 Therapeut wechseln
-              </button>
-              <button onClick={() => setDetailsModal(null)}>Schließen</button>
-            </div>
+        <hr />
+
+<div style={{ display: "flex", justifyContent: "flex-end" }}>
+  <button onClick={() => setDetailsModal(null)}>
+    Schließen
+  </button>
+</div>
+
           </div>
         </Modal>
       )}
