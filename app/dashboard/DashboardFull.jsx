@@ -435,136 +435,79 @@ return true;
 
       
 
-      {/* DETAILANSICHT */}
-      {detailsModal && (
-        <Modal onClose={() => setDetailsModal(null)}>
-          <h3>
-            {detailsModal.vorname} {detailsModal.nachname}
-          </h3>
-{/* FORMULARINFOS – IMMER */}
-<section>
- <section>
-  <p>
-    <strong>Name:</strong>{" "}
-    {safeText(detailsModal?.vorname)} {safeText(detailsModal?.nachname)}
-  </p>
+{/* DETAILANSICHT */}
+{detailsModal && (
+  <Modal onClose={() => setDetailsModal(null)}>
+    <div>
+      <h3>
+        {safeText(detailsModal?.vorname)}{" "}
+        {safeText(detailsModal?.nachname)}
+      </h3>
 
-  <p>
-    <strong>E-Mail:</strong> {safeText(detailsModal?.email)}
-  </p>
+      {/* FORMULARINFOS – IMMER */}
+      <section>
+        <p>
+          <strong>Name:</strong>{" "}
+          {safeText(detailsModal?.vorname)}{" "}
+          {safeText(detailsModal?.nachname)}
+        </p>
 
-  <p>
-    <strong>Telefon:</strong> {safeText(detailsModal?.telefon)}
-  </p>
+        <p>
+          <strong>E-Mail:</strong> {safeText(detailsModal?.email)}
+        </p>
 
-  <p>
-    <strong>Adresse:</strong>{" "}
-    {safeText(detailsModal?.strasse_hausnr)}{" "}
-    {safeText(detailsModal?.plz_ort)}
-  </p>
+        <p>
+          <strong>Telefon:</strong> {safeText(detailsModal?.telefon)}
+        </p>
 
-  <p>
-    <strong>Alter:</strong>{" "}
-    {detailsModal?.geburtsdatum && !isNaN(Date.parse(detailsModal.geburtsdatum))
-      ? new Date().getFullYear() -
-        new Date(detailsModal.geburtsdatum).getFullYear()
-      : "–"}
-  </p>
+        <p>
+          <strong>Adresse:</strong>{" "}
+          {safeText(detailsModal?.strasse_hausnr)}{" "}
+          {safeText(detailsModal?.plz_ort)}
+        </p>
 
-  <hr />
+        <p>
+          <strong>Alter:</strong>{" "}
+          {detailsModal?.geburtsdatum &&
+          !isNaN(Date.parse(detailsModal.geburtsdatum))
+            ? new Date().getFullYear() -
+              new Date(detailsModal.geburtsdatum).getFullYear()
+            : "–"}
+        </p>
 
-  <p>
-    <strong>Anliegen:</strong>{" "}
-    {typeof detailsModal?.anliegen === "string"
-      ? detailsModal.anliegen
-      : "–"}
-  </p>
+        <hr />
 
-  <p>
-    <strong>Leidensdruck:</strong> {safeText(detailsModal?.leidensdruck)}
-  </p>
+        <p>
+          <strong>Anliegen:</strong>{" "}
+          {typeof detailsModal?.anliegen === "string"
+            ? detailsModal.anliegen
+            : "–"}
+        </p>
 
-  <p>
-    <strong>Wie lange schon:</strong> {safeText(detailsModal?.verlauf)}
-  </p>
+        <p>
+          <strong>Leidensdruck:</strong>{" "}
+          {safeText(detailsModal?.leidensdruck)}
+        </p>
 
-  <p>
-    <strong>Ziel:</strong> {safeText(detailsModal?.ziel)}
-  </p>
+        <p>
+          <strong>Wie lange schon:</strong>{" "}
+          {safeText(detailsModal?.verlauf)}
+        </p>
 
-  <p>
-    <strong>Beschäftigungsgrad:</strong>{" "}
-    {safeText(detailsModal?.beschaeftigungsgrad)}
-  </p>
+        <p>
+          <strong>Ziel:</strong> {safeText(detailsModal?.ziel)}
+        </p>
 
-  <hr />
+        <p>
+          <strong>Beschäftigungsgrad:</strong>{" "}
+          {safeText(detailsModal?.beschaeftigungsgrad)}
+        </p>
 
-  <p>
-    <strong>Wunschtherapeut:</strong>{" "}
-    {teamData.find((t) => t.email === detailsModal?.wunschtherapeut)?.name ||
-      safeText(detailsModal?.wunschtherapeut)}
-  </p>
+        <hr />
 
-  {safeDateString(detailsModal?.bevorzugte_zeit) && (
-    <p>
-      <strong>Ersttermin:</strong>{" "}
-      {safeDateString(detailsModal.bevorzugte_zeit)}
-    </p>
-  )}
-</section>
+        <p>
+          <strong>Wunschtherapeut:</
 
-
-
-          {/* AKTIV-BEREICH */}
-{detailsModal._status === "active" && (
-  <div>
-    {/* KENNZAHLEN */}
-    <p>
-      <strong>Anzahl Sitzungen:</strong>{" "}
-      {(sessionsByRequest[detailsModal.id] || []).length}
-    </p>
-
-    {/* STUNDENSATZ */}
-    <label>Stundensatz (€)</label>
-    <input
-      type="number"
-      value={editTarif}
-      onChange={(e) => setEditTarif(e.target.value)}
-    />
-    <button
-      onClick={() =>
-        fetch("/api/update-tarif", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            anfrageId: detailsModal.id,
-            tarif: Number(editTarif),
-          }),
-        })
-      }
-    >
-      💾 Speichern
-    </button>
-
-    {/* PROVISION */}
-    <h4>Provision</h4>
-    <p>
-      <strong>Gesamt:</strong>{" "}
-      {(sessionsByRequest[detailsModal.id] || [])
-        .reduce((sum, s) => sum + (Number(s.price) || 0) * 0.3, 0)
-        .toFixed(2)}{" "}
-      €
-    </p>
-
-    {/* SITZUNGEN */}
-    <h4>Sitzungen</h4>
-    {(sessionsByRequest[detailsModal.id] || []).map((s, i) => (
-      <div key={s.id || `${s.date}-${i}`}>
-        {safeDateString(s.date) || "–"} · {safeNumber(s.duration_min)} Min
-      </div>
-    ))}
-  </div>
-)}
 
 
 
