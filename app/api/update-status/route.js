@@ -14,6 +14,65 @@ export async function POST(req) {
       );
     }
 
+    // -----------------------------
+    // 🔒 STATUS-REGELN ABSICHERN
+    // -----------------------------
+
+    // ❌ Papierkorb NUR erlaubt, wenn KEINE Sitzungen existieren
+    if (status === "papierkorb") {
+      const { count, error: countError } = await supabase
+        .from("sessions")
+        .select("*", { count: "exact", head: true })
+        .eq("anfrage_id", anfrageId);
+
+      if (countError) {
+        console.error("Session count error:", countError);
+        return NextResponse.json(
+          { error: "SESSION_CHECK_FAILED" },
+          { status: 500 }
+        );
+      }
+
+      if (count > 0) {
+        return NextResponse.json(
+          {
+            error:
+              "PAPIERKORB_NICHT_ERLAUBT_BEI_BESTEHENDEN_SITZUNGEN",
+          },
+          { status: 400 }
+        );
+      }
+    }
+
+    // ❌ Beendet NUR erlaubt, wenn Sitzungen existieren
+    if (status === "beendet") {
+      const { count, error: countError } = await supabase
+        .from("sessions")
+        .select("*", { count: "exact", head: true })
+        .eq("anfrage_id", anfrageId);
+
+      if (countError) {
+        console.error("Session count error:", countError);
+        return NextResponse.json(
+          { error: "SESSION_CHECK_FAILED" },
+          { status: 500 }
+        );
+      }
+
+      if (!count || count === 0) {
+        return NextResponse.json(
+          {
+            error:
+              "BEENDET_NUR_ERLAUBT_WENN_SITZUNGEN_EXISTIEREN",
+          },
+          { status: 400 }
+        );
+      }
+    }
+
+    // -----------------------------
+    // ✅ STATUS UPDATE
+    // -----------------------------
     const { error } = await supabase
       .from("anfragen")
       .update({ status })
