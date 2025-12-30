@@ -209,25 +209,37 @@ export default function DashboardFull() {
   /* ---------- FILTER ---------- */
   const UNBEARBEITET = ["offen", "termin_neu", "termin_bestaetigt"];
 
-  const filtered = useMemo(() => {
-    return requests.filter((r) => {
-      if (filter === "unbearbeitet" && !UNBEARBEITET.includes(r._status))
-        return false;
-      if (filter === "aktiv" && r._status !== "active") return false;
-      if (filter === "papierkorb" && r._status !== "papierkorb") return false;
+const FILTER_MAP = {
+  unbearbeitet: ["offen", "termin_neu", "termin_bestaetigt"],
+  aktiv: ["active"],
+  beendet: ["beendet"],
+  papierkorb: ["papierkorb"],
+  alle: ["offen", "termin_neu", "termin_bestaetigt", "active", "beendet", "papierkorb"],
+};
 
-      if (therapistFilter !== "alle" && r.wunschtherapeut !== therapistFilter)
-        return false;
+const filtered = useMemo(() => {
+  const allowed = FILTER_MAP[filter] || FILTER_MAP.alle;
 
-      if (search) {
-        const q = search.toLowerCase();
-        const name = `${r.vorname || ""} ${r.nachname || ""}`.toLowerCase();
-        if (!name.includes(q)) return false;
-      }
+  return requests.filter((r) => {
+    if (!allowed.includes(r._status)) return false;
 
-      return true;
-    });
-  }, [requests, filter, therapistFilter, search]);
+    if (
+      therapistFilter !== "alle" &&
+      r.wunschtherapeut !== therapistFilter
+    ) {
+      return false;
+    }
+
+    if (search) {
+      const q = search.toLowerCase();
+      const name = `${r.vorname || ""} ${r.nachname || ""}`.toLowerCase();
+      if (!name.includes(q)) return false;
+    }
+
+    return true;
+  });
+}, [requests, filter, therapistFilter, search]);
+
 
   const sorted = useMemo(() => {
     return [...filtered].sort((a, b) => {
@@ -263,6 +275,7 @@ export default function DashboardFull() {
         <button onClick={() => setFilter("unbearbeitet")}>Unbearbeitet</button>
         <button onClick={() => setFilter("aktiv")}>Aktiv</button>
         <button onClick={() => setFilter("papierkorb")}>Papierkorb</button>
+        <button onClick={() => setFilter("beendet")}>Beendet</button>
         <button onClick={() => setFilter("alle")}>Alle</button>
 
         <select
