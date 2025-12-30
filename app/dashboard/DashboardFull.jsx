@@ -498,6 +498,26 @@ const filtered = useMemo(() => {
           </article>
         );
       })}
+      {/* BEENDET */}
+{r._status === "beendet" && (
+  <div style={{ marginTop: 8 }}>
+    <button
+      onClick={() =>
+        fetch("/api/update-status", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            anfrageId: r.id,
+            status: "active",
+          }),
+        }).then(() => location.reload())
+      }
+    >
+      🔄 Coaching wieder aktivieren
+    </button>
+  </div>
+)}
+
 
       {/* DETAILANSICHT */}
       {detailsModal && (
