@@ -446,22 +446,32 @@ export default function DashboardFull() {
               </div>
             )}
 
-            {/* AKTIV */}
-            {r._status === "active" && (
-              <div style={{ marginTop: 8 }}>
-                <button
-                  onClick={() =>
-                    fetch("/api/finish-coaching", {
-                      method: "POST",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({ anfrageId: r.id }),
-                    }).then(() => location.reload())
-                  }
-                >
-                  🔴 Coaching beenden
-                </button>
-              </div>
-            )}
+        {/* AKTIV */}
+{r._status === "active" && (
+  <div style={{ marginTop: 8, display: "flex", gap: 8, flexWrap: "wrap" }}>
+    <button
+      onClick={() =>
+        fetch("/api/finish-coaching", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ anfrageId: r.id }),
+        }).then(() => location.reload())
+      }
+    >
+      🔴 Coaching beenden
+    </button>
+
+    <button
+      onClick={() => {
+        setReassignModal(r);
+        setNewTherapist("");
+      }}
+    >
+      🔁 Therapeut wechseln
+    </button>
+  </div>
+)}
+
 
             {/* PAPIERKORB */}
             {r._status === "papierkorb" && (
