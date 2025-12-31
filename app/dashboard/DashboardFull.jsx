@@ -208,13 +208,11 @@ export default function DashboardFull() {
       setSessionsByRequest(grouped);
     });
   }, []);
-  /* ---------- LOAD BILLING SESSIONS ---------- */
-useEffect(() => {
-  if (!user?.email) return;
+  /* ---------- LOAD BILLING ---------- */
+  useEffect(() => {
+    if (!user?.email) return;
 
-  let query = supabase
-    .from("sessions")
-    .select(`
+    let query = supabase.from("sessions").select(`
       id,
       date,
       price,
@@ -222,23 +220,40 @@ useEffect(() => {
       payout,
       therapist,
       anfrage_id,
-      anfragen (
-        vorname,
-        nachname,
-        status
-      )
+      anfragen ( vorname, nachname )
     `);
 
-  // Therapeut:innen sehen nur ihre Sessions
-  if (user.email !== "hallo@mypoise.de") {
-    query = query.eq("therapist", user.email);
-  }
+    if (user.email !== "hallo@mypoise.de") {
+      query = query.eq("therapist", user.email);
+    }
 
-  query.then(({ data, error }) => {
-    if (!error) setBillingSessions(data || []);
-  });
-}, [user]);
+    query.then(({ data }) => setBillingSessions(data || []));
+  }, [user]);
 
+  /* ---------- BERECHNUNG (HOOK MUSS VOR RETURN) ---------- */
+  const billingByClient = useMemo(() => {
+    const map = {};
+    billingSessions.forEach((s) => {
+      if (!s.anfrage_id) return;
+      if (!map[s.anfrage_id]) {
+        map[s.anfrage_id] = {
+          klient: `${s.anfragen?.vorname || ""} ${s.anfragen?.nachname || ""}`,
+          sessions: 0,
+          umsatz: 0,
+          provision: 0,
+          payout: 0,
+        };
+      }
+      map[s.anfrage_id].sessions += 1;
+      map[s.anfrage_id].umsatz += Number(s.price) || 0;
+      map[s.anfrage_id].provision += Number(s.commission) || 0;
+      map[s.anfrage_id].payout += Number(s.payout) || 0;
+    });
+    return Object.values(map);
+  }, [billingSessions]);
+
+  /* ---------- EARLY RETURN (JETZT KORREKT) ---------- */
+  if (!user) return <div>Bitte einloggen…</div>;
 
   /* ---------- FILTER ---------- */
   const UNBEARBEITET = ["offen", "termin_neu", "termin_bestaetigt"];
