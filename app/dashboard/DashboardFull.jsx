@@ -6,337 +6,6 @@ import { teamData } from "../teamData";
 import jsPDF from "jspdf";
 import "jspdf-autotable";
 
-
-/* ================= STATUS ================= */
-
-function normalizeStatus(raw) {
-  if (!raw) return "offen";
-  const s = String(raw).toLowerCase().trim();
-
-  if (["offen", "neu", ""].includes(s)) return "offen";
-  if (["termin_neu", "new_appointment"].includes(s)) return "termin_neu";
-  if (
-    [
-      "termin_bestaetigt",
-      "termin bestätigt",
-      "confirmed",
-      "appointment_confirmed",
-      "bestaetigt",
-    ].includes(s)
-  )
-    return "termin_bestaetigt";
-  if (["active", "aktiv"].includes(s)) return "active";
-  if (["kein_match", "no_match"].includes(s)) return "kein_match";
-  if (["beendet", "finished"].includes(s)) return "beendet";
-  if (["papierkorb"].includes(s)) return "papierkorb";
-
-  return "offen";
-}
-
-const STATUS_LABEL = {
-  offen: "Neu",
-  termin_neu: "Neuer Termin",
-  termin_bestaetigt: "Termin bestätigt",
-  active: "Begleitung aktiv",
-  kein_match: "Kein Match",
-  beendet: "Beendet",
-  papierkorb: "Papierkorb",
-};
-
-/* ================= MODAL ================= */
-
-function Modal({ children, onClose }) {
-  return (
-    <div
-      onClick={onClose}
-      style={{
-        position: "fixed",
-        inset: 0,
-        background: "rgba(0,0,0,.35)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        zIndex: 9999,
-        padding: 20,
-      }}
-    >
-      <div
-        onClick={(e) => e.stopPropagation()}
-        style={{
-          background: "#fff",
-          padding: 20,
-          borderRadius: 12,
-          maxWidth: 720,
-          width: "100%",
-          maxHeight: "90vh",
-          overflowY: "auto",
-        }}
-      >
-        {children}
-      </div>
-    </div>
-  );
-}
-
-/* ================= HELPERS ================= */
-
-function safeText(v, fallback = "–") {
-  if (v === null || v === undefined) return fallback;
-  if (typeof v === "string") return v.trim() || fallback;
-  if (typeof v === "number") return String(v);
-  return fallback;
-}
-
-function safeDateString(v) {
-  if (!v) return "";
-  const d = new Date(v);
-  if (Number.isNaN(d.getTime())) return "";
-  return d.toLocaleString("de-AT");
-}
-function exportBillingCSV(rows) {
-  if (!rows.length) return;
-
-  const header = [
-    "Klient",
-    "Sitzungen",
-    "Umsatz",
-    "Provision Poise",
-    "Auszahlung Therapeut:in",
-  ];
-
-  const csvRows = [
-    header.join(";"),
-    ...rows.map((r) =>
-      [
-        r.klient,
-        r.sessions,
-        r.umsatz.toFixed(2),
-        r.provision.toFixed(2),
-        r.payout.toFixed(2),
-      ].join(";")
-    ),
-  ];
-
-  const blob = new Blob([csvRows.join("\n")], {
-    type: "text/csv;charset=utf-8;",
-  });
-
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `abrechnung_${new Date().toISOString().slice(0, 10)}.csv`;
-  a.click();
-  URL.revokeObjectURL(url);
-}
-function exportBillingPDF(rows) {
-  if (!rows.length) return;
-
-  const doc = new jsPDF();
-  doc.setFontSize(14);
-  doc.text("Poise – Abrechnung", 14, 15);
-
-  doc.autoTable({
-    startY: 22,
-    head: [[
-      "Klient",
-      "Sitzungen",
-      "Umsatz (€)",
-      "Provision (€)",
-      "Auszahlung (€)",
-    ]],
-    body: rows.map((r) => [
-      r.klient,
-      r.sessions,
-      r.umsatz.toFixed(2),
-      r.provision.toFixed(2),
-      r.payout.toFixed(2),
-    ]),
-    styles: { fontSize: 10 },
-  });
-
-  doc.save(`abrechnung_${new Date().toISOString().slice(0, 10)}.pdf`);
-}
-
-
-
-/* ================= DASHBOARD ================= */
-
-export default function DashboardFull() {
-  const [user, setUser] = useState(null);
-  const [requests, setRequests] = useState([]);
-  const [sessionsByRequest, setSessionsByRequest] = useState({});
-  const [billingSessions, setBillingSessions] = useState([]);
-
-  const [filter, setFilter] = useState("unbearbeitet");
-  const [therapistFilter, setTherapistFilter] = useState("alle");
-  const [search, setSearch] = useState("");
-  const [sort, setSort] = useState("last");
-
-  const [detailsModal, setDetailsModal] = useState(null);
-  const [editTarif, setEditTarif] = useState("");
-  const [newSessions, setNewSessions] = useState([{ date: "", duration: 60 }]);
-
-  const [reassignModal, setReassignModal] = useState(null);
-  const [newTherapist, setNewTherapist] = useState("");
-
-  const [createBestandOpen, setCreateBestandOpen] = useState(false);
-  const [bestandVorname, setBestandVorname] = useState("");
-  const [bestandNachname, setBestandNachname] = useState("");
-  const [bestandTherapeut, setBestandTherapeut] = useState("");
-
-  /* ---------- LOAD USER ---------- */
-  useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      setUser(data?.user || null);
-    });
-  }, []);
-
-  /* ---------- LOAD REQUESTS ---------- */
-  useEffect(() => {
-    if (!user?.email) return;
-
-    let query = supabase
-      .from("anfragen")
-      .select("*")
-      .order("created_at", { ascending: false });
-
-    if (user.email !== "hallo@mypoise.de") {
-      query = query.eq("wunschtherapeut", user.email);
-    }
-
-    query.then(({ data }) => {
-      setRequests(
-        (data || []).map((r) => ({
-          ...r,
-          _status: normalizeStatus(r.status),
-        }))
-      );
-    });
-  }, [user]);
-
-  /* ---------- LOAD SESSIONS ---------- */
-  useEffect(() => {
-    supabase.from("sessions").select("*").then(({ data }) => {
-      const grouped = {};
-      (data || []).forEach((s) => {
-        const key = String(s.anfrage_id);
-        if (!grouped[key]) grouped[key] = [];
-        grouped[key].push(s);
-      });
-      setSessionsByRequest(grouped);
-    });
-  }, []);
-
-  /* ---------- LOAD BILLING ---------- */
-  useEffect(() => {
-    if (!user?.email) return;
-
-    let query = supabase.from("sessions").select(`
-      id, date, price, commission, payout, therapist, anfrage_id,
-      anfragen (vorname, nachname)
-    `);
-
-    if (user.email !== "hallo@mypoise.de") {
-      query = query.eq("therapist", user.email);
-    }
-
-    query.then(({ data }) => setBillingSessions(data || []));
-  }, [user]);
-
-  /* ---------- MEMOS (WICHTIG: VOR RETURN) ---------- */
-
-  const FILTER_MAP = {
-    unbearbeitet: ["offen", "termin_neu", "termin_bestaetigt"],
-    aktiv: ["active"],
-    beendet: ["beendet"],
-    papierkorb: ["papierkorb"],
-    abrechnung: [],
-    alle: ["offen", "termin_neu", "termin_bestaetigt", "active", "beendet", "papierkorb"],
-  };
-
-  const filtered = useMemo(() => {
-    const allowed = FILTER_MAP[filter] || FILTER_MAP.alle;
-    return requests.filter((r) => allowed.includes(r._status));
-  }, [requests, filter]);
-
-  const sorted = useMemo(() => {
-    return [...filtered];
-  }, [filtered]);
-
-  const billingByClient = useMemo(() => {
-    const map = {};
-    billingSessions.forEach((s) => {
-      if (!map[s.anfrage_id]) {
-        map[s.anfrage_id] = {
-          klient: `${s.anfragen?.vorname || ""} ${s.anfragen?.nachname || ""}`.trim(),
-          sessions: 0,
-          umsatz: 0,
-          provision: 0,
-          payout: 0,
-        };
-      }
-      map[s.anfrage_id].sessions += 1;
-      map[s.anfrage_id].umsatz += Number(s.price) || 0;
-      map[s.anfrage_id].provision += Number(s.commission) || 0;
-      map[s.anfrage_id].payout += Number(s.payout) || 0;
-    });
-    return Object.values(map);
-  }, [billingSessions]);
-
-  /* ---------- EARLY RETURN ---------- */
-  if (!user) return <div>Bitte einloggen…</div>;
-
-  /* ================= UI ================= */
-
-  return (
-    <div style={{ padding: 24, maxWidth: 1100, margin: "0 auto" }}>
-      <h1>Poise Dashboard</h1>
-
-      <button onClick={() => setFilter("abrechnung")}>💶 Abrechnung</button>
-
-      {filter === "abrechnung" && (
-        <section>
-          <h2>Abrechnung</h2>
-          <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
-  <button
-    onClick={() => exportBillingCSV(billingByClient)}
-    style={{
-      padding: "6px 12px",
-      borderRadius: 8,
-      border: "1px solid #ccc",
-    }}
-  >
-    📄 CSV exportieren
-  </button>
-
-  <button
-    onClick={() => exportBillingPDF(billingByClient)}
-    style={{
-      padding: "6px 12px",
-      borderRadius: 8,
-      border: "1px solid #ccc",
-    }}
-  >
-    📑 PDF exportieren
-  </button>
-</div>
-
-          {billingByClient.map((b, i) => (
-            <div key={i}>
-              {b.klient} – {b.sessions} Sitzungen – {b.payout.toFixed(2)} €
-            </div>
-          ))}
-        </section>
-      )}
-    </div>
-  );
-}
-"use client";
-
-import { useEffect, useMemo, useState } from "react";
-import { supabase } from "../lib/supabase";
-import { teamData } from "../teamData";
-
 /* ================= STATUS ================= */
 
 function normalizeStatus(raw) {
@@ -446,14 +115,78 @@ function currentQuarterKey() {
   return `Q${q} ${d.getFullYear()}`;
 }
 
+/* ================= EXPORT ================= */
+
+function exportBillingCSV(rows) {
+  if (!rows || !rows.length) return;
+
+  const header = [
+    "Klient",
+    "Sitzungen",
+    "Umsatz",
+    "Provision Poise",
+    "Auszahlung Therapeut:in",
+  ];
+
+  const csvRows = [
+    header.join(";"),
+    ...rows.map((r) =>
+      [
+        r.klient,
+        r.sessions,
+        Number(r.umsatz || 0).toFixed(2),
+        Number(r.provision || 0).toFixed(2),
+        Number(r.payout || 0).toFixed(2),
+      ].join(";")
+    ),
+  ];
+
+  const blob = new Blob([csvRows.join("\n")], {
+    type: "text/csv;charset=utf-8;",
+  });
+
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `abrechnung_${new Date().toISOString().slice(0, 10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function exportBillingPDF(rows) {
+  if (!rows || !rows.length) return;
+
+  const doc = new jsPDF();
+  doc.setFontSize(14);
+  doc.text("Poise – Abrechnung", 14, 15);
+
+  doc.autoTable({
+    startY: 22,
+    head: [
+      ["Klient", "Sitzungen", "Umsatz (€)", "Provision (€)", "Auszahlung (€)"],
+    ],
+    body: rows.map((r) => [
+      r.klient,
+      r.sessions,
+      Number(r.umsatz || 0).toFixed(2),
+      Number(r.provision || 0).toFixed(2),
+      Number(r.payout || 0).toFixed(2),
+    ]),
+    styles: { fontSize: 10 },
+  });
+
+  doc.save(`abrechnung_${new Date().toISOString().slice(0, 10)}.pdf`);
+}
+
 /* ================= DASHBOARD ================= */
 
 export default function DashboardFull() {
   const [user, setUser] = useState(null);
   const [requests, setRequests] = useState([]);
   const [sessionsByRequest, setSessionsByRequest] = useState({});
+  const [billingSessions, setBillingSessions] = useState([]);
+
   const [filter, setFilter] = useState("unbearbeitet");
-  
   const [therapistFilter, setTherapistFilter] = useState("alle");
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState("last"); // last | name
@@ -469,8 +202,6 @@ export default function DashboardFull() {
   const [bestandVorname, setBestandVorname] = useState("");
   const [bestandNachname, setBestandNachname] = useState("");
   const [bestandTherapeut, setBestandTherapeut] = useState("");
-  const [billingSessions, setBillingSessions] = useState([]);
-
 
   /* ---------- LOAD USER ---------- */
   useEffect(() => {
@@ -533,7 +264,6 @@ export default function DashboardFull() {
         grouped[key].push(s);
       });
 
-      // optional: sort sessions per request by date asc
       Object.keys(grouped).forEach((k) => {
         grouped[k].sort((a, b) => new Date(a.date) - new Date(b.date));
       });
@@ -541,88 +271,79 @@ export default function DashboardFull() {
       setSessionsByRequest(grouped);
     });
   }, []);
-  /* ---------- LOAD BILLING ---------- */
+
+  /* ---------- LOAD BILLING SESSIONS ---------- */
   useEffect(() => {
     if (!user?.email) return;
 
-    let query = supabase.from("sessions").select(`
-      id,
-      date,
-      price,
-      commission,
-      payout,
-      therapist,
-      anfrage_id,
-      anfragen ( vorname, nachname )
-    `);
+    let query = supabase
+      .from("sessions")
+      .select(
+        `
+        id,
+        date,
+        price,
+        commission,
+        payout,
+        therapist,
+        anfrage_id,
+        anfragen (
+          vorname,
+          nachname,
+          status
+        )
+      `
+      );
 
     if (user.email !== "hallo@mypoise.de") {
       query = query.eq("therapist", user.email);
     }
 
-    query.then(({ data }) => setBillingSessions(data || []));
+    query.then(({ data, error }) => {
+      if (!error) setBillingSessions(data || []);
+    });
   }, [user]);
 
-  /* ---------- BERECHNUNG (HOOK MUSS VOR RETURN) ---------- */
-  const billingByClient = useMemo(() => {
-    const map = {};
-    billingSessions.forEach((s) => {
-      if (!s.anfrage_id) return;
-      if (!map[s.anfrage_id]) {
-        map[s.anfrage_id] = {
-          klient: `${s.anfragen?.vorname || ""} ${s.anfragen?.nachname || ""}`,
-          sessions: 0,
-          umsatz: 0,
-          provision: 0,
-          payout: 0,
-        };
-      }
-      map[s.anfrage_id].sessions += 1;
-      map[s.anfrage_id].umsatz += Number(s.price) || 0;
-      map[s.anfrage_id].provision += Number(s.commission) || 0;
-      map[s.anfrage_id].payout += Number(s.payout) || 0;
-    });
-    return Object.values(map);
-  }, [billingSessions]);
-
-  /* ---------- EARLY RETURN (JETZT KORREKT) ---------- */
-  if (!user) return <div>Bitte einloggen…</div>;
-
-  /* ---------- FILTER ---------- */
+  /* ---------- FILTER MAP ---------- */
   const UNBEARBEITET = ["offen", "termin_neu", "termin_bestaetigt"];
 
-const FILTER_MAP = {
-  unbearbeitet: ["offen", "termin_neu", "termin_bestaetigt"],
-  aktiv: ["active"],
-  beendet: ["beendet"],
-  papierkorb: ["papierkorb"],
-  abrechnung: [], // 👈 explizit
-  alle: ["offen", "termin_neu", "termin_bestaetigt", "active", "beendet", "papierkorb"],
-};
+  const FILTER_MAP = {
+    unbearbeitet: ["offen", "termin_neu", "termin_bestaetigt"],
+    aktiv: ["active"],
+    beendet: ["beendet"],
+    papierkorb: ["papierkorb"],
+    abrechnung: [], // wichtig: existiert, damit nichts crasht
+    alle: [
+      "offen",
+      "termin_neu",
+      "termin_bestaetigt",
+      "active",
+      "beendet",
+      "papierkorb",
+    ],
+  };
 
-const filtered = useMemo(() => {
-  const allowed = FILTER_MAP[filter] || FILTER_MAP.alle;
+  /* ---------- MEMOS (ALLE HOOKS VOR EARLY RETURN) ---------- */
 
-  return requests.filter((r) => {
-    if (!allowed.includes(r._status)) return false;
+  const filtered = useMemo(() => {
+    const allowed = FILTER_MAP[filter] || FILTER_MAP.alle;
 
-    if (
-      therapistFilter !== "alle" &&
-      r.wunschtherapeut !== therapistFilter
-    ) {
-      return false;
-    }
+    return requests.filter((r) => {
+      if (!allowed.includes(r._status)) return false;
 
-    if (search) {
-      const q = search.toLowerCase();
-      const name = `${r.vorname || ""} ${r.nachname || ""}`.toLowerCase();
-      if (!name.includes(q)) return false;
-    }
+      if (therapistFilter !== "alle" && r.wunschtherapeut !== therapistFilter) {
+        return false;
+      }
 
-    return true;
-  });
-}, [requests, filter, therapistFilter, search]);
+      if (search) {
+        const q = search.toLowerCase();
+        const name = `${r.vorname || ""} ${r.nachname || ""}`.toLowerCase();
+        if (!name.includes(q)) return false;
+      }
 
+      return true;
+    });
+  }, [requests, filter, therapistFilter, search]);
 
   const sorted = useMemo(() => {
     return [...filtered].sort((a, b) => {
@@ -645,36 +366,36 @@ const filtered = useMemo(() => {
     });
   }, [filtered, sort, sessionsByRequest]);
 
-  if (!user) return <div>Bitte einloggen…</div>;
-  
   const billingByClient = useMemo(() => {
-  const map = {};
+    const map = {};
 
-  billingSessions.forEach((s) => {
-    if (!s.anfrage_id) return;
+    (billingSessions || []).forEach((s) => {
+      if (!s.anfrage_id) return;
 
-    if (!map[s.anfrage_id]) {
-      map[s.anfrage_id] = {
-        klient:
-          `${s.anfragen?.vorname || ""} ${s.anfragen?.nachname || ""}`.trim() ||
-          "Unbekannt",
-        therapist: s.therapist,
-        sessions: 0,
-        umsatz: 0,
-        provision: 0,
-        payout: 0,
-      };
-    }
+      if (!map[s.anfrage_id]) {
+        map[s.anfrage_id] = {
+          klient:
+            `${s.anfragen?.vorname || ""} ${s.anfragen?.nachname || ""}`.trim() ||
+            "Unbekannt",
+          therapist: s.therapist,
+          sessions: 0,
+          umsatz: 0,
+          provision: 0,
+          payout: 0,
+        };
+      }
 
-    map[s.anfrage_id].sessions += 1;
-    map[s.anfrage_id].umsatz += Number(s.price) || 0;
-    map[s.anfrage_id].provision += Number(s.commission) || 0;
-    map[s.anfrage_id].payout += Number(s.payout) || 0;
-  });
+      map[s.anfrage_id].sessions += 1;
+      map[s.anfrage_id].umsatz += Number(s.price) || 0;
+      map[s.anfrage_id].provision += Number(s.commission) || 0;
+      map[s.anfrage_id].payout += Number(s.payout) || 0;
+    });
 
-  return Object.values(map);
-}, [billingSessions]);
+    return Object.values(map);
+  }, [billingSessions]);
 
+  /* ---------- EARLY RETURN ---------- */
+  if (!user) return <div>Bitte einloggen…</div>;
 
   /* ================= UI ================= */
 
@@ -685,19 +406,13 @@ const filtered = useMemo(() => {
       {/* FILTER */}
       <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
         <button onClick={() => setFilter("unbearbeitet")}>Unbearbeitet</button>
-        <button onClick={() => setFilter("abrechnung")}>
-  💶 Abrechnung
-</button>
-
+        <button onClick={() => setFilter("abrechnung")}>💶 Abrechnung</button>
         <button onClick={() => setFilter("aktiv")}>Aktiv</button>
         <button onClick={() => setFilter("papierkorb")}>Papierkorb</button>
         <button onClick={() => setFilter("beendet")}>Beendet</button>
         <button onClick={() => setFilter("alle")}>Alle</button>
 
-        <select
-          value={therapistFilter}
-          onChange={(e) => setTherapistFilter(e.target.value)}
-        >
+        <select value={therapistFilter} onChange={(e) => setTherapistFilter(e.target.value)}>
           <option value="alle">Alle Teammitglieder</option>
           {teamData.map((t) => (
             <option key={t.email} value={t.email}>
@@ -707,7 +422,7 @@ const filtered = useMemo(() => {
         </select>
 
         <input
-          placeholder="🔍 Klientin suchen…"
+          placeholder="🔍 Klient:in suchen…"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           style={{
@@ -721,11 +436,7 @@ const filtered = useMemo(() => {
         <select
           value={sort}
           onChange={(e) => setSort(e.target.value)}
-          style={{
-            padding: "6px 10px",
-            borderRadius: 8,
-            border: "1px solid #ccc",
-          }}
+          style={{ padding: "6px 10px", borderRadius: 8, border: "1px solid #ccc" }}
         >
           <option value="last">Letzte Aktivität</option>
           <option value="name">Name A–Z</option>
@@ -745,257 +456,249 @@ const filtered = useMemo(() => {
       >
         ➕ Bestandsklient:in anlegen
       </button>
-{filter === "abrechnung" && (
-  <section
-    style={{
-      border: "1px solid #ddd",
-      borderRadius: 12,
-      padding: 16,
-    }}
-  >
-    <h2>💶 Abrechnung</h2>
 
-    <table style={{ width: "100%", borderCollapse: "collapse" }}>
-      <thead>
-        <tr>
-          <th align="left">Klient:in</th>
-          <th>Sitzungen</th>
-          <th>Umsatz (€)</th>
-          <th>Provision Poise (€)</th>
-          <th>Auszahlung (€)</th>
-        </tr>
-      </thead>
+      {/* ABRECHNUNG */}
+      {filter === "abrechnung" && (
+        <section style={{ border: "1px solid #ddd", borderRadius: 12, padding: 16 }}>
+          <h2>💶 Abrechnung</h2>
 
-      <tbody>
-        {billingByClient.map((b, i) => (
-          <tr key={i}>
-            <td>{b.klient}</td>
-            <td align="center">{b.sessions}</td>
-            <td align="right">{b.umsatz.toFixed(2)}</td>
-            <td align="right">{b.provision.toFixed(2)}</td>
-            <td align="right">{b.payout.toFixed(2)}</td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
+          <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
+            <button
+              onClick={() => exportBillingCSV(billingByClient)}
+              style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid #ccc" }}
+            >
+              📄 CSV exportieren
+            </button>
 
-    <hr />
+            <button
+              onClick={() => exportBillingPDF(billingByClient)}
+              style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid #ccc" }}
+            >
+              📑 PDF exportieren
+            </button>
+          </div>
 
-    <p>
-      <strong>Gesamt Umsatz:</strong>{" "}
-      {billingByClient
-        .reduce((s, b) => s + b.umsatz, 0)
-        .toFixed(2)}{" "}
-      €
-    </p>
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <thead>
+              <tr>
+                <th align="left">Klient:in</th>
+                <th>Sitzungen</th>
+                <th>Umsatz (€)</th>
+                <th>Provision Poise (€)</th>
+                <th>Auszahlung (€)</th>
+              </tr>
+            </thead>
+            <tbody>
+              {billingByClient.map((b, i) => (
+                <tr key={i}>
+                  <td>{b.klient}</td>
+                  <td align="center">{b.sessions}</td>
+                  <td align="right">{b.umsatz.toFixed(2)}</td>
+                  <td align="right">{b.provision.toFixed(2)}</td>
+                  <td align="right">{b.payout.toFixed(2)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
 
-    <p>
-      <strong>Provision Poise:</strong>{" "}
-      {billingByClient
-        .reduce((s, b) => s + b.provision, 0)
-        .toFixed(2)}{" "}
-      €
-    </p>
+          <hr />
 
-    <p>
-      <strong>Auszahlung Therapeut:innen:</strong>{" "}
-      {billingByClient
-        .reduce((s, b) => s + b.payout, 0)
-        .toFixed(2)}{" "}
-      €
-    </p>
-  </section>
-)}
+          <p>
+            <strong>Gesamt Umsatz:</strong>{" "}
+            {billingByClient.reduce((s, b) => s + b.umsatz, 0).toFixed(2)} €
+          </p>
+          <p>
+            <strong>Provision Poise:</strong>{" "}
+            {billingByClient.reduce((s, b) => s + b.provision, 0).toFixed(2)} €
+          </p>
+          <p>
+            <strong>Auszahlung Therapeut:innen:</strong>{" "}
+            {billingByClient.reduce((s, b) => s + b.payout, 0).toFixed(2)} €
+          </p>
+        </section>
+      )}
 
-      {/* KARTEN */}
-    {filter !== "abrechnung" && sorted.map((r) => {
-  
-        const sessionList = sessionsByRequest[String(r.id)] || [];
-        const lastSessionDate = sessionList.length
-          ? sessionList[sessionList.length - 1]?.date
-          : null;
-
-        const daysSinceLast =
-          lastSessionDate && !isNaN(Date.parse(lastSessionDate))
-            ? (Date.now() - new Date(lastSessionDate).getTime()) / 86400000
+      {/* KARTEN (NICHT bei Abrechnung) */}
+      {filter !== "abrechnung" &&
+        sorted.map((r) => {
+          const sessionList = sessionsByRequest[String(r.id)] || [];
+          const lastSessionDate = sessionList.length
+            ? sessionList[sessionList.length - 1]?.date
             : null;
 
-        return (
-          <article
-            key={r.id}
-            style={{
-              border: "1px solid #ddd",
-              borderRadius: 12,
-              padding: 16,
-              marginBottom: 16,
-            }}
-          >
-            <strong>
-              {safeText(r.vorname, "")} {safeText(r.nachname, "")}
-            </strong>
+          const daysSinceLast =
+            lastSessionDate && !isNaN(Date.parse(lastSessionDate))
+              ? (Date.now() - new Date(lastSessionDate).getTime()) / 86400000
+              : null;
 
-            <div>{STATUS_LABEL[r._status] || safeText(r._status)}</div>
+          return (
+            <article
+              key={r.id}
+              style={{
+                border: "1px solid #ddd",
+                borderRadius: 12,
+                padding: 16,
+                marginBottom: 16,
+              }}
+            >
+              <strong>
+                {safeText(r.vorname, "")} {safeText(r.nachname, "")}
+              </strong>
 
-            {r.wunschtherapeut && (
-              <div style={{ fontSize: 13, color: "#555" }}>
-                👤{" "}
-                {teamData.find((t) => t.email === r.wunschtherapeut)?.name ||
-                  r.wunschtherapeut}
-              </div>
-            )}
+              <div>{STATUS_LABEL[r._status] || safeText(r._status)}</div>
 
-            {r._status === "active" && (
-              <div style={{ fontSize: 13, color: "#555", marginTop: 4 }}>
-                🧠 Sitzungen: {sessionList.length}
-                {lastSessionDate && !isNaN(Date.parse(lastSessionDate)) && (
-                  <>
-                    {" "}
-                    · letzte:{" "}
-                    {new Date(lastSessionDate).toLocaleDateString("de-AT")}
-                  </>
-                )}
-              </div>
-            )}
+              {r.wunschtherapeut && (
+                <div style={{ fontSize: 13, color: "#555" }}>
+                  👤{" "}
+                  {teamData.find((t) => t.email === r.wunschtherapeut)?.name ||
+                    r.wunschtherapeut}
+                </div>
+              )}
 
-            {r._status === "active" &&
-              daysSinceLast != null &&
-              daysSinceLast > 30 && (
+              {r._status === "active" && (
+                <div style={{ fontSize: 13, color: "#555", marginTop: 4 }}>
+                  🧠 Sitzungen: {sessionList.length}
+                  {lastSessionDate && !isNaN(Date.parse(lastSessionDate)) && (
+                    <>
+                      {" "}
+                      · letzte:{" "}
+                      {new Date(lastSessionDate).toLocaleDateString("de-AT")}
+                    </>
+                  )}
+                </div>
+              )}
+
+              {r._status === "active" && daysSinceLast != null && daysSinceLast > 30 && (
                 <div style={{ marginTop: 6, color: "darkred", fontSize: 13 }}>
                   ⚠️ keine Sitzung seit {Math.round(daysSinceLast)} Tagen
                 </div>
               )}
 
-            <p>{typeof r.anliegen === "string" ? r.anliegen : "–"}</p>
+              <p>{typeof r.anliegen === "string" ? r.anliegen : "–"}</p>
 
-            <button
-              onClick={() => {
-                setDetailsModal(r);
-                setEditTarif(r.honorar_klient || "");
-                setNewSessions([{ date: "", duration: 60 }]);
-              }}
-            >
-              🔍 Details
-            </button>
+              <button
+                onClick={() => {
+                  setDetailsModal(r);
+                  setEditTarif(r.honorar_klient || "");
+                  setNewSessions([{ date: "", duration: 60 }]);
+                }}
+              >
+                🔍 Details
+              </button>
 
-            {/* ENTSCHEIDUNGEN */}
-            {UNBEARBEITET.includes(r._status) && (
-              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                <button
-                  onClick={() =>
-                    fetch("/api/confirm-appointment", {
-                      method: "POST",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({
-                        requestId: r.id,
-                        therapist: user.email,
-                        client: r.email,
-                        slot: r.bevorzugte_zeit,
-                        vorname: r.vorname,
-                      }),
-                    }).then(() => location.reload())
-                  }
-                >
-                  ✔ Termin bestätigen
-                </button>
+              {/* ENTSCHEIDUNGEN */}
+              {UNBEARBEITET.includes(r._status) && (
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                  <button
+                    onClick={() =>
+                      fetch("/api/confirm-appointment", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                          requestId: r.id,
+                          therapist: user.email,
+                          client: r.email,
+                          slot: r.bevorzugte_zeit,
+                          vorname: r.vorname,
+                        }),
+                      }).then(() => location.reload())
+                    }
+                  >
+                    ✔ Termin bestätigen
+                  </button>
 
-                <button onClick={() => moveToTrash(r)}>✖ Absagen</button>
-                <button onClick={() => moveToTrash(r)}>🔁 Neuer Termin</button>
-                <button onClick={() => moveToTrash(r)}>👥 Weiterleiten</button>
-              </div>
-            )}
+                  <button onClick={() => moveToTrash(r)}>✖ Absagen</button>
+                  <button onClick={() => moveToTrash(r)}>🔁 Neuer Termin</button>
+                  <button onClick={() => moveToTrash(r)}>👥 Weiterleiten</button>
+                </div>
+              )}
 
-            {/* MATCH / NO MATCH */}
-            {r._status === "termin_bestaetigt" && (
-              <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
-                <button
-                  onClick={() =>
-                    fetch("/api/match-client", {
-                      method: "POST",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({
-                        anfrageId: r.id,
-                        therapistEmail: user.email,
-                        honorar: r.honorar_klient,
-                      }),
-                    }).then(() => location.reload())
-                  }
-                >
-                  ❤️ Match
-                </button>
+              {/* MATCH / NO MATCH */}
+              {r._status === "termin_bestaetigt" && (
+                <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+                  <button
+                    onClick={() =>
+                      fetch("/api/match-client", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                          anfrageId: r.id,
+                          therapistEmail: user.email,
+                          honorar: r.honorar_klient,
+                        }),
+                      }).then(() => location.reload())
+                    }
+                  >
+                    ❤️ Match
+                  </button>
 
-                <button
-                  onClick={() =>
-                    fetch("/api/no-match", {
-                      method: "POST",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({ anfrageId: r.id }),
-                    }).then(() => location.reload())
-                  }
-                >
-                  ❌ Kein Match
-                </button>
-              </div>
-            )}
+                  <button
+                    onClick={() =>
+                      fetch("/api/no-match", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ anfrageId: r.id }),
+                      }).then(() => location.reload())
+                    }
+                  >
+                    ❌ Kein Match
+                  </button>
+                </div>
+              )}
 
-        {/* AKTIV */}
-{r._status === "active" && (
-  <div style={{ marginTop: 8, display: "flex", gap: 8, flexWrap: "wrap" }}>
-    <button
-      onClick={() =>
-        fetch("/api/finish-coaching", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ anfrageId: r.id }),
-        }).then(() => location.reload())
-      }
-    >
-      🔴 Coaching beenden
-    </button>
+              {/* AKTIV */}
+              {r._status === "active" && (
+                <div style={{ marginTop: 8, display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  <button
+                    onClick={() =>
+                      fetch("/api/finish-coaching", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ anfrageId: r.id }),
+                      }).then(() => location.reload())
+                    }
+                  >
+                    🔴 Coaching beenden
+                  </button>
 
-    <button
-      onClick={() => {
-        setReassignModal(r);
-        setNewTherapist("");
-      }}
-    >
-      🔁 Therapeut wechseln
-    </button>
-  </div>
-)}
-      {/* BEENDET */}
-{r._status === "beendet" && (
-  <div style={{ marginTop: 8 }}>
-    <button
-      onClick={() =>
-        fetch("/api/update-status", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            anfrageId: r.id,
-            status: "active",
-          }),
-        }).then(() => location.reload())
-      }
-    >
-      🔄 Coaching wieder aktivieren
-    </button>
-  </div>
-)}
+                  <button
+                    onClick={() => {
+                      setReassignModal(r);
+                      setNewTherapist("");
+                    }}
+                  >
+                    🔁 Therapeut wechseln
+                  </button>
+                </div>
+              )}
 
-            {/* PAPIERKORB */}
-            {r._status === "papierkorb" && (
-              <div style={{ marginTop: 8 }}>
-                <button onClick={() => restoreFromTrash(r)}>
-                  ♻️ Wiederherstellen
-                </button>
-                <button onClick={() => deleteForever(r)}>🗑 Löschen</button>
-              </div>
-            )}
-          </article>
-        );
-      })}
+              {/* BEENDET */}
+              {r._status === "beendet" && (
+                <div style={{ marginTop: 8 }}>
+                  <button
+                    onClick={() =>
+                      fetch("/api/update-status", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ anfrageId: r.id, status: "active" }),
+                      }).then(() => location.reload())
+                    }
+                  >
+                    🔄 Coaching wieder aktivieren
+                  </button>
+                </div>
+              )}
 
-
+              {/* PAPIERKORB */}
+              {r._status === "papierkorb" && (
+                <div style={{ marginTop: 8 }}>
+                  <button onClick={() => restoreFromTrash(r)}>♻️ Wiederherstellen</button>
+                  <button onClick={() => deleteForever(r)}>🗑 Löschen</button>
+                </div>
+              )}
+            </article>
+          );
+        })}
 
       {/* DETAILANSICHT */}
       {detailsModal && (
@@ -1005,56 +708,37 @@ const filtered = useMemo(() => {
               {safeText(detailsModal?.vorname)} {safeText(detailsModal?.nachname)}
             </h3>
 
-            {/* FORMULARINFOS – IMMER */}
             <section>
               <p>
-                <strong>Name:</strong>{" "}
-                {safeText(detailsModal?.vorname)} {safeText(detailsModal?.nachname)}
+                <strong>Name:</strong> {safeText(detailsModal?.vorname)}{" "}
+                {safeText(detailsModal?.nachname)}
               </p>
-
               <p>
                 <strong>E-Mail:</strong> {safeText(detailsModal?.email)}
               </p>
-
               <p>
                 <strong>Telefon:</strong> {safeText(detailsModal?.telefon)}
               </p>
-
               <p>
                 <strong>Adresse:</strong> {safeText(detailsModal?.strasse_hausnr)}{" "}
                 {safeText(detailsModal?.plz_ort)}
-              </p>
-
-              <p>
-                <strong>Alter:</strong>{" "}
-                {detailsModal?.geburtsdatum &&
-                !isNaN(Date.parse(detailsModal.geburtsdatum))
-                  ? new Date().getFullYear() -
-                    new Date(detailsModal.geburtsdatum).getFullYear()
-                  : "–"}
               </p>
 
               <hr />
 
               <p>
                 <strong>Anliegen:</strong>{" "}
-                {typeof detailsModal?.anliegen === "string"
-                  ? detailsModal.anliegen
-                  : "–"}
+                {typeof detailsModal?.anliegen === "string" ? detailsModal.anliegen : "–"}
               </p>
-
               <p>
                 <strong>Leidensdruck:</strong> {safeText(detailsModal?.leidensdruck)}
               </p>
-
               <p>
                 <strong>Wie lange schon:</strong> {safeText(detailsModal?.verlauf)}
               </p>
-
               <p>
                 <strong>Ziel:</strong> {safeText(detailsModal?.ziel)}
               </p>
-
               <p>
                 <strong>Beschäftigungsgrad:</strong>{" "}
                 {safeText(detailsModal?.beschaeftigungsgrad)}
@@ -1064,30 +748,26 @@ const filtered = useMemo(() => {
 
               <p>
                 <strong>Wunschtherapeut:</strong>{" "}
-                {teamData.find((t) => t.email === detailsModal?.wunschtherapeut)
-                  ?.name || safeText(detailsModal?.wunschtherapeut)}
+                {teamData.find((t) => t.email === detailsModal?.wunschtherapeut)?.name ||
+                  safeText(detailsModal?.wunschtherapeut)}
               </p>
 
               {safeDateString(detailsModal?.bevorzugte_zeit) && (
                 <p>
-                  <strong>Ersttermin:</strong>{" "}
-                  {safeDateString(detailsModal.bevorzugte_zeit)}
+                  <strong>Ersttermin:</strong> {safeDateString(detailsModal.bevorzugte_zeit)}
                 </p>
               )}
             </section>
 
-            {/* AKTIV-BEREICH */}
             {detailsModal._status === "active" && (
               <div style={{ marginTop: 12 }}>
                 <hr />
 
-                {/* KENNZAHLEN */}
                 <p>
                   <strong>Anzahl Sitzungen:</strong>{" "}
                   {(sessionsByRequest[String(detailsModal.id)] || []).length}
                 </p>
 
-                {/* STUNDENSATZ */}
                 <label>Stundensatz (€)</label>
                 <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                   <input
@@ -1112,7 +792,6 @@ const filtered = useMemo(() => {
                   </button>
                 </div>
 
-                {/* PROVISION – GESAMT */}
                 <h4 style={{ marginTop: 14 }}>Provision</h4>
                 <p>
                   <strong>Gesamt:</strong>{" "}
@@ -1122,7 +801,6 @@ const filtered = useMemo(() => {
                   €
                 </p>
 
-                {/* PROVISION – QUARTAL */}
                 <h4>Provision pro Quartal</h4>
                 {(() => {
                   const sessions = sessionsByRequest[String(detailsModal.id)] || [];
@@ -1132,8 +810,8 @@ const filtered = useMemo(() => {
                     acc[q] = (acc[q] || 0) + (Number(s.price) || 0) * 0.3;
                     return acc;
                   }, {});
+
                   const entries = Object.entries(map).sort((a, b) => {
-                    // sort by year then quarter
                     const [aq, ay] = a[0].split(" ");
                     const [bq, by] = b[0].split(" ");
                     const an = Number(String(aq).replace("Q", ""));
@@ -1156,8 +834,7 @@ const filtered = useMemo(() => {
                           marginBottom: 10,
                         }}
                       >
-                        <strong>Aktuelles Quartal ({cq}):</strong>{" "}
-                        {currentSum.toFixed(2)} €
+                        <strong>Aktuelles Quartal ({cq}):</strong> {currentSum.toFixed(2)} €
                         {currentSum === 0 && (
                           <div style={{ marginTop: 6, color: "#8B5A2B" }}>
                             ⚠️ Noch keine Provision in diesem Quartal (keine erfassten Sitzungen).
@@ -1178,16 +855,13 @@ const filtered = useMemo(() => {
                   );
                 })()}
 
-                {/* SITZUNGEN LISTE */}
                 <h4 style={{ marginTop: 14 }}>Sitzungen</h4>
                 {(sessionsByRequest[String(detailsModal.id)] || []).map((s, i) => (
                   <div key={s.id || `${s.date}-${i}`}>
-                    {safeDateString(s.date) || "–"} ·{" "}
-                    {safeNumber(s.duration_min)} Min
+                    {safeDateString(s.date) || "–"} · {safeNumber(s.duration_min)} Min
                   </div>
                 ))}
 
-                {/* NEUE SITZUNG */}
                 <h4 style={{ marginTop: 14 }}>Neue Sitzung eintragen</h4>
 
                 {newSessions.map((s, i) => (
@@ -1218,11 +892,7 @@ const filtered = useMemo(() => {
                 ))}
 
                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                  <button
-                    onClick={() =>
-                      setNewSessions([...newSessions, { date: "", duration: 60 }])
-                    }
-                  >
+                  <button onClick={() => setNewSessions([...newSessions, { date: "", duration: 60 }])}>
                     ➕ Weitere Sitzung
                   </button>
 
@@ -1250,15 +920,9 @@ const filtered = useMemo(() => {
             )}
 
             <hr />
-
-        <hr />
-
-<div style={{ display: "flex", justifyContent: "flex-end" }}>
-  <button onClick={() => setDetailsModal(null)}>
-    Schließen
-  </button>
-</div>
-
+            <div style={{ display: "flex", justifyContent: "flex-end" }}>
+              <button onClick={() => setDetailsModal(null)}>Schließen</button>
+            </div>
           </div>
         </Modal>
       )}
