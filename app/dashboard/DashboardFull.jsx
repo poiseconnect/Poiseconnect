@@ -3,6 +3,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { teamData } from "../teamData";
+import jsPDF from "jspdf";
+import "jspdf-autotable";
+
 
 /* ================= STATUS ================= */
 
@@ -90,6 +93,71 @@ function safeDateString(v) {
   if (Number.isNaN(d.getTime())) return "";
   return d.toLocaleString("de-AT");
 }
+function exportBillingCSV(rows) {
+  if (!rows.length) return;
+
+  const header = [
+    "Klient",
+    "Sitzungen",
+    "Umsatz",
+    "Provision Poise",
+    "Auszahlung Therapeut:in",
+  ];
+
+  const csvRows = [
+    header.join(";"),
+    ...rows.map((r) =>
+      [
+        r.klient,
+        r.sessions,
+        r.umsatz.toFixed(2),
+        r.provision.toFixed(2),
+        r.payout.toFixed(2),
+      ].join(";")
+    ),
+  ];
+
+  const blob = new Blob([csvRows.join("\n")], {
+    type: "text/csv;charset=utf-8;",
+  });
+
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `abrechnung_${new Date().toISOString().slice(0, 10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+function exportBillingPDF(rows) {
+  if (!rows.length) return;
+
+  const doc = new jsPDF();
+  doc.setFontSize(14);
+  doc.text("Poise – Abrechnung", 14, 15);
+
+  doc.autoTable({
+    startY: 22,
+    head: [[
+      "Klient",
+      "Sitzungen",
+      "Umsatz (€)",
+      "Provision (€)",
+      "Auszahlung (€)",
+    ]],
+    body: rows.map((r) => [
+      r.klient,
+      r.sessions,
+      r.umsatz.toFixed(2),
+      r.provision.toFixed(2),
+      r.payout.toFixed(2),
+    ]),
+    styles: { fontSize: 10 },
+  });
+
+  doc.save(`abrechnung_${new Date().toISOString().slice(0, 10)}.pdf`);
+}
+
+
 
 /* ================= DASHBOARD ================= */
 
@@ -229,6 +297,30 @@ export default function DashboardFull() {
       {filter === "abrechnung" && (
         <section>
           <h2>Abrechnung</h2>
+          <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+  <button
+    onClick={() => exportBillingCSV(billingByClient)}
+    style={{
+      padding: "6px 12px",
+      borderRadius: 8,
+      border: "1px solid #ccc",
+    }}
+  >
+    📄 CSV exportieren
+  </button>
+
+  <button
+    onClick={() => exportBillingPDF(billingByClient)}
+    style={{
+      padding: "6px 12px",
+      borderRadius: 8,
+      border: "1px solid #ccc",
+    }}
+  >
+    📑 PDF exportieren
+  </button>
+</div>
+
           {billingByClient.map((b, i) => (
             <div key={i}>
               {b.klient} – {b.sessions} Sitzungen – {b.payout.toFixed(2)} €
