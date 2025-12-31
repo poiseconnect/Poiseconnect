@@ -120,6 +120,7 @@ export default function DashboardFull() {
   const [requests, setRequests] = useState([]);
   const [sessionsByRequest, setSessionsByRequest] = useState({});
   const [filter, setFilter] = useState("unbearbeitet");
+  
   const [therapistFilter, setTherapistFilter] = useState("alle");
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState("last"); // last | name
@@ -135,6 +136,8 @@ export default function DashboardFull() {
   const [bestandVorname, setBestandVorname] = useState("");
   const [bestandNachname, setBestandNachname] = useState("");
   const [bestandTherapeut, setBestandTherapeut] = useState("");
+  const [billingSessions, setBillingSessions] = useState([]);
+
 
   /* ---------- LOAD USER ---------- */
   useEffect(() => {
@@ -205,6 +208,37 @@ export default function DashboardFull() {
       setSessionsByRequest(grouped);
     });
   }, []);
+  /* ---------- LOAD BILLING SESSIONS ---------- */
+useEffect(() => {
+  if (!user?.email) return;
+
+  let query = supabase
+    .from("sessions")
+    .select(`
+      id,
+      date,
+      price,
+      commission,
+      payout,
+      therapist,
+      anfrage_id,
+      anfragen (
+        vorname,
+        nachname,
+        status
+      )
+    `);
+
+  // Therapeut:innen sehen nur ihre Sessions
+  if (user.email !== "hallo@mypoise.de") {
+    query = query.eq("therapist", user.email);
+  }
+
+  query.then(({ data, error }) => {
+    if (!error) setBillingSessions(data || []);
+  });
+}, [user]);
+
 
   /* ---------- FILTER ---------- */
   const UNBEARBEITET = ["offen", "termin_neu", "termin_bestaetigt"];
@@ -214,6 +248,7 @@ const FILTER_MAP = {
   aktiv: ["active"],
   beendet: ["beendet"],
   papierkorb: ["papierkorb"],
+  abrechnung: [], // 👈 explizit
   alle: ["offen", "termin_neu", "termin_bestaetigt", "active", "beendet", "papierkorb"],
 };
 
@@ -263,6 +298,35 @@ const filtered = useMemo(() => {
   }, [filtered, sort, sessionsByRequest]);
 
   if (!user) return <div>Bitte einloggen…</div>;
+  
+  const billingByClient = useMemo(() => {
+  const map = {};
+
+  billingSessions.forEach((s) => {
+    if (!s.anfrage_id) return;
+
+    if (!map[s.anfrage_id]) {
+      map[s.anfrage_id] = {
+        klient:
+          `${s.anfragen?.vorname || ""} ${s.anfragen?.nachname || ""}`.trim() ||
+          "Unbekannt",
+        therapist: s.therapist,
+        sessions: 0,
+        umsatz: 0,
+        provision: 0,
+        payout: 0,
+      };
+    }
+
+    map[s.anfrage_id].sessions += 1;
+    map[s.anfrage_id].umsatz += Number(s.price) || 0;
+    map[s.anfrage_id].provision += Number(s.commission) || 0;
+    map[s.anfrage_id].payout += Number(s.payout) || 0;
+  });
+
+  return Object.values(map);
+}, [billingSessions]);
+
 
   /* ================= UI ================= */
 
@@ -273,6 +337,10 @@ const filtered = useMemo(() => {
       {/* FILTER */}
       <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
         <button onClick={() => setFilter("unbearbeitet")}>Unbearbeitet</button>
+        <button onClick={() => setFilter("abrechnung")}>
+  💶 Abrechnung
+</button>
+
         <button onClick={() => setFilter("aktiv")}>Aktiv</button>
         <button onClick={() => setFilter("papierkorb")}>Papierkorb</button>
         <button onClick={() => setFilter("beendet")}>Beendet</button>
@@ -329,9 +397,71 @@ const filtered = useMemo(() => {
       >
         ➕ Bestandsklient:in anlegen
       </button>
+{filter === "abrechnung" && (
+  <section
+    style={{
+      border: "1px solid #ddd",
+      borderRadius: 12,
+      padding: 16,
+    }}
+  >
+    <h2>💶 Abrechnung</h2>
+
+    <table style={{ width: "100%", borderCollapse: "collapse" }}>
+      <thead>
+        <tr>
+          <th align="left">Klient:in</th>
+          <th>Sitzungen</th>
+          <th>Umsatz (€)</th>
+          <th>Provision Poise (€)</th>
+          <th>Auszahlung (€)</th>
+        </tr>
+      </thead>
+
+      <tbody>
+        {billingByClient.map((b, i) => (
+          <tr key={i}>
+            <td>{b.klient}</td>
+            <td align="center">{b.sessions}</td>
+            <td align="right">{b.umsatz.toFixed(2)}</td>
+            <td align="right">{b.provision.toFixed(2)}</td>
+            <td align="right">{b.payout.toFixed(2)}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+
+    <hr />
+
+    <p>
+      <strong>Gesamt Umsatz:</strong>{" "}
+      {billingByClient
+        .reduce((s, b) => s + b.umsatz, 0)
+        .toFixed(2)}{" "}
+      €
+    </p>
+
+    <p>
+      <strong>Provision Poise:</strong>{" "}
+      {billingByClient
+        .reduce((s, b) => s + b.provision, 0)
+        .toFixed(2)}{" "}
+      €
+    </p>
+
+    <p>
+      <strong>Auszahlung Therapeut:innen:</strong>{" "}
+      {billingByClient
+        .reduce((s, b) => s + b.payout, 0)
+        .toFixed(2)}{" "}
+      €
+    </p>
+  </section>
+)}
 
       {/* KARTEN */}
-      {sorted.map((r) => {
+    {filter !== "abrechnung" && sorted.map((r) => {
+  
         const sessionList = sessionsByRequest[String(r.id)] || [];
         const lastSessionDate = sessionList.length
           ? sessionList[sessionList.length - 1]?.date
@@ -484,20 +614,6 @@ const filtered = useMemo(() => {
     </button>
   </div>
 )}
-
-
-            {/* PAPIERKORB */}
-            {r._status === "papierkorb" && (
-              <div style={{ marginTop: 8 }}>
-                <button onClick={() => restoreFromTrash(r)}>
-                  ♻️ Wiederherstellen
-                </button>
-                <button onClick={() => deleteForever(r)}>🗑 Löschen</button>
-              </div>
-            )}
-          </article>
-        );
-      })}
       {/* BEENDET */}
 {r._status === "beendet" && (
   <div style={{ marginTop: 8 }}>
@@ -517,6 +633,20 @@ const filtered = useMemo(() => {
     </button>
   </div>
 )}
+
+            {/* PAPIERKORB */}
+            {r._status === "papierkorb" && (
+              <div style={{ marginTop: 8 }}>
+                <button onClick={() => restoreFromTrash(r)}>
+                  ♻️ Wiederherstellen
+                </button>
+                <button onClick={() => deleteForever(r)}>🗑 Löschen</button>
+              </div>
+            )}
+          </article>
+        );
+      })}
+
 
 
       {/* DETAILANSICHT */}
