@@ -67,6 +67,247 @@ function Modal({ children, onClose }) {
           width: "100%",
           maxHeight: "90vh",
           overflowY: "auto",
+        }}
+      >
+        {children}
+      </div>
+    </div>
+  );
+}
+
+/* ================= HELPERS ================= */
+
+function safeText(v, fallback = "–") {
+  if (v === null || v === undefined) return fallback;
+  if (typeof v === "string") return v.trim() || fallback;
+  if (typeof v === "number") return String(v);
+  return fallback;
+}
+
+function safeDateString(v) {
+  if (!v) return "";
+  const d = new Date(v);
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toLocaleString("de-AT");
+}
+
+/* ================= DASHBOARD ================= */
+
+export default function DashboardFull() {
+  const [user, setUser] = useState(null);
+  const [requests, setRequests] = useState([]);
+  const [sessionsByRequest, setSessionsByRequest] = useState({});
+  const [billingSessions, setBillingSessions] = useState([]);
+
+  const [filter, setFilter] = useState("unbearbeitet");
+  const [therapistFilter, setTherapistFilter] = useState("alle");
+  const [search, setSearch] = useState("");
+  const [sort, setSort] = useState("last");
+
+  const [detailsModal, setDetailsModal] = useState(null);
+  const [editTarif, setEditTarif] = useState("");
+  const [newSessions, setNewSessions] = useState([{ date: "", duration: 60 }]);
+
+  const [reassignModal, setReassignModal] = useState(null);
+  const [newTherapist, setNewTherapist] = useState("");
+
+  const [createBestandOpen, setCreateBestandOpen] = useState(false);
+  const [bestandVorname, setBestandVorname] = useState("");
+  const [bestandNachname, setBestandNachname] = useState("");
+  const [bestandTherapeut, setBestandTherapeut] = useState("");
+
+  /* ---------- LOAD USER ---------- */
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      setUser(data?.user || null);
+    });
+  }, []);
+
+  /* ---------- LOAD REQUESTS ---------- */
+  useEffect(() => {
+    if (!user?.email) return;
+
+    let query = supabase
+      .from("anfragen")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    if (user.email !== "hallo@mypoise.de") {
+      query = query.eq("wunschtherapeut", user.email);
+    }
+
+    query.then(({ data }) => {
+      setRequests(
+        (data || []).map((r) => ({
+          ...r,
+          _status: normalizeStatus(r.status),
+        }))
+      );
+    });
+  }, [user]);
+
+  /* ---------- LOAD SESSIONS ---------- */
+  useEffect(() => {
+    supabase.from("sessions").select("*").then(({ data }) => {
+      const grouped = {};
+      (data || []).forEach((s) => {
+        const key = String(s.anfrage_id);
+        if (!grouped[key]) grouped[key] = [];
+        grouped[key].push(s);
+      });
+      setSessionsByRequest(grouped);
+    });
+  }, []);
+
+  /* ---------- LOAD BILLING ---------- */
+  useEffect(() => {
+    if (!user?.email) return;
+
+    let query = supabase.from("sessions").select(`
+      id, date, price, commission, payout, therapist, anfrage_id,
+      anfragen (vorname, nachname)
+    `);
+
+    if (user.email !== "hallo@mypoise.de") {
+      query = query.eq("therapist", user.email);
+    }
+
+    query.then(({ data }) => setBillingSessions(data || []));
+  }, [user]);
+
+  /* ---------- MEMOS (WICHTIG: VOR RETURN) ---------- */
+
+  const FILTER_MAP = {
+    unbearbeitet: ["offen", "termin_neu", "termin_bestaetigt"],
+    aktiv: ["active"],
+    beendet: ["beendet"],
+    papierkorb: ["papierkorb"],
+    abrechnung: [],
+    alle: ["offen", "termin_neu", "termin_bestaetigt", "active", "beendet", "papierkorb"],
+  };
+
+  const filtered = useMemo(() => {
+    const allowed = FILTER_MAP[filter] || FILTER_MAP.alle;
+    return requests.filter((r) => allowed.includes(r._status));
+  }, [requests, filter]);
+
+  const sorted = useMemo(() => {
+    return [...filtered];
+  }, [filtered]);
+
+  const billingByClient = useMemo(() => {
+    const map = {};
+    billingSessions.forEach((s) => {
+      if (!map[s.anfrage_id]) {
+        map[s.anfrage_id] = {
+          klient: `${s.anfragen?.vorname || ""} ${s.anfragen?.nachname || ""}`.trim(),
+          sessions: 0,
+          umsatz: 0,
+          provision: 0,
+          payout: 0,
+        };
+      }
+      map[s.anfrage_id].sessions += 1;
+      map[s.anfrage_id].umsatz += Number(s.price) || 0;
+      map[s.anfrage_id].provision += Number(s.commission) || 0;
+      map[s.anfrage_id].payout += Number(s.payout) || 0;
+    });
+    return Object.values(map);
+  }, [billingSessions]);
+
+  /* ---------- EARLY RETURN ---------- */
+  if (!user) return <div>Bitte einloggen…</div>;
+
+  /* ================= UI ================= */
+
+  return (
+    <div style={{ padding: 24, maxWidth: 1100, margin: "0 auto" }}>
+      <h1>Poise Dashboard</h1>
+
+      <button onClick={() => setFilter("abrechnung")}>💶 Abrechnung</button>
+
+      {filter === "abrechnung" && (
+        <section>
+          <h2>Abrechnung</h2>
+          {billingByClient.map((b, i) => (
+            <div key={i}>
+              {b.klient} – {b.sessions} Sitzungen – {b.payout.toFixed(2)} €
+            </div>
+          ))}
+        </section>
+      )}
+    </div>
+  );
+}
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import { supabase } from "../lib/supabase";
+import { teamData } from "../teamData";
+
+/* ================= STATUS ================= */
+
+function normalizeStatus(raw) {
+  if (!raw) return "offen";
+  const s = String(raw).toLowerCase().trim();
+
+  if (["offen", "neu", ""].includes(s)) return "offen";
+  if (["termin_neu", "new_appointment"].includes(s)) return "termin_neu";
+  if (
+    [
+      "termin_bestaetigt",
+      "termin bestätigt",
+      "confirmed",
+      "appointment_confirmed",
+      "bestaetigt",
+    ].includes(s)
+  )
+    return "termin_bestaetigt";
+  if (["active", "aktiv"].includes(s)) return "active";
+  if (["kein_match", "no_match"].includes(s)) return "kein_match";
+  if (["beendet", "finished"].includes(s)) return "beendet";
+  if (["papierkorb"].includes(s)) return "papierkorb";
+
+  return "offen";
+}
+
+const STATUS_LABEL = {
+  offen: "Neu",
+  termin_neu: "Neuer Termin",
+  termin_bestaetigt: "Termin bestätigt",
+  active: "Begleitung aktiv",
+  kein_match: "Kein Match",
+  beendet: "Beendet",
+  papierkorb: "Papierkorb",
+};
+
+/* ================= MODAL ================= */
+
+function Modal({ children, onClose }) {
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: "fixed",
+        inset: 0,
+        background: "rgba(0,0,0,.35)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        zIndex: 9999,
+        padding: 20,
+      }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          background: "#fff",
+          padding: 20,
+          borderRadius: 12,
+          maxWidth: 720,
+          width: "100%",
+          maxHeight: "90vh",
+          overflowY: "auto",
           boxShadow: "0 10px 30px rgba(0,0,0,.25)",
         }}
       >
