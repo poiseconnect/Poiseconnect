@@ -226,15 +226,19 @@ export default function DashboardFull() {
   const [bestandNachname, setBestandNachname] = useState("");
   const [bestandTherapeut, setBestandTherapeut] = useState("");
 
+  /* ===== ABRECHNUNG ===== */
+
   const [billingSessions, setBillingSessions] = useState([]);
+
+  // Zeitraum-Typ
   const [billingPeriod, setBillingPeriod] = useState("monat"); 
-// "monat" | "quartal" | "jahr"
+  // "monat" | "quartal" | "jahr"
 
-const [billingDate, setBillingDate] = useState(() => {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-});
-
+  // Ausgewählter Zeitraum (z. B. 2025-01)
+  const [billingDate, setBillingDate] = useState(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+  });
 
   /* ---------- LOAD USER ---------- */
   useEffect(() => {
