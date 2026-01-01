@@ -226,107 +226,97 @@ export default function DashboardFull() {
   const [bestandNachname, setBestandNachname] = useState("");
   const [bestandTherapeut, setBestandTherapeut] = useState("");
 
-  /* ================= ABRECHNUNG (STABIL) ================= */
+ /* ================= ABRECHNUNG (STABIL) ================= */
 
-  // Sessions aus Supabase
-  const [billingSessions, setBillingSessions] = useState([]);
+// Sessions aus Supabase
+const [billingSessions, setBillingSessions] = useState([]);
 
-  // Zeitraum-Typ
-  const [billingPeriod, setBillingPeriod] = useState("monat"); // monat | quartal | jahr
+// Zeitraum
+const [billingPeriod, setBillingPeriod] = useState("monat"); // monat | quartal | jahr
 
-  // ⬇️ WICHTIG: Initialwerte NUR über Funktionen (SSR-safe)
-  const [billingYear, setBillingYear] = useState(
-    () => new Date().getFullYear()
-  );
-  const [billingMonth, setBillingMonth] = useState(
-    () => new Date().getMonth() + 1
-  );
-  const [billingQuarter, setBillingQuarter] = useState(
-    () => Math.floor(new Date().getMonth() / 3) + 1
-  );
+const [billingYear, setBillingYear] = useState(() => new Date().getFullYear());
+const [billingMonth, setBillingMonth] = useState(() => new Date().getMonth() + 1);
+const [billingQuarter, setBillingQuarter] = useState(
+  () => Math.floor(new Date().getMonth() / 3) + 1
+);
 
-  /* ---------- 1. Sessions nach Zeitraum filtern ---------- */
-  const filteredBillingSessions = useMemo(() => {
-    if (!Array.isArray(billingSessions)) return [];
+/* ---------- 1. Sessions nach Zeitraum filtern ---------- */
+const filteredBillingSessions = useMemo(() => {
+  if (!Array.isArray(billingSessions)) return [];
 
-    return billingSessions.filter((s) => {
-      if (!s || !s.date) return false;
+  return billingSessions.filter((s) => {
+    if (!s?.date) return false;
 
-      const d = new Date(s.date);
-      if (Number.isNaN(d.getTime())) return false;
+    const d = new Date(s.date);
+    if (Number.isNaN(d.getTime())) return false;
 
-      const year = d.getFullYear();
-      const month = d.getMonth() + 1;
-      const quarter = Math.floor((month - 1) / 3) + 1;
+    const year = d.getFullYear();
+    const month = d.getMonth() + 1;
+    const quarter = Math.floor((month - 1) / 3) + 1;
 
-      if (billingPeriod === "monat") {
-        return year === billingYear && month === billingMonth;
-      }
+    if (billingPeriod === "monat") {
+      return year === billingYear && month === billingMonth;
+    }
 
-      if (billingPeriod === "quartal") {
-        return year === billingYear && quarter === billingQuarter;
-      }
+    if (billingPeriod === "quartal") {
+      return year === billingYear && quarter === billingQuarter;
+    }
 
-      if (billingPeriod === "jahr") {
-        return year === billingYear;
-      }
+    if (billingPeriod === "jahr") {
+      return year === billingYear;
+    }
 
-      return false;
-    });
-  }, [
-    billingSessions,
-    billingPeriod,
-    billingYear,
-    billingMonth,
-    billingQuarter,
-  ]);
+    return false;
+  });
+}, [billingSessions, billingPeriod, billingYear, billingMonth, billingQuarter]);
 
-  /* ---------- 2. Gruppierung pro Klient ---------- */
-  const billingByClient = useMemo(() => {
-    const map = {};
+/* ---------- 2. Gruppierung pro Klient ---------- */
+const billingByClient = useMemo(() => {
+  const map = {};
 
-    filteredBillingSessions.forEach((s) => {
-      if (!s || !s.anfrage_id) return;
+  filteredBillingSessions.forEach((s) => {
+    if (!s?.anfrage_id) return;
 
-      if (!map[s.anfrage_id]) {
-        map[s.anfrage_id] = {
-          klient:
-            `${s.anfragen?.vorname || ""} ${s.anfragen?.nachname || ""}`.trim() ||
-            "Unbekannt",
-          sessions: 0,
-          umsatz: 0,
-          provision: 0,
-          payout: 0,
-        };
-      }
-
-      map[s.anfrage_id].sessions += 1;
-      map[s.anfrage_id].umsatz += Number(s.price) || 0;
-      map[s.anfrage_id].provision += Number(s.commission) || 0;
-      map[s.anfrage_id].payout += Number(s.payout) || 0;
-    });
-
-    return Object.values(map);
-  }, [filteredBillingSessions]);
-
-  /* ---------- 3. Gesamtsummen ---------- */
-  const billingTotals = useMemo(() => {
-    return billingByClient.reduce(
-      (acc, b) => {
-        acc.sessions += b.sessions;
-        acc.umsatz += b.umsatz;
-        acc.provision += b.provision;
-        acc.payout += b.payout;
-        return acc;
-      },
-      {
+    if (!map[s.anfrage_id]) {
+      map[s.anfrage_id] = {
+        klient:
+          `${s.anfragen?.vorname || ""} ${s.anfragen?.nachname || ""}`.trim() ||
+          "Unbekannt",
         sessions: 0,
         umsatz: 0,
         provision: 0,
         payout: 0,
-      }
-    );
-  }, [billingByClient]);
+      };
+    }
+
+    map[s.anfrage_id].sessions += 1;
+    map[s.anfrage_id].umsatz += Number(s.price) || 0;
+    map[s.anfrage_id].provision += Number(s.commission) || 0;
+    map[s.anfrage_id].payout += Number(s.payout) || 0;
+  });
+
+  return Object.values(map);
+}, [filteredBillingSessions]);
+
+/* ---------- 3. Gesamtsummen ---------- */
+const billingTotals = useMemo(() => {
+  return billingByClient.reduce(
+    (acc, b) => {
+      acc.sessions += b.sessions;
+      acc.umsatz += b.umsatz;
+      acc.provision += b.provision;
+      acc.payout += b.payout;
+      return acc;
+    },
+    {
+      sessions: 0,
+      umsatz: 0,
+      provision: 0,
+      payout: 0,
+    }
+  );
+}, [billingByClient]);
+
 
   /* ---------- LOAD USER ---------- */
 
