@@ -226,63 +226,63 @@ export default function DashboardFull() {
   const [bestandNachname, setBestandNachname] = useState("");
   const [bestandTherapeut, setBestandTherapeut] = useState("");
 
-  /* ===== ABRECHNUNG ===== */
+ /* ===== ABRECHNUNG ===== */
 
-  const [billingSessions, setBillingSessions] = useState([]);
+const [billingSessions, setBillingSessions] = useState([]);
 
-  // Zeitraum-Typ
-  const [billingPeriod, setBillingPeriod] = useState("monat");
-  // "monat" | "quartal" | "jahr"
+// Zeitraum-Typ
+const [billingPeriod, setBillingPeriod] = useState("monat");
+// "monat" | "quartal" | "jahr"
 
-  // Jahr (immer relevant)
-  const [billingYear, setBillingYear] = useState(
-    new Date().getFullYear()
-  );
+// Initialdatum nur EINMAL erzeugen (wichtig für Stabilität)
+const now = new Date();
 
-  // Monat (nur bei "monat")
-  const [billingMonth, setBillingMonth] = useState(
-    new Date().getMonth() + 1
-  );
+// Jahr (immer relevant)
+const [billingYear, setBillingYear] = useState(now.getFullYear());
 
-  // Quartal (nur bei "quartal")
-  const [billingQuarter, setBillingQuarter] = useState(
-    Math.floor(new Date().getMonth() / 3) + 1
-  );
+// Monat (nur bei "monat")
+const [billingMonth, setBillingMonth] = useState(now.getMonth() + 1);
 
-  /* ===== ABRECHNUNG – FILTER ===== */
+// Quartal (nur bei "quartal")
+const [billingQuarter, setBillingQuarter] = useState(
+  Math.floor(now.getMonth() / 3) + 1
+);
 
-  const filteredBillingSessions = useMemo(() => {
-    return billingSessions.filter((s) => {
-      if (!s.date) return false;
+/* ===== ABRECHNUNG – FILTER ===== */
 
-      const d = new Date(s.date);
-      if (isNaN(d)) return false;
+const filteredBillingSessions = useMemo(() => {
+  return billingSessions.filter((s) => {
+    if (!s?.date) return false;
 
-      const year = d.getFullYear();
-      const month = d.getMonth() + 1;
-      const quarter = Math.floor((month - 1) / 3) + 1;
+    const d = new Date(s.date);
+    if (Number.isNaN(d.getTime())) return false;
 
-      if (billingPeriod === "monat") {
-        return year === billingYear && month === billingMonth;
-      }
+    const year = d.getFullYear();
+    const month = d.getMonth() + 1;
+    const quarter = Math.floor((month - 1) / 3) + 1;
 
-      if (billingPeriod === "quartal") {
-        return year === billingYear && quarter === billingQuarter;
-      }
+    if (billingPeriod === "monat") {
+      return year === billingYear && month === billingMonth;
+    }
 
-      if (billingPeriod === "jahr") {
-        return year === billingYear;
-      }
+    if (billingPeriod === "quartal") {
+      return year === billingYear && quarter === billingQuarter;
+    }
 
-      return false;
-    });
-  }, [
-    billingSessions,
-    billingPeriod,
-    billingYear,
-    billingMonth,
-    billingQuarter,
-  ]);
+    if (billingPeriod === "jahr") {
+      return year === billingYear;
+    }
+
+    return false;
+  });
+}, [
+  billingSessions,
+  billingPeriod,
+  billingYear,
+  billingMonth,
+  billingQuarter,
+]);
+
 
   /* ---------- LOAD USER ---------- */
   useEffect(() => {
