@@ -521,7 +521,7 @@ export default function DashboardFull() {
     value={billingPeriod}
     onChange={(e) => {
       setBillingPeriod(e.target.value);
-      setBillingValue("");
+      setbillingByClient("");
     }}
   >
     <option value="monat">Monat</option>
@@ -537,8 +537,8 @@ export default function DashboardFull() {
         ? "YYYY-QX (z.B. 2025-Q1)"
         : "YYYY (z.B. 2025)"
     }
-    value={billingValue}
-    onChange={(e) => setBillingValue(e.target.value)}
+    value={billingByClient}
+    onChange={(e) => setbillingByClient(e.target.value)}
   />
 </div>
 
