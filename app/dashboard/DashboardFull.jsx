@@ -233,7 +233,6 @@ const [billingSessions, setBillingSessions] = useState([]);
 
 // Zeitraum
 const [billingPeriod, setBillingPeriod] = useState("monat"); // monat | quartal | jahr
-
 const [billingYear, setBillingYear] = useState(() => new Date().getFullYear());
 const [billingMonth, setBillingMonth] = useState(() => new Date().getMonth() + 1);
 const [billingQuarter, setBillingQuarter] = useState(
