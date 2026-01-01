@@ -225,35 +225,27 @@ export default function DashboardFull() {
   const [bestandVorname, setBestandVorname] = useState("");
   const [bestandNachname, setBestandNachname] = useState("");
   const [bestandTherapeut, setBestandTherapeut] = useState("");
-/* ===== ABRECHNUNG ===== */
+/* ================= ABRECHNUNG (STABIL) ================= */
 
+// Sessions aus Supabase
 const [billingSessions, setBillingSessions] = useState([]);
 
-// Zeitraum-Typ
-const [billingPeriod, setBillingPeriod] = useState("monat");
-// "monat" | "quartal" | "jahr"
+// Zeitraum
+const [billingPeriod, setBillingPeriod] = useState("monat"); // monat | quartal | jahr
 
-// Initialdatum nur EINMAL erzeugen (SSR-sicher)
-const now = useMemo(() => new Date(), []);
-
-// Jahr
+const now = new Date();
 const [billingYear, setBillingYear] = useState(now.getFullYear());
-
-// Monat (1–12)
 const [billingMonth, setBillingMonth] = useState(now.getMonth() + 1);
-
-// Quartal (1–4)
 const [billingQuarter, setBillingQuarter] = useState(
   Math.floor(now.getMonth() / 3) + 1
 );
 
-/* ===== ABRECHNUNG – FILTER ===== */
-
+/* ---------- 1. Sessions nach Zeitraum filtern ---------- */
 const filteredBillingSessions = useMemo(() => {
   if (!Array.isArray(billingSessions)) return [];
 
   return billingSessions.filter((s) => {
-    if (!s || !s.date) return false;
+    if (!s?.date) return false;
 
     const d = new Date(s.date);
     if (Number.isNaN(d.getTime())) return false;
@@ -276,13 +268,35 @@ const filteredBillingSessions = useMemo(() => {
 
     return false;
   });
-}, [
-  billingSessions,
-  billingPeriod,
-  billingYear,
-  billingMonth,
-  billingQuarter,
-]);
+}, [billingSessions, billingPeriod, billingYear, billingMonth, billingQuarter]);
+
+/* ---------- 2. Gruppierung pro Klient ---------- */
+const billingByClient = useMemo(() => {
+  const map = {};
+
+  filteredBillingSessions.forEach((s) => {
+    if (!s.anfrage_id) return;
+
+    if (!map[s.anfrage_id]) {
+      map[s.anfrage_id] = {
+        klient:
+          `${s.anfragen?.vorname || ""} ${s.anfragen?.nachname || ""}`.trim() ||
+          "Unbekannt",
+        sessions: 0,
+        umsatz: 0,
+        provision: 0,
+        payout: 0,
+      };
+    }
+
+    map[s.anfrage_id].sessions += 1;
+    map[s.anfrage_id].umsatz += Number(s.price) || 0;
+    map[s.anfrage_id].provision += Number(s.commission) || 0;
+    map[s.anfrage_id].payout += Number(s.payout) || 0;
+  });
+
+  return Object.values(map);
+}, [filteredBillingSessions]);
 
 
 
