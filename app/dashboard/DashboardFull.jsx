@@ -101,6 +101,30 @@ function safeDateString(v) {
   if (Number.isNaN(d.getTime())) return "";
   return d.toLocaleString("de-AT");
 }
+function isInBillingPeriod(dateStr, billingPeriod, billingDate) {
+  const d = new Date(dateStr);
+  if (Number.isNaN(d.getTime())) return false;
+
+  const year = d.getFullYear();
+  const month = d.getMonth() + 1;
+  const quarter = Math.floor((month - 1) / 3) + 1;
+
+  if (billingPeriod === "monat") {
+    const [y, m] = billingDate.split("-");
+    return year === Number(y) && month === Number(m);
+  }
+
+  if (billingPeriod === "quartal") {
+    const [y, q] = billingDate.split("-Q");
+    return year === Number(y) && quarter === Number(q);
+  }
+
+  if (billingPeriod === "jahr") {
+    return year === Number(billingDate);
+  }
+
+  return true;
+}
 
 function quarterKeyFromDate(dateLike) {
   const d = new Date(dateLike);
@@ -203,6 +227,14 @@ export default function DashboardFull() {
   const [bestandTherapeut, setBestandTherapeut] = useState("");
 
   const [billingSessions, setBillingSessions] = useState([]);
+  const [billingPeriod, setBillingPeriod] = useState("monat"); 
+// "monat" | "quartal" | "jahr"
+
+const [billingDate, setBillingDate] = useState(() => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+});
+
 
   /* ---------- LOAD USER ---------- */
   useEffect(() => {
@@ -368,7 +400,12 @@ export default function DashboardFull() {
   const billingByClient = useMemo(() => {
     const map = {};
 
-    (billingSessions || []).forEach((s) => {
+  billingSessions
+  .filter((s) =>
+    isInBillingPeriod(s.date, billingPeriod, billingDate)
+  )
+  .forEach((s) => {
+
       if (!s?.anfrage_id) return;
 
       if (!map[s.anfrage_id]) {
@@ -475,6 +512,32 @@ export default function DashboardFull() {
           }}
         >
           <h2>💶 Abrechnung</h2>
+          <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+  <select
+    value={billingPeriod}
+    onChange={(e) => {
+      setBillingPeriod(e.target.value);
+      setBillingValue("");
+    }}
+  >
+    <option value="monat">Monat</option>
+    <option value="quartal">Quartal</option>
+    <option value="jahr">Jahr</option>
+  </select>
+
+  <input
+    placeholder={
+      billingPeriod === "monat"
+        ? "YYYY-MM (z.B. 2025-01)"
+        : billingPeriod === "quartal"
+        ? "YYYY-QX (z.B. 2025-Q1)"
+        : "YYYY (z.B. 2025)"
+    }
+    value={billingValue}
+    onChange={(e) => setBillingValue(e.target.value)}
+  />
+</div>
+
 
           <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
             <button
