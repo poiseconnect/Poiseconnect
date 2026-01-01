@@ -225,23 +225,33 @@ export default function DashboardFull() {
   const [bestandVorname, setBestandVorname] = useState("");
   const [bestandNachname, setBestandNachname] = useState("");
   const [bestandTherapeut, setBestandTherapeut] = useState("");
-/* ================= ABRECHNUNG (STABIL) ================= */
+/* ================= ABRECHNUNG – STATE ================= */
 
-// Sessions aus Supabase
+// Daten
 const [billingSessions, setBillingSessions] = useState([]);
 
+// Modus
+const [billingMode, setBillingMode] = useState("all"); 
+// "all" | "single"
+
+// Auswahl Klient (nur bei single)
+const [billingClientId, setBillingClientId] = useState("");
+
 // Zeitraum
-const [billingPeriod, setBillingPeriod] = useState("monat"); // monat | quartal | jahr
-const [billingYear, setBillingYear] = useState(() => new Date().getFullYear());
-const [billingMonth, setBillingMonth] = useState(() => new Date().getMonth() + 1);
+const [billingSpan, setBillingSpan] = useState("monat"); 
+// "monat" | "quartal"
+
+const now = new Date();
+const [billingYear, setBillingYear] = useState(now.getFullYear());
+const [billingMonth, setBillingMonth] = useState(now.getMonth() + 1);
 const [billingQuarter, setBillingQuarter] = useState(
-  () => Math.floor(new Date().getMonth() / 3) + 1
+  Math.floor(now.getMonth() / 3) + 1
 );
 
-/* ---------- 1. Sessions nach Zeitraum filtern ---------- */
-const filteredBillingSessions = useMemo(() => {
-  if (!Array.isArray(billingSessions)) return [];
+  /* ================= ABRECHNUNG – LOGIK ================= */
 
+// 1. Zeitraumfilter
+const filteredBillingSessions = useMemo(() => {
   return billingSessions.filter((s) => {
     if (!s?.date) return false;
 
@@ -252,28 +262,34 @@ const filteredBillingSessions = useMemo(() => {
     const month = d.getMonth() + 1;
     const quarter = Math.floor((month - 1) / 3) + 1;
 
-    if (billingPeriod === "monat") {
+    if (billingSpan === "monat") {
       return year === billingYear && month === billingMonth;
     }
 
-    if (billingPeriod === "quartal") {
+    if (billingSpan === "quartal") {
       return year === billingYear && quarter === billingQuarter;
-    }
-
-    if (billingPeriod === "jahr") {
-      return year === billingYear;
     }
 
     return false;
   });
-}, [billingSessions, billingPeriod, billingYear, billingMonth, billingQuarter]);
+}, [billingSessions, billingSpan, billingYear, billingMonth, billingQuarter]);
 
-/* ---------- 2. Gruppierung pro Klient ---------- */
+// 2. Optionaler Klient:innen-Filter
+const scopedBillingSessions = useMemo(() => {
+  if (billingMode === "single" && billingClientId) {
+    return filteredBillingSessions.filter(
+      (s) => String(s.anfrage_id) === String(billingClientId)
+    );
+  }
+  return filteredBillingSessions;
+}, [filteredBillingSessions, billingMode, billingClientId]);
+
+// 3. Gruppierung pro Klient
 const billingByClient = useMemo(() => {
   const map = {};
 
-  filteredBillingSessions.forEach((s) => {
-    if (!s?.anfrage_id) return;
+  scopedBillingSessions.forEach((s) => {
+    if (!s.anfrage_id) return;
 
     if (!map[s.anfrage_id]) {
       map[s.anfrage_id] = {
@@ -294,9 +310,9 @@ const billingByClient = useMemo(() => {
   });
 
   return Object.values(map);
-}, [filteredBillingSessions]);
+}, [scopedBillingSessions]);
 
-/* ---------- 3. Gesamtsummen ---------- */
+// 4. Gesamtsummen (für Poise & Jahresinfo)
 const billingTotals = useMemo(() => {
   return billingByClient.reduce(
     (acc, b) => {
@@ -306,14 +322,59 @@ const billingTotals = useMemo(() => {
       acc.payout += b.payout;
       return acc;
     },
-    {
-      sessions: 0,
-      umsatz: 0,
-      provision: 0,
-      payout: 0,
-    }
+    { sessions: 0, umsatz: 0, provision: 0, payout: 0 }
   );
 }, [billingByClient]);
+  
+  /* ---------- 5. JAHRESGESAMT (INFO) ---------- */
+const billingYearTotals = useMemo(() => {
+  return billingSessions
+    .filter((s) => {
+      if (!s?.date) return false;
+      const d = new Date(s.date);
+      return (
+        !Number.isNaN(d.getTime()) &&
+        d.getFullYear() === billingYear
+      );
+    })
+    .reduce(
+      (acc, s) => {
+        acc.sessions += 1;
+        acc.umsatz += Number(s.price) || 0;
+        acc.provision += Number(s.commission) || 0;
+        acc.payout += Number(s.payout) || 0;
+        return acc;
+      },
+      { sessions: 0, umsatz: 0, provision: 0, payout: 0 }
+    );
+}, [billingSessions, billingYear]);
+  
+  /* ---------- 6. POISE: PRO TEAMMITGLIED ---------- */
+const billingByTherapist = useMemo(() => {
+  const map = {};
+
+  filteredBillingSessions.forEach((s) => {
+    if (!s?.therapist) return;
+
+    if (!map[s.therapist]) {
+      map[s.therapist] = {
+        therapist: s.therapist,
+        sessions: 0,
+        umsatz: 0,
+        provision: 0,
+      };
+    }
+
+    map[s.therapist].sessions += 1;
+    map[s.therapist].umsatz += Number(s.price) || 0;
+    map[s.therapist].provision += Number(s.commission) || 0;
+  });
+
+  return Object.values(map);
+}, [filteredBillingSessions]);
+
+
+
 
 /* ---------- LOAD USER ---------- */
 useEffect(() => {
@@ -549,40 +610,53 @@ if (!user) return <div>Bitte einloggen…</div>;
         ➕ Bestandsklient:in anlegen
       </button>
 
-{/* ABRECHNUNG */}
+{/* ================= ABRECHNUNG ================= */}
 {filter === "abrechnung" && (
-  <section
-    style={{
-      border: "1px solid #ddd",
-      borderRadius: 12,
-      padding: 16,
-    }}
-  >
+  <section style={{ border: "1px solid #ddd", borderRadius: 12, padding: 16 }}>
     <h2>💶 Abrechnung</h2>
 
-    {/* ===== ZEITRAUM FILTER ===== */}
-    <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
+    {/* EBENE 1 – KLINT:INNEN */}
+    <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
       <select
-        value={billingPeriod}
-        onChange={(e) => setBillingPeriod(e.target.value)}
+        value={billingMode}
+        onChange={(e) => {
+          setBillingMode(e.target.value);
+          setBillingClientId("");
+        }}
       >
-        <option value="monat">Monat</option>
-        <option value="quartal">Quartal</option>
-        <option value="jahr">Jahr</option>
+        <option value="all">Alle Klient:innen</option>
+        <option value="single">Eine Klient:in</option>
       </select>
 
-      <select
-        value={billingYear}
-        onChange={(e) => setBillingYear(Number(e.target.value))}
-      >
+      {billingMode === "single" && (
+        <select
+          value={billingClientId}
+          onChange={(e) => setBillingClientId(e.target.value)}
+        >
+          <option value="">Klient:in wählen…</option>
+          {requests.map((r) => (
+            <option key={r.id} value={r.id}>
+              {r.vorname} {r.nachname}
+            </option>
+          ))}
+        </select>
+      )}
+    </div>
+
+    {/* EBENE 2 – ZEITRAUM */}
+    <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+      <select value={billingSpan} onChange={(e) => setBillingSpan(e.target.value)}>
+        <option value="monat">Monat</option>
+        <option value="quartal">Quartal</option>
+      </select>
+
+      <select value={billingYear} onChange={(e) => setBillingYear(Number(e.target.value))}>
         {[2023, 2024, 2025, 2026].map((y) => (
-          <option key={y} value={y}>
-            {y}
-          </option>
+          <option key={y} value={y}>{y}</option>
         ))}
       </select>
 
-      {billingPeriod === "monat" && (
+      {billingSpan === "monat" && (
         <select
           value={billingMonth}
           onChange={(e) => setBillingMonth(Number(e.target.value))}
@@ -595,7 +669,7 @@ if (!user) return <div>Bitte einloggen…</div>;
         </select>
       )}
 
-      {billingPeriod === "quartal" && (
+      {billingSpan === "quartal" && (
         <select
           value={billingQuarter}
           onChange={(e) => setBillingQuarter(Number(e.target.value))}
@@ -608,43 +682,17 @@ if (!user) return <div>Bitte einloggen…</div>;
       )}
     </div>
 
-    {/* ===== EXPORT BUTTONS ===== */}
-    <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
-      <button
-        onClick={() => exportBillingCSV(billingByClient)}
-        style={{
-          padding: "6px 12px",
-          borderRadius: 8,
-          border: "1px solid #ccc",
-        }}
-      >
-        📄 CSV exportieren
-      </button>
-
-      <button
-        onClick={() => exportBillingPDF(billingByClient)}
-        style={{
-          padding: "6px 12px",
-          borderRadius: 8,
-          border: "1px solid #ccc",
-        }}
-      >
-        📑 PDF exportieren
-      </button>
-    </div>
-
-    {/* ===== TABELLE ===== */}
+    {/* TABELLE */}
     <table style={{ width: "100%", borderCollapse: "collapse" }}>
       <thead>
         <tr>
           <th align="left">Klient:in</th>
           <th>Sitzungen</th>
-          <th>Umsatz (€)</th>
-          <th>Provision Poise (€)</th>
-          <th>Auszahlung (€)</th>
+          <th>Umsatz €</th>
+          <th>Provision €</th>
+          <th>Auszahlung €</th>
         </tr>
       </thead>
-
       <tbody>
         {billingByClient.map((b, i) => (
           <tr key={i}>
@@ -657,33 +705,84 @@ if (!user) return <div>Bitte einloggen…</div>;
         ))}
       </tbody>
     </table>
+{/* EXPORT */}
+<div
+  style={{
+    display: "flex",
+    gap: 8,
+    marginTop: 12,
+    flexWrap: "wrap",
+  }}
+>
+  <button
+    onClick={() => exportBillingCSV(billingByClient)}
+    style={{
+      padding: "6px 12px",
+      borderRadius: 8,
+      border: "1px solid #ccc",
+    }}
+  >
+    📄 CSV exportieren
+  </button>
 
-    {/* ===== GESAMTSUMMEN ===== */}
+  <button
+    onClick={() => exportBillingPDF(billingByClient)}
+    style={{
+      padding: "6px 12px",
+      borderRadius: 8,
+      border: "1px solid #ccc",
+    }}
+  >
+    📑 PDF exportieren
+  </button>
+</div>
+
+    {/* GESAMT */}
     <hr />
-
-    <div style={{ marginTop: 12 }}>
-      <p>
-        <strong>Gesamt Sitzungen:</strong>{" "}
-        {billingTotals.sessions}
-      </p>
-
-      <p>
-        <strong>Gesamt Umsatz:</strong>{" "}
-        {billingTotals.umsatz.toFixed(2)} €
-      </p>
-
-      <p>
-        <strong>Provision Poise:</strong>{" "}
-        {billingTotals.provision.toFixed(2)} €
-      </p>
-
-      <p>
-        <strong>Auszahlung Therapeut:innen:</strong>{" "}
-        {billingTotals.payout.toFixed(2)} €
-      </p>
-    </div>
+    <p><strong>Gesamt Sitzungen:</strong> {billingTotals.sessions}</p>
+    <p><strong>Gesamt Provision:</strong> {billingTotals.provision.toFixed(2)} €</p>
   </section>
 )}
+      {/* POISE – TEAMÜBERSICHT */}
+{user?.email === "hallo@mypoise.de" && (
+  <>
+    <hr style={{ margin: "20px 0" }} />
+
+    <h3>🏢 Poise – Teamübersicht</h3>
+
+    <table style={{ width: "100%", borderCollapse: "collapse" }}>
+      <thead>
+        <tr>
+          <th align="left">Therapeut:in</th>
+          <th>Sitzungen</th>
+          <th>Umsatz €</th>
+          <th>Provision €</th>
+        </tr>
+      </thead>
+      <tbody>
+        {billingByTherapist.map((t) => (
+          <tr key={t.therapist}>
+            <td>
+              {teamData.find((x) => x.email === t.therapist)?.name ||
+                t.therapist}
+            </td>
+            <td align="center">{t.sessions}</td>
+            <td align="right">{t.umsatz.toFixed(2)}</td>
+            <td align="right">{t.provision.toFixed(2)}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+
+    <div style={{ marginTop: 12, color: "#555" }}>
+      ℹ️ Jahresgesamt {billingYear}:{" "}
+      <strong>{billingYearTotals.sessions}</strong> Sitzungen ·{" "}
+      <strong>{billingYearTotals.provision.toFixed(2)} €</strong> Provision
+    </div>
+  </>
+)}
+
+
 
 
       {/* KARTEN */}
