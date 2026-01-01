@@ -445,38 +445,50 @@ export default function DashboardFull() {
     });
   }, [filtered, sort, sessionsByRequest]);
 
-  const billingByClient = useMemo(() => {
-    const map = {};
+ const billingByClient = useMemo(() => {
+   /* ===== ABRECHNUNG – GESAMTSUMMEN ===== */
+const billingTotals = useMemo(() => {
+  return billingByClient.reduce(
+    (acc, b) => {
+      acc.sessions += b.sessions;
+      acc.umsatz += b.umsatz;
+      acc.provision += b.provision;
+      acc.payout += b.payout;
+      return acc;
+    },
+    {
+      sessions: 0,
+      umsatz: 0,
+      provision: 0,
+      payout: 0,
+    }
+  );
+}, [billingByClient]);
 
-  billingSessions
-  .filter((s) =>
-    isInBillingPeriod(s.date, billingPeriod, billingDate)
-  )
-  .forEach((s) => {
+  const map = {};
 
-      if (!s?.anfrage_id) return;
+  filteredBillingSessions.forEach((s) => {
+    if (!s.anfrage_id) return;
 
-      if (!map[s.anfrage_id]) {
-        map[s.anfrage_id] = {
-          klient:
-            `${s.anfragen?.vorname || ""} ${s.anfragen?.nachname || ""}`.trim() ||
-            "Unbekannt",
-          therapist: s.therapist,
-          sessions: 0,
-          umsatz: 0,
-          provision: 0,
-          payout: 0,
-        };
-      }
+    if (!map[s.anfrage_id]) {
+      map[s.anfrage_id] = {
+        klient: `${s.anfragen?.vorname || ""} ${s.anfragen?.nachname || ""}`.trim(),
+        sessions: 0,
+        umsatz: 0,
+        provision: 0,
+        payout: 0,
+      };
+    }
 
-      map[s.anfrage_id].sessions += 1;
-      map[s.anfrage_id].umsatz += Number(s.price) || 0;
-      map[s.anfrage_id].provision += Number(s.commission) || 0;
-      map[s.anfrage_id].payout += Number(s.payout) || 0;
-    });
+    map[s.anfrage_id].sessions += 1;
+    map[s.anfrage_id].umsatz += Number(s.price) || 0;
+    map[s.anfrage_id].provision += Number(s.commission) || 0;
+    map[s.anfrage_id].payout += Number(s.payout) || 0;
+  });
 
-    return Object.values(map);
-  }, [billingSessions]);
+  return Object.values(map);
+}, [filteredBillingSessions]);
+
 
   /* ---------- EARLY RETURN (NACH ALLEN HOOKS!) ---------- */
   if (!user) return <div>Bitte einloggen…</div>;
@@ -550,162 +562,142 @@ export default function DashboardFull() {
         ➕ Bestandsklient:in anlegen
       </button>
 
-      {/* ABRECHNUNG */}
-      {filter === "abrechnung" && (
-        <section
-          style={{
-            border: "1px solid #ddd",
-            borderRadius: 12,
-            padding: 16,
-          }}
-        >
-          <h2>💶 Abrechnung</h2>
-          <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
-  <select
-    value={billingPeriod}
-    onChange={(e) => setBillingPeriod(e.target.value)}
-  >
-    <option value="monat">Monat</option>
-    <option value="quartal">Quartal</option>
-    <option value="jahr">Jahr</option>
-  </select>
-
-  <select
-    value={billingYear}
-    onChange={(e) => setBillingYear(Number(e.target.value))}
-  >
-    {[2023, 2024, 2025, 2026].map((y) => (
-      <option key={y} value={y}>
-        {y}
-      </option>
-    ))}
-  </select>
-
-  {billingPeriod === "monat" && (
-    <select
-      value={billingMonth}
-      onChange={(e) => setBillingMonth(Number(e.target.value))}
-    >
-      {[...Array(12)].map((_, i) => (
-        <option key={i + 1} value={i + 1}>
-          {i + 1}
-        </option>
-      ))}
-    </select>
-  )}
-
-  {billingPeriod === "quartal" && (
-    <select
-      value={billingQuarter}
-      onChange={(e) => setBillingQuarter(Number(e.target.value))}
-    >
-      <option value={1}>Q1</option>
-      <option value={2}>Q2</option>
-      <option value={3}>Q3</option>
-      <option value={4}>Q4</option>
-    </select>
-  )}
-</div>
-
-          <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
-  <select
-    value={billingPeriod}
-    onChange={(e) => {
-      setBillingPeriod(e.target.value);
-      setbillingByClient("");
+{/* ABRECHNUNG */}
+{filter === "abrechnung" && (
+  <section
+    style={{
+      border: "1px solid #ddd",
+      borderRadius: 12,
+      padding: 16,
     }}
   >
-    <option value="monat">Monat</option>
-    <option value="quartal">Quartal</option>
-    <option value="jahr">Jahr</option>
-  </select>
+    <h2>💶 Abrechnung</h2>
 
-  <input
-    placeholder={
-      billingPeriod === "monat"
-        ? "YYYY-MM (z.B. 2025-01)"
-        : billingPeriod === "quartal"
-        ? "YYYY-QX (z.B. 2025-Q1)"
-        : "YYYY (z.B. 2025)"
-    }
-    value={billingByClient}
-    onChange={(e) => setbillingByClient(e.target.value)}
-  />
-</div>
+    {/* ===== ZEITRAUM FILTER ===== */}
+    <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
+      <select
+        value={billingPeriod}
+        onChange={(e) => setBillingPeriod(e.target.value)}
+      >
+        <option value="monat">Monat</option>
+        <option value="quartal">Quartal</option>
+        <option value="jahr">Jahr</option>
+      </select>
 
+      <select
+        value={billingYear}
+        onChange={(e) => setBillingYear(Number(e.target.value))}
+      >
+        {[2023, 2024, 2025, 2026].map((y) => (
+          <option key={y} value={y}>
+            {y}
+          </option>
+        ))}
+      </select>
 
-          <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
-            <button
-              onClick={() => exportBillingCSV(billingByClient)}
-              style={{
-                padding: "6px 12px",
-                borderRadius: 8,
-                border: "1px solid #ccc",
-              }}
-            >
-              📄 CSV exportieren
-            </button>
-
-            <button
-              onClick={() => exportBillingPDF(billingByClient)}
-              style={{
-                padding: "6px 12px",
-                borderRadius: 8,
-                border: "1px solid #ccc",
-              }}
-            >
-              📑 PDF exportieren
-            </button>
-          </div>
-
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
-            <thead>
-              <tr>
-                <th align="left">Klient:in</th>
-                <th>Sitzungen</th>
-                <th>Umsatz (€)</th>
-                <th>Provision Poise (€)</th>
-                <th>Auszahlung (€)</th>
-              </tr>
-            </thead>
-
-            <tbody>
-              {billingByClient.map((b, i) => (
-                <tr key={i}>
-                  <td>{b.klient}</td>
-                  <td align="center">{b.sessions}</td>
-                  <td align="right">{Number(b.umsatz || 0).toFixed(2)}</td>
-                  <td align="right">{Number(b.provision || 0).toFixed(2)}</td>
-                  <td align="right">{Number(b.payout || 0).toFixed(2)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-
-          <hr />
-
-          <p>
-            <strong>Gesamt Umsatz:</strong>{" "}
-            {billingByClient.reduce((s, b) => s + (Number(b.umsatz) || 0), 0).toFixed(2)} €
-          </p>
-
-          <p>
-            <strong>Provision Poise:</strong>{" "}
-            {billingByClient
-              .reduce((s, b) => s + (Number(b.provision) || 0), 0)
-              .toFixed(2)}{" "}
-            €
-          </p>
-
-          <p>
-            <strong>Auszahlung Therapeut:innen:</strong>{" "}
-            {billingByClient
-              .reduce((s, b) => s + (Number(b.payout) || 0), 0)
-              .toFixed(2)}{" "}
-            €
-          </p>
-        </section>
+      {billingPeriod === "monat" && (
+        <select
+          value={billingMonth}
+          onChange={(e) => setBillingMonth(Number(e.target.value))}
+        >
+          {[...Array(12)].map((_, i) => (
+            <option key={i + 1} value={i + 1}>
+              {i + 1}
+            </option>
+          ))}
+        </select>
       )}
+
+      {billingPeriod === "quartal" && (
+        <select
+          value={billingQuarter}
+          onChange={(e) => setBillingQuarter(Number(e.target.value))}
+        >
+          <option value={1}>Q1</option>
+          <option value={2}>Q2</option>
+          <option value={3}>Q3</option>
+          <option value={4}>Q4</option>
+        </select>
+      )}
+    </div>
+
+    {/* ===== EXPORT BUTTONS ===== */}
+    <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+      <button
+        onClick={() => exportBillingCSV(billingByClient)}
+        style={{
+          padding: "6px 12px",
+          borderRadius: 8,
+          border: "1px solid #ccc",
+        }}
+      >
+        📄 CSV exportieren
+      </button>
+
+      <button
+        onClick={() => exportBillingPDF(billingByClient)}
+        style={{
+          padding: "6px 12px",
+          borderRadius: 8,
+          border: "1px solid #ccc",
+        }}
+      >
+        📑 PDF exportieren
+      </button>
+    </div>
+
+    {/* ===== TABELLE ===== */}
+    <table style={{ width: "100%", borderCollapse: "collapse" }}>
+      <thead>
+        <tr>
+          <th align="left">Klient:in</th>
+          <th>Sitzungen</th>
+          <th>Umsatz (€)</th>
+          <th>Provision Poise (€)</th>
+          <th>Auszahlung (€)</th>
+        </tr>
+      </thead>
+
+      <tbody>
+        {billingByClient.map((b, i) => (
+          <tr key={i}>
+            <td>{b.klient}</td>
+            <td align="center">{b.sessions}</td>
+            <td align="right">{b.umsatz.toFixed(2)}</td>
+            <td align="right">{b.provision.toFixed(2)}</td>
+            <td align="right">{b.payout.toFixed(2)}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+
+    {/* ===== GESAMTSUMMEN ===== */}
+    <hr />
+
+    <div style={{ marginTop: 12 }}>
+      <p>
+        <strong>Gesamt Sitzungen:</strong>{" "}
+        {billingTotals.sessions}
+      </p>
+
+      <p>
+        <strong>Gesamt Umsatz:</strong>{" "}
+        {billingTotals.umsatz.toFixed(2)} €
+      </p>
+
+      <p>
+        <strong>Provision Poise:</strong>{" "}
+        {billingTotals.provision.toFixed(2)} €
+      </p>
+
+      <p>
+        <strong>Auszahlung Therapeut:innen:</strong>{" "}
+        {billingTotals.payout.toFixed(2)} €
+      </p>
+    </div>
+  </section>
+)}
+
 
       {/* KARTEN */}
       {filter !== "abrechnung" &&
