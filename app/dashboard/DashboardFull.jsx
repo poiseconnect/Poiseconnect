@@ -225,8 +225,7 @@ export default function DashboardFull() {
   const [bestandVorname, setBestandVorname] = useState("");
   const [bestandNachname, setBestandNachname] = useState("");
   const [bestandTherapeut, setBestandTherapeut] = useState("");
-
- /* ===== ABRECHNUNG ===== */
+/* ===== ABRECHNUNG ===== */
 
 const [billingSessions, setBillingSessions] = useState([]);
 
@@ -234,16 +233,16 @@ const [billingSessions, setBillingSessions] = useState([]);
 const [billingPeriod, setBillingPeriod] = useState("monat");
 // "monat" | "quartal" | "jahr"
 
-// Initialdatum nur EINMAL erzeugen (wichtig für Stabilität)
-const now = new Date();
+// Initialdatum nur EINMAL erzeugen (SSR-sicher)
+const now = useMemo(() => new Date(), []);
 
-// Jahr (immer relevant)
+// Jahr
 const [billingYear, setBillingYear] = useState(now.getFullYear());
 
-// Monat (nur bei "monat")
+// Monat (1–12)
 const [billingMonth, setBillingMonth] = useState(now.getMonth() + 1);
 
-// Quartal (nur bei "quartal")
+// Quartal (1–4)
 const [billingQuarter, setBillingQuarter] = useState(
   Math.floor(now.getMonth() / 3) + 1
 );
@@ -251,8 +250,10 @@ const [billingQuarter, setBillingQuarter] = useState(
 /* ===== ABRECHNUNG – FILTER ===== */
 
 const filteredBillingSessions = useMemo(() => {
+  if (!Array.isArray(billingSessions)) return [];
+
   return billingSessions.filter((s) => {
-    if (!s?.date) return false;
+    if (!s || !s.date) return false;
 
     const d = new Date(s.date);
     if (Number.isNaN(d.getTime())) return false;
@@ -282,6 +283,7 @@ const filteredBillingSessions = useMemo(() => {
   billingMonth,
   billingQuarter,
 ]);
+
 
 
   /* ---------- LOAD USER ---------- */
