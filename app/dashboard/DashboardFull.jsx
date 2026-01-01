@@ -115,7 +115,7 @@ function currentQuarterKey() {
   return `Q${q} ${d.getFullYear()}`;
 }
 
-/* ================= EXPORT ================= */
+/* ================= EXPORT (CSV / PDF) ================= */
 
 function exportBillingCSV(rows) {
   if (!rows || !rows.length) return;
@@ -184,9 +184,8 @@ export default function DashboardFull() {
   const [user, setUser] = useState(null);
   const [requests, setRequests] = useState([]);
   const [sessionsByRequest, setSessionsByRequest] = useState({});
-  const [billingSessions, setBillingSessions] = useState([]);
-
   const [filter, setFilter] = useState("unbearbeitet");
+
   const [therapistFilter, setTherapistFilter] = useState("alle");
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState("last"); // last | name
@@ -202,6 +201,8 @@ export default function DashboardFull() {
   const [bestandVorname, setBestandVorname] = useState("");
   const [bestandNachname, setBestandNachname] = useState("");
   const [bestandTherapeut, setBestandTherapeut] = useState("");
+
+  const [billingSessions, setBillingSessions] = useState([]);
 
   /* ---------- LOAD USER ---------- */
   useEffect(() => {
@@ -304,7 +305,7 @@ export default function DashboardFull() {
     });
   }, [user]);
 
-  /* ---------- FILTER MAP ---------- */
+  /* ---------- FILTER ---------- */
   const UNBEARBEITET = ["offen", "termin_neu", "termin_bestaetigt"];
 
   const FILTER_MAP = {
@@ -312,7 +313,7 @@ export default function DashboardFull() {
     aktiv: ["active"],
     beendet: ["beendet"],
     papierkorb: ["papierkorb"],
-    abrechnung: [], // wichtig: existiert, damit nichts crasht
+    abrechnung: [],
     alle: [
       "offen",
       "termin_neu",
@@ -322,8 +323,6 @@ export default function DashboardFull() {
       "papierkorb",
     ],
   };
-
-  /* ---------- MEMOS (ALLE HOOKS VOR EARLY RETURN) ---------- */
 
   const filtered = useMemo(() => {
     const allowed = FILTER_MAP[filter] || FILTER_MAP.alle;
@@ -370,7 +369,7 @@ export default function DashboardFull() {
     const map = {};
 
     (billingSessions || []).forEach((s) => {
-      if (!s.anfrage_id) return;
+      if (!s?.anfrage_id) return;
 
       if (!map[s.anfrage_id]) {
         map[s.anfrage_id] = {
@@ -394,7 +393,7 @@ export default function DashboardFull() {
     return Object.values(map);
   }, [billingSessions]);
 
-  /* ---------- EARLY RETURN ---------- */
+  /* ---------- EARLY RETURN (NACH ALLEN HOOKS!) ---------- */
   if (!user) return <div>Bitte einloggen…</div>;
 
   /* ================= UI ================= */
@@ -406,13 +405,18 @@ export default function DashboardFull() {
       {/* FILTER */}
       <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
         <button onClick={() => setFilter("unbearbeitet")}>Unbearbeitet</button>
+
         <button onClick={() => setFilter("abrechnung")}>💶 Abrechnung</button>
+
         <button onClick={() => setFilter("aktiv")}>Aktiv</button>
         <button onClick={() => setFilter("papierkorb")}>Papierkorb</button>
         <button onClick={() => setFilter("beendet")}>Beendet</button>
         <button onClick={() => setFilter("alle")}>Alle</button>
 
-        <select value={therapistFilter} onChange={(e) => setTherapistFilter(e.target.value)}>
+        <select
+          value={therapistFilter}
+          onChange={(e) => setTherapistFilter(e.target.value)}
+        >
           <option value="alle">Alle Teammitglieder</option>
           {teamData.map((t) => (
             <option key={t.email} value={t.email}>
@@ -436,7 +440,11 @@ export default function DashboardFull() {
         <select
           value={sort}
           onChange={(e) => setSort(e.target.value)}
-          style={{ padding: "6px 10px", borderRadius: 8, border: "1px solid #ccc" }}
+          style={{
+            padding: "6px 10px",
+            borderRadius: 8,
+            border: "1px solid #ccc",
+          }}
         >
           <option value="last">Letzte Aktivität</option>
           <option value="name">Name A–Z</option>
@@ -459,20 +467,34 @@ export default function DashboardFull() {
 
       {/* ABRECHNUNG */}
       {filter === "abrechnung" && (
-        <section style={{ border: "1px solid #ddd", borderRadius: 12, padding: 16 }}>
+        <section
+          style={{
+            border: "1px solid #ddd",
+            borderRadius: 12,
+            padding: 16,
+          }}
+        >
           <h2>💶 Abrechnung</h2>
 
           <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
             <button
               onClick={() => exportBillingCSV(billingByClient)}
-              style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid #ccc" }}
+              style={{
+                padding: "6px 12px",
+                borderRadius: 8,
+                border: "1px solid #ccc",
+              }}
             >
               📄 CSV exportieren
             </button>
 
             <button
               onClick={() => exportBillingPDF(billingByClient)}
-              style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid #ccc" }}
+              style={{
+                padding: "6px 12px",
+                borderRadius: 8,
+                border: "1px solid #ccc",
+              }}
             >
               📑 PDF exportieren
             </button>
@@ -488,14 +510,15 @@ export default function DashboardFull() {
                 <th>Auszahlung (€)</th>
               </tr>
             </thead>
+
             <tbody>
               {billingByClient.map((b, i) => (
                 <tr key={i}>
                   <td>{b.klient}</td>
                   <td align="center">{b.sessions}</td>
-                  <td align="right">{b.umsatz.toFixed(2)}</td>
-                  <td align="right">{b.provision.toFixed(2)}</td>
-                  <td align="right">{b.payout.toFixed(2)}</td>
+                  <td align="right">{Number(b.umsatz || 0).toFixed(2)}</td>
+                  <td align="right">{Number(b.provision || 0).toFixed(2)}</td>
+                  <td align="right">{Number(b.payout || 0).toFixed(2)}</td>
                 </tr>
               ))}
             </tbody>
@@ -505,20 +528,28 @@ export default function DashboardFull() {
 
           <p>
             <strong>Gesamt Umsatz:</strong>{" "}
-            {billingByClient.reduce((s, b) => s + b.umsatz, 0).toFixed(2)} €
+            {billingByClient.reduce((s, b) => s + (Number(b.umsatz) || 0), 0).toFixed(2)} €
           </p>
+
           <p>
             <strong>Provision Poise:</strong>{" "}
-            {billingByClient.reduce((s, b) => s + b.provision, 0).toFixed(2)} €
+            {billingByClient
+              .reduce((s, b) => s + (Number(b.provision) || 0), 0)
+              .toFixed(2)}{" "}
+            €
           </p>
+
           <p>
             <strong>Auszahlung Therapeut:innen:</strong>{" "}
-            {billingByClient.reduce((s, b) => s + b.payout, 0).toFixed(2)} €
+            {billingByClient
+              .reduce((s, b) => s + (Number(b.payout) || 0), 0)
+              .toFixed(2)}{" "}
+            €
           </p>
         </section>
       )}
 
-      {/* KARTEN (NICHT bei Abrechnung) */}
+      {/* KARTEN */}
       {filter !== "abrechnung" &&
         sorted.map((r) => {
           const sessionList = sessionsByRequest[String(r.id)] || [];
@@ -568,11 +599,13 @@ export default function DashboardFull() {
                 </div>
               )}
 
-              {r._status === "active" && daysSinceLast != null && daysSinceLast > 30 && (
-                <div style={{ marginTop: 6, color: "darkred", fontSize: 13 }}>
-                  ⚠️ keine Sitzung seit {Math.round(daysSinceLast)} Tagen
-                </div>
-              )}
+              {r._status === "active" &&
+                daysSinceLast != null &&
+                daysSinceLast > 30 && (
+                  <div style={{ marginTop: 6, color: "darkred", fontSize: 13 }}>
+                    ⚠️ keine Sitzung seit {Math.round(daysSinceLast)} Tagen
+                  </div>
+                )}
 
               <p>{typeof r.anliegen === "string" ? r.anliegen : "–"}</p>
 
@@ -680,7 +713,10 @@ export default function DashboardFull() {
                       fetch("/api/update-status", {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ anfrageId: r.id, status: "active" }),
+                        body: JSON.stringify({
+                          anfrageId: r.id,
+                          status: "active",
+                        }),
                       }).then(() => location.reload())
                     }
                   >
@@ -708,20 +744,32 @@ export default function DashboardFull() {
               {safeText(detailsModal?.vorname)} {safeText(detailsModal?.nachname)}
             </h3>
 
+            {/* FORMULARINFOS – IMMER */}
             <section>
               <p>
                 <strong>Name:</strong> {safeText(detailsModal?.vorname)}{" "}
                 {safeText(detailsModal?.nachname)}
               </p>
+
               <p>
                 <strong>E-Mail:</strong> {safeText(detailsModal?.email)}
               </p>
+
               <p>
                 <strong>Telefon:</strong> {safeText(detailsModal?.telefon)}
               </p>
+
               <p>
                 <strong>Adresse:</strong> {safeText(detailsModal?.strasse_hausnr)}{" "}
                 {safeText(detailsModal?.plz_ort)}
+              </p>
+
+              <p>
+                <strong>Alter:</strong>{" "}
+                {detailsModal?.geburtsdatum && !isNaN(Date.parse(detailsModal.geburtsdatum))
+                  ? new Date().getFullYear() -
+                    new Date(detailsModal.geburtsdatum).getFullYear()
+                  : "–"}
               </p>
 
               <hr />
@@ -730,15 +778,19 @@ export default function DashboardFull() {
                 <strong>Anliegen:</strong>{" "}
                 {typeof detailsModal?.anliegen === "string" ? detailsModal.anliegen : "–"}
               </p>
+
               <p>
                 <strong>Leidensdruck:</strong> {safeText(detailsModal?.leidensdruck)}
               </p>
+
               <p>
                 <strong>Wie lange schon:</strong> {safeText(detailsModal?.verlauf)}
               </p>
+
               <p>
                 <strong>Ziel:</strong> {safeText(detailsModal?.ziel)}
               </p>
+
               <p>
                 <strong>Beschäftigungsgrad:</strong>{" "}
                 {safeText(detailsModal?.beschaeftigungsgrad)}
@@ -759,6 +811,7 @@ export default function DashboardFull() {
               )}
             </section>
 
+            {/* AKTIV-BEREICH */}
             {detailsModal._status === "active" && (
               <div style={{ marginTop: 12 }}>
                 <hr />
@@ -810,7 +863,6 @@ export default function DashboardFull() {
                     acc[q] = (acc[q] || 0) + (Number(s.price) || 0) * 0.3;
                     return acc;
                   }, {});
-
                   const entries = Object.entries(map).sort((a, b) => {
                     const [aq, ay] = a[0].split(" ");
                     const [bq, by] = b[0].split(" ");
@@ -847,7 +899,7 @@ export default function DashboardFull() {
                       ) : (
                         entries.map(([q, sum]) => (
                           <div key={q}>
-                            {q}: {sum.toFixed(2)} €
+                            {q}: {Number(sum || 0).toFixed(2)} €
                           </div>
                         ))
                       )}
@@ -892,7 +944,9 @@ export default function DashboardFull() {
                 ))}
 
                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                  <button onClick={() => setNewSessions([...newSessions, { date: "", duration: 60 }])}>
+                  <button
+                    onClick={() => setNewSessions([...newSessions, { date: "", duration: 60 }])}
+                  >
                     ➕ Weitere Sitzung
                   </button>
 
@@ -920,6 +974,7 @@ export default function DashboardFull() {
             )}
 
             <hr />
+
             <div style={{ display: "flex", justifyContent: "flex-end" }}>
               <button onClick={() => setDetailsModal(null)}>Schließen</button>
             </div>
