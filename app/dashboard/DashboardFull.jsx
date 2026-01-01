@@ -231,14 +231,58 @@ export default function DashboardFull() {
   const [billingSessions, setBillingSessions] = useState([]);
 
   // Zeitraum-Typ
-  const [billingPeriod, setBillingPeriod] = useState("monat"); 
+  const [billingPeriod, setBillingPeriod] = useState("monat");
   // "monat" | "quartal" | "jahr"
 
-  // Ausgewählter Zeitraum (z. B. 2025-01)
-  const [billingDate, setBillingDate] = useState(() => {
-    const d = new Date();
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-  });
+  // Jahr (immer relevant)
+  const [billingYear, setBillingYear] = useState(
+    new Date().getFullYear()
+  );
+
+  // Monat (nur bei "monat")
+  const [billingMonth, setBillingMonth] = useState(
+    new Date().getMonth() + 1
+  );
+
+  // Quartal (nur bei "quartal")
+  const [billingQuarter, setBillingQuarter] = useState(
+    Math.floor(new Date().getMonth() / 3) + 1
+  );
+
+  /* ===== ABRECHNUNG – FILTER ===== */
+
+  const filteredBillingSessions = useMemo(() => {
+    return billingSessions.filter((s) => {
+      if (!s.date) return false;
+
+      const d = new Date(s.date);
+      if (isNaN(d)) return false;
+
+      const year = d.getFullYear();
+      const month = d.getMonth() + 1;
+      const quarter = Math.floor((month - 1) / 3) + 1;
+
+      if (billingPeriod === "monat") {
+        return year === billingYear && month === billingMonth;
+      }
+
+      if (billingPeriod === "quartal") {
+        return year === billingYear && quarter === billingQuarter;
+      }
+
+      if (billingPeriod === "jahr") {
+        return year === billingYear;
+      }
+
+      return false;
+    });
+  }, [
+    billingSessions,
+    billingPeriod,
+    billingYear,
+    billingMonth,
+    billingQuarter,
+  ]);
 
   /* ---------- LOAD USER ---------- */
   useEffect(() => {
@@ -516,6 +560,53 @@ export default function DashboardFull() {
           }}
         >
           <h2>💶 Abrechnung</h2>
+          <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
+  <select
+    value={billingPeriod}
+    onChange={(e) => setBillingPeriod(e.target.value)}
+  >
+    <option value="monat">Monat</option>
+    <option value="quartal">Quartal</option>
+    <option value="jahr">Jahr</option>
+  </select>
+
+  <select
+    value={billingYear}
+    onChange={(e) => setBillingYear(Number(e.target.value))}
+  >
+    {[2023, 2024, 2025, 2026].map((y) => (
+      <option key={y} value={y}>
+        {y}
+      </option>
+    ))}
+  </select>
+
+  {billingPeriod === "monat" && (
+    <select
+      value={billingMonth}
+      onChange={(e) => setBillingMonth(Number(e.target.value))}
+    >
+      {[...Array(12)].map((_, i) => (
+        <option key={i + 1} value={i + 1}>
+          {i + 1}
+        </option>
+      ))}
+    </select>
+  )}
+
+  {billingPeriod === "quartal" && (
+    <select
+      value={billingQuarter}
+      onChange={(e) => setBillingQuarter(Number(e.target.value))}
+    >
+      <option value={1}>Q1</option>
+      <option value={2}>Q2</option>
+      <option value={3}>Q3</option>
+      <option value={4}>Q4</option>
+    </select>
+  )}
+</div>
+
           <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
   <select
     value={billingPeriod}
