@@ -225,8 +225,7 @@ export default function DashboardFull() {
   const [bestandVorname, setBestandVorname] = useState("");
   const [bestandNachname, setBestandNachname] = useState("");
   const [bestandTherapeut, setBestandTherapeut] = useState("");
-
- /* ================= ABRECHNUNG (STABIL) ================= */
+/* ================= ABRECHNUNG (STABIL) ================= */
 
 // Sessions aus Supabase
 const [billingSessions, setBillingSessions] = useState([]);
@@ -316,216 +315,170 @@ const billingTotals = useMemo(() => {
   );
 }, [billingByClient]);
 
+/* ---------- LOAD USER ---------- */
+useEffect(() => {
+  supabase.auth.getUser().then(({ data }) => {
+    setUser(data?.user || null);
+  });
+}, []);
 
-  /* ---------- LOAD USER ---------- */
+/* ---------- LOAD REQUESTS ---------- */
+useEffect(() => {
+  if (!user?.email) return;
 
-  useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      setUser(data?.user || null);
+  let query = supabase
+    .from("anfragen")
+    .select(
+      `
+      id,
+      created_at,
+      vorname,
+      nachname,
+      email,
+      telefon,
+      strasse_hausnr,
+      plz_ort,
+      geburtsdatum,
+      beschaeftigungsgrad,
+      leidensdruck,
+      anliegen,
+      verlauf,
+      ziel,
+      status,
+      bevorzugte_zeit,
+      wunschtherapeut,
+      honorar_klient
+    `
+    )
+    .order("created_at", { ascending: false });
+
+  if (user.email !== "hallo@mypoise.de") {
+    query = query.eq("wunschtherapeut", user.email);
+  }
+
+  query.then(({ data }) => {
+    setRequests(
+      (data || []).map((r) => ({
+        ...r,
+        _status: normalizeStatus(r.status),
+      }))
+    );
+  });
+}, [user]);
+
+/* ---------- LOAD SESSIONS ---------- */
+useEffect(() => {
+  supabase.from("sessions").select("*").then(({ data }) => {
+    const grouped = {};
+    (data || []).forEach((s) => {
+      const key = String(s.anfrage_id);
+      if (!grouped[key]) grouped[key] = [];
+      grouped[key].push(s);
     });
-  }, []);
 
-  /* ---------- LOAD REQUESTS ---------- */
-  useEffect(() => {
-    if (!user?.email) return;
+    Object.keys(grouped).forEach((k) => {
+      grouped[k].sort((a, b) => new Date(a.date) - new Date(b.date));
+    });
 
-    let query = supabase
-      .from("anfragen")
-      .select(
-        `
-        id,
-        created_at,
+    setSessionsByRequest(grouped);
+  });
+}, []);
+
+/* ---------- LOAD BILLING SESSIONS ---------- */
+useEffect(() => {
+  if (!user?.email) return;
+
+  let query = supabase
+    .from("sessions")
+    .select(
+      `
+      id,
+      date,
+      price,
+      commission,
+      payout,
+      therapist,
+      anfrage_id,
+      anfragen (
         vorname,
         nachname,
-        email,
-        telefon,
-        strasse_hausnr,
-        plz_ort,
-        geburtsdatum,
-        beschaeftigungsgrad,
-        leidensdruck,
-        anliegen,
-        verlauf,
-        ziel,
-        status,
-        bevorzugte_zeit,
-        wunschtherapeut,
-        honorar_klient
-      `
+        status
       )
-      .order("created_at", { ascending: false });
+    `
+    );
 
-    if (user.email !== "hallo@mypoise.de") {
-      query = query.eq("wunschtherapeut", user.email);
-    }
+  if (user.email !== "hallo@mypoise.de") {
+    query = query.eq("therapist", user.email);
+  }
 
-    query.then(({ data }) => {
-      setRequests(
-        (data || []).map((r) => ({
-          ...r,
-          _status: normalizeStatus(r.status),
-        }))
-      );
-    });
-  }, [user]);
-
-  /* ---------- LOAD SESSIONS ---------- */
-  useEffect(() => {
-    supabase.from("sessions").select("*").then(({ data }) => {
-      const grouped = {};
-      (data || []).forEach((s) => {
-        const key = String(s.anfrage_id);
-        if (!grouped[key]) grouped[key] = [];
-        grouped[key].push(s);
-      });
-
-      Object.keys(grouped).forEach((k) => {
-        grouped[k].sort((a, b) => new Date(a.date) - new Date(b.date));
-      });
-
-      setSessionsByRequest(grouped);
-    });
-  }, []);
-
-  /* ---------- LOAD BILLING SESSIONS ---------- */
-  useEffect(() => {
-    if (!user?.email) return;
-
-    let query = supabase
-      .from("sessions")
-      .select(
-        `
-        id,
-        date,
-        price,
-        commission,
-        payout,
-        therapist,
-        anfrage_id,
-        anfragen (
-          vorname,
-          nachname,
-          status
-        )
-      `
-      );
-
-    if (user.email !== "hallo@mypoise.de") {
-      query = query.eq("therapist", user.email);
-    }
-
-    query.then(({ data, error }) => {
-      if (!error) setBillingSessions(data || []);
-    });
-  }, [user]);
-
-  /* ---------- FILTER ---------- */
-  const UNBEARBEITET = ["offen", "termin_neu", "termin_bestaetigt"];
-
-  const FILTER_MAP = {
-    unbearbeitet: ["offen", "termin_neu", "termin_bestaetigt"],
-    aktiv: ["active"],
-    beendet: ["beendet"],
-    papierkorb: ["papierkorb"],
-    abrechnung: [],
-    alle: [
-      "offen",
-      "termin_neu",
-      "termin_bestaetigt",
-      "active",
-      "beendet",
-      "papierkorb",
-    ],
-  };
-
-  const filtered = useMemo(() => {
-    const allowed = FILTER_MAP[filter] || FILTER_MAP.alle;
-
-    return requests.filter((r) => {
-      if (!allowed.includes(r._status)) return false;
-
-      if (therapistFilter !== "alle" && r.wunschtherapeut !== therapistFilter) {
-        return false;
-      }
-
-      if (search) {
-        const q = search.toLowerCase();
-        const name = `${r.vorname || ""} ${r.nachname || ""}`.toLowerCase();
-        if (!name.includes(q)) return false;
-      }
-
-      return true;
-    });
-  }, [requests, filter, therapistFilter, search]);
-
-  const sorted = useMemo(() => {
-    return [...filtered].sort((a, b) => {
-      if (sort === "name") {
-        return `${a.nachname || ""}${a.vorname || ""}`.localeCompare(
-          `${b.nachname || ""}${b.vorname || ""}`
-        );
-      }
-
-      const aSessions = sessionsByRequest[String(a.id)] || [];
-      const bSessions = sessionsByRequest[String(b.id)] || [];
-
-      const sa = aSessions.length ? aSessions[aSessions.length - 1]?.date : null;
-      const sb = bSessions.length ? bSessions[bSessions.length - 1]?.date : null;
-
-      const da = sa ? new Date(sa) : new Date(a.created_at);
-      const db = sb ? new Date(sb) : new Date(b.created_at);
-
-      return db - da;
-    });
-  }, [filtered, sort, sessionsByRequest]);
-
- const billingByClient = useMemo(() => {
-   /* ===== ABRECHNUNG – GESAMTSUMMEN ===== */
-const billingTotals = useMemo(() => {
-  return billingByClient.reduce(
-    (acc, b) => {
-      acc.sessions += b.sessions;
-      acc.umsatz += b.umsatz;
-      acc.provision += b.provision;
-      acc.payout += b.payout;
-      return acc;
-    },
-    {
-      sessions: 0,
-      umsatz: 0,
-      provision: 0,
-      payout: 0,
-    }
-  );
-}, [billingByClient]);
-
-  const map = {};
-
-  filteredBillingSessions.forEach((s) => {
-    if (!s.anfrage_id) return;
-
-    if (!map[s.anfrage_id]) {
-      map[s.anfrage_id] = {
-        klient: `${s.anfragen?.vorname || ""} ${s.anfragen?.nachname || ""}`.trim(),
-        sessions: 0,
-        umsatz: 0,
-        provision: 0,
-        payout: 0,
-      };
-    }
-
-    map[s.anfrage_id].sessions += 1;
-    map[s.anfrage_id].umsatz += Number(s.price) || 0;
-    map[s.anfrage_id].provision += Number(s.commission) || 0;
-    map[s.anfrage_id].payout += Number(s.payout) || 0;
+  query.then(({ data, error }) => {
+    if (!error) setBillingSessions(data || []);
   });
+}, [user]);
 
-  return Object.values(map);
-}, [filteredBillingSessions]);
+/* ---------- FILTER ---------- */
+const UNBEARBEITET = ["offen", "termin_neu", "termin_bestaetigt"];
 
+const FILTER_MAP = {
+  unbearbeitet: ["offen", "termin_neu", "termin_bestaetigt"],
+  aktiv: ["active"],
+  beendet: ["beendet"],
+  papierkorb: ["papierkorb"],
+  abrechnung: [],
+  alle: [
+    "offen",
+    "termin_neu",
+    "termin_bestaetigt",
+    "active",
+    "beendet",
+    "papierkorb",
+  ],
+};
 
-  /* ---------- EARLY RETURN (NACH ALLEN HOOKS!) ---------- */
-  if (!user) return <div>Bitte einloggen…</div>;
+const filtered = useMemo(() => {
+  const allowed = FILTER_MAP[filter] || FILTER_MAP.alle;
+
+  return requests.filter((r) => {
+    if (!allowed.includes(r._status)) return false;
+
+    if (therapistFilter !== "alle" && r.wunschtherapeut !== therapistFilter) {
+      return false;
+    }
+
+    if (search) {
+      const q = search.toLowerCase();
+      const name = `${r.vorname || ""} ${r.nachname || ""}`.toLowerCase();
+      if (!name.includes(q)) return false;
+    }
+
+    return true;
+  });
+}, [requests, filter, therapistFilter, search]);
+
+const sorted = useMemo(() => {
+  return [...filtered].sort((a, b) => {
+    if (sort === "name") {
+      return `${a.nachname || ""}${a.vorname || ""}`.localeCompare(
+        `${b.nachname || ""}${b.vorname || ""}`
+      );
+    }
+
+    const aSessions = sessionsByRequest[String(a.id)] || [];
+    const bSessions = sessionsByRequest[String(b.id)] || [];
+
+    const sa = aSessions.length ? aSessions[aSessions.length - 1]?.date : null;
+    const sb = bSessions.length ? bSessions[bSessions.length - 1]?.date : null;
+
+    const da = sa ? new Date(sa) : new Date(a.created_at);
+    const db = sb ? new Date(sb) : new Date(b.created_at);
+
+    return db - da;
+  });
+}, [filtered, sort, sessionsByRequest]);
+
+/* ---------- EARLY RETURN (NACH ALLEN HOOKS!) ---------- */
+if (!user) return <div>Bitte einloggen…</div>;
+
 
   /* ================= UI ================= */
 
