@@ -744,21 +744,29 @@ if (!user) return <div>Bitte einloggen…</div>;
   </section>
 )}
       {/* POISE – TEAMÜBERSICHT */}
-{filter === "abrechnung" && user?.email === "hallo@mypoise.de" && (
+{filter === "abrechnung" && (
   <>
     <hr style={{ margin: "20px 0" }} />
 
-    <h3>🏢 Poise – Teamübersicht</h3>
+    <h3>
+      🏢 Abrechnungsübersicht
+      {user?.email === "hallo@mypoise.de" ? " – Poise (alle Teammitglieder)" : ""}
+    </h3>
 
     <table style={{ width: "100%", borderCollapse: "collapse" }}>
       <thead>
         <tr>
-          <th align="left">Therapeut:in</th>
+          <th align="left">
+            {user?.email === "hallo@mypoise.de"
+              ? "Therapeut:in"
+              : "Meine Abrechnung"}
+          </th>
           <th>Sitzungen</th>
           <th>Umsatz €</th>
           <th>Provision €</th>
         </tr>
       </thead>
+
       <tbody>
         {billingByTherapist.map((t) => (
           <tr key={t.therapist}>
@@ -781,6 +789,7 @@ if (!user) return <div>Bitte einloggen…</div>;
     </div>
   </>
 )}
+
 
 
 
