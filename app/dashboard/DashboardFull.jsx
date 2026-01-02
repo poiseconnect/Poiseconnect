@@ -744,7 +744,7 @@ if (!user) return <div>Bitte einloggen…</div>;
   </section>
 )}
       {/* POISE – TEAMÜBERSICHT */}
-{user?.email === "hallo@mypoise.de" && (
+{filter === "abrechnung" && user?.email === "hallo@mypoise.de" && (
   <>
     <hr style={{ margin: "20px 0" }} />
 
@@ -781,6 +781,7 @@ if (!user) return <div>Bitte einloggen…</div>;
     </div>
   </>
 )}
+
 
 
 
