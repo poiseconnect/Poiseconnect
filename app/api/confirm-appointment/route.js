@@ -1,10 +1,15 @@
 export const dynamic = "force-dynamic";
 
-import { supabase } from "../../lib/supabase";
+import { createClient } from "@supabase/supabase-js";
 
-export async function POST(req) {
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY
+);
+
+export async function POST(request) {
   try {
-    const body = await req.json();
+    const body = await request.json();
 
     console.log("CONFIRM BODY:", body);
 
@@ -13,8 +18,8 @@ export async function POST(req) {
       therapist,
       client,
       slot,
-      vorname
-    } = body;
+      vorname,
+    } = body || {};
 
     if (!requestId || !therapist || !client || !slot) {
       return new Response(
@@ -24,26 +29,30 @@ export async function POST(req) {
     }
 
     const baseUrl =
-      process.env.NEXT_PUBLIC_SITE_URL || "https://poiseconnect.vercel.app";
+      process.env.NEXT_PUBLIC_SITE_URL ||
+      "https://poiseconnect.vercel.app";
 
-    // 1) Anfrage aktualisieren
+    // 1️⃣ Anfrage aktualisieren
     const { error: updateError } = await supabase
       .from("anfragen")
       .update({
         bevorzugte_zeit: slot,
-        status: "termin_bestaetigt"
+        status: "termin_bestaetigt",
       })
       .eq("id", requestId);
 
     if (updateError) {
       console.error("CONFIRM UPDATE ERROR:", updateError);
       return new Response(
-        JSON.stringify({ error: "update_failed", detail: updateError }),
+        JSON.stringify({
+          error: "update_failed",
+          detail: updateError.message,
+        }),
         { status: 500 }
       );
     }
 
-    // 2) Mail an Klient senden
+    // 2️⃣ Mail an Klient
     const mailRes = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: {
@@ -68,18 +77,20 @@ export async function POST(req) {
     });
 
     if (!mailRes.ok) {
-      console.warn("MAIL SEND FAILED, but DB update succeeded");
+      console.warn("MAIL SEND FAILED – DB UPDATE OK");
     }
 
     return new Response(
       JSON.stringify({ ok: true }),
       { status: 200 }
     );
-
   } catch (err) {
     console.error("CONFIRM SERVER ERROR:", err);
     return new Response(
-      JSON.stringify({ error: "server_error", detail: String(err) }),
+      JSON.stringify({
+        error: "server_error",
+        detail: String(err),
+      }),
       { status: 500 }
     );
   }
