@@ -1,15 +1,20 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
+/* ================= SUPABASE CLIENT ================= */
+
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
+/* ================= POST ================= */
+
 export async function POST(request) {
   try {
+    /* ---------- BODY ---------- */
     const body = await request.json();
-    const { anfrageId, therapist, sessions, price } = body || {};
+    const { anfrageId, therapist, sessions } = body || {};
 
     if (!anfrageId || !therapist || !Array.isArray(sessions)) {
       return NextResponse.json(
@@ -18,39 +23,66 @@ export async function POST(request) {
       );
     }
 
-    // Anfrage aktiv setzen
+    /* ---------- ANFRAGE AUF AKTIV SETZEN ---------- */
     const { error: updateError } = await supabase
       .from("anfragen")
       .update({ status: "active" })
       .eq("id", anfrageId);
 
-    if (updateError) throw updateError;
+    if (updateError) {
+      console.error("UPDATE ANFRAGE ERROR:", updateError);
+      throw updateError;
+    }
 
-    // Sessions vorbereiten
-    const rows = sessions.map((s) => ({
-      anfrage_id: anfrageId,
-      therapist,
-      date:
-        s.date && !isNaN(Date.parse(s.date))
-          ? s.date
-          : null,
-      duration_min: Number(s.duration),
-      price: Number(price),
-      commission: price ? price * 0.3 : null,
-      payout: price ? price * 0.7 : null,
-    }));
+    /* ---------- SESSIONS AUFBEREITEN ---------- */
+    const rows = sessions
+      .filter((s) => s?.date) // Schutz
+      .map((s) => {
+        const price = Number(s.price || 0);
 
+        return {
+          anfrage_id: anfrageId,
+          therapist,
+          date: !isNaN(Date.parse(s.date)) ? s.date : null,
+          duration_min: Number(s.duration) || 60,
+          price,
+          commission: price * 0.3,
+          payout: price * 0.7,
+        };
+      });
+
+    if (!rows.length) {
+      return NextResponse.json(
+        { error: "NO_VALID_SESSIONS" },
+        { status: 400 }
+      );
+    }
+
+    /* ---------- INSERT ---------- */
     const { error: insertError } = await supabase
       .from("sessions")
       .insert(rows);
 
-    if (insertError) throw insertError;
+    if (insertError) {
+      console.error("INSERT SESSIONS ERROR:", insertError);
+      throw insertError;
+    }
 
-    return NextResponse.json({ ok: true });
+    /* ---------- OK ---------- */
+    return NextResponse.json({
+      ok: true,
+      inserted: rows.length,
+    });
   } catch (err) {
     console.error("ADD SESSIONS ERROR:", err);
+
     return NextResponse.json(
-      { error: "SERVER_ERROR", detail: String(err) },
+      {
+        error: "SERVER_ERROR",
+        message:
+          err?.message ||
+          (typeof err === "string" ? err : "Unknown error"),
+      },
       { status: 500 }
     );
   }
