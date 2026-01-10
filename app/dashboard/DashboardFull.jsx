@@ -953,32 +953,7 @@ if (!user) return <div>Bitte einloggen…</div>;
     📑 PDF exportieren
   </button>
 </div>
-    {/* POISE – QUARTALSEXPORT */}
-{billingSpan === "quartal" && (
-  <div style={{ marginTop: 8 }}>
-    <button
-      onClick={() =>
-        exportPoiseQuarterCSV(
-          poiseQuarterRows,
-          poiseQuarterTotalsByRate
-        )
-      }
-      style={{
-        padding: "6px 12px",
-        borderRadius: 8,
-        border: "1px solid #ccc",
-        background: "#F3F4FF",
-        fontWeight: 600,
-      }}
-    >
-      🏢 Poise Quartalsabrechnung (CSV)
-    </button>
-
-    <div style={{ fontSize: 12, color: "#666", marginTop: 4 }}>
-      Export: Sitzungen pro Klient + Gesamtsummen pro Stundensatz
-    </div>
-  </div>
-)}
+ 
 
 
     {/* GESAMT */}
