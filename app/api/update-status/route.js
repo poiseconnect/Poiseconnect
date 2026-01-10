@@ -1,11 +1,18 @@
 // app/api/update-status/route.js
-import { NextResponse } from "next/server";
-import { supabase } from "../../lib/supabase";
+export const dynamic = "force-dynamic";
 
-export async function POST(req) {
+import { NextResponse } from "next/server";
+import { createClient } from "@supabase/supabase-js";
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY
+);
+
+export async function POST(request) {
   try {
-    const body = await req.json();
-    const { anfrageId, status } = body;
+    const body = await request.json();
+    const { anfrageId, status } = body || {};
 
     if (!anfrageId || !status) {
       return NextResponse.json(
@@ -18,7 +25,7 @@ export async function POST(req) {
     // 🔒 STATUS-REGELN ABSICHERN
     // -----------------------------
 
-    // ❌ Papierkorb NUR erlaubt, wenn KEINE Sitzungen existieren
+    // Papierkorb → nur wenn KEINE Sitzungen existieren
     if (status === "papierkorb") {
       const { count, error: countError } = await supabase
         .from("sessions")
@@ -44,7 +51,7 @@ export async function POST(req) {
       }
     }
 
-    // ❌ Beendet NUR erlaubt, wenn Sitzungen existieren
+    // Beendet → nur wenn Sitzungen existieren
     if (status === "beendet") {
       const { count, error: countError } = await supabase
         .from("sessions")
