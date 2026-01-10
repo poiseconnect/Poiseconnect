@@ -1,44 +1,43 @@
 export const dynamic = "force-dynamic";
 
-import { supabase } from "../../lib/supabase";
+import { NextResponse } from "next/server";
+import { createClient } from "@supabase/supabase-js";
 
-export async function POST(req) {
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY
+);
+
+export async function POST(request) {
   try {
-    const body = await req.json();
-
-    console.log("FINISH COACHING BODY:", body);
-
-    const { anfrageId } = body;
+    const body = await request.json();
+    const { anfrageId } = body || {};
 
     if (!anfrageId) {
-      return new Response(
-        JSON.stringify({ error: "missing_anfrageId" }),
+      return NextResponse.json(
+        { error: "missing_anfrageId" },
         { status: 400 }
       );
     }
 
     const { error } = await supabase
       .from("anfragen")
-      .update({ status: "beendet" }) // ⚠️ konsistent mit deinem Frontend
+      .update({ status: "beendet" })
       .eq("id", anfrageId);
 
     if (error) {
       console.error("FINISH ERROR:", error);
-      return new Response(
-        JSON.stringify({ error: "update_failed", detail: error }),
+      return NextResponse.json(
+        { error: "update_failed", detail: error.message },
         { status: 500 }
       );
     }
 
-    return new Response(
-      JSON.stringify({ ok: true }),
-      { status: 200 }
-    );
-
+    return NextResponse.json({ ok: true });
   } catch (err) {
     console.error("FINISH SERVER ERROR:", err);
-    return new Response(
-      JSON.stringify({ error: "server_error", detail: String(err) }),
+    return NextResponse.json(
+      { error: "server_error", detail: String(err) },
       { status: 500 }
     );
   }
