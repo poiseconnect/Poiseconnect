@@ -1,18 +1,22 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
-/* ================= SUPABASE CLIENT ================= */
-
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
-/* ================= POST ================= */
-
 export async function POST(request) {
   try {
-    /* ---------- BODY ---------- */
+    /* ---------- HARD GUARD ---------- */
+    if (!request || typeof request.json !== "function") {
+      console.error("INVALID REQUEST OBJECT:", request);
+      return NextResponse.json(
+        { error: "INVALID_REQUEST_OBJECT" },
+        { status: 400 }
+      );
+    }
+
     const body = await request.json();
     const { anfrageId, therapist, sessions } = body || {};
 
@@ -23,27 +27,24 @@ export async function POST(request) {
       );
     }
 
-    /* ---------- ANFRAGE AUF AKTIV SETZEN ---------- */
+    /* ---------- AKTIV SETZEN ---------- */
     const { error: updateError } = await supabase
       .from("anfragen")
       .update({ status: "active" })
       .eq("id", anfrageId);
 
-    if (updateError) {
-      console.error("UPDATE ANFRAGE ERROR:", updateError);
-      throw updateError;
-    }
+    if (updateError) throw updateError;
 
-    /* ---------- SESSIONS AUFBEREITEN ---------- */
+    /* ---------- ROWS ---------- */
     const rows = sessions
-      .filter((s) => s?.date) // Schutz
+      .filter((s) => s?.date)
       .map((s) => {
         const price = Number(s.price || 0);
 
         return {
           anfrage_id: anfrageId,
           therapist,
-          date: !isNaN(Date.parse(s.date)) ? s.date : null,
+          date: new Date(s.date).toISOString(),
           duration_min: Number(s.duration) || 60,
           price,
           commission: price * 0.3,
@@ -58,17 +59,12 @@ export async function POST(request) {
       );
     }
 
-    /* ---------- INSERT ---------- */
     const { error: insertError } = await supabase
       .from("sessions")
       .insert(rows);
 
-    if (insertError) {
-      console.error("INSERT SESSIONS ERROR:", insertError);
-      throw insertError;
-    }
+    if (insertError) throw insertError;
 
-    /* ---------- OK ---------- */
     return NextResponse.json({
       ok: true,
       inserted: rows.length,
@@ -79,9 +75,7 @@ export async function POST(request) {
     return NextResponse.json(
       {
         error: "SERVER_ERROR",
-        message:
-          err?.message ||
-          (typeof err === "string" ? err : "Unknown error"),
+        message: err?.message || String(err),
       },
       { status: 500 }
     );
