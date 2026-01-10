@@ -1,6 +1,15 @@
 export const dynamic = "force-dynamic";
 
-import { supabase } from "../../lib/supabase";
+import { createClient } from "@supabase/supabase-js";
+
+/**
+ * ⚠️ WICHTIG:
+ * In app/api darf KEIN Client-Supabase verwendet werden.
+ */
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY
+);
 
 function json(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -9,9 +18,10 @@ function json(data, status = 200) {
   });
 }
 
-export async function POST(req) {
+export async function POST(request) {
   try {
-    const { vorname, nachname, wunschtherapeut } = await req.json();
+    const body = await request.json();
+    const { vorname, nachname, wunschtherapeut } = body || {};
 
     if (!vorname || !nachname || !wunschtherapeut) {
       return json({ error: "MISSING_FIELDS" }, 400);
@@ -26,13 +36,19 @@ export async function POST(req) {
     });
 
     if (error) {
-      console.error("CREATE BESTAND ERROR:", error);
-      return json({ error: "DB_ERROR", detail: error.message }, 500);
+      console.error("CREATE BESTAND DB ERROR:", error);
+      return json(
+        { error: "DB_ERROR", detail: error.message },
+        500
+      );
     }
 
     return json({ ok: true });
   } catch (err) {
-    console.error("SERVER ERROR:", err);
-    return json({ error: "SERVER_ERROR" }, 500);
+    console.error("CREATE BESTAND SERVER ERROR:", err);
+    return json(
+      { error: "SERVER_ERROR", detail: String(err) },
+      500
+    );
   }
 }
