@@ -1,10 +1,19 @@
 export const dynamic = "force-dynamic";
 
-import { supabase } from "../../lib/supabase";
+import { createClient } from "@supabase/supabase-js";
 
-export async function POST(req) {
+/**
+ * ⚠️ WICHTIG:
+ * In app/api/** IMMER eigenen Supabase-Client verwenden
+ */
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY
+);
+
+export async function POST(request) {
   try {
-    const body = await req.json();
+    const body = await request.json();
 
     console.log("REJECT BODY:", body);
 
@@ -12,8 +21,8 @@ export async function POST(req) {
       requestId,
       client,
       vorname,
-      therapist
-    } = body;
+      therapist,
+    } = body || {};
 
     if (!requestId || !client) {
       return new Response(
@@ -34,7 +43,10 @@ export async function POST(req) {
     if (updateError) {
       console.error("REJECT UPDATE ERROR:", updateError);
       return new Response(
-        JSON.stringify({ error: "update_failed", detail: updateError }),
+        JSON.stringify({
+          error: "update_failed",
+          detail: updateError.message,
+        }),
         { status: 500 }
       );
     }
@@ -70,11 +82,13 @@ export async function POST(req) {
       JSON.stringify({ ok: true }),
       { status: 200 }
     );
-
   } catch (err) {
     console.error("REJECT SERVER ERROR:", err);
     return new Response(
-      JSON.stringify({ error: "server_error", detail: String(err) }),
+      JSON.stringify({
+        error: "server_error",
+        detail: String(err),
+      }),
       { status: 500 }
     );
   }
