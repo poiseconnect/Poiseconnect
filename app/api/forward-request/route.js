@@ -1,18 +1,23 @@
 export const dynamic = "force-dynamic";
 
-import { supabase } from "../../lib/supabase";
+import { createClient } from "@supabase/supabase-js";
 
-export async function POST(req) {
+/**
+ * ⚠️ WICHTIG:
+ * In app/api NIE client-supabase verwenden!
+ */
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY
+);
+
+export async function POST(request) {
   try {
-    const body = await req.json();
+    const body = await request.json();
 
     console.log("FORWARD BODY:", body);
 
-    const {
-      requestId,
-      client,
-      vorname
-    } = body;
+    const { requestId, client, vorname } = body || {};
 
     if (!requestId || !client) {
       return new Response(
@@ -22,7 +27,8 @@ export async function POST(req) {
     }
 
     const baseUrl =
-      process.env.NEXT_PUBLIC_SITE_URL || "https://poiseconnect.vercel.app";
+      process.env.NEXT_PUBLIC_SITE_URL ||
+      "https://poiseconnect.vercel.app";
 
     // 1) Anfrage zurücksetzen & weiterleiten
     const { error: updateError } = await supabase
@@ -30,14 +36,17 @@ export async function POST(req) {
       .update({
         wunschtherapeut: null,
         bevorzugte_zeit: null,
-        status: "weitergeleitet"
+        status: "weitergeleitet",
       })
       .eq("id", requestId);
 
     if (updateError) {
       console.error("FORWARD UPDATE ERROR:", updateError);
       return new Response(
-        JSON.stringify({ error: "update_failed", detail: updateError }),
+        JSON.stringify({
+          error: "update_failed",
+          detail: updateError.message,
+        }),
         { status: 500 }
       );
     }
@@ -47,7 +56,7 @@ export async function POST(req) {
       method: "POST",
       headers: {
         Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
-        "Content-Type": "application/json"
+        "Content-Type": "application/json",
       },
       body: JSON.stringify({
         from: "Poise <noreply@mypoise.de>",
@@ -66,8 +75,8 @@ export async function POST(req) {
           </p>
 
           <p>Liebe Grüße<br>dein Poise-Team 🤍</p>
-        `
-      })
+        `,
+      }),
     });
 
     if (!mailRes.ok) {
@@ -78,11 +87,13 @@ export async function POST(req) {
       JSON.stringify({ ok: true }),
       { status: 200 }
     );
-
   } catch (err) {
     console.error("FORWARD SERVER ERROR:", err);
     return new Response(
-      JSON.stringify({ error: "server_error", detail: String(err) }),
+      JSON.stringify({
+        error: "server_error",
+        detail: String(err),
+      }),
       { status: 500 }
     );
   }
