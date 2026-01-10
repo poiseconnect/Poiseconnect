@@ -1,9 +1,17 @@
-import { NextResponse } from "next/server";
-import { supabase } from "../../lib/supabase";
+export const dynamic = "force-dynamic";
 
-export async function POST(req) {
+import { NextResponse } from "next/server";
+import { createClient } from "@supabase/supabase-js";
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY
+);
+
+export async function POST(request) {
   try {
-    const { anfrageId, newTherapist } = await req.json();
+    const body = await request.json();
+    const { anfrageId, newTherapist } = body || {};
 
     if (!anfrageId || !newTherapist) {
       return NextResponse.json(
@@ -17,11 +25,17 @@ export async function POST(req) {
       .update({ wunschtherapeut: newTherapist })
       .eq("id", anfrageId);
 
-    if (error) throw error;
+    if (error) {
+      console.error("REASSIGN UPDATE ERROR:", error);
+      return NextResponse.json(
+        { error: "update_failed", detail: error.message },
+        { status: 500 }
+      );
+    }
 
     return NextResponse.json({ success: true });
   } catch (err) {
-    console.error("reassign-request error:", err);
+    console.error("REASSIGN SERVER ERROR:", err);
     return NextResponse.json(
       { error: "Therapeut konnte nicht gewechselt werden" },
       { status: 500 }
