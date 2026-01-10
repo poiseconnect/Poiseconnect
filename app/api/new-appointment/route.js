@@ -1,19 +1,23 @@
 export const dynamic = "force-dynamic";
 
-import { supabase } from "../../lib/supabase";
+import { createClient } from "@supabase/supabase-js";
 
-export async function POST(req) {
+/**
+ * ⚠️ WICHTIG:
+ * In app/api/* IMMER eigenen Supabase-Client verwenden
+ */
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY
+);
+
+export async function POST(request) {
   try {
-    const body = await req.json();
+    const body = await request.json();
 
     console.log("NEW APPOINTMENT BODY:", body);
 
-    const {
-      requestId,
-      client,
-      therapistName,
-      vorname
-    } = body;
+    const { requestId, client, therapistName, vorname } = body || {};
 
     if (!requestId || !client || !therapistName) {
       return new Response(
@@ -23,7 +27,8 @@ export async function POST(req) {
     }
 
     const baseUrl =
-      process.env.NEXT_PUBLIC_SITE_URL || "https://poiseconnect.vercel.app";
+      process.env.NEXT_PUBLIC_SITE_URL ||
+      "https://poiseconnect.vercel.app";
 
     // 1️⃣ Anfrage zurücksetzen
     const { error: updateError } = await supabase
@@ -37,7 +42,10 @@ export async function POST(req) {
     if (updateError) {
       console.error("NEW APPOINTMENT UPDATE ERROR:", updateError);
       return new Response(
-        JSON.stringify({ error: "update_failed", detail: updateError }),
+        JSON.stringify({
+          error: "update_failed",
+          detail: updateError.message,
+        }),
         { status: 500 }
       );
     }
@@ -80,11 +88,13 @@ export async function POST(req) {
       JSON.stringify({ ok: true }),
       { status: 200 }
     );
-
   } catch (err) {
     console.error("NEW APPOINTMENT SERVER ERROR:", err);
     return new Response(
-      JSON.stringify({ error: "server_error", detail: String(err) }),
+      JSON.stringify({
+        error: "server_error",
+        detail: String(err),
+      }),
       { status: 500 }
     );
   }
