@@ -179,7 +179,6 @@ function exportBillingCSV(rows) {
 
 function exportBillingPDF(rows) {
   if (!rows || !rows.length) return;
-
   const doc = new jsPDF();
   doc.setFontSize(14);
   doc.text("Poise – Abrechnung", 14, 15);
@@ -201,6 +200,159 @@ function exportBillingPDF(rows) {
 
   doc.save(`abrechnung_${new Date().toISOString().slice(0, 10)}.pdf`);
 }
+
+function exportSessionsCSV(sessions, meta = {}) {
+  if (!sessions || !sessions.length) {
+    alert("Keine Sitzungen im ausgewählten Zeitraum");
+    return;
+  }
+
+  const header = [
+    "Rechnungsjahr",
+    "Rechnungsmonat",
+    "Klient Vorname",
+    "Klient Nachname",
+    "Sitzungsdatum",
+    "Dauer (Min)",
+    "Einzelpreis €",
+    "Gesamtbetrag €",
+    "Therapeut:in",
+  ];
+
+  const rows = sessions.map((s) => {
+    const d = new Date(s.date);
+    return [
+      d.getFullYear(),
+      d.getMonth() + 1,
+      s.anfragen?.vorname || "",
+      s.anfragen?.nachname || "",
+      d.toLocaleDateString("de-AT"),
+      s.duration_min || 60,
+      Number(s.price || 0).toFixed(2),
+      Number(s.price || 0).toFixed(2),
+      s.therapist || "",
+    ].join(";");
+  });
+
+  const csv = [header.join(";"), ...rows].join("\n");
+
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `poise_sitzungen_${meta.year}_${meta.month}.csv`;
+  a.click();
+
+  URL.revokeObjectURL(url);
+}
+function exportClientInvoicePDF({
+  client,
+  sessions,
+  year,
+  month,
+  therapistName,
+}) {
+  if (!sessions || !sessions.length) {
+    alert("Keine Sitzungen vorhanden");
+    return;
+  }
+
+  const doc = new jsPDF();
+  const total = sessions.reduce(
+    (sum, s) => sum + Number(s.price || 0),
+    0
+  );
+
+  doc.setFontSize(14);
+  doc.text("Rechnung", 14, 18);
+
+  doc.setFontSize(10);
+  doc.text(`Rechnungszeitraum: ${month}.${year}`, 14, 28);
+  doc.text(`Klient: ${client}`, 14, 34);
+  doc.text(`Therapeut:in: ${therapistName}`, 14, 40);
+
+  doc.autoTable({
+    startY: 50,
+    head: [["Datum", "Dauer", "Betrag €"]],
+    body: sessions.map((s) => [
+      new Date(s.date).toLocaleDateString("de-AT"),
+      `${s.duration_min || 60} Min`,
+      Number(s.price || 0).toFixed(2),
+    ]),
+    styles: { fontSize: 10 },
+  });
+
+  doc.text(
+    `Gesamtbetrag: ${total.toFixed(2)} €`,
+    14,
+    doc.lastAutoTable.finalY + 12
+  );
+
+  doc.save(`rechnung_${client}_${month}_${year}.pdf`);
+}
+/* ================= POISE – QUARTALS EXPORT ================= */
+
+function exportPoiseQuarterCSV(rows, totals) {
+  if (!rows || !rows.length) {
+    alert("Keine Quartalsdaten vorhanden");
+    return;
+  }
+
+  const header = [
+    "Typ",
+    "Quartal",
+    "Klient",
+    "Stundensatz",
+    "Sitzungen",
+    "Umsatz",
+    "Provision Poise",
+  ];
+
+  const clientRows = rows.map((r) =>
+    [
+      "Klient",
+      r.quarter,
+      r.klient,
+      Number(r.rate).toFixed(2),
+      r.sessions,
+      Number(r.umsatz).toFixed(2),
+      Number(r.provision).toFixed(2),
+    ].join(";")
+  );
+
+  const totalRows = totals.map((t) =>
+    [
+      "Gesamt",
+      t.quarter,
+      "ALLE",
+      Number(t.rate).toFixed(2),
+      t.sessions,
+      Number(t.umsatz).toFixed(2),
+      Number(t.provision).toFixed(2),
+    ].join(";")
+  );
+
+  const csv = [
+    header.join(";"),
+    ...clientRows,
+    ...totalRows,
+  ].join("\n");
+
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `poise_quartalsabrechnung_${new Date()
+    .toISOString()
+    .slice(0, 10)}.csv`;
+  a.click();
+
+  URL.revokeObjectURL(url);
+}
+
+
 
 /* ================= DASHBOARD ================= */
 
@@ -372,6 +524,71 @@ const billingByTherapist = useMemo(() => {
 
   return Object.values(map);
 }, [filteredBillingSessions]);
+/* ---------- 7. POISE: QUARTAL EXPORT (pro Klient & Stundensatz) ---------- */
+const poiseQuarterRows = useMemo(() => {
+  // Basis: gefilterte Sitzungen (Zeitraum = aktuelles Quartal laut UI)
+  // Wichtig: filteredBillingSessions hängt an billingSpan/billingYear/billingQuarter
+  if (!Array.isArray(filteredBillingSessions)) return [];
+
+  // Nur sinnvoll bei Quartal — falls Monat gewählt ist, exportieren wir trotzdem die Monatsdaten als "Q?" nicht.
+  const quarterLabel = `Q${billingQuarter} ${billingYear}`;
+
+  const map = {}; // key = anfrageId|rate
+
+  filteredBillingSessions.forEach((s) => {
+    if (!s?.anfrage_id) return;
+
+    const rate = Number(s.price || 0); // vereinfachend: price = Einzelbetrag/Rate
+    const key = `${s.anfrage_id}|${rate}`;
+
+    if (!map[key]) {
+      map[key] = {
+        quarter: quarterLabel,
+        klient:
+          `${s.anfragen?.vorname || ""} ${s.anfragen?.nachname || ""}`.trim() ||
+          "Unbekannt",
+        rate,
+        sessions: 0,
+        umsatz: 0,
+        provision: 0,
+      };
+    }
+
+    map[key].sessions += 1;
+    map[key].umsatz += Number(s.price) || 0;
+    map[key].provision += Number(s.commission) || 0;
+  });
+
+  // sort: Klient, dann Rate
+  return Object.values(map).sort((a, b) => {
+    const c = a.klient.localeCompare(b.klient);
+    if (c !== 0) return c;
+    return a.rate - b.rate;
+  });
+}, [filteredBillingSessions, billingQuarter, billingYear]);
+
+const poiseQuarterTotalsByRate = useMemo(() => {
+  if (!poiseQuarterRows.length) return [];
+
+  const map = {}; // key = rate
+  poiseQuarterRows.forEach((r) => {
+    const rate = Number(r.rate || 0);
+    if (!map[rate]) {
+      map[rate] = {
+        quarter: r.quarter,
+        rate,
+        sessions: 0,
+        umsatz: 0,
+        provision: 0,
+      };
+    }
+    map[rate].sessions += r.sessions;
+    map[rate].umsatz += r.umsatz;
+    map[rate].provision += r.provision;
+  });
+
+  return Object.values(map).sort((a, b) => a.rate - b.rate);
+}, [poiseQuarterRows]);
 
 
 
@@ -736,6 +953,33 @@ if (!user) return <div>Bitte einloggen…</div>;
     📑 PDF exportieren
   </button>
 </div>
+    {/* POISE – QUARTALSEXPORT */}
+{billingSpan === "quartal" && (
+  <div style={{ marginTop: 8 }}>
+    <button
+      onClick={() =>
+        exportPoiseQuarterCSV(
+          poiseQuarterRows,
+          poiseQuarterTotalsByRate
+        )
+      }
+      style={{
+        padding: "6px 12px",
+        borderRadius: 8,
+        border: "1px solid #ccc",
+        background: "#F3F4FF",
+        fontWeight: 600,
+      }}
+    >
+      🏢 Poise Quartalsabrechnung (CSV)
+    </button>
+
+    <div style={{ fontSize: 12, color: "#666", marginTop: 4 }}>
+      Export: Sitzungen pro Klient + Gesamtsummen pro Stundensatz
+    </div>
+  </div>
+)}
+
 
     {/* GESAMT */}
     <hr />
