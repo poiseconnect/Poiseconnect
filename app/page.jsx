@@ -235,10 +235,20 @@ const matchedTeam = useMemo(() => {
 
 // Nur Therapeut:innen MIT freien Terminen
 const matchedAvailableTeam = useMemo(() => {
+  const withAvailability = teamData.filter((t) =>
+    availableTherapists.includes(t.name)
+  );
+
+  // wenn Matching leer → trotzdem alle mit Terminen anzeigen
+  if (!matchedTeam.length) {
+    return withAvailability;
+  }
+
   return matchedTeam.filter((m) =>
     availableTherapists.includes(m.name)
   );
 }, [matchedTeam, availableTherapists]);
+
   // -------------------------------------
 // STEP 8 – finale Liste (Match + Verfügbarkeit)
 // -------------------------------------
