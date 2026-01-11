@@ -233,14 +233,18 @@ const matchedTeam = useMemo(() => {
   return matchTeamMembers(form.anliegen, teamData);
 }, [form.anliegen]);
   // -------------------------------------
-// STEP 8 – MATCH + VERFÜGBARKEIT
+// STEP 8 – finale Liste (MATCH ∩ VERFÜGBARKEIT)
 // -------------------------------------
 const step8Members = useMemo(() => {
-  return matchedTeam.map((m) => ({
-    ...m,
-    hasAvailability: availableTherapists.includes(m.name),
-  }));
-}, [matchedTeam, availableTherapists]);
+  if (loadingAvailability) return [];
+
+  // nur Therapeut:innen mit freien Terminen
+  const available = matchedTeam.filter((m) =>
+    availableTherapists.includes(m.name)
+  );
+
+  return available;
+}, [matchedTeam, availableTherapists, loadingAvailability]);
 
 
 
