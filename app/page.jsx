@@ -243,36 +243,6 @@ const step8Members = useMemo(() => {
 }, [matchedTeam, availableTherapists]);
 
 
-// Nur Therapeut:innen MIT freien Terminen
-const matchedAvailableTeam = useMemo(() => {
-  const withAvailability = teamData.filter((t) =>
-    availableTherapists.includes(t.name)
-  );
-
-  // wenn Matching leer → trotzdem alle mit Terminen anzeigen
-  if (!matchedTeam.length) {
-    return withAvailability;
-  }
-
-  return matchedTeam.filter((m) =>
-    availableTherapists.includes(m.name)
-  );
-}, [matchedTeam, availableTherapists]);
-
-  // -------------------------------------
-// STEP 8 – finale Liste (Match + Verfügbarkeit)
-// -------------------------------------
-const step8Members = useMemo(() => {
-  // 1️⃣ Es gibt Matches → zeige sie gereiht
-  if (matchedAvailableTeam.length > 0) {
-    return matchedAvailableTeam;
-  }
-
-  // 2️⃣ Kein Match → alle verfügbaren Therapeut:innen anzeigen
-  return teamData.filter((t) =>
-    availableTherapists.includes(t.name)
-  );
-}, [matchedAvailableTeam, availableTherapists]);
 
 
 
