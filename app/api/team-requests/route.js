@@ -1,13 +1,20 @@
-import { NextResponse } from "next/server";
+export const dynamic = "force-dynamic";
+
 import { createClient } from "@supabase/supabase-js";
 import { teamData } from "../../lib/teamData";
-
-
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
+
+// kleine Helper-Funktion (optional, aber sauber)
+function json(data, status = 200) {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: { "Content-Type": "application/json" },
+  });
+}
 
 export async function POST(request) {
   try {
@@ -15,10 +22,7 @@ export async function POST(request) {
     const { email } = body || {};
 
     if (!email) {
-      return NextResponse.json(
-        { error: "missing_email" },
-        { status: 400 }
-      );
+      return json({ error: "missing_email" }, 400);
     }
 
     // Teammitglied anhand der Email finden
@@ -27,10 +31,10 @@ export async function POST(request) {
     );
 
     if (!member) {
-      return NextResponse.json({ requests: [] });
+      return json({ requests: [] });
     }
 
-    // 👉 WICHTIG: wunschtherapeut ist die EMAIL, nicht der Name
+    // wunschtherapeut = EMAIL (richtig 👍)
     const { data, error } = await supabase
       .from("anfragen")
       .select("*")
@@ -39,18 +43,15 @@ export async function POST(request) {
 
     if (error) {
       console.error("TEAM REQUEST DB ERROR:", error);
-      return NextResponse.json(
-        { error: "db_error" },
-        { status: 500 }
-      );
+      return json({ error: "db_error" }, 500);
     }
 
-    return NextResponse.json({ requests: data });
+    return json({ requests: data });
   } catch (err) {
     console.error("TEAM REQUEST SERVER ERROR:", err);
-    return NextResponse.json(
+    return json(
       { error: "server_error", detail: String(err) },
-      { status: 500 }
+      500
     );
   }
 }
