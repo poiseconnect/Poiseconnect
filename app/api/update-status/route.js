@@ -1,4 +1,3 @@
-// app/api/update-status/route.js
 export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
@@ -9,38 +8,49 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
-export async function POST(request) {
-  try {
-    const body = await request.json();
-    const { anfrageId, status } = body || {};
+// erlaubte Stati
+const ALLOWED_STATUS = [
+  "offen",
+  "termin_neu",
+  "termin_bestaetigt",
+  "active",
+  "beendet",
+  "papierkorb",
+  "no_match",
+  "abgelehnt",
+  "weitergeleitet",
+];
 
-    if (!anfrageId || !status) {
+export async function POST(req) {
+  try {
+    const body = await req.json();
+    const { anfrageId, status } = body;
+
+    if (!anfrageId || !status || !ALLOWED_STATUS.includes(status)) {
       return NextResponse.json(
-        { error: "anfrageId oder status fehlt" },
+        { error: "INVALID_PAYLOAD" },
         { status: 400 }
       );
     }
 
-    // -----------------------------
-    // 🔒 STATUS-REGELN ABSICHERN
-    // -----------------------------
-
-    // Papierkorb → nur wenn KEINE Sitzungen existieren
+    // ------------------------------------------------
+    // 🔒 REGEL: Papierkorb → NUR wenn KEINE Sitzungen
+    // ------------------------------------------------
     if (status === "papierkorb") {
-      const { count, error: countError } = await supabase
+      const { count, error } = await supabase
         .from("sessions")
-        .select("*", { count: "exact", head: true })
+        .select("id", { count: "exact", head: true })
         .eq("anfrage_id", anfrageId);
 
-      if (countError) {
-        console.error("Session count error:", countError);
+      if (error) {
+        console.error("SESSION COUNT ERROR:", error);
         return NextResponse.json(
           { error: "SESSION_CHECK_FAILED" },
           { status: 500 }
         );
       }
 
-      if (count > 0) {
+      if (Number(count) > 0) {
         return NextResponse.json(
           {
             error:
@@ -51,22 +61,24 @@ export async function POST(request) {
       }
     }
 
-    // Beendet → nur wenn Sitzungen existieren
+    // ------------------------------------------------
+    // 🔒 REGEL: Beendet → NUR wenn Sitzungen existieren
+    // ------------------------------------------------
     if (status === "beendet") {
-      const { count, error: countError } = await supabase
+      const { count, error } = await supabase
         .from("sessions")
-        .select("*", { count: "exact", head: true })
+        .select("id", { count: "exact", head: true })
         .eq("anfrage_id", anfrageId);
 
-      if (countError) {
-        console.error("Session count error:", countError);
+      if (error) {
+        console.error("SESSION COUNT ERROR:", error);
         return NextResponse.json(
           { error: "SESSION_CHECK_FAILED" },
           { status: 500 }
         );
       }
 
-      if (!count || count === 0) {
+      if (!Number(count)) {
         return NextResponse.json(
           {
             error:
@@ -77,27 +89,28 @@ export async function POST(request) {
       }
     }
 
-    // -----------------------------
+    // ------------------------------------------------
     // ✅ STATUS UPDATE
-    // -----------------------------
+    // ------------------------------------------------
     const { error } = await supabase
       .from("anfragen")
       .update({ status })
       .eq("id", anfrageId);
 
     if (error) {
-      console.error("Supabase update error:", error);
+      console.error("STATUS UPDATE ERROR:", error);
       return NextResponse.json(
-        { error: error.message },
+        { error: "DB_UPDATE_FAILED" },
         { status: 500 }
       );
     }
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ ok: true });
+
   } catch (err) {
-    console.error("update-status error:", err);
+    console.error("UPDATE STATUS SERVER ERROR:", err);
     return NextResponse.json(
-      { error: "Status konnte nicht aktualisiert werden" },
+      { error: "SERVER_ERROR", detail: String(err) },
       { status: 500 }
     );
   }
