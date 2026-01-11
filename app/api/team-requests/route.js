@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { teamData } from "@/lib/teamData";
+import { teamData } from "../../lib/teamData";
+
 
 
 const supabase = createClient(
