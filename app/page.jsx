@@ -861,10 +861,21 @@ const slotsByMonth = useMemo(() => {
   <div className="step-container">
     {loadingAvailability ? (
       <p>Verfügbarkeiten werden geprüft…</p>
+    ) : step8Members.length === 0 ? (
+      <>
+        <h2>Aktuell keine freien Termine</h2>
+        <p>
+          Im Moment hat leider niemand aus unserem Team freie Termine im
+          Kalender. Bitte versuche es später erneut oder kontaktiere uns
+          direkt.
+        </p>
+        <div className="footer-buttons">
+          <button onClick={back}>Zurück</button>
+        </div>
+      </>
     ) : (
       <>
         <h2>Wer könnte gut zu dir passen?</h2>
-
         <p style={{ marginBottom: 24 }}>
           Vielleicht spricht dich sofort jemand an – oder wir orientieren uns
           an deinem Thema. Die Reihenfolge zeigt, wie gut die jeweiligen
@@ -874,13 +885,6 @@ const slotsByMonth = useMemo(() => {
         <TeamCarousel
           members={step8Members}
           onSelect={(name) => {
-            const chosen = step8Members.find((m) => m.name === name);
-
-            if (!chosen?.hasAvailability) {
-              alert("Diese Begleitung hat aktuell keine freien Termine.");
-              return;
-            }
-
             setForm({ ...form, wunschtherapeut: name });
             next();
           }}
@@ -893,6 +897,7 @@ const slotsByMonth = useMemo(() => {
     )}
   </div>
 )}
+
 
 
       {/* STEP 9 – Story / Infos zum Ablauf */}
