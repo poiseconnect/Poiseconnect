@@ -380,13 +380,6 @@ useEffect(() => {
   };
 }, [step]);
 
-
-
-  return () => {
-    isMounted = false;
-  };
-}, [step]);
-  
 // -------------------------------------
 // STEP 10 – ICS + Supabase (booked_appointments)
 // -------------------------------------
