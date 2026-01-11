@@ -338,35 +338,48 @@ const matchedAvailableTeam = useMemo(() => {
     window.history.replaceState({}, "", window.location.pathname);
   }, []);
   // -------------------------------------
-{step === 8 && (
-  <div className="step-container">
-    {loadingAvailability ? (
-      <p>Verfügbarkeiten werden geprüft…</p>
-    ) : (
-      <>
-        <h2>Wer könnte gut zu dir passen?</h2>
+// -------------------------------------
+// STEP 8 – Verfügbarkeit der Therapeut:innen laden
+// -------------------------------------
+useEffect(() => {
+  if (step !== 8) return;
 
-        <p style={{ marginBottom: 24 }}>
-          Vielleicht spricht dich sofort jemand an – oder wir orientieren uns
-          an deinem Thema. Die Reihenfolge zeigt, wie gut die jeweiligen
-          Schwerpunkte zu deinem Anliegen passen.
-        </p>
+  let isMounted = true;
 
-        <TeamCarousel
-          members={matchedAvailableTeam} // bereits sortiert!
-          onSelect={(name) => {
-            setForm({ ...form, wunschtherapeut: name });
-            next();
-          }}
-        />
+  async function loadAvailability() {
+    setLoadingAvailability(true);
 
-        <div className="footer-buttons">
-          <button onClick={back}>Zurück</button>
-        </div>
-      </>
-    )}
-  </div>
-)}
+    try {
+      const result = [];
+
+      for (const therapist of teamData) {
+        if (!therapist.ics) continue;
+
+        try {
+          const slots = await loadIcsSlots(therapist.ics, 21);
+          if (slots.length > 0) {
+            result.push(therapist.name);
+          }
+        } catch (e) {
+          console.error("ICS Fehler bei", therapist.name, e);
+        }
+      }
+
+      if (isMounted) {
+        setAvailableTherapists(result);
+      }
+    } finally {
+      if (isMounted) setLoadingAvailability(false);
+    }
+  }
+
+  loadAvailability();
+
+  return () => {
+    isMounted = false;
+  };
+}, [step]);
+
 
 
   return () => {
@@ -844,65 +857,23 @@ const slotsByMonth = useMemo(() => {
   <div className="step-container">
     {loadingAvailability ? (
       <p>Verfügbarkeiten werden geprüft…</p>
-    ) : matchedAvailableTeam.length > 0 ? (
-      /* ✅ FALL A: MATCH GEFUNDEN */
+    ) : (
       <>
         <h2>Wer könnte gut zu dir passen?</h2>
 
+        <p style={{ marginBottom: 24 }}>
+          Vielleicht spricht dich sofort jemand an – oder wir orientieren uns
+          an deinem Thema. Die Reihenfolge zeigt, wie gut die jeweiligen
+          Schwerpunkte zu deinem Anliegen passen.
+        </p>
+
         <TeamCarousel
-          members={matchedAvailableTeam}
+          members={matchedAvailableTeam} // bereits sortiert!
           onSelect={(name) => {
             setForm({ ...form, wunschtherapeut: name });
             next();
           }}
         />
-
-        <div className="footer-buttons">
-          <button onClick={back}>Zurück</button>
-        </div>
-      </>
-    ) : availableTherapists.length > 0 ? (
-      /* 🟡 FALL B: KEIN MATCH → FREIE AUSWAHL */
-      <>
-        <h2>Wähle deine Begleitung frei aus</h2>
-
-        <p>
-          Für dein Anliegen gibt es aktuell keine eindeutige
-          thematische Zuordnung.
-        </p>
-
-        <p>
-          Du kannst aber selbst eine verfügbare Begleitung auswählen:
-        </p>
-
-        <TeamCarousel
-          members={availableTherapists
-            .map((name) => teamData.find((t) => t.name === name))
-            .filter(Boolean)}
-          onSelect={(name) => {
-            setForm({ ...form, wunschtherapeut: name });
-            next();
-          }}
-        />
-
-        <div className="footer-buttons">
-          <button onClick={back}>Zurück</button>
-        </div>
-      </>
-    ) : (
-      /* 🔴 FALL C: NIEMAND VERFÜGBAR */
-      <>
-        <h2>Aktuell keine freien Termine</h2>
-
-        <p>
-          Derzeit sind leider keine Begleitungen mit freien Terminen
-          verfügbar.
-        </p>
-
-        <p>
-          Wir melden uns persönlich bei dir und finden gemeinsam eine
-          Lösung 🤍
-        </p>
 
         <div className="footer-buttons">
           <button onClick={back}>Zurück</button>
