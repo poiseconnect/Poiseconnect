@@ -239,6 +239,21 @@ const matchedAvailableTeam = useMemo(() => {
     availableTherapists.includes(m.name)
   );
 }, [matchedTeam, availableTherapists]);
+  // -------------------------------------
+// STEP 8 – finale Liste (Match + Verfügbarkeit)
+// -------------------------------------
+const step8Members = useMemo(() => {
+  // 1️⃣ Es gibt Matches → zeige sie gereiht
+  if (matchedAvailableTeam.length > 0) {
+    return matchedAvailableTeam;
+  }
+
+  // 2️⃣ Kein Match → alle verfügbaren Therapeut:innen anzeigen
+  return teamData.filter((t) =>
+    availableTherapists.includes(t.name)
+  );
+}, [matchedAvailableTeam, availableTherapists]);
+
 
 
   // ----------------------------
@@ -860,13 +875,14 @@ const slotsByMonth = useMemo(() => {
             : "Aktuell konnten wir kein klares thematisches Matching berechnen – du kannst trotzdem frei wählen."}
         </p>
 
-        <TeamCarousel
-          members={step8Members}
-          onSelect={(name) => {
-            setForm({ ...form, wunschtherapeut: name });
-            next();
-          }}
-        />
+     <TeamCarousel
+  members={step8Members}
+  onSelect={(name) => {
+    setForm({ ...form, wunschtherapeut: name });
+    next();
+  }}
+/>
+
 
         <div className="footer-buttons">
           <button onClick={back}>Zurück</button>
