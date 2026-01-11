@@ -338,42 +338,36 @@ const matchedAvailableTeam = useMemo(() => {
     window.history.replaceState({}, "", window.location.pathname);
   }, []);
   // -------------------------------------
-// STEP 8 – Verfügbarkeit der Therapeut:innen laden
-// -------------------------------------
-useEffect(() => {
-  if (step !== 8) return;
+{step === 8 && (
+  <div className="step-container">
+    {loadingAvailability ? (
+      <p>Verfügbarkeiten werden geprüft…</p>
+    ) : (
+      <>
+        <h2>Wer könnte gut zu dir passen?</h2>
 
-  let isMounted = true;
+        <p style={{ marginBottom: 24 }}>
+          Vielleicht spricht dich sofort jemand an – oder wir orientieren uns
+          an deinem Thema. Die Reihenfolge zeigt, wie gut die jeweiligen
+          Schwerpunkte zu deinem Anliegen passen.
+        </p>
 
-  async function loadAvailability() {
-    setLoadingAvailability(true);
+        <TeamCarousel
+          members={matchedAvailableTeam} // bereits sortiert!
+          onSelect={(name) => {
+            setForm({ ...form, wunschtherapeut: name });
+            next();
+          }}
+        />
 
-    try {
-      const result = [];
+        <div className="footer-buttons">
+          <button onClick={back}>Zurück</button>
+        </div>
+      </>
+    )}
+  </div>
+)}
 
-      for (const therapist of teamData) {
-        if (!therapist.ics) continue;
-
-        try {
-          const slots = await loadIcsSlots(therapist.ics, 21);
-
-          if (slots.length > 0) {
-            result.push(therapist.name);
-          }
-        } catch (e) {
-          console.error("ICS Fehler bei", therapist.name, e);
-        }
-      }
-
-      if (isMounted) {
-        setAvailableTherapists(result); // Array mit NAMES
-      }
-    } finally {
-      if (isMounted) setLoadingAvailability(false);
-    }
-  }
-
-  loadAvailability();
 
   return () => {
     isMounted = false;
