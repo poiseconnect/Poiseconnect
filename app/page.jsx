@@ -99,24 +99,27 @@ function parseICSDate(line) {
 // ----------------------
 // ICS → Slots
 // ----------------------
-async function loadIcsSlots(icsUrl, daysAhead = 21) {
+async function loadIcsSlots(icsUrl, daysAhead = null) {
   const res = await fetch(`/api/ics?url=${encodeURIComponent(icsUrl)}`);
   const text = await res.text();
 
   const now = new Date();
-  const until = new Date(now.getTime() + daysAhead * 86400000);
+  const until = daysAhead
+    ? new Date(now.getTime() + daysAhead * 86400000)
+    : null;
 
-  const events = text.split("BEGIN:VEVENT").slice(1);
+  const events = text.split(/BEGIN:VEVENT/i).slice(1);
   const slots = [];
 
   for (const ev of events) {
-    const startLine = ev.split("\n").find((l) => l.startsWith("DTSTART"));
-    const endLine = ev.split("\n").find((l) => l.startsWith("DTEND"));
+    const startLine = ev.split(/\r?\n/).find((l) => l.startsWith("DTSTART"));
+    const endLine = ev.split(/\r?\n/).find((l) => l.startsWith("DTEND"));
     if (!startLine || !endLine) continue;
 
     const start = parseICSDate(startLine);
     const end = parseICSDate(endLine);
-    if (!start || !end || end <= now || start > until) continue;
+    if (!start || !end || end <= now) continue;
+    if (until && start > until) continue;
 
     let t = new Date(start);
     while (t < end) {
@@ -130,6 +133,7 @@ async function loadIcsSlots(icsUrl, daysAhead = 21) {
 
   return slots.sort((a, b) => a.start - b.start);
 }
+
 
 // ----------------------
 // CHECK: Therapeut hat freie Slots?
@@ -233,18 +237,15 @@ const matchedTeam = useMemo(() => {
   return matchTeamMembers(form.anliegen, teamData);
 }, [form.anliegen]);
   // -------------------------------------
-// STEP 8 – finale Liste (MATCH ∩ VERFÜGBARKEIT)
+// -------------------------------------
+// STEP 8 – FINALE LISTE (MATCH + VERFÜGBARKEIT)
 // -------------------------------------
 const step8Members = useMemo(() => {
-  if (loadingAvailability) return [];
-
-  // nur Therapeut:innen mit freien Terminen
-  const available = matchedTeam.filter((m) =>
+  return matchedTeam.filter((m) =>
     availableTherapists.includes(m.name)
   );
+}, [matchedTeam, availableTherapists]);
 
-  return available;
-}, [matchedTeam, availableTherapists, loadingAvailability]);
 
 
 
@@ -365,30 +366,28 @@ useEffect(() => {
       for (const therapist of teamData) {
         if (!therapist.ics) continue;
 
-        try {
-          const slots = await loadIcsSlots(therapist.ics, 21);
-          if (slots.length > 0) {
-            result.push(therapist.name);
-          }
-        } catch (e) {
-          console.error("ICS Fehler bei", therapist.name, e);
+        const slots = await loadIcsSlots(therapist.ics); // ❗ OHNE 21
+        if (slots.length > 0) {
+          result.push(therapist.name);
         }
       }
 
       if (isMounted) {
         setAvailableTherapists(result);
       }
+    } catch (e) {
+      console.error("Availability error", e);
     } finally {
       if (isMounted) setLoadingAvailability(false);
     }
   }
 
   loadAvailability();
-
   return () => {
     isMounted = false;
   };
 }, []);
+
 
 
 // -------------------------------------
@@ -865,9 +864,8 @@ const slotsByMonth = useMemo(() => {
       <>
         <h2>Aktuell keine freien Termine</h2>
         <p>
-          Im Moment hat leider niemand aus unserem Team freie Termine im
-          Kalender. Bitte versuche es später erneut oder kontaktiere uns
-          direkt.
+          Im Moment hat leider niemand aus unserem Team freie Termine im Kalender.
+          Bitte versuche es später erneut oder kontaktiere uns direkt.
         </p>
         <div className="footer-buttons">
           <button onClick={back}>Zurück</button>
@@ -876,6 +874,7 @@ const slotsByMonth = useMemo(() => {
     ) : (
       <>
         <h2>Wer könnte gut zu dir passen?</h2>
+
         <p style={{ marginBottom: 24 }}>
           Vielleicht spricht dich sofort jemand an – oder wir orientieren uns
           an deinem Thema. Die Reihenfolge zeigt, wie gut die jeweiligen
@@ -897,6 +896,7 @@ const slotsByMonth = useMemo(() => {
     )}
   </div>
 )}
+
 
 
 
