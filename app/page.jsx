@@ -232,6 +232,16 @@ const [selectedDay, setSelectedDay] = useState(null);
 const matchedTeam = useMemo(() => {
   return matchTeamMembers(form.anliegen, teamData);
 }, [form.anliegen]);
+  // -------------------------------------
+// STEP 8 – MATCH + VERFÜGBARKEIT
+// -------------------------------------
+const step8Members = useMemo(() => {
+  return matchedTeam.map((m) => ({
+    ...m,
+    hasAvailability: availableTherapists.includes(m.name),
+  }));
+}, [matchedTeam, availableTherapists]);
+
 
 // Nur Therapeut:innen MIT freien Terminen
 const matchedAvailableTeam = useMemo(() => {
@@ -366,9 +376,10 @@ const step8Members = useMemo(() => {
 // -------------------------------------
 // STEP 8 – Verfügbarkeit der Therapeut:innen laden
 // -------------------------------------
+// -------------------------------------
+// AVAILABILITY – EINMAL BEIM PAGE LOAD
+// -------------------------------------
 useEffect(() => {
-  if (step !== 8) return;
-
   let isMounted = true;
 
   async function loadAvailability() {
@@ -403,7 +414,8 @@ useEffect(() => {
   return () => {
     isMounted = false;
   };
-}, [step]);
+}, []);
+
 
 // -------------------------------------
 // STEP 10 – ICS + Supabase (booked_appointments)
@@ -875,20 +887,26 @@ const slotsByMonth = useMemo(() => {
   <div className="step-container">
     {loadingAvailability ? (
       <p>Verfügbarkeiten werden geprüft…</p>
-    ) : step8Members.length > 0 ? (
+    ) : (
       <>
         <h2>Wer könnte gut zu dir passen?</h2>
 
         <p style={{ marginBottom: 24 }}>
-          Vielleicht spricht dich sofort jemand an – dann ist das ein sehr gutes
-          Gefühl.  
-          Oder wir orientieren uns an deinem Thema: Die Reihenfolge zeigt, wie gut
-          die jeweiligen Schwerpunkte zu deinem Anliegen passen.
+          Vielleicht spricht dich sofort jemand an – oder wir orientieren uns
+          an deinem Thema. Die Reihenfolge zeigt, wie gut die jeweiligen
+          Schwerpunkte zu deinem Anliegen passen.
         </p>
 
         <TeamCarousel
           members={step8Members}
           onSelect={(name) => {
+            const chosen = step8Members.find((m) => m.name === name);
+
+            if (!chosen?.hasAvailability) {
+              alert("Diese Begleitung hat aktuell keine freien Termine.");
+              return;
+            }
+
             setForm({ ...form, wunschtherapeut: name });
             next();
           }}
@@ -898,23 +916,9 @@ const slotsByMonth = useMemo(() => {
           <button onClick={back}>Zurück</button>
         </div>
       </>
-    ) : (
-      <>
-        <h2>Aktuell keine freien Termine</h2>
-
-        <p>
-          Im Moment hat leider niemand aus dem Team freie Termine im Kalender.
-          Bitte versuche es später erneut oder kontaktiere uns direkt.
-        </p>
-
-        <div className="footer-buttons">
-          <button onClick={back}>Zurück</button>
-        </div>
-      </>
     )}
   </div>
 )}
-
 
 
       {/* STEP 9 – Story / Infos zum Ablauf */}
