@@ -5,7 +5,7 @@ import Image from "next/image";
 
 import StepIndicator from "./components/StepIndicator";
 import TeamCarousel from "./components/TeamCarousel";
-import { teamData } from "./teamData";
+import { teamData } from "./lib/teamData";
 import { supabase } from "./lib/supabase";
 import { matchTeamMembers } from "./lib/matchTeamMembers";
 
