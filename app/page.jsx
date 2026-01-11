@@ -880,19 +880,19 @@ const slotsByMonth = useMemo(() => {
         <h2>Wer könnte gut zu dir passen?</h2>
 
         <p style={{ marginBottom: 24 }}>
-          {matchedAvailableTeam.length > 0
-            ? "Basierend auf deinem Anliegen haben wir folgende Begleitungen gereiht."
-            : "Aktuell konnten wir kein klares thematisches Matching berechnen – du kannst trotzdem frei wählen."}
+          Vielleicht spricht dich sofort jemand an – dann ist das ein sehr gutes
+          Gefühl.  
+          Oder wir orientieren uns an deinem Thema: Die Reihenfolge zeigt, wie gut
+          die jeweiligen Schwerpunkte zu deinem Anliegen passen.
         </p>
 
-     <TeamCarousel
-  members={step8Members}
-  onSelect={(name) => {
-    setForm({ ...form, wunschtherapeut: name });
-    next();
-  }}
-/>
-
+        <TeamCarousel
+          members={step8Members}
+          onSelect={(name) => {
+            setForm({ ...form, wunschtherapeut: name });
+            next();
+          }}
+        />
 
         <div className="footer-buttons">
           <button onClick={back}>Zurück</button>
@@ -901,6 +901,7 @@ const slotsByMonth = useMemo(() => {
     ) : (
       <>
         <h2>Aktuell keine freien Termine</h2>
+
         <p>
           Im Moment hat leider niemand aus dem Team freie Termine im Kalender.
           Bitte versuche es später erneut oder kontaktiere uns direkt.
