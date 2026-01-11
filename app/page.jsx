@@ -851,6 +851,7 @@ const slotsByMonth = useMemo(() => {
     {loadingAvailability ? (
       <p>Verfügbarkeiten werden geprüft…</p>
     ) : matchedAvailableTeam.length > 0 ? (
+      /* ✅ FALL A: MATCH GEFUNDEN */
       <>
         <h2>Wer könnte gut zu dir passen?</h2>
 
@@ -866,18 +867,18 @@ const slotsByMonth = useMemo(() => {
           <button onClick={back}>Zurück</button>
         </div>
       </>
-    ) : (
-      /* 🔁 UX FALLBACK */
+    ) : availableTherapists.length > 0 ? (
+      /* 🟡 FALL B: KEIN MATCH → FREIE AUSWAHL */
       <>
-        <h2>Wir haben keine eindeutige Zuordnung gefunden</h2>
+        <h2>Wähle deine Begleitung frei aus</h2>
 
         <p>
-          Dein Anliegen ist sehr individuell – aktuell konnten wir
-          keine klare thematische Übereinstimmung berechnen.
+          Für dein Anliegen gibt es aktuell keine eindeutige
+          thematische Zuordnung.
         </p>
 
         <p>
-          Du kannst trotzdem eine Begleitung auswählen:
+          Du kannst aber selbst eine verfügbare Begleitung auswählen:
         </p>
 
         <TeamCarousel
@@ -894,11 +895,28 @@ const slotsByMonth = useMemo(() => {
           <button onClick={back}>Zurück</button>
         </div>
       </>
+    ) : (
+      /* 🔴 FALL C: NIEMAND VERFÜGBAR */
+      <>
+        <h2>Aktuell keine freien Termine</h2>
+
+        <p>
+          Derzeit sind leider keine Begleitungen mit freien Terminen
+          verfügbar.
+        </p>
+
+        <p>
+          Wir melden uns persönlich bei dir und finden gemeinsam eine
+          Lösung 🤍
+        </p>
+
+        <div className="footer-buttons">
+          <button onClick={back}>Zurück</button>
+        </div>
+      </>
     )}
   </div>
 )}
-
-
 
 
       {/* STEP 9 – Story / Infos zum Ablauf */}
