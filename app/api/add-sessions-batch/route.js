@@ -20,21 +20,21 @@ export async function POST(req) {
       );
     }
 
-    // Anfrage aktiv setzen
+    // 1️⃣ Anfrage aktiv setzen
     const { error: updateError } = await supabase
       .from("anfragen")
       .update({ status: "active" })
       .eq("id", anfrageId);
 
     if (updateError) {
-      console.error(updateError);
+      console.error("UPDATE ERROR:", updateError);
       return NextResponse.json(
         { error: "UPDATE_FAILED" },
         { status: 500 }
       );
     }
 
-    // Sessions vorbereiten
+    // 2️⃣ Sessions vorbereiten
     const rows = sessions.map((s) => ({
       anfrage_id: anfrageId,
       therapist,
@@ -50,7 +50,7 @@ export async function POST(req) {
       .insert(rows);
 
     if (insertError) {
-      console.error(insertError);
+      console.error("INSERT ERROR:", insertError);
       return NextResponse.json(
         { error: "INSERT_FAILED" },
         { status: 500 }
@@ -60,7 +60,7 @@ export async function POST(req) {
     return NextResponse.json({ ok: true });
 
   } catch (err) {
-    console.error("ADD SESSIONS ERROR:", err);
+    console.error("ADD SESSIONS SERVER ERROR:", err);
     return NextResponse.json(
       { error: "SERVER_ERROR", detail: String(err) },
       { status: 500 }
