@@ -89,6 +89,8 @@ export async function POST(req) {
       check_online_setting: Boolean(body.check_online_setting),
 
       status: "neu",
+match_state: "pending", // 👈 NEU
+
     };
 
     // -----------------------------------------
