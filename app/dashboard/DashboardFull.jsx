@@ -893,9 +893,13 @@ if (!user) return <div>Bitte einloggen…</div>;
     <h2>💶 Abrechnung</h2>
 
     {/* ================= RECHNUNGSDATEN (Therapeut:in) ================= */}
-    <div style={{ marginTop: 10, padding: 12, border: "1px solid #eee", borderRadius: 10, background: "#FAFAFA" }}>
-      <h3 style={{ marginTop: 0 }}>🧾 Rechnungsdaten (deine Angaben)</h3>
-      {invoiceLoading && <div style={{ color: "#777" }}>Lade Rechnungsdaten…</div>}
+<details style={{ marginTop: 10, border: "1px solid #eee", borderRadius: 10, background: "#FAFAFA", padding: 10 }}>
+  <summary style={{ cursor: "pointer", fontWeight: 600 }}>
+    🧾 Rechnungsdaten (deine Angaben)
+  </summary>
+  <div style={{ marginTop: 10 }}>
+
+{invoiceLoading && <div style={{ color: "#777" }}>Lade Rechnungsdaten…</div>}
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
         <div>
@@ -904,8 +908,8 @@ if (!user) return <div>Bitte einloggen…</div>;
             value={invoiceSettings.company_name || ""}
             onChange={(e) => setInvoiceSettings({ ...invoiceSettings, company_name: e.target.value })}
             style={{ width: "100%" }}
-          />
-        </div>
+          />  </div>
+</details>
 
         <div>
           <label>Logo URL (optional)</label>
