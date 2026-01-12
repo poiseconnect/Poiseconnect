@@ -178,11 +178,6 @@ export default function Home() {
     check_gesundheit: false,
     terminISO: "",
     terminDisplay: "",
-    // Optional – Vertiefung
-    schlaf: "",
-    bewegung: "",
-    stress: "",
-    sonstiges: "",
   });
 
   // Validierungs-Fehler für Step "Kontaktdaten"
@@ -540,6 +535,28 @@ const slotsByMonth = useMemo(() => {
       </div>
 
       <StepIndicator step={step} total={totalSteps} />
+      <div style={{ marginTop: 10 }}>
+        <div
+          style={{
+            height: 8,
+            background: "#eee",
+            borderRadius: 999,
+            overflow: "hidden",
+          }}
+        >
+          <div
+            style={{
+              height: "100%",
+              width: `${Math.round(((step + 1) / totalSteps) * 100)}%`,
+              background: "#111",
+            }}
+          />
+        </div>
+        <div style={{ marginTop: 6, fontSize: 12, color: "#555" }}>
+          Schritt {step + 1} von {totalSteps}
+        </div>
+      </div>
+
 
       {/* STEP 0 – Anliegen */}
       {step === 0 && (
@@ -1084,65 +1101,33 @@ Eine Kostenübernahme kann möglich sein — individuell klären.`,
 
           <div className="footer-buttons" style={{ marginTop: 16 }}>
             <button onClick={back}>Zurück</button>
-            <button disabled={!form.terminISO} onClick={next}>
-              Anfrage senden
-            </button>
+            <button disabled={!form.terminISO} onClick={next}>Weiter zur Zusammenfassung</button>
           </div>
         </div>
       )}
+
 {/* STEP 11 – Zusammenfassung */}
 {step === 11 && (
   <div className="step-container">
     <h2>Zusammenfassung</h2>
 
-    <p style={{ marginBottom: 12, color: "#555" }}>
-      ℹ️ Der Termin ist <strong>angefragt</strong> und muss noch vom Teammitglied bestätigt werden.
-    </p>
-
-    <div style={{ border: "1px solid #eee", borderRadius: 12, padding: 12 }}>
-      <p><strong>Anliegen:</strong> {form.anliegen || "–"}</p>
-      <p><strong>Leidensdruck:</strong> {form.leidensdruck || "–"}</p>
-      <p><strong>Verlauf:</strong> {form.verlauf || "–"}</p>
-      <p><strong>Ziel:</strong> {form.ziel || "–"}</p>
-      <hr />
+    <div style={{ fontSize: 14, lineHeight: 1.6 }}>
       <p><strong>Name:</strong> {form.vorname} {form.nachname}</p>
       <p><strong>E-Mail:</strong> {form.email}</p>
       <p><strong>Telefon:</strong> {form.telefon}</p>
-      <p><strong>Therapeut:in:</strong> {form.wunschtherapeut || "–"}</p>
-      <p><strong>Erstgespräch:</strong> {form.terminDisplay || "–"}</p>
+      <p><strong>Adresse:</strong> {form.adresse}</p>
+      <p><strong>Geburtsdatum:</strong> {form.geburtsdatum}</p>
+      <hr style={{ margin: "12px 0" }} />
+      <p><strong>Anliegen:</strong> {form.anliegen}</p>
+      <p><strong>Leidensdruck:</strong> {form.leidensdruck}</p>
+      <p><strong>Verlauf:</strong> {form.verlauf}</p>
+      <p><strong>Diagnose (optional):</strong> {form.diagnose || "—"}</p>
+      <p><strong>Ziel:</strong> {form.ziel}</p>
+      <p><strong>Beschäftigungsgrad:</strong> {form.beschaeftigungsgrad}</p>
+      <hr style={{ margin: "12px 0" }} />
+      <p><strong>Wunschtherapeut:in:</strong> {form.wunschtherapeut || "—"}</p>
+      <p><strong>Erstgespräch-Termin:</strong> {form.terminDisplay || "—"}</p>
     </div>
-
-    <details style={{ marginTop: 14 }}>
-      <summary style={{ cursor: "pointer", fontWeight: 600 }}>
-        Optional: Zusätzliche Angaben (Schlaf, Bewegung …)
-      </summary>
-
-      <div style={{ marginTop: 10 }}>
-        <label>Schlaf (optional)</label>
-        <textarea
-          value={form.schlaf}
-          onChange={(e) => setForm({ ...form, schlaf: e.target.value })}
-        />
-
-        <label>Bewegung (optional)</label>
-        <textarea
-          value={form.bewegung}
-          onChange={(e) => setForm({ ...form, bewegung: e.target.value })}
-        />
-
-        <label>Stress (optional)</label>
-        <textarea
-          value={form.stress}
-          onChange={(e) => setForm({ ...form, stress: e.target.value })}
-        />
-
-        <label>Sonstiges (optional)</label>
-        <textarea
-          value={form.sonstiges}
-          onChange={(e) => setForm({ ...form, sonstiges: e.target.value })}
-        />
-      </div>
-    </details>
 
     <div className="footer-buttons" style={{ marginTop: 16 }}>
       <button onClick={back}>Zurück</button>
@@ -1150,6 +1135,7 @@ Eine Kostenübernahme kann möglich sein — individuell klären.`,
     </div>
   </div>
 )}
+
 
     </div>
   );
