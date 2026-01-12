@@ -38,7 +38,7 @@ const STATUS_LABEL = {
   termin_neu: "Neuer Termin",
   termin_bestaetigt: "Termin bestätigt",
   active: "Begleitung aktiv",
-  kein_match: "Kein Match",
+  kein_match: "Nicht passend für Poise",
   beendet: "Beendet",
   papierkorb: "Papierkorb",
 };
@@ -627,6 +627,11 @@ useEffect(() => {
       bevorzugte_zeit,
       wunschtherapeut,
       honorar_klient
+      ,vat_mode
+      ,vat_country
+      ,vat_rate
+      ,vat_reason
+      ,vat_decided_by
     `
     )
     .order("created_at", { ascending: false });
@@ -814,7 +819,7 @@ if (!user) return <div>Bitte einloggen…</div>;
         </select>
       </div>
 
-      <button
+      {filter === "aktiv" && (<button
         onClick={() => setCreateBestandOpen(true)}
         style={{
           marginBottom: 16,
@@ -826,7 +831,7 @@ if (!user) return <div>Bitte einloggen…</div>;
         }}
       >
         ➕ Bestandsklient:in anlegen
-      </button>
+      </button>)}
 
 {/* ================= ABRECHNUNG ================= */}
 {filter === "abrechnung" && (
@@ -1078,7 +1083,12 @@ if (!user) return <div>Bitte einloggen…</div>;
               <button
                 onClick={() => {
                   setDetailsModal(r);
-                  setEditTarif(r.honorar_klient || "");
+                  setEditTarif(r.honorar_klient
+      ,vat_mode
+      ,vat_country
+      ,vat_rate
+      ,vat_reason
+      ,vat_decided_by || "");
                   setNewSessions([{ date: "", duration: 60 }]);
                 }}
               >
@@ -1106,7 +1116,17 @@ if (!user) return <div>Bitte einloggen…</div>;
                     ✔ Termin bestätigen
                   </button>
 
-                  <button onClick={() => moveToTrash(r)}>✖ Absagen</button>
+                  <button
+                onClick={() =>
+                  fetch("/api/no-match", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ anfrageId: r.id }),
+                  }).then(() => location.reload())
+                }
+              >
+                ❌ Nicht passend für Poise
+              </button>
                   <button onClick={() => moveToTrash(r)}>🔁 Neuer Termin</button>
                   <button onClick={() => moveToTrash(r)}>👥 Weiterleiten</button>
                 </div>
@@ -1123,7 +1143,12 @@ if (!user) return <div>Bitte einloggen…</div>;
                         body: JSON.stringify({
                           anfrageId: r.id,
                           therapistEmail: user.email,
-                          honorar: r.honorar_klient,
+                          honorar: r.honorar_klient
+      ,vat_mode
+      ,vat_country
+      ,vat_rate
+      ,vat_reason
+      ,vat_decided_by,
                         }),
                       }).then(() => location.reload())
                     }
@@ -1139,9 +1164,7 @@ if (!user) return <div>Bitte einloggen…</div>;
                         body: JSON.stringify({ anfrageId: r.id }),
                       }).then(() => location.reload())
                     }
-                  >
-                    ❌ Kein Match
-                  </button>
+                  >❌ Nicht passend für Poise</button>
                 </div>
               )}
 
@@ -1268,6 +1291,121 @@ if (!user) return <div>Bitte einloggen…</div>;
                 <strong>Wunschtherapeut:</strong>{" "}
                 {teamData.find((t) => t.email === detailsModal?.wunschtherapeut)?.name ||
                   safeText(detailsModal?.wunschtherapeut)}
+              
+<hr />
+
+{(user?.email === "hallo@mypoise.de" ||
+  detailsModal?.wunschtherapeut === user.email) && (
+  <section style={{ marginTop: 10 }}>
+    <h4 style={{ marginBottom: 6 }}>💶 Steuer & Rechnung (pro Klient:in)</h4>
+
+    <div style={{ display: "grid", gap: 8 }}>
+      <label>Land</label>
+      <select
+        value={detailsModal?.vat_country || ""}
+        onChange={(e) =>
+          setDetailsModal((prev) => ({
+            ...prev,
+            vat_country: e.target.value,
+          }))
+        }
+      >
+        <option value="">Bitte wählen…</option>
+        <option value="AT">Österreich</option>
+        <option value="DE">Deutschland</option>
+      </select>
+
+      <label>USt-Modus</label>
+      <select
+        value={detailsModal?.vat_mode || "exempt"}
+        onChange={(e) =>
+          setDetailsModal((prev) => ({
+            ...prev,
+            vat_mode: e.target.value,
+            vat_rate:
+              e.target.value === "taxable"
+                ? prev.vat_rate || 20
+                : 0,
+          }))
+        }
+      >
+        <option value="exempt">Steuerfrei</option>
+        <option value="taxable">Steuerpflichtig</option>
+        <option value="mixed">Einzelfall / gemischt</option>
+      </select>
+
+      <label>Steuersatz (%)</label>
+      <input
+        type="number"
+        value={
+          detailsModal?.vat_mode === "taxable"
+            ? detailsModal?.vat_rate ?? 20
+            : 0
+        }
+        onChange={(e) =>
+          setDetailsModal((prev) => ({
+            ...prev,
+            vat_rate: Number(e.target.value),
+          }))
+        }
+        disabled={detailsModal?.vat_mode !== "taxable"}
+        style={{ width: 140 }}
+      />
+
+      <label>Hinweistext auf Rechnung</label>
+      <textarea
+        value={detailsModal?.vat_reason || ""}
+        onChange={(e) =>
+          setDetailsModal((prev) => ({
+            ...prev,
+            vat_reason: e.target.value,
+          }))
+        }
+        placeholder='z.B. "Umsatzsteuerbefreit gemäß §6 Abs. 1 Z 19 UStG"'
+        style={{ minHeight: 70 }}
+      />
+
+      <button
+        onClick={async () => {
+          const res = await fetch("/api/update-client-vat", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              anfrageId: detailsModal.id,
+              vat_mode: detailsModal.vat_mode || "exempt",
+              vat_country: detailsModal.vat_country || null,
+              vat_rate:
+                detailsModal.vat_mode === "taxable"
+                  ? Number(detailsModal.vat_rate || 20)
+                  : 0,
+              vat_reason: detailsModal.vat_reason || null,
+              user_email: user.email,
+            }),
+          });
+
+          if (!res.ok) {
+            alert("Fehler beim Speichern der Steuerdaten");
+            return;
+          }
+          alert("Steuerdaten gespeichert ✅");
+        }}
+        style={{
+          padding: "8px 12px",
+          borderRadius: 10,
+          border: "1px solid #ccc",
+          width: "fit-content",
+        }}
+      >
+        💾 Steuer speichern
+      </button>
+
+      <div style={{ fontSize: 12, color: "#666" }}>
+        Standard: steuerfrei. Nur Admin oder zuständiges Teammitglied kann das ändern.
+      </div>
+    </div>
+  </section>
+)}
+
               </p>
 
               {safeDateString(detailsModal?.bevorzugte_zeit) && (
