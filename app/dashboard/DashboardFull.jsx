@@ -38,7 +38,7 @@ const STATUS_LABEL = {
   termin_neu: "Neuer Termin",
   termin_bestaetigt: "Termin bestätigt",
   active: "Begleitung aktiv",
-  kein_match: "Nicht passend für Poise",
+  kein_match: "Kein Match",
   beendet: "Beendet",
   papierkorb: "Papierkorb",
 };
@@ -401,6 +401,20 @@ const [billingQuarter, setBillingQuarter] = useState(
   Math.floor(now.getMonth() / 3) + 1
 );
 
+
+/* ================= INVOICE SETTINGS (Therapeut:in) ================= */
+const [invoiceSettings, setInvoiceSettings] = useState({
+  company_name: "",
+  address: "",
+  iban: "",
+  bic: "",
+  logo_url: "",
+  default_vat_country: "AT",
+  default_vat_rate: 0,
+});
+const [invoiceLoading, setInvoiceLoading] = useState(false);
+
+
   /* ================= ABRECHNUNG – LOGIK ================= */
 
 // 1. Zeitraumfilter
@@ -601,6 +615,51 @@ useEffect(() => {
   });
 }, []);
 
+
+
+/* ---------- LOAD INVOICE SETTINGS (only Abrechnung tab) ---------- */
+useEffect(() => {
+  if (!user?.email) return;
+  if (filter !== "abrechnung") return;
+
+  let isMounted = true;
+
+  async function loadInvoiceSettings() {
+    setInvoiceLoading(true);
+    try {
+      const res = await fetch("/api/invoice-settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ user_email: user.email }),
+      });
+
+      if (!res.ok) {
+        console.warn("Invoice settings load failed");
+        return;
+      }
+
+      const data = await res.json();
+      if (!isMounted) return;
+
+      if (data?.settings) {
+        setInvoiceSettings((prev) => ({
+          ...prev,
+          ...data.settings,
+          default_vat_country: data.settings.default_vat_country || "AT",
+          default_vat_rate: Number(data.settings.default_vat_rate || 0),
+        }));
+      }
+    } finally {
+      if (isMounted) setInvoiceLoading(false);
+    }
+  }
+
+  loadInvoiceSettings();
+  return () => {
+    isMounted = false;
+  };
+}, [user, filter]);
+
 /* ---------- LOAD REQUESTS ---------- */
 useEffect(() => {
   if (!user?.email) return;
@@ -627,11 +686,6 @@ useEffect(() => {
       bevorzugte_zeit,
       wunschtherapeut,
       honorar_klient
-      ,vat_mode
-      ,vat_country
-      ,vat_rate
-      ,vat_reason
-      ,vat_decided_by
     `
     )
     .order("created_at", { ascending: false });
@@ -819,7 +873,7 @@ if (!user) return <div>Bitte einloggen…</div>;
         </select>
       </div>
 
-      {filter === "aktiv" && (<button
+      <button
         onClick={() => setCreateBestandOpen(true)}
         style={{
           marginBottom: 16,
@@ -831,12 +885,111 @@ if (!user) return <div>Bitte einloggen…</div>;
         }}
       >
         ➕ Bestandsklient:in anlegen
-      </button>)}
+      </button>
 
 {/* ================= ABRECHNUNG ================= */}
 {filter === "abrechnung" && (
   <section style={{ border: "1px solid #ddd", borderRadius: 12, padding: 16 }}>
     <h2>💶 Abrechnung</h2>
+
+    {/* ================= RECHNUNGSDATEN (Therapeut:in) ================= */}
+    <div style={{ marginTop: 10, padding: 12, border: "1px solid #eee", borderRadius: 10, background: "#FAFAFA" }}>
+      <h3 style={{ marginTop: 0 }}>🧾 Rechnungsdaten (deine Angaben)</h3>
+      {invoiceLoading && <div style={{ color: "#777" }}>Lade Rechnungsdaten…</div>}
+
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+        <div>
+          <label>Rechnungssteller / Name</label>
+          <input
+            value={invoiceSettings.company_name || ""}
+            onChange={(e) => setInvoiceSettings({ ...invoiceSettings, company_name: e.target.value })}
+            style={{ width: "100%" }}
+          />
+        </div>
+
+        <div>
+          <label>Logo URL (optional)</label>
+          <input
+            value={invoiceSettings.logo_url || ""}
+            onChange={(e) => setInvoiceSettings({ ...invoiceSettings, logo_url: e.target.value })}
+            style={{ width: "100%" }}
+          />
+        </div>
+
+        <div style={{ gridColumn: "1 / -1" }}>
+          <label>Adresse</label>
+          <textarea
+            value={invoiceSettings.address || ""}
+            onChange={(e) => setInvoiceSettings({ ...invoiceSettings, address: e.target.value })}
+            style={{ width: "100%" }}
+          />
+        </div>
+
+        <div>
+          <label>IBAN</label>
+          <input
+            value={invoiceSettings.iban || ""}
+            onChange={(e) => setInvoiceSettings({ ...invoiceSettings, iban: e.target.value })}
+            style={{ width: "100%" }}
+          />
+        </div>
+
+        <div>
+          <label>BIC (optional)</label>
+          <input
+            value={invoiceSettings.bic || ""}
+            onChange={(e) => setInvoiceSettings({ ...invoiceSettings, bic: e.target.value })}
+            style={{ width: "100%" }}
+          />
+        </div>
+
+        <div>
+          <label>Standard-Land (für Steuersatz)</label>
+          <select
+            value={invoiceSettings.default_vat_country || "AT"}
+            onChange={(e) => setInvoiceSettings({ ...invoiceSettings, default_vat_country: e.target.value })}
+            style={{ width: "100%" }}
+          >
+            <option value="AT">Österreich</option>
+            <option value="DE">Deutschland</option>
+          </select>
+        </div>
+
+        <div>
+          <label>Standard USt % (optional)</label>
+          <input
+            type="number"
+            value={invoiceSettings.default_vat_rate ?? 0}
+            onChange={(e) => setInvoiceSettings({ ...invoiceSettings, default_vat_rate: Number(e.target.value) })}
+            style={{ width: "100%" }}
+          />
+          <div style={{ fontSize: 12, color: "#777" }}>
+            Standard ist USt-frei pro Klient; Abweichungen steuerst du pro Klient.
+          </div>
+        </div>
+      </div>
+
+      <div style={{ marginTop: 10, display: "flex", justifyContent: "flex-end" }}>
+        <button
+          onClick={async () => {
+            const res = await fetch("/api/invoice-settings", {
+              method: "PUT",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ user_email: user.email, settings: invoiceSettings }),
+            });
+            if (!res.ok) {
+              alert("Fehler beim Speichern der Rechnungsdaten");
+              return;
+            }
+            alert("Rechnungsdaten gespeichert");
+          }}
+          style={{ padding: "8px 12px", borderRadius: 8, border: "1px solid #ccc" }}
+        >
+          💾 Rechnungsdaten speichern
+        </button>
+      </div>
+    </div>
+
 
     {/* EBENE 1 – KLINT:INNEN */}
     <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
@@ -1083,12 +1236,7 @@ if (!user) return <div>Bitte einloggen…</div>;
               <button
                 onClick={() => {
                   setDetailsModal(r);
-                  setEditTarif(r.honorar_klient
-      ,vat_mode
-      ,vat_country
-      ,vat_rate
-      ,vat_reason
-      ,vat_decided_by || "");
+                  setEditTarif(r.honorar_klient || "");
                   setNewSessions([{ date: "", duration: 60 }]);
                 }}
               >
@@ -1116,17 +1264,7 @@ if (!user) return <div>Bitte einloggen…</div>;
                     ✔ Termin bestätigen
                   </button>
 
-                  <button
-                onClick={() =>
-                  fetch("/api/no-match", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ anfrageId: r.id }),
-                  }).then(() => location.reload())
-                }
-              >
-                ❌ Nicht passend für Poise
-              </button>
+                  <button onClick={() => moveToTrash(r)}>✖ Absagen</button>
                   <button onClick={() => moveToTrash(r)}>🔁 Neuer Termin</button>
                   <button onClick={() => moveToTrash(r)}>👥 Weiterleiten</button>
                 </div>
@@ -1143,12 +1281,7 @@ if (!user) return <div>Bitte einloggen…</div>;
                         body: JSON.stringify({
                           anfrageId: r.id,
                           therapistEmail: user.email,
-                          honorar: r.honorar_klient
-      ,vat_mode
-      ,vat_country
-      ,vat_rate
-      ,vat_reason
-      ,vat_decided_by,
+                          honorar: r.honorar_klient,
                         }),
                       }).then(() => location.reload())
                     }
@@ -1164,7 +1297,9 @@ if (!user) return <div>Bitte einloggen…</div>;
                         body: JSON.stringify({ anfrageId: r.id }),
                       }).then(() => location.reload())
                     }
-                  >❌ Nicht passend für Poise</button>
+                  >
+                    ❌ Kein Match
+                  </button>
                 </div>
               )}
 
@@ -1291,121 +1426,6 @@ if (!user) return <div>Bitte einloggen…</div>;
                 <strong>Wunschtherapeut:</strong>{" "}
                 {teamData.find((t) => t.email === detailsModal?.wunschtherapeut)?.name ||
                   safeText(detailsModal?.wunschtherapeut)}
-              
-<hr />
-
-{(user?.email === "hallo@mypoise.de" ||
-  detailsModal?.wunschtherapeut === user.email) && (
-  <section style={{ marginTop: 10 }}>
-    <h4 style={{ marginBottom: 6 }}>💶 Steuer & Rechnung (pro Klient:in)</h4>
-
-    <div style={{ display: "grid", gap: 8 }}>
-      <label>Land</label>
-      <select
-        value={detailsModal?.vat_country || ""}
-        onChange={(e) =>
-          setDetailsModal((prev) => ({
-            ...prev,
-            vat_country: e.target.value,
-          }))
-        }
-      >
-        <option value="">Bitte wählen…</option>
-        <option value="AT">Österreich</option>
-        <option value="DE">Deutschland</option>
-      </select>
-
-      <label>USt-Modus</label>
-      <select
-        value={detailsModal?.vat_mode || "exempt"}
-        onChange={(e) =>
-          setDetailsModal((prev) => ({
-            ...prev,
-            vat_mode: e.target.value,
-            vat_rate:
-              e.target.value === "taxable"
-                ? prev.vat_rate || 20
-                : 0,
-          }))
-        }
-      >
-        <option value="exempt">Steuerfrei</option>
-        <option value="taxable">Steuerpflichtig</option>
-        <option value="mixed">Einzelfall / gemischt</option>
-      </select>
-
-      <label>Steuersatz (%)</label>
-      <input
-        type="number"
-        value={
-          detailsModal?.vat_mode === "taxable"
-            ? detailsModal?.vat_rate ?? 20
-            : 0
-        }
-        onChange={(e) =>
-          setDetailsModal((prev) => ({
-            ...prev,
-            vat_rate: Number(e.target.value),
-          }))
-        }
-        disabled={detailsModal?.vat_mode !== "taxable"}
-        style={{ width: 140 }}
-      />
-
-      <label>Hinweistext auf Rechnung</label>
-      <textarea
-        value={detailsModal?.vat_reason || ""}
-        onChange={(e) =>
-          setDetailsModal((prev) => ({
-            ...prev,
-            vat_reason: e.target.value,
-          }))
-        }
-        placeholder='z.B. "Umsatzsteuerbefreit gemäß §6 Abs. 1 Z 19 UStG"'
-        style={{ minHeight: 70 }}
-      />
-
-      <button
-        onClick={async () => {
-          const res = await fetch("/api/update-client-vat", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              anfrageId: detailsModal.id,
-              vat_mode: detailsModal.vat_mode || "exempt",
-              vat_country: detailsModal.vat_country || null,
-              vat_rate:
-                detailsModal.vat_mode === "taxable"
-                  ? Number(detailsModal.vat_rate || 20)
-                  : 0,
-              vat_reason: detailsModal.vat_reason || null,
-              user_email: user.email,
-            }),
-          });
-
-          if (!res.ok) {
-            alert("Fehler beim Speichern der Steuerdaten");
-            return;
-          }
-          alert("Steuerdaten gespeichert ✅");
-        }}
-        style={{
-          padding: "8px 12px",
-          borderRadius: 10,
-          border: "1px solid #ccc",
-          width: "fit-content",
-        }}
-      >
-        💾 Steuer speichern
-      </button>
-
-      <div style={{ fontSize: 12, color: "#666" }}>
-        Standard: steuerfrei. Nur Admin oder zuständiges Teammitglied kann das ändern.
-      </div>
-    </div>
-  </section>
-)}
-
               </p>
 
               {safeDateString(detailsModal?.bevorzugte_zeit) && (
