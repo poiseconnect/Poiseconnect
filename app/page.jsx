@@ -1,208 +1,1156 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
+import Image from "next/image";
+
 import StepIndicator from "./components/StepIndicator";
+import TeamCarousel from "./components/TeamCarousel";
 import { teamData } from "./lib/teamData";
+import { supabase } from "./lib/supabase";
+import { matchTeamMembers } from "./lib/matchTeamMembers";
 
-const TOTAL_STEPS = 12;
 
-export default function Page() {
+// -------------------------------------
+// Helfer & Konfiguration
+// -------------------------------------
+
+const getTherapistInfo = (name) =>
+  teamData.find((t) => t.name === name) || {};
+
+// ---- RED-FLAGS ----
+const RED_FLAGS = [
+  "suizid",
+  "selbstmord",
+  "selbstverletzung",
+  "ritzen",
+  "magersucht",
+  "anorexie",
+  "bulim",
+  "erbrechen",
+  "binge",
+  "essstörung",
+  "essstoerung",
+  "borderline",
+  "svv",
+];
+
+const isRedFlag = (t) =>
+  t && RED_FLAGS.some((x) => t.toLowerCase().includes(x));
+
+// Matching-Gewichte
+const TAG_WEIGHTS = {
+  trauma: 5,
+  ptbs: 5,
+  essstörung: 5,
+  essstoerung: 5,
+  anorexie: 5,
+  bulimie: 5,
+  bulimia: 5,
+
+  binge: 4,
+  zwang: 4,
+  panik: 3,
+  angst: 3,
+  depression: 3,
+
+  selbstwert: 2,
+  burnout: 2,
+  erschöpfung: 2,
+
+  beziehung: 1,
+  partnerschaft: 1,
+  stress: 1,
+  arbeit: 1,
+  studium: 0.5,
+};
+
+// ---- Format ----
+const formatDate = (d) =>
+  d.toLocaleDateString("de-AT", {
+    weekday: "short",
+    day: "2-digit",
+    month: "2-digit",
+  });
+
+const formatTime = (d) =>
+  d.toLocaleTimeString("de-AT", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+
+// ----------------------
+// ----------------------
+// ICS PARSER
+// ----------------------
+function parseICSDate(line) {
+  const m = line.match(/DT(?:START|END)(?:;TZID=[^:]+)?:([0-9T]+)/i);
+  if (!m) return null;
+
+  const raw = m[1];
+  return new Date(
+    Number(raw.slice(0, 4)),
+    Number(raw.slice(4, 6)) - 1,
+    Number(raw.slice(6, 8)),
+    Number(raw.slice(9, 11)) || 0,
+    Number(raw.slice(11, 13)) || 0
+  );
+}
+
+// ----------------------
+// ICS → Slots
+// ----------------------
+async function loadIcsSlots(icsUrl, daysAhead = null) {
+  const res = await fetch(`/api/ics?url=${encodeURIComponent(icsUrl)}`);
+  const text = await res.text();
+
+  const now = new Date();
+  const until = daysAhead
+    ? new Date(now.getTime() + daysAhead * 86400000)
+    : null;
+
+  const events = text.split(/BEGIN:VEVENT/i).slice(1);
+  const slots = [];
+
+  for (const ev of events) {
+    const startLine = ev.split(/\r?\n/).find((l) => l.startsWith("DTSTART"));
+    const endLine = ev.split(/\r?\n/).find((l) => l.startsWith("DTEND"));
+    if (!startLine || !endLine) continue;
+
+    const start = parseICSDate(startLine);
+    const end = parseICSDate(endLine);
+    if (!start || !end || end <= now) continue;
+    if (until && start > until) continue;
+
+    let t = new Date(start);
+    while (t < end) {
+      const tEnd = new Date(t.getTime() + 30 * 60000);
+      if (tEnd > end || tEnd <= now) break;
+
+      slots.push({ start: new Date(t) });
+      t = new Date(t.getTime() + 30 * 60000);
+    }
+  }
+
+  return slots.sort((a, b) => a.start - b.start);
+}
+
+
+// ----------------------
+// CHECK: Therapeut hat freie Slots?
+// ----------------------
+async function therapistHasFreeSlots(therapist) {
+  if (!therapist?.ics) return false;
+
+  try {
+    const slots = await loadIcsSlots(therapist.ics, 21);
+    return slots.length > 0;
+  } catch (e) {
+    console.error("ICS error for", therapist?.name, e);
+    return false;
+  }
+}
+// --------------------------------------------------
+// PAGE COMPONENT
+// --------------------------------------------------
+export default function Home() {
+  const today = new Date();
   const [step, setStep] = useState(0);
+  const [subStep9, setSubStep9] = useState(0);
+  const totalSteps = 12;
 
+  // Formular-Daten
   const [form, setForm] = useState({
     anliegen: "",
     leidensdruck: "",
     verlauf: "",
+    diagnose: "",
     ziel: "",
-
-    // optionale Vertiefung
-    schlaf: "",
-    bewegung: "",
-    stresslevel: "",
-    substanzen: "",
-    sonstiges: "",
-
+    wunschtherapeut: "",
     vorname: "",
     nachname: "",
     email: "",
     telefon: "",
-
-    wunschtherapeut: "",
-    terminDisplay: "",
+    adresse: "",
+    geburtsdatum: "",
+    beschaeftigungsgrad: "",
+    check_datenschutz: false,
+    check_online_setting: false,
+    check_gesundheit: false,
     terminISO: "",
+    terminDisplay: "",
+    // Optional – Vertiefung
+    schlaf: "",
+    bewegung: "",
+    stress: "",
+    sonstiges: "",
   });
+
+  // Validierungs-Fehler für Step "Kontaktdaten"
+  const [errors, setErrors] = useState({});
+
+// STEP 8 – Verfügbarkeit
+const [availableTherapists, setAvailableTherapists] = useState([]);
+const [loadingAvailability, setLoadingAvailability] = useState(false);
+
+// STEP 10 – Termine
+const [slots, setSlots] = useState([]);
+const [loadingSlots, setLoadingSlots] = useState(false);
+const [slotsError, setSlotsError] = useState("");
+const [selectedDay, setSelectedDay] = useState(null);
+
+
+  // -------------------------------------
+  // Matching – Team-Sortierung nach Tags
+  // -------------------------------------
+  const sortedTeam = useMemo(() => {
+    if (!form.anliegen) return teamData || [];
+
+    const words = form.anliegen
+      .toLowerCase()
+      .split(/[\s,.;!?]+/)
+      .filter(Boolean);
+
+    return [...teamData].sort((a, b) => {
+      const score = (member) =>
+        member.tags?.reduce((sum, tag) => {
+          tag = tag.toLowerCase();
+          const matches = words.some((w) => tag.includes(w));
+          if (!matches) return sum;
+          const weight = TAG_WEIGHTS[tag] ?? 1;
+          return sum + weight;
+        }, 0) || 0;
+
+      return score(b) - score(a);
+    });
+  }, [form.anliegen]);
+
+  // Volljährigkeit
+  const isAdult = (d) => {
+    const birth = new Date(d);
+    const age = today.getFullYear() - birth.getFullYear();
+    const m = today.getMonth() - birth.getMonth();
+    return age > 18 || (age === 18 && m >= 0);
+  };
 
   const next = () => setStep((s) => s + 1);
   const back = () => setStep((s) => s - 1);
+  // -------------------------------------
+// MATCHING – Anliegen → passende Therapeut:innen
+// -------------------------------------
 
-  /* ---------------- ZUSAMMENFASSUNG ---------------- */
-  const summary = useMemo(
-    () => [
-      ["Anliegen", form.anliegen],
-      ["Leidensdruck", form.leidensdruck],
-      ["Verlauf", form.verlauf],
-      ["Ziel", form.ziel],
-      ["Schlaf", form.schlaf],
-      ["Bewegung", form.bewegung],
-      ["Stress", form.stresslevel],
-      ["Substanzen", form.substanzen],
-      ["Sonstiges", form.sonstiges],
-      ["Name", `${form.vorname} ${form.nachname}`],
-      ["E-Mail", form.email],
-      ["Telefon", form.telefon],
-      ["Therapeut:in", form.wunschtherapeut],
-      ["Termin", form.terminDisplay],
-    ],
-    [form]
+const matchedTeam = useMemo(() => {
+  return matchTeamMembers(form.anliegen, teamData);
+}, [form.anliegen]);
+  // -------------------------------------
+// -------------------------------------
+// STEP 8 – FINALE LISTE (MATCH + VERFÜGBARKEIT)
+// -------------------------------------
+const step8Members = useMemo(() => {
+  return matchedTeam.filter((m) =>
+    availableTherapists.includes(m.name)
   );
+}, [matchedTeam, availableTherapists]);
 
-  /* ---------------- SEND ---------------- */
-  async function send() {
-    await fetch("/api/form-submit", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(form),
+
+
+
+
+
+  // ----------------------------
+  // Validierung Step "Kontaktdaten"
+  // ----------------------------
+  function validateClientData(form) {
+    const newErrors = {};
+
+    if (!form.vorname?.trim()) {
+      newErrors.vorname = "Bitte Vornamen eingeben.";
+    }
+
+    if (!form.nachname?.trim()) {
+      newErrors.nachname = "Bitte Nachnamen eingeben.";
+    }
+
+    if (!form.email?.trim()) {
+      newErrors.email = "Bitte E-Mail eingeben.";
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) {
+      newErrors.email = "Bitte eine gültige E-Mail-Adresse eingeben.";
+    }
+
+    if (!form.telefon?.trim()) {
+      newErrors.telefon = "Bitte Telefonnummer eingeben.";
+    }
+
+    if (!form.adresse?.trim()) {
+      newErrors.adresse = "Bitte Adresse eingeben.";
+    }
+
+    if (!form.geburtsdatum?.trim()) {
+      newErrors.geburtsdatum = "Bitte Geburtsdatum eingeben.";
+    } else {
+      const d = new Date(form.geburtsdatum);
+      if (Number.isNaN(d.getTime())) {
+        newErrors.geburtsdatum = "Bitte gültiges Datum wählen.";
+      } else if (!isAdult(form.geburtsdatum)) {
+        newErrors.geburtsdatum =
+          "Du musst mindestens 18 Jahre alt sein.";
+      }
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  }
+
+  // -------------------------------------
+  // Resume-Flow (Therapist-Response Links)
+  // ?resume=confirmed&email=...&therapist=Ann
+  // ?resume=10&email=...&therapist=Ann  → Terminwahl
+  // ?resume=5&email=...                 → anderes Teammitglied wählen (jetzt Step 8)
+  // -------------------------------------
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const params = new URLSearchParams(window.location.search);
+    const resume = params.get("resume");
+    if (!resume) return;
+
+    const emailParam = params.get("email") || "";
+    const therapistParam =
+      params.get("therapist") || params.get("name") || "";
+
+    // Termin vom Team bestätigt
+    if (resume === "confirmed") {
+      alert("Termin wurde bestätigt ✅");
+      window.history.replaceState({}, "", window.location.pathname);
+      return;
+    }
+
+    let targetStep = null;
+    const n = parseInt(resume, 10);
+
+    if (!Number.isNaN(n)) {
+      // Mapping: alt 5 (anderes Teammitglied) → jetzt Step 8
+      if (n === 5) {
+        targetStep = 8;
+      } else {
+        targetStep = n;
+      }
+    }
+
+    if (targetStep === null) return;
+
+    setForm((prev) => ({
+      ...prev,
+      email: emailParam || prev.email,
+      wunschtherapeut:
+        targetStep === 8 ? "" : therapistParam || prev.wunschtherapeut,
+      terminISO: "",
+      terminDisplay: "",
+    }));
+
+    setStep(targetStep);
+
+    // Query-Parameter entfernen
+    window.history.replaceState({}, "", window.location.pathname);
+  }, []);
+  // -------------------------------------
+// -------------------------------------
+// STEP 8 – Verfügbarkeit der Therapeut:innen laden
+// -------------------------------------
+// -------------------------------------
+// AVAILABILITY – EINMAL BEIM PAGE LOAD
+// -------------------------------------
+useEffect(() => {
+  let isMounted = true;
+
+  async function loadAvailability() {
+    setLoadingAvailability(true);
+
+    try {
+      const result = [];
+
+      for (const therapist of teamData) {
+        if (!therapist.ics) continue;
+
+        const slots = await loadIcsSlots(therapist.ics); // ❗ OHNE 21
+        if (slots.length > 0) {
+          result.push(therapist.name);
+        }
+      }
+
+      if (isMounted) {
+        setAvailableTherapists(result);
+      }
+    } catch (e) {
+      console.error("Availability error", e);
+    } finally {
+      if (isMounted) setLoadingAvailability(false);
+    }
+  }
+
+  loadAvailability();
+  return () => {
+    isMounted = false;
+  };
+}, []);
+
+
+
+// -------------------------------------
+// STEP 10 – ICS + Supabase (booked_appointments)
+// -------------------------------------
+useEffect(() => {
+  if (step !== 10 || !form.wunschtherapeut) return;
+
+  let isMounted = true;
+
+  async function loadData() {
+    setLoadingSlots(true);
+    setSlotsError("");
+
+    try {
+      const therapistObj = teamData.find(
+        (t) => t.name === form.wunschtherapeut
+      );
+
+      if (!therapistObj?.ics) {
+        if (isMounted) {
+          setSlots([]);
+          setSlotsError("Kein Kalender hinterlegt.");
+          setLoadingSlots(false);
+        }
+        return;
+      }
+
+      const allSlots = await loadIcsSlots(therapistObj.ics);
+
+      let freeSlots = allSlots;
+
+      const { data } = await supabase
+        .from("booked_appointments")
+        .select("termin_iso")
+        .eq("therapist", form.wunschtherapeut);
+
+      if (data?.length) {
+        const bookedSet = new Set(data.map((r) => r.termin_iso));
+        freeSlots = allSlots.filter(
+          (s) => !bookedSet.has(s.start.toISOString())
+        );
+      }
+
+      if (isMounted) {
+        setSlots(freeSlots);
+      }
+    } catch (err) {
+      console.error("Slot-Load error:", err);
+      if (isMounted) setSlotsError("Kalender konnte nicht geladen werden.");
+    }
+
+    if (isMounted) setLoadingSlots(false);
+  }
+
+  loadData();
+  return () => {
+    isMounted = false;
+  };
+}, [step, form.wunschtherapeut]);
+
+
+  // Slots nach Tagen gruppieren
+  
+ const groupedSlots = useMemo(() => {
+  const map = new Map();
+
+  for (const s of slots) {
+    const key = s.start.toISOString().slice(0, 10); // YYYY-MM-DD
+    if (!map.has(key)) map.set(key, []);
+    map.get(key).push(s);
+  }
+
+  return Array.from(map.entries()); // [ [day, slots[]], ... ]
+}, [slots]);
+  // 🔹 Slots nach MONAT → TAG gruppieren
+const slotsByMonth = useMemo(() => {
+  const map = new Map();
+
+  groupedSlots.forEach(([dayKey, daySlots]) => {
+    const date = daySlots[0].start;
+    const monthKey = date.toLocaleDateString("de-AT", {
+      month: "long",
+      year: "numeric",
     });
 
-    alert(
-      "Danke! Deine Anfrage wurde gesendet.\n\nDer Termin ist ANGEFRAGT und wird noch vom Teammitglied bestätigt."
-    );
-  }
+    if (!map.has(monthKey)) map.set(monthKey, []);
+    map.get(monthKey).push([dayKey, daySlots]);
+  });
+
+  return Array.from(map.entries());
+}, [groupedSlots]);
+
+
+  // -------------------------------------
+  // Formular absenden
+  // -------------------------------------
+  const send = async () => {
+    try {
+      const res = await fetch("/api/form-submit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...form,
+          therapist_from_url: form.wunschtherapeut,
+        }),
+      });
+
+      let json = null;
+      try {
+        if (res.headers.get("content-type")?.includes("application/json")) {
+          json = await res.json();
+        }
+      } catch (_) {
+        // ignorieren
+      }
+
+      if (!res.ok) {
+        console.error("API Fehler:", json || res.status);
+        alert("Fehler – Anfrage konnte nicht gesendet werden.");
+        return;
+      }
+
+      alert("Danke – deine Anfrage wurde erfolgreich gesendet 🤍");
+    } catch (err) {
+      console.error("Client Fehler:", err);
+      alert("Unerwarteter Fehler – bitte später erneut versuchen.");
+    }
+  };
+
+  // -------------------------------------
+  // Render
+  // -------------------------------------
 
   return (
     <div className="form-wrapper">
-      <StepIndicator step={step} total={TOTAL_STEPS} />
+      <div style={{ textAlign: "center", marginBottom: 24 }}>
+        <Image
+          src="/IMG_7599.png"
+          width={160}
+          height={160}
+          alt="Poise Logo"
+          priority
+        />
+      </div>
 
-      {/* STEP 0 */}
+      <StepIndicator step={step} total={totalSteps} />
+
+      {/* STEP 0 – Anliegen */}
       {step === 0 && (
-        <>
-          <h2>Worum geht es?</h2>
+        <div className="step-container">
+          <h2>Anliegen</h2>
           <textarea
             value={form.anliegen}
-            onChange={(e) => setForm({ ...form, anliegen: e.target.value })}
+            onChange={(e) =>
+              setForm({ ...form, anliegen: e.target.value })
+            }
           />
-          <button disabled={!form.anliegen} onClick={next}>
-            Weiter
-          </button>
-        </>
+          <div className="footer-buttons">
+            <span />
+            <button disabled={!form.anliegen} onClick={next}>
+              Weiter
+            </button>
+          </div>
+        </div>
       )}
 
-      {/* STEP 1 */}
+      {/* STEP 1 – Leidensdruck */}
       {step === 1 && (
-        <>
-          <h2>Leidensdruck</h2>
+        <div className="step-container">
+          <h2>Wie hoch ist dein Leidensdruck?</h2>
           <select
             value={form.leidensdruck}
             onChange={(e) =>
               setForm({ ...form, leidensdruck: e.target.value })
             }
           >
-            <option value="">Bitte wählen</option>
+            <option value="">Bitte auswählen…</option>
             <option>niedrig</option>
             <option>mittel</option>
             <option>hoch</option>
             <option>sehr hoch</option>
           </select>
-          <button onClick={back}>Zurück</button>
-          <button disabled={!form.leidensdruck} onClick={next}>
-            Weiter
-          </button>
-        </>
+          <div className="footer-buttons">
+            <button onClick={back}>Zurück</button>
+            <button disabled={!form.leidensdruck} onClick={next}>
+              Weiter
+            </button>
+          </div>
+        </div>
       )}
 
-      {/* STEP 2 */}
+      {/* STEP 2 – Verlauf */}
       {step === 2 && (
-        <>
-          <h2>Wie lange schon?</h2>
+        <div className="step-container">
+          <h2>Wie lange leidest du schon?</h2>
           <textarea
             value={form.verlauf}
-            onChange={(e) => setForm({ ...form, verlauf: e.target.value })}
+            onChange={(e) =>
+              setForm({ ...form, verlauf: e.target.value })
+            }
           />
-          <button onClick={back}>Zurück</button>
-          <button disabled={!form.verlauf} onClick={next}>
-            Weiter
-          </button>
-        </>
+          <div className="footer-buttons">
+            <button onClick={back}>Zurück</button>
+            <button disabled={!form.verlauf} onClick={next}>
+              Weiter
+            </button>
+          </div>
+        </div>
       )}
 
-      {/* STEP 3 */}
+      {/* STEP 3 – Diagnose */}
       {step === 3 && (
-        <>
+        <div className="step-container">
+          <h2>Gibt es eine Diagnose?</h2>
+          <select
+            value={form.diagnose}
+            onChange={(e) =>
+              setForm({ ...form, diagnose: e.target.value })
+            }
+          >
+            <option value="">Bitte auswählen…</option>
+            <option>Ja</option>
+            <option>Nein</option>
+          </select>
+          <div className="footer-buttons">
+            <button onClick={back}>Zurück</button>
+            <button disabled={!form.diagnose} onClick={next}>
+              Weiter
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* STEP 4 – Ziel */}
+      {step === 4 && (
+        <div className="step-container">
           <h2>Was wünschst du dir?</h2>
           <textarea
             value={form.ziel}
-            onChange={(e) => setForm({ ...form, ziel: e.target.value })}
-          />
-          <button onClick={back}>Zurück</button>
-          <button disabled={!form.ziel} onClick={next}>
-            Weiter
-          </button>
-        </>
-      )}
-
-      {/* STEP 4 – OPTIONAL */}
-      {step === 4 && (
-        <>
-          <h2>Optional – zur besseren Einschätzung</h2>
-
-          <label>Schlaf</label>
-          <textarea
-            value={form.schlaf}
-            onChange={(e) => setForm({ ...form, schlaf: e.target.value })}
-          />
-
-          <label>Bewegung</label>
-          <textarea
-            value={form.bewegung}
-            onChange={(e) => setForm({ ...form, bewegung: e.target.value })}
-          />
-
-          <label>Stresslevel</label>
-          <textarea
-            value={form.stresslevel}
             onChange={(e) =>
-              setForm({ ...form, stresslevel: e.target.value })
+              setForm({ ...form, ziel: e.target.value })
             }
           />
-
-          <label>Substanzen</label>
-          <textarea
-            value={form.substanzen}
-            onChange={(e) =>
-              setForm({ ...form, substanzen: e.target.value })
-            }
-          />
-
-          <button onClick={back}>Zurück</button>
-          <button onClick={next}>Weiter</button>
-        </>
+          <div className="footer-buttons">
+            <button onClick={back}>Zurück</button>
+            <button disabled={!form.ziel} onClick={next}>
+              Weiter
+            </button>
+          </div>
+        </div>
       )}
 
-      {/* STEP 10 – ZUSAMMENFASSUNG */}
+      {/* STEP 5 – Kontaktdaten */}
+      {step === 5 && (
+        <div className="step-container">
+          <h2>Kontaktdaten</h2>
+
+          <input
+            placeholder="Vorname"
+            value={form.vorname}
+            onChange={(e) =>
+              setForm({ ...form, vorname: e.target.value })
+            }
+            style={
+              errors.vorname
+                ? { borderColor: "#d33", borderWidth: 2 }
+                : {}
+            }
+          />
+          {errors.vorname && (
+            <p style={{ color: "#d33", fontSize: 14 }}>{errors.vorname}</p>
+          )}
+
+          <input
+            placeholder="Nachname"
+            value={form.nachname}
+            onChange={(e) =>
+              setForm({ ...form, nachname: e.target.value })
+            }
+            style={
+              errors.nachname
+                ? { borderColor: "#d33", borderWidth: 2 }
+                : {}
+            }
+          />
+          {errors.nachname && (
+            <p style={{ color: "#d33", fontSize: 14 }}>{errors.nachname}</p>
+          )}
+
+          <input
+            placeholder="E-Mail"
+            type="email"
+            value={form.email}
+            onChange={(e) =>
+              setForm({ ...form, email: e.target.value })
+            }
+            style={
+              errors.email
+                ? { borderColor: "#d33", borderWidth: 2 }
+                : {}
+            }
+          />
+          {errors.email && (
+            <p style={{ color: "#d33", fontSize: 14 }}>{errors.email}</p>
+          )}
+
+          <input
+            placeholder="Telefonnummer"
+            type="tel"
+            value={form.telefon}
+            onChange={(e) =>
+              setForm({ ...form, telefon: e.target.value })
+            }
+            style={
+              errors.telefon
+                ? { borderColor: "#d33", borderWidth: 2 }
+                : {}
+            }
+          />
+          {errors.telefon && (
+            <p style={{ color: "#d33", fontSize: 14 }}>{errors.telefon}</p>
+          )}
+
+          <input
+            placeholder="Adresse"
+            value={form.adresse}
+            onChange={(e) =>
+              setForm({ ...form, adresse: e.target.value })
+            }
+            style={
+              errors.adresse
+                ? { borderColor: "#d33", borderWidth: 2 }
+                : {}
+            }
+          />
+          {errors.adresse && (
+            <p style={{ color: "#d33", fontSize: 14 }}>{errors.adresse}</p>
+          )}
+
+          <input
+            type="date"
+            value={form.geburtsdatum}
+            onChange={(e) =>
+              setForm({ ...form, geburtsdatum: e.target.value })
+            }
+            style={
+              errors.geburtsdatum
+                ? { borderColor: "#d33", borderWidth: 2 }
+                : {}
+            }
+          />
+          {errors.geburtsdatum && (
+            <p style={{ color: "#d33", fontSize: 14 }}>
+              {errors.geburtsdatum}
+            </p>
+          )}
+
+          <div className="footer-buttons">
+            <button onClick={back}>Zurück</button>
+            <button
+              onClick={() => {
+                if (validateClientData(form)) next();
+              }}
+            >
+              Weiter
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* STEP 6 – Beschäftigungsgrad */}
+      {step === 6 && (
+        <div className="step-container">
+          <h2>Beschäftigungsgrad</h2>
+          <select
+            value={form.beschaeftigungsgrad}
+            onChange={(e) =>
+              setForm({
+                ...form,
+                beschaeftigungsgrad: e.target.value,
+              })
+            }
+          >
+            <option value="">Bitte auswählen…</option>
+            <option>Angestellt</option>
+            <option>Selbstständig</option>
+            <option>Arbeitssuchend</option>
+            <option>Schule/Studium</option>
+          </select>
+          <div className="footer-buttons">
+            <button onClick={back}>Zurück</button>
+            <button
+              disabled={!form.beschaeftigungsgrad}
+              onClick={next}
+            >
+              Weiter
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* STEP 7 – Hinweise / Datenschutz */}
+      {step === 7 && (
+        <div className="step-container">
+          <h2>Wichtige Hinweise</h2>
+
+          <label className="checkbox">
+            <input
+              type="checkbox"
+              checked={form.check_datenschutz}
+              onChange={() =>
+                setForm({
+                  ...form,
+                  check_datenschutz: !form.check_datenschutz,
+                })
+              }
+            />
+            Ich akzeptiere die Datenschutzerklärung.
+          </label>
+
+          <label className="checkbox">
+            <input
+              type="checkbox"
+              checked={form.check_online_setting}
+              onChange={() =>
+                setForm({
+                  ...form,
+                  check_online_setting:
+                    !form.check_online_setting,
+                })
+              }
+            />
+            Ich habe Kamera & Mikrofon und sorge für ruhige
+            Umgebung.
+          </label>
+
+          <label className="checkbox">
+            <input
+              type="checkbox"
+              checked={form.check_gesundheit}
+              onChange={() =>
+                setForm({
+                  ...form,
+                  check_gesundheit: !form.check_gesundheit,
+                })
+              }
+            />
+            Ich habe keine akuten Suizidgedanken /
+            akute Selbstgefährdung.
+          </label>
+
+          <div className="footer-buttons">
+            <button onClick={back}>Zurück</button>
+            <button
+              disabled={
+                !form.check_datenschutz ||
+                !form.check_online_setting ||
+                !form.check_gesundheit
+              }
+              onClick={next}
+            >
+              Weiter
+            </button>
+          </div>
+        </div>
+      )}
+
+{step === 8 && (
+  <div className="step-container">
+    {loadingAvailability ? (
+      <p>Verfügbarkeiten werden geprüft…</p>
+    ) : step8Members.length === 0 ? (
+      <>
+        <h2>Aktuell keine freien Termine</h2>
+        <p>
+          Im Moment hat leider niemand aus unserem Team freie Termine im Kalender.
+          Bitte versuche es später erneut oder kontaktiere uns direkt.
+        </p>
+        <div className="footer-buttons">
+          <button onClick={back}>Zurück</button>
+        </div>
+      </>
+    ) : (
+      <>
+        <h2>Wer könnte gut zu dir passen?</h2>
+
+        <p style={{ marginBottom: 24 }}>
+          Vielleicht spricht dich sofort jemand an – oder wir orientieren uns
+          an deinem Thema. Die Reihenfolge zeigt, wie gut die jeweiligen
+          Schwerpunkte zu deinem Anliegen passen.
+        </p>
+
+        <TeamCarousel
+          members={step8Members}
+          onSelect={(name) => {
+            setForm({ ...form, wunschtherapeut: name });
+            next();
+          }}
+        />
+
+        <div className="footer-buttons">
+          <button onClick={back}>Zurück</button>
+        </div>
+      </>
+    )}
+  </div>
+)}
+
+
+
+
+      {/* STEP 9 – Story / Infos zum Ablauf */}
+      {step === 9 &&
+        (() => {
+          const t = getTherapistInfo(form.wunschtherapeut);
+
+          const slides = [
+            {
+              title: "Schön, dass du da bist 🤍",
+              text: `Danke für dein Vertrauen.
+
+Du hast **${t.name || "deine Begleitung"}** ausgewählt — eine sehr gute Wahl.
+
+Wir führen dich jetzt ganz kurz durch den Ablauf,
+bevor du deinen Termin auswählst.`,
+            },
+            {
+              title: "Wie startet der Prozess?",
+              text: `Ihr beginnt mit einem **kostenlosen Erstgespräch (30 Min)** im Video-Call.
+
+Ihr lernt euch kennen, besprecht das Anliegen
+und klärt organisatorische Fragen.
+
+Danach entscheiden beide frei, ob ihr weiter zusammenarbeitet.`,
+            },
+            {
+              title: "Wie geht es danach weiter?",
+              text: `Wenn ihr weitermacht:
+
+• Sitzungen à **60 Minuten**
+• Online per Video-Call
+• Ca. 8–10 Sitzungen im Durchschnitt
+• Offenes Tempo & Anpassung jederzeit möglich`,
+            },
+            {
+              title: `Kosten bei ${t.name || "deiner Begleitung"}`,
+              text: `Standardtarif: **${t.preis_std ?? "–"}€ / 60 Min**
+Ermäßigt (Studierende / Azubi): **${t.preis_ermaessigt ?? "–"}€**
+
+Unser Angebot richtet sich grundsätzlich an Selbstzahler.
+Eine Kostenübernahme kann möglich sein — individuell klären.`,
+            },
+          ];
+
+          const isLast = subStep9 === slides.length - 1;
+
+          return (
+            <div className="step-container">
+              <h2>{slides[subStep9].title}</h2>
+
+              <p
+                style={{
+                  whiteSpace: "pre-line",
+                  lineHeight: 1.55,
+                }}
+              >
+                {slides[subStep9].text}
+              </p>
+
+              <div className="footer-buttons">
+                {subStep9 > 0 ? (
+                  <button
+                    onClick={() => setSubStep9((v) => v - 1)}
+                  >
+                    Zurück
+                  </button>
+                ) : (
+                  <button onClick={back}>Zurück</button>
+                )}
+
+                {!isLast ? (
+                  <button
+                    onClick={() => setSubStep9((v) => v + 1)}
+                  >
+                    Weiter
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => {
+                      setSubStep9(0);
+                      next();
+                    }}
+                  >
+                    Weiter zur Terminwahl
+                  </button>
+                )}
+              </div>
+            </div>
+          );
+        })()}
+
+      {/* STEP 10 – Terminwahl */}
       {step === 10 && (
-        <>
-          <h2>Zusammenfassung</h2>
+        <div className="step-container">
+          <h2>Erstgespräch – Termin wählen</h2>
 
-          <ul>
-            {summary.map(
-              ([label, value]) =>
-                value && (
-                  <li key={label}>
-                    <strong>{label}:</strong> {value}
-                  </li>
-                )
-            )}
-          </ul>
+          {loadingSlots && <p>Kalender wird geladen…</p>}
+          {slotsError && <p style={{ color: "red" }}>{slotsError}</p>}
 
-          <p style={{ marginTop: 16 }}>
-            ℹ️ Der Termin ist <strong>angefragt</strong> und wird noch vom
-            Teammitglied bestätigt.
-          </p>
+          {!loadingSlots && !slotsError && groupedSlots.length === 0 && (
+            <p>Keine freien Termine verfügbar.</p>
+          )}
 
-          <button onClick={back}>Zurück</button>
-          <button onClick={send}>Anfrage senden</button>
-        </>
+          {/* 📅 DATUM AUSWÄHLEN */}
+          {!loadingSlots && groupedSlots.length > 0 && (
+            <>
+              <h3>Datum auswählen</h3>
+
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                {groupedSlots.map(([day, list]) => (
+                  <button
+                    key={day}
+                    onClick={() => {
+                      setSelectedDay(day);
+                      setForm({ ...form, terminISO: "", terminDisplay: "" });
+                    }}
+                    style={{
+                      padding: "8px 12px",
+                      borderRadius: 12,
+                      border:
+                        selectedDay === day ? "2px solid #A27C77" : "1px solid #ddd",
+                      background: selectedDay === day ? "#F3E9E7" : "#fff",
+                    }}
+                  >
+                    {formatDate(list[0].start)}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+
+          {/* ⏰ UHRZEIT AUSWÄHLEN */}
+          {selectedDay && (
+            <>
+              <h3 style={{ marginTop: 16 }}>Uhrzeit auswählen</h3>
+
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(3, 1fr)",
+                  gap: 10,
+                  marginTop: 8,
+                }}
+              >
+                {(groupedSlots.find(([day]) => day === selectedDay)?.[1] ?? []).map((s) => (
+                  <button
+                    key={s.start.toISOString()}
+                    onClick={() =>
+                      setForm({
+                        ...form,
+                        terminISO: s.start.toISOString(),
+                        terminDisplay: `${formatDate(s.start)} ${formatTime(s.start)}`,
+                      })
+                    }
+                    style={{
+                      padding: "10px 0",
+                      borderRadius: 999,
+                      border:
+                        form.terminISO === s.start.toISOString()
+                          ? "2px solid #A27C77"
+                          : "1px solid #ddd",
+                      background:
+                        form.terminISO === s.start.toISOString() ? "#F3E9E7" : "#fff",
+                    }}
+                  >
+                    {formatTime(s.start)}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+
+          {form.terminISO && (
+            <p style={{ marginTop: 12 }}>
+              Gewählt: <strong>{form.terminDisplay}</strong>
+            </p>
+          )}
+
+          <div className="footer-buttons" style={{ marginTop: 16 }}>
+            <button onClick={back}>Zurück</button>
+            <button disabled={!form.terminISO} onClick={next}>
+              Anfrage senden
+            </button>
+          </div>
+        </div>
       )}
+{/* STEP 11 – Zusammenfassung */}
+{step === 11 && (
+  <div className="step-container">
+    <h2>Zusammenfassung</h2>
+
+    <p style={{ marginBottom: 12, color: "#555" }}>
+      ℹ️ Der Termin ist <strong>angefragt</strong> und muss noch vom Teammitglied bestätigt werden.
+    </p>
+
+    <div style={{ border: "1px solid #eee", borderRadius: 12, padding: 12 }}>
+      <p><strong>Anliegen:</strong> {form.anliegen || "–"}</p>
+      <p><strong>Leidensdruck:</strong> {form.leidensdruck || "–"}</p>
+      <p><strong>Verlauf:</strong> {form.verlauf || "–"}</p>
+      <p><strong>Ziel:</strong> {form.ziel || "–"}</p>
+      <hr />
+      <p><strong>Name:</strong> {form.vorname} {form.nachname}</p>
+      <p><strong>E-Mail:</strong> {form.email}</p>
+      <p><strong>Telefon:</strong> {form.telefon}</p>
+      <p><strong>Therapeut:in:</strong> {form.wunschtherapeut || "–"}</p>
+      <p><strong>Erstgespräch:</strong> {form.terminDisplay || "–"}</p>
+    </div>
+
+    <details style={{ marginTop: 14 }}>
+      <summary style={{ cursor: "pointer", fontWeight: 600 }}>
+        Optional: Zusätzliche Angaben (Schlaf, Bewegung …)
+      </summary>
+
+      <div style={{ marginTop: 10 }}>
+        <label>Schlaf (optional)</label>
+        <textarea
+          value={form.schlaf}
+          onChange={(e) => setForm({ ...form, schlaf: e.target.value })}
+        />
+
+        <label>Bewegung (optional)</label>
+        <textarea
+          value={form.bewegung}
+          onChange={(e) => setForm({ ...form, bewegung: e.target.value })}
+        />
+
+        <label>Stress (optional)</label>
+        <textarea
+          value={form.stress}
+          onChange={(e) => setForm({ ...form, stress: e.target.value })}
+        />
+
+        <label>Sonstiges (optional)</label>
+        <textarea
+          value={form.sonstiges}
+          onChange={(e) => setForm({ ...form, sonstiges: e.target.value })}
+        />
+      </div>
+    </details>
+
+    <div className="footer-buttons" style={{ marginTop: 16 }}>
+      <button onClick={back}>Zurück</button>
+      <button onClick={send}>Anfrage senden</button>
+    </div>
+  </div>
+)}
+
     </div>
   );
 }
