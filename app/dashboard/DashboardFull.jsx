@@ -401,20 +401,6 @@ const [billingQuarter, setBillingQuarter] = useState(
   Math.floor(now.getMonth() / 3) + 1
 );
 
-
-/* ================= INVOICE SETTINGS (Therapeut:in) ================= */
-const [invoiceSettings, setInvoiceSettings] = useState({
-  company_name: "",
-  address: "",
-  iban: "",
-  bic: "",
-  logo_url: "",
-  default_vat_country: "AT",
-  default_vat_rate: 0,
-});
-const [invoiceLoading, setInvoiceLoading] = useState(false);
-
-
   /* ================= ABRECHNUNG – LOGIK ================= */
 
 // 1. Zeitraumfilter
@@ -614,51 +600,6 @@ useEffect(() => {
     setUser(data?.user || null);
   });
 }, []);
-
-
-
-/* ---------- LOAD INVOICE SETTINGS (only Abrechnung tab) ---------- */
-useEffect(() => {
-  if (!user?.email) return;
-  if (filter !== "abrechnung") return;
-
-  let isMounted = true;
-
-  async function loadInvoiceSettings() {
-    setInvoiceLoading(true);
-    try {
-      const res = await fetch("/api/invoice-settings", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ user_email: user.email }),
-      });
-
-      if (!res.ok) {
-        console.warn("Invoice settings load failed");
-        return;
-      }
-
-      const data = await res.json();
-      if (!isMounted) return;
-
-      if (data?.settings) {
-        setInvoiceSettings((prev) => ({
-          ...prev,
-          ...data.settings,
-          default_vat_country: data.settings.default_vat_country || "AT",
-          default_vat_rate: Number(data.settings.default_vat_rate || 0),
-        }));
-      }
-    } finally {
-      if (isMounted) setInvoiceLoading(false);
-    }
-  }
-
-  loadInvoiceSettings();
-  return () => {
-    isMounted = false;
-  };
-}, [user, filter]);
 
 /* ---------- LOAD REQUESTS ---------- */
 useEffect(() => {
@@ -873,7 +814,8 @@ if (!user) return <div>Bitte einloggen…</div>;
         </select>
       </div>
 
-      <button
+      {filter === "aktiv" && (
+<button
         onClick={() => setCreateBestandOpen(true)}
         style={{
           marginBottom: 16,
@@ -887,111 +829,13 @@ if (!user) return <div>Bitte einloggen…</div>;
         ➕ Bestandsklient:in anlegen
       </button>
 
+
+      )}
+
 {/* ================= ABRECHNUNG ================= */}
 {filter === "abrechnung" && (
   <section style={{ border: "1px solid #ddd", borderRadius: 12, padding: 16 }}>
     <h2>💶 Abrechnung</h2>
-
-    {/* ================= RECHNUNGSDATEN (Therapeut:in) ================= */}
-    <details style={{ marginTop: 10, border: "1px solid #eee", borderRadius: 10, background: "#FAFAFA", padding: 10 }}>
-      <summary style={{ cursor: "pointer", fontWeight: 600 }}>
-        🧾 Rechnungsdaten (deine Angaben)
-      </summary>
-      {invoiceLoading && <div style={{ color: "#777" }}>Lade Rechnungsdaten…</div>}
-
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-        <div>
-          <label>Rechnungssteller / Name</label>
-          <input
-            value={invoiceSettings.company_name || ""}
-            onChange={(e) => setInvoiceSettings({ ...invoiceSettings, company_name: e.target.value })}
-            style={{ width: "100%" }}
-          />
-        </div>
-
-        <div>
-          <label>Logo URL (optional)</label>
-          <input
-            value={invoiceSettings.logo_url || ""}
-            onChange={(e) => setInvoiceSettings({ ...invoiceSettings, logo_url: e.target.value })}
-            style={{ width: "100%" }}
-          />
-        </div>
-
-        <div style={{ gridColumn: "1 / -1" }}>
-          <label>Adresse</label>
-          <textarea
-            value={invoiceSettings.address || ""}
-            onChange={(e) => setInvoiceSettings({ ...invoiceSettings, address: e.target.value })}
-            style={{ width: "100%" }}
-          />
-        </div>
-
-        <div>
-          <label>IBAN</label>
-          <input
-            value={invoiceSettings.iban || ""}
-            onChange={(e) => setInvoiceSettings({ ...invoiceSettings, iban: e.target.value })}
-            style={{ width: "100%" }}
-          />
-        </div>
-
-        <div>
-          <label>BIC (optional)</label>
-          <input
-            value={invoiceSettings.bic || ""}
-            onChange={(e) => setInvoiceSettings({ ...invoiceSettings, bic: e.target.value })}
-            style={{ width: "100%" }}
-          />
-        </div>
-
-        <div>
-          <label>Standard-Land (für Steuersatz)</label>
-          <select
-            value={invoiceSettings.default_vat_country || "AT"}
-            onChange={(e) => setInvoiceSettings({ ...invoiceSettings, default_vat_country: e.target.value })}
-            style={{ width: "100%" }}
-          >
-            <option value="AT">Österreich</option>
-            <option value="DE">Deutschland</option>
-          </select>
-        </div>
-
-        <div>
-          <label>Standard USt % (optional)</label>
-          <input
-            type="number"
-            value={invoiceSettings.default_vat_rate ?? 0}
-            onChange={(e) => setInvoiceSettings({ ...invoiceSettings, default_vat_rate: Number(e.target.value) })}
-            style={{ width: "100%" }}
-          />
-          <div style={{ fontSize: 12, color: "#777" }}>
-            Standard ist USt-frei pro Klient; Abweichungen steuerst du pro Klient.
-          </div>
-        </div>
-      </div>
-
-      <div style={{ marginTop: 10, display: "flex", justifyContent: "flex-end" }}>
-        <button
-          onClick={async () => {
-            const res = await fetch("/api/invoice-settings", {
-              method: "PUT",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ user_email: user.email, settings: invoiceSettings }),
-            });
-            if (!res.ok) {
-              alert("Fehler beim Speichern der Rechnungsdaten");
-              return;
-            }
-            alert("Rechnungsdaten gespeichert");
-          }}
-          style={{ padding: "8px 12px", borderRadius: 8, border: "1px solid #ccc" }}
-        >
-          💾 Rechnungsdaten speichern
-        </button>
-      </div>
-    </details>
-
 
     {/* EBENE 1 – KLINT:INNEN */}
     <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
@@ -1082,7 +926,72 @@ if (!user) return <div>Bitte einloggen…</div>;
           </tr>
         ))}
       </tbody>
+    
+{/* EINZEL-SITZUNGEN (bei Einzel-Klient) */}
+{billingMode === "single" && billingClientId && (
+  <div style={{ marginTop: 14, padding: 12, borderRadius: 10, border: "1px solid #eee", background: "#fff" }}>
+    <h3 style={{ marginTop: 0 }}>🧾 Einzelsitzungen</h3>
+
+    <div style={{ marginBottom: 10, color: "#666", fontSize: 13 }}>
+      Hier siehst du alle Sitzungen der ausgewählten Klient:in im gewählten Zeitraum.
+    </div>
+
+    <table style={{ width: "100%", borderCollapse: "collapse" }}>
+      <thead>
+        <tr>
+          <th align="left">Datum</th>
+          <th>Dauer</th>
+          <th align="right">Betrag €</th>
+        </tr>
+      </thead>
+      <tbody>
+        {scopedBillingSessions.map((s) => (
+          <tr key={s.id}>
+            <td>{new Date(s.date).toLocaleString("de-AT")}</td>
+            <td align="center">{s.duration_min || 60} Min</td>
+            <td align="right">{Number(s.price || 0).toFixed(2)}</td>
+          </tr>
+        ))}
+      </tbody>
     </table>
+
+    <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap", justifyContent: "flex-end" }}>
+      <button
+        onClick={() => {
+          const r = requests.find((x) => String(x.id) === String(billingClientId));
+          const clientName = r ? `${r.vorname} ${r.nachname}` : "Klient";
+          const therapistName =
+            teamData.find((t) => t.email === user.email)?.name || user.email;
+
+          exportClientInvoicePDF({
+            client: clientName,
+            sessions: scopedBillingSessions,
+            year: billingYear,
+            month: billingSpan === "monat" ? billingMonth : `Q${billingQuarter}`,
+            therapistName,
+          });
+        }}
+        style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid #ccc" }}
+      >
+        🧾 Rechnung (PDF) für Klient:in
+      </button>
+
+      <button
+        onClick={() =>
+          exportSessionsCSV(scopedBillingSessions, {
+            year: billingYear,
+            month: billingSpan === "monat" ? billingMonth : `Q${billingQuarter}`,
+          })
+        }
+        style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid #ccc" }}
+      >
+        📄 Sitzungen (CSV)
+      </button>
+    </div>
+  </div>
+)}
+
+</table>
 {/* EXPORT */}
 <div
   style={{
@@ -1266,7 +1175,17 @@ if (!user) return <div>Bitte einloggen…</div>;
                     ✔ Termin bestätigen
                   </button>
 
-                  <button onClick={() => moveToTrash(r)}>✖ Absagen</button>
+                  <button
+                    onClick={() =>
+                      fetch("/api/no-match", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ anfrageId: r.id }),
+                      }).then(() => location.reload())
+                    }
+                  >
+                    ❌ Passt nicht zu Poise
+                  </button>
                   <button onClick={() => moveToTrash(r)}>🔁 Neuer Termin</button>
                   <button onClick={() => moveToTrash(r)}>👥 Weiterleiten</button>
                 </div>
@@ -1696,6 +1615,7 @@ if (!user) return <div>Bitte einloggen…</div>;
                     vorname: bestandVorname,
                     nachname: bestandNachname,
                     wunschtherapeut: bestandTherapeut,
+                    status: "active",
                   }),
                 });
 
