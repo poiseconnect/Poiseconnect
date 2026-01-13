@@ -859,24 +859,21 @@ if (!user) return <div>Bitte einloggen…</div>;
         <strong>Gesamt Umsatz:</strong>{" "}
         {billingByClient
           .reduce((s, b) => s + (Number(b.umsatz) || 0), 0)
-          .toFixed(2)}{" "}
-        €
+          .toFixed(2)} €
       </p>
 
       <p>
         <strong>Provision Poise:</strong>{" "}
         {billingByClient
           .reduce((s, b) => s + (Number(b.provision) || 0), 0)
-          .toFixed(2)}{" "}
-        €
+          .toFixed(2)} €
       </p>
 
       <p>
         <strong>Auszahlung Therapeut:innen:</strong>{" "}
         {billingByClient
           .reduce((s, b) => s + (Number(b.payout) || 0), 0)
-          .toFixed(2)}{" "}
-        €
+          .toFixed(2)} €
       </p>
     </section>
   </>
