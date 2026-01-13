@@ -428,91 +428,32 @@ const sortedRequests = useMemo(() => {
     });
   }, [user]);
 
-  /* ---------- FILTER ---------- */
-  const UNBEARBEITET = ["offen", "termin_neu", "termin_bestaetigt"];
+/* ================= FILTER & SORT ================= */
 
-  const FILTER_MAP = {
-    unbearbeitet: ["offen", "termin_neu", "termin_bestaetigt"],
-    aktiv: ["active"],
-    beendet: ["beendet"],
-    papierkorb: ["papierkorb"],
-    abrechnung: [],
-    alle: [
-      "offen",
-      "termin_neu",
-      "termin_bestaetigt",
-      "active",
-      "beendet",
-      "papierkorb",
-    ],
-  };
+/* Status-Gruppen (nur EINMAL definieren!) */
+const STATUS_UNBEARBEITET = ["offen", "termin_neu", "termin_bestaetigt"];
 
-  const filtered = useMemo(() => {
-    const allowed = FILTER_MAP[filter] || FILTER_MAP.alle;
-
-    return requests.filter((r) => {
-      if (!allowed.includes(r._status)) return false;
-
-      if (therapistFilter !== "alle" && r.wunschtherapeut !== therapistFilter) {
-        return false;
-      }
-
-      if (search) {
-        const q = search.toLowerCase();
-        const name = `${r.vorname || ""} ${r.nachname || ""}`.toLowerCase();
-        if (!name.includes(q)) return false;
-      }
-
-      return true;
-    });
-  }, [requests, filter, therapistFilter, search]);
-
-  const sorted = useMemo(() => {
-    return [...filtered].sort((a, b) => {
-      if (sort === "name") {
-        return `${a.nachname || ""}${a.vorname || ""}`.localeCompare(
-          `${b.nachname || ""}${b.vorname || ""}`
-        );
-      }
-
-      const aSessions = sessionsByRequest[String(a.id)] || [];
-      const bSessions = sessionsByRequest[String(b.id)] || [];
-
-      const sa = aSessions.length ? aSessions[aSessions.length - 1]?.date : null;
-      const sb = bSessions.length ? bSessions[bSessions.length - 1]?.date : null;
-
-      const da = sa ? new Date(sa) : new Date(a.created_at);
-      const db = sb ? new Date(sb) : new Date(b.created_at);
-
-      return db - da;
-    });
-  }, [filtered, sort, sessionsByRequest]);
-/* ---------- FILTER (ANFRAGEN / KARTEN) ---------- */
-
-const UNBEARBEITET = ["offen", "termin_neu", "termin_bestaetigt"];
-
-const FILTER_MAP = {
-  unbearbeitet: ["offen", "termin_neu", "termin_bestaetigt"],
+const STATUS_FILTER_MAP = {
+  unbearbeitet: STATUS_UNBEARBEITET,
   aktiv: ["active"],
   beendet: ["beendet"],
   papierkorb: ["papierkorb"],
   abrechnung: [], // Abrechnung hat eigene Logik
   alle: [
-    "offen",
-    "termin_neu",
-    "termin_bestaetigt",
+    ...STATUS_UNBEARBEITET,
     "active",
     "beendet",
     "papierkorb",
   ],
 };
 
-/* --- gefilterte Anfragen (für Kartenansicht) --- */
-const filtered = useMemo(() => {
-  const allowed = FILTER_MAP[filter] || FILTER_MAP.alle;
+/* ---------- Gefilterte Anfragen (Karten / Listen) ---------- */
+const filteredRequests = useMemo(() => {
+  const allowedStatuses =
+    STATUS_FILTER_MAP[filter] ?? STATUS_FILTER_MAP.alle;
 
   return requests.filter((r) => {
-    if (!allowed.includes(r._status)) return false;
+    if (!allowedStatuses.includes(r._status)) return false;
 
     if (
       therapistFilter !== "alle" &&
@@ -531,9 +472,9 @@ const filtered = useMemo(() => {
   });
 }, [requests, filter, therapistFilter, search]);
 
-/* --- Sortierung der Karten --- */
-const sorted = useMemo(() => {
-  return [...filtered].sort((a, b) => {
+/* ---------- Sortierung der Anfragen ---------- */
+const sortedRequests = useMemo(() => {
+  return [...filteredRequests].sort((a, b) => {
     if (sort === "name") {
       return `${a.nachname || ""}${a.vorname || ""}`.localeCompare(
         `${b.nachname || ""}${b.vorname || ""}`
@@ -555,10 +496,9 @@ const sorted = useMemo(() => {
 
     return db - da;
   });
-}, [filtered, sort, sessionsByRequest]);
+}, [filteredRequests, sort, sessionsByRequest]);
 
-/* ---------- ABRECHNUNG: GRUPPIERUNG NACH KLIENT ---------- */
-
+/* ================= ABRECHNUNG: NACH KLIENT ================= */
 const billingByClient = useMemo(() => {
   const map = {};
 
@@ -586,11 +526,6 @@ const billingByClient = useMemo(() => {
 
   return Object.values(map);
 }, [filteredBillingSessions]);
-
-/* ---------- EARLY RETURN (NACH ALLEN HOOKS!) ---------- */
-if (!user) return <div>Bitte einloggen…</div>;
-
-  /* ================= UI ================= */
 
   return (
     <div style={{ padding: 24, maxWidth: 1100, margin: "0 auto" }}>
