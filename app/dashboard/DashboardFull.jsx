@@ -497,6 +497,53 @@ const sortedRequests = useMemo(() => {
     return db - da;
   });
 }, [filteredRequests, sort, sessionsByRequest]);
+/* ================= ABRECHNUNG: SESSION-FILTER ================= */
+
+/*
+  Grundlage:
+  - sessions = alle Sitzungen (aus Supabase)
+  - billingMode = "monat" | "quartal" | "jahr" | "einzeln"
+  - billingYear, billingMonth, billingQuarter, billingDate
+*/
+
+const filteredBillingSessions = useMemo(() => {
+  if (!sessions || !Array.isArray(sessions)) return [];
+
+  return sessions.filter((s) => {
+    if (!s?.date) return false;
+
+    const d = new Date(s.date);
+
+    if (billingMode === "jahr") {
+      return d.getFullYear() === billingYear;
+    }
+
+    if (billingMode === "monat") {
+      return (
+        d.getFullYear() === billingYear &&
+        d.getMonth() + 1 === billingMonth
+      );
+    }
+
+    if (billingMode === "quartal") {
+      const q = Math.floor(d.getMonth() / 3) + 1;
+      return d.getFullYear() === billingYear && q === billingQuarter;
+    }
+
+    if (billingMode === "einzeln") {
+      return s.date.startsWith(billingDate);
+    }
+
+    return true;
+  });
+}, [
+  sessions,
+  billingMode,
+  billingYear,
+  billingMonth,
+  billingQuarter,
+  billingDate,
+]);
 
 /* ================= ABRECHNUNG: NACH KLIENT ================= */
 const billingByClient = useMemo(() => {
