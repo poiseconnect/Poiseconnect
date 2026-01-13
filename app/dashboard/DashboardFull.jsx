@@ -480,8 +480,6 @@ const filteredBillingSessions = useMemo(() => {
     if (billingMode === "einzeln") {
       return billingDate && s.date.startsWith(billingDate);
     }
-    if (!s.price || Number(s.price) <= 0) return false;
- }
 
     return true;
   });
@@ -493,6 +491,7 @@ const filteredBillingSessions = useMemo(() => {
   billingQuarter,
   billingDate,
 ]);
+
 
 const billingByClient = useMemo(() => {
   const map = {};
