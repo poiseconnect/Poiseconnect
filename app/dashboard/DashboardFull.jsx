@@ -227,6 +227,13 @@ const [billingDate, setBillingDate] = useState(""); // YYYY-MM-DD
 });
 
 const [invoiceLoading, setInvoiceLoading] = useState(false);
+  /* ================= SAFE SESSIONS (BUILD-SAFE) ================= */
+
+// falls Sessions später per useEffect kommen
+const sessionsSafe = Array.isArray(sessions)
+  ? sessions
+  : [];
+
 
   /* ---------- LOAD USER ---------- */
   useEffect(() => {
@@ -507,9 +514,7 @@ const sortedRequests = useMemo(() => {
 */
 
 const filteredBillingSessions = useMemo(() => {
-  if (!sessions || !Array.isArray(sessions)) return [];
-
-  return sessions.filter((s) => {
+  return sessionsSafe.filter((s) => {
     if (!s?.date) return false;
 
     const d = new Date(s.date);
@@ -537,13 +542,14 @@ const filteredBillingSessions = useMemo(() => {
     return true;
   });
 }, [
-  sessions,
+  sessionsSafe,
   billingMode,
   billingYear,
   billingMonth,
   billingQuarter,
   billingDate,
 ]);
+
 
 /* ================= ABRECHNUNG: NACH KLIENT ================= */
 const billingByClient = useMemo(() => {
