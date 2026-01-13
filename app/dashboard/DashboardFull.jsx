@@ -269,26 +269,12 @@ const sessionsSafe = Array.isArray(sessions)
     if (mounted) setInvoiceLoading(false);
   })();
   /* ---------- STATUS FILTER ---------- */
-const STATUS_UNBEARBEITET = ["offen", "termin_neu", "termin_bestaetigt"];
 
-const STATUS_FILTER_MAP = {
-  unbearbeitet: STATUS_UNBEARBEITET,
-  aktiv: ["active"],
-  beendet: ["beendet"],
-  papierkorb: ["papierkorb"],
-  abrechnung: [], // Abrechnung hat eigene Logik
-  alle: [
-    "offen",
-    "termin_neu",
-    "termin_bestaetigt",
-    "active",
-    "beendet",
-    "papierkorb",
-  ],
-};
+
+
 
 /* ---------- GEFILTERTE ANFRAGEN ---------- */
-const filteredRequests = useMemo(() => {
+
   const allowed = STATUS_FILTER_MAP[filter] || STATUS_FILTER_MAP.alle;
 
   return requests.filter((r) => {
@@ -312,7 +298,7 @@ const filteredRequests = useMemo(() => {
 }, [requests, filter, therapistFilter, search]);
 
 /* ---------- SORTIERUNG ---------- */
-const sortedRequests = useMemo(() => {
+
   return [...filteredRequests].sort((a, b) => {
     if (sort === "name") {
       return `${a.nachname || ""}${a.vorname || ""}`.localeCompare(
@@ -405,58 +391,57 @@ const sortedRequests = useMemo(() => {
     });
   }, []);
 
-  /* ---------- LOAD BILLING SESSIONS ---------- */
-  useEffect(() => {
-    if (!user?.email) return;
+  /* =========================================================
+   LOAD BILLING SESSIONS
+   Quelle für ALLE Abrechnungen
+========================================================= */
 
-    let query = supabase
-      .from("sessions")
-      .select(
-        `
-        id,
-        date,
-        price,
-        commission,
-        payout,
-        therapist,
-        anfrage_id,
-        anfragen (
-          vorname,
-          nachname,
-          status
-        )
-      `
-      );
+const [billingSessions, setBillingSessions] = useState([]);
 
-    if (user.email !== "hallo@mypoise.de") {
-      query = query.eq("therapist", user.email);
+useEffect(() => {
+  if (!user?.email) return;
+
+  let query = supabase
+    .from("sessions")
+    .select(`
+      id,
+      date,
+      price,
+      commission,
+      payout,
+      therapist,
+      anfrage_id,
+      anfragen (
+        vorname,
+        nachname,
+        status
+      )
+    `);
+
+  // Therapeut:innen sehen nur ihre eigenen Sitzungen
+  if (user.email !== "hallo@mypoise.de") {
+    query = query.eq("therapist", user.email);
+  }
+
+  query.then(({ data, error }) => {
+    if (!error) {
+      setBillingSessions(data || []);
     }
+  });
+}, [user]);
 
-    query.then(({ data, error }) => {
-      if (!error) setBillingSessions(data || []);
-    });
-  }, [user]);
+/* =========================================================
+   SICHERE SESSION-QUELLE (ersetzt früheres "sessions")
+========================================================= */
 
-/* ================= FILTER & SORT ================= */
+const sessionsSafe = useMemo(() => {
+  return Array.isArray(billingSessions) ? billingSessions : [];
+}, [billingSessions]);
 
-/* Status-Gruppen (nur EINMAL definieren!) */
-const STATUS_UNBEARBEITET = ["offen", "termin_neu", "termin_bestaetigt"];
+/* =========================================================
+   GEFILTERTE ANFRAGEN (KARTEN / LISTEN)
+========================================================= */
 
-const STATUS_FILTER_MAP = {
-  unbearbeitet: STATUS_UNBEARBEITET,
-  aktiv: ["active"],
-  beendet: ["beendet"],
-  papierkorb: ["papierkorb"],
-  abrechnung: [], // Abrechnung hat eigene Logik
-  alle: [
-    ...STATUS_UNBEARBEITET,
-    "active",
-    "beendet",
-    "papierkorb",
-  ],
-};
-
-/* ---------- Gefilterte Anfragen (Karten / Listen) ---------- */
 const filteredRequests = useMemo(() => {
   const allowedStatuses =
     STATUS_FILTER_MAP[filter] ?? STATUS_FILTER_MAP.alle;
@@ -481,7 +466,10 @@ const filteredRequests = useMemo(() => {
   });
 }, [requests, filter, therapistFilter, search]);
 
-/* ---------- Sortierung der Anfragen ---------- */
+/* =========================================================
+   SORTIERUNG DER ANFRAGEN
+========================================================= */
+
 const sortedRequests = useMemo(() => {
   return [...filteredRequests].sort((a, b) => {
     if (sort === "name") {
@@ -506,14 +494,10 @@ const sortedRequests = useMemo(() => {
     return db - da;
   });
 }, [filteredRequests, sort, sessionsByRequest]);
-/* ================= ABRECHNUNG: SESSION-FILTER ================= */
 
-/*
-  Grundlage:
-  - sessions = alle Sitzungen (aus Supabase)
-  - billingMode = "monat" | "quartal" | "jahr" | "einzeln"
-  - billingYear, billingMonth, billingQuarter, billingDate
-*/
+/* =========================================================
+   ABRECHNUNG – SESSION FILTER (ZEITRAUM)
+========================================================= */
 
 const filteredBillingSessions = useMemo(() => {
   return sessionsSafe.filter((s) => {
@@ -538,7 +522,7 @@ const filteredBillingSessions = useMemo(() => {
     }
 
     if (billingMode === "einzeln") {
-      return s.date.startsWith(billingDate);
+      return billingDate && s.date.startsWith(billingDate);
     }
 
     return true;
@@ -552,8 +536,6 @@ const filteredBillingSessions = useMemo(() => {
   billingDate,
 ]);
 
-
-/* ================= ABRECHNUNG: NACH KLIENT ================= */
 const billingByClient = useMemo(() => {
   const map = {};
 
