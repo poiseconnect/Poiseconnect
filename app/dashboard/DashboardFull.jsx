@@ -493,8 +493,8 @@ const [invoiceLoading, setInvoiceLoading] = useState(false);
         </select>
       </div>
 
-      <button
-        onClick={() => setCreateBestandOpen(true)}
+     {filter === "aktiv" && (
+  <button onClick={() => setCreateBestandOpen(true)}>
         style={{
           marginBottom: 16,
           padding: "8px 14px",
@@ -504,8 +504,12 @@ const [invoiceLoading, setInvoiceLoading] = useState(false);
           fontWeight: 600,
         }}
       >
-        ➕ Bestandsklient:in anlegen
-      </button>
+       
+
+      
+    ➕ Bestandsklient:in anlegen
+  </button>
+)}
 
       {/* ABRECHNUNG */}
       {filter === "abrechnung" && (
@@ -814,7 +818,17 @@ const [invoiceLoading, setInvoiceLoading] = useState(false);
                     ✔ Termin bestätigen
                   </button>
 
-                  <button onClick={() => moveToTrash(r)}>✖ Absagen</button>
+                 <button
+  onClick={() =>
+    fetch("/api/no-match", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ anfrageId: r.id }),
+    }).then(() => location.reload())
+  }
+>
+  ❌ Kein Match
+</button>
                   <button onClick={() => moveToTrash(r)}>🔁 Neuer Termin</button>
                   <button onClick={() => moveToTrash(r)}>👥 Weiterleiten</button>
                 </div>
