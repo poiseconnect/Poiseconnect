@@ -2,8 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../lib/supabase";
-import { teamData } from "../lib/teamData";
-
+import { teamData } from "../teamData";
 import jsPDF from "jspdf";
 import "jspdf-autotable";
 
@@ -102,30 +101,6 @@ function safeDateString(v) {
   if (Number.isNaN(d.getTime())) return "";
   return d.toLocaleString("de-AT");
 }
-function isInBillingPeriod(dateStr, billingPeriod, billingDate) {
-  const d = new Date(dateStr);
-  if (Number.isNaN(d.getTime())) return false;
-
-  const year = d.getFullYear();
-  const month = d.getMonth() + 1;
-  const quarter = Math.floor((month - 1) / 3) + 1;
-
-  if (billingPeriod === "monat") {
-    const [y, m] = billingDate.split("-");
-    return year === Number(y) && month === Number(m);
-  }
-
-  if (billingPeriod === "quartal") {
-    const [y, q] = billingDate.split("-Q");
-    return year === Number(y) && quarter === Number(q);
-  }
-
-  if (billingPeriod === "jahr") {
-    return year === Number(billingDate);
-  }
-
-  return true;
-}
 
 function quarterKeyFromDate(dateLike) {
   const d = new Date(dateLike);
@@ -180,6 +155,7 @@ function exportBillingCSV(rows) {
 
 function exportBillingPDF(rows) {
   if (!rows || !rows.length) return;
+
   const doc = new jsPDF();
   doc.setFontSize(14);
   doc.text("Poise – Abrechnung", 14, 15);
@@ -201,159 +177,6 @@ function exportBillingPDF(rows) {
 
   doc.save(`abrechnung_${new Date().toISOString().slice(0, 10)}.pdf`);
 }
-
-function exportSessionsCSV(sessions, meta = {}) {
-  if (!sessions || !sessions.length) {
-    alert("Keine Sitzungen im ausgewählten Zeitraum");
-    return;
-  }
-
-  const header = [
-    "Rechnungsjahr",
-    "Rechnungsmonat",
-    "Klient Vorname",
-    "Klient Nachname",
-    "Sitzungsdatum",
-    "Dauer (Min)",
-    "Einzelpreis €",
-    "Gesamtbetrag €",
-    "Therapeut:in",
-  ];
-
-  const rows = sessions.map((s) => {
-    const d = new Date(s.date);
-    return [
-      d.getFullYear(),
-      d.getMonth() + 1,
-      s.anfragen?.vorname || "",
-      s.anfragen?.nachname || "",
-      d.toLocaleDateString("de-AT"),
-      s.duration_min || 60,
-      Number(s.price || 0).toFixed(2),
-      Number(s.price || 0).toFixed(2),
-      s.therapist || "",
-    ].join(";");
-  });
-
-  const csv = [header.join(";"), ...rows].join("\n");
-
-  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-  const url = URL.createObjectURL(blob);
-
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `poise_sitzungen_${meta.year}_${meta.month}.csv`;
-  a.click();
-
-  URL.revokeObjectURL(url);
-}
-function exportClientInvoicePDF({
-  client,
-  sessions,
-  year,
-  month,
-  therapistName,
-}) {
-  if (!sessions || !sessions.length) {
-    alert("Keine Sitzungen vorhanden");
-    return;
-  }
-
-  const doc = new jsPDF();
-  const total = sessions.reduce(
-    (sum, s) => sum + Number(s.price || 0),
-    0
-  );
-
-  doc.setFontSize(14);
-  doc.text("Rechnung", 14, 18);
-
-  doc.setFontSize(10);
-  doc.text(`Rechnungszeitraum: ${month}.${year}`, 14, 28);
-  doc.text(`Klient: ${client}`, 14, 34);
-  doc.text(`Therapeut:in: ${therapistName}`, 14, 40);
-
-  doc.autoTable({
-    startY: 50,
-    head: [["Datum", "Dauer", "Betrag €"]],
-    body: sessions.map((s) => [
-      new Date(s.date).toLocaleDateString("de-AT"),
-      `${s.duration_min || 60} Min`,
-      Number(s.price || 0).toFixed(2),
-    ]),
-    styles: { fontSize: 10 },
-  });
-
-  doc.text(
-    `Gesamtbetrag: ${total.toFixed(2)} €`,
-    14,
-    doc.lastAutoTable.finalY + 12
-  );
-
-  doc.save(`rechnung_${client}_${month}_${year}.pdf`);
-}
-/* ================= POISE – QUARTALS EXPORT ================= */
-
-function exportPoiseQuarterCSV(rows, totals) {
-  if (!rows || !rows.length) {
-    alert("Keine Quartalsdaten vorhanden");
-    return;
-  }
-
-  const header = [
-    "Typ",
-    "Quartal",
-    "Klient",
-    "Stundensatz",
-    "Sitzungen",
-    "Umsatz",
-    "Provision Poise",
-  ];
-
-  const clientRows = rows.map((r) =>
-    [
-      "Klient",
-      r.quarter,
-      r.klient,
-      Number(r.rate).toFixed(2),
-      r.sessions,
-      Number(r.umsatz).toFixed(2),
-      Number(r.provision).toFixed(2),
-    ].join(";")
-  );
-
-  const totalRows = totals.map((t) =>
-    [
-      "Gesamt",
-      t.quarter,
-      "ALLE",
-      Number(t.rate).toFixed(2),
-      t.sessions,
-      Number(t.umsatz).toFixed(2),
-      Number(t.provision).toFixed(2),
-    ].join(";")
-  );
-
-  const csv = [
-    header.join(";"),
-    ...clientRows,
-    ...totalRows,
-  ].join("\n");
-
-  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-  const url = URL.createObjectURL(blob);
-
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `poise_quartalsabrechnung_${new Date()
-    .toISOString()
-    .slice(0, 10)}.csv`;
-  a.click();
-
-  URL.revokeObjectURL(url);
-}
-
-
 
 /* ================= DASHBOARD ================= */
 
@@ -378,386 +201,242 @@ export default function DashboardFull() {
   const [bestandVorname, setBestandVorname] = useState("");
   const [bestandNachname, setBestandNachname] = useState("");
   const [bestandTherapeut, setBestandTherapeut] = useState("");
-/* ================= ABRECHNUNG – STATE ================= */
 
-// Daten
-const [billingSessions, setBillingSessions] = useState([]);
+  const [billingSessions, setBillingSessions] = useState([]);
 
-// Modus
-const [billingMode, setBillingMode] = useState("all"); 
-// "all" | "single"
+  const [invoiceSettings, setInvoiceSettings] = useState({
+  company_name: "",
+  address: "",
+  iban: "",
+  bic: "",
+  logo_url: "",
+  default_vat_country: "AT",
+  default_vat_rate: 0,
+});
 
-// Auswahl Klient (nur bei single)
-const [billingClientId, setBillingClientId] = useState("");
+const [invoiceLoading, setInvoiceLoading] = useState(false);
 
-// Zeitraum
-const [billingSpan, setBillingSpan] = useState("monat"); 
-// "monat" | "quartal"
+  /* ---------- LOAD USER ---------- */
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      setUser(data?.user || null);
+    });
+  }, []);
 
-const now = new Date();
-const [billingYear, setBillingYear] = useState(now.getFullYear());
-const [billingMonth, setBillingMonth] = useState(now.getMonth() + 1);
-const [billingQuarter, setBillingQuarter] = useState(
-  Math.floor(now.getMonth() / 3) + 1
-);
-
-  /* ================= ABRECHNUNG – LOGIK ================= */
-
-// 1. Zeitraumfilter
-const filteredBillingSessions = useMemo(() => {
-  return billingSessions.filter((s) => {
-    if (!s?.date) return false;
-
-    const d = new Date(s.date);
-    if (Number.isNaN(d.getTime())) return false;
-
-    const year = d.getFullYear();
-    const month = d.getMonth() + 1;
-    const quarter = Math.floor((month - 1) / 3) + 1;
-
-    if (billingSpan === "monat") {
-      return year === billingYear && month === billingMonth;
-    }
-
-    if (billingSpan === "quartal") {
-      return year === billingYear && quarter === billingQuarter;
-    }
-
-    return false;
-  });
-}, [billingSessions, billingSpan, billingYear, billingMonth, billingQuarter]);
-
-// 2. Optionaler Klient:innen-Filter
-const scopedBillingSessions = useMemo(() => {
-  if (billingMode === "single" && billingClientId) {
-    return filteredBillingSessions.filter(
-      (s) => String(s.anfrage_id) === String(billingClientId)
-    );
-  }
-  return filteredBillingSessions;
-}, [filteredBillingSessions, billingMode, billingClientId]);
-
-// 3. Gruppierung pro Klient
-const billingByClient = useMemo(() => {
-  const map = {};
-
-  scopedBillingSessions.forEach((s) => {
-    if (!s.anfrage_id) return;
-
-    if (!map[s.anfrage_id]) {
-      map[s.anfrage_id] = {
-        klient:
-          `${s.anfragen?.vorname || ""} ${s.anfragen?.nachname || ""}`.trim() ||
-          "Unbekannt",
-        sessions: 0,
-        umsatz: 0,
-        provision: 0,
-        payout: 0,
-      };
-    }
-
-    map[s.anfrage_id].sessions += 1;
-    map[s.anfrage_id].umsatz += Number(s.price) || 0;
-    map[s.anfrage_id].provision += Number(s.commission) || 0;
-    map[s.anfrage_id].payout += Number(s.payout) || 0;
-  });
-
-  return Object.values(map);
-}, [scopedBillingSessions]);
-
-// 4. Gesamtsummen (für Poise & Jahresinfo)
-const billingTotals = useMemo(() => {
-  return billingByClient.reduce(
-    (acc, b) => {
-      acc.sessions += b.sessions;
-      acc.umsatz += b.umsatz;
-      acc.provision += b.provision;
-      acc.payout += b.payout;
-      return acc;
-    },
-    { sessions: 0, umsatz: 0, provision: 0, payout: 0 }
-  );
-}, [billingByClient]);
-  
-  /* ---------- 5. JAHRESGESAMT (INFO) ---------- */
-const billingYearTotals = useMemo(() => {
-  return billingSessions
-    .filter((s) => {
-      if (!s?.date) return false;
-      const d = new Date(s.date);
-      return (
-        !Number.isNaN(d.getTime()) &&
-        d.getFullYear() === billingYear
-      );
-    })
-    .reduce(
-      (acc, s) => {
-        acc.sessions += 1;
-        acc.umsatz += Number(s.price) || 0;
-        acc.provision += Number(s.commission) || 0;
-        acc.payout += Number(s.payout) || 0;
-        return acc;
-      },
-      { sessions: 0, umsatz: 0, provision: 0, payout: 0 }
-    );
-}, [billingSessions, billingYear]);
-  
-  /* ---------- 6. POISE: PRO TEAMMITGLIED ---------- */
-const billingByTherapist = useMemo(() => {
-  const map = {};
-
-  filteredBillingSessions.forEach((s) => {
-    if (!s?.therapist) return;
-
-    if (!map[s.therapist]) {
-      map[s.therapist] = {
-        therapist: s.therapist,
-        sessions: 0,
-        umsatz: 0,
-        provision: 0,
-      };
-    }
-
-    map[s.therapist].sessions += 1;
-    map[s.therapist].umsatz += Number(s.price) || 0;
-    map[s.therapist].provision += Number(s.commission) || 0;
-  });
-
-  return Object.values(map);
-}, [filteredBillingSessions]);
-/* ---------- 7. POISE: QUARTAL EXPORT (pro Klient & Stundensatz) ---------- */
-const poiseQuarterRows = useMemo(() => {
-  // Basis: gefilterte Sitzungen (Zeitraum = aktuelles Quartal laut UI)
-  // Wichtig: filteredBillingSessions hängt an billingSpan/billingYear/billingQuarter
-  if (!Array.isArray(filteredBillingSessions)) return [];
-
-  // Nur sinnvoll bei Quartal — falls Monat gewählt ist, exportieren wir trotzdem die Monatsdaten als "Q?" nicht.
-  const quarterLabel = `Q${billingQuarter} ${billingYear}`;
-
-  const map = {}; // key = anfrageId|rate
-
-  filteredBillingSessions.forEach((s) => {
-    if (!s?.anfrage_id) return;
-
-    const rate = Number(s.price || 0); // vereinfachend: price = Einzelbetrag/Rate
-    const key = `${s.anfrage_id}|${rate}`;
-
-    if (!map[key]) {
-      map[key] = {
-        quarter: quarterLabel,
-        klient:
-          `${s.anfragen?.vorname || ""} ${s.anfragen?.nachname || ""}`.trim() ||
-          "Unbekannt",
-        rate,
-        sessions: 0,
-        umsatz: 0,
-        provision: 0,
-      };
-    }
-
-    map[key].sessions += 1;
-    map[key].umsatz += Number(s.price) || 0;
-    map[key].provision += Number(s.commission) || 0;
-  });
-
-  // sort: Klient, dann Rate
-  return Object.values(map).sort((a, b) => {
-    const c = a.klient.localeCompare(b.klient);
-    if (c !== 0) return c;
-    return a.rate - b.rate;
-  });
-}, [filteredBillingSessions, billingQuarter, billingYear]);
-
-const poiseQuarterTotalsByRate = useMemo(() => {
-  if (!poiseQuarterRows.length) return [];
-
-  const map = {}; // key = rate
-  poiseQuarterRows.forEach((r) => {
-    const rate = Number(r.rate || 0);
-    if (!map[rate]) {
-      map[rate] = {
-        quarter: r.quarter,
-        rate,
-        sessions: 0,
-        umsatz: 0,
-        provision: 0,
-      };
-    }
-    map[rate].sessions += r.sessions;
-    map[rate].umsatz += r.umsatz;
-    map[rate].provision += r.provision;
-  });
-
-  return Object.values(map).sort((a, b) => a.rate - b.rate);
-}, [poiseQuarterRows]);
-
-
-
-
-/* ---------- LOAD USER ---------- */
-useEffect(() => {
-  supabase.auth.getUser().then(({ data }) => {
-    setUser(data?.user || null);
-  });
-}, []);
-
-/* ---------- LOAD REQUESTS ---------- */
-useEffect(() => {
+  useEffect(() => {
   if (!user?.email) return;
+  if (filter !== "abrechnung") return;
 
-  let query = supabase
-    .from("anfragen")
-    .select(
-      `
-      id,
-      created_at,
-      vorname,
-      nachname,
-      email,
-      telefon,
-      strasse_hausnr,
-      plz_ort,
-      geburtsdatum,
-      beschaeftigungsgrad,
-      leidensdruck,
-      anliegen,
-      verlauf,
-      ziel,
-      status,
-      bevorzugte_zeit,
-      wunschtherapeut,
-      honorar_klient
-    `
-    )
-    .order("created_at", { ascending: false });
+  let mounted = true;
 
-  if (user.email !== "hallo@mypoise.de") {
-    query = query.eq("wunschtherapeut", user.email);
-  }
+  (async () => {
+    setInvoiceLoading(true);
 
-  query.then(({ data }) => {
-    setRequests(
-      (data || []).map((r) => ({
-        ...r,
-        _status: normalizeStatus(r.status),
-      }))
-    );
-  });
-}, [user]);
-
-/* ---------- LOAD SESSIONS ---------- */
-useEffect(() => {
-  supabase.from("sessions").select("*").then(({ data }) => {
-    const grouped = {};
-    (data || []).forEach((s) => {
-      const key = String(s.anfrage_id);
-      if (!grouped[key]) grouped[key] = [];
-      grouped[key].push(s);
+    const res = await fetch("/api/invoice-settings", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ user_email: user.email }),
     });
 
-    Object.keys(grouped).forEach((k) => {
-      grouped[k].sort((a, b) => new Date(a.date) - new Date(b.date));
-    });
+    if (res.ok) {
+      const data = await res.json();
+      if (mounted && data?.settings) {
+        setInvoiceSettings((p) => ({ ...p, ...data.settings }));
+      }
+    }
 
-    setSessionsByRequest(grouped);
-  });
-}, []);
+    if (mounted) setInvoiceLoading(false);
+  })();
 
-/* ---------- LOAD BILLING SESSIONS ---------- */
-useEffect(() => {
-  if (!user?.email) return;
+  return () => {
+    mounted = false;
+  };
+}, [user, filter]);
 
-  let query = supabase
-    .from("sessions")
-    .select(
-      `
-      id,
-      date,
-      price,
-      commission,
-      payout,
-      therapist,
-      anfrage_id,
-      anfragen (
+  /* ---------- LOAD REQUESTS ---------- */
+  useEffect(() => {
+    if (!user?.email) return;
+
+    let query = supabase
+      .from("anfragen")
+      .select(
+        `
+        id,
+        created_at,
         vorname,
         nachname,
-        status
+        email,
+        telefon,
+        strasse_hausnr,
+        plz_ort,
+        geburtsdatum,
+        beschaeftigungsgrad,
+        leidensdruck,
+        anliegen,
+        verlauf,
+        ziel,
+        status,
+        bevorzugte_zeit,
+        wunschtherapeut,
+        honorar_klient
+      `
       )
-    `
-    );
+      .order("created_at", { ascending: false });
 
-  if (user.email !== "hallo@mypoise.de") {
-    query = query.eq("therapist", user.email);
-  }
-
-  query.then(({ data, error }) => {
-    if (!error) setBillingSessions(data || []);
-  });
-}, [user]);
-
-/* ---------- FILTER ---------- */
-const UNBEARBEITET = ["offen", "termin_neu", "termin_bestaetigt"];
-
-const FILTER_MAP = {
-  unbearbeitet: ["offen", "termin_neu", "termin_bestaetigt"],
-  aktiv: ["active"],
-  beendet: ["beendet"],
-  papierkorb: ["papierkorb"],
-  abrechnung: [],
-  alle: [
-    "offen",
-    "termin_neu",
-    "termin_bestaetigt",
-    "active",
-    "beendet",
-    "papierkorb",
-  ],
-};
-
-const filtered = useMemo(() => {
-  const allowed = FILTER_MAP[filter] || FILTER_MAP.alle;
-
-  return requests.filter((r) => {
-    if (!allowed.includes(r._status)) return false;
-
-    if (therapistFilter !== "alle" && r.wunschtherapeut !== therapistFilter) {
-      return false;
+    if (user.email !== "hallo@mypoise.de") {
+      query = query.eq("wunschtherapeut", user.email);
     }
 
-    if (search) {
-      const q = search.toLowerCase();
-      const name = `${r.vorname || ""} ${r.nachname || ""}`.toLowerCase();
-      if (!name.includes(q)) return false;
-    }
-
-    return true;
-  });
-}, [requests, filter, therapistFilter, search]);
-
-const sorted = useMemo(() => {
-  return [...filtered].sort((a, b) => {
-    if (sort === "name") {
-      return `${a.nachname || ""}${a.vorname || ""}`.localeCompare(
-        `${b.nachname || ""}${b.vorname || ""}`
+    query.then(({ data }) => {
+      setRequests(
+        (data || []).map((r) => ({
+          ...r,
+          _status: normalizeStatus(r.status),
+        }))
       );
+    });
+  }, [user]);
+
+  /* ---------- LOAD SESSIONS ---------- */
+  useEffect(() => {
+    supabase.from("sessions").select("*").then(({ data }) => {
+      const grouped = {};
+      (data || []).forEach((s) => {
+        const key = String(s.anfrage_id);
+        if (!grouped[key]) grouped[key] = [];
+        grouped[key].push(s);
+      });
+
+      Object.keys(grouped).forEach((k) => {
+        grouped[k].sort((a, b) => new Date(a.date) - new Date(b.date));
+      });
+
+      setSessionsByRequest(grouped);
+    });
+  }, []);
+
+  /* ---------- LOAD BILLING SESSIONS ---------- */
+  useEffect(() => {
+    if (!user?.email) return;
+
+    let query = supabase
+      .from("sessions")
+      .select(
+        `
+        id,
+        date,
+        price,
+        commission,
+        payout,
+        therapist,
+        anfrage_id,
+        anfragen (
+          vorname,
+          nachname,
+          status
+        )
+      `
+      );
+
+    if (user.email !== "hallo@mypoise.de") {
+      query = query.eq("therapist", user.email);
     }
 
-    const aSessions = sessionsByRequest[String(a.id)] || [];
-    const bSessions = sessionsByRequest[String(b.id)] || [];
+    query.then(({ data, error }) => {
+      if (!error) setBillingSessions(data || []);
+    });
+  }, [user]);
 
-    const sa = aSessions.length ? aSessions[aSessions.length - 1]?.date : null;
-    const sb = bSessions.length ? bSessions[bSessions.length - 1]?.date : null;
+  /* ---------- FILTER ---------- */
+  const UNBEARBEITET = ["offen", "termin_neu", "termin_bestaetigt"];
 
-    const da = sa ? new Date(sa) : new Date(a.created_at);
-    const db = sb ? new Date(sb) : new Date(b.created_at);
+  const FILTER_MAP = {
+    unbearbeitet: ["offen", "termin_neu", "termin_bestaetigt"],
+    aktiv: ["active"],
+    beendet: ["beendet"],
+    papierkorb: ["papierkorb"],
+    abrechnung: [],
+    alle: [
+      "offen",
+      "termin_neu",
+      "termin_bestaetigt",
+      "active",
+      "beendet",
+      "papierkorb",
+    ],
+  };
 
-    return db - da;
-  });
-}, [filtered, sort, sessionsByRequest]);
+  const filtered = useMemo(() => {
+    const allowed = FILTER_MAP[filter] || FILTER_MAP.alle;
 
-/* ---------- EARLY RETURN (NACH ALLEN HOOKS!) ---------- */
-if (!user) return <div>Bitte einloggen…</div>;
+    return requests.filter((r) => {
+      if (!allowed.includes(r._status)) return false;
 
+      if (therapistFilter !== "alle" && r.wunschtherapeut !== therapistFilter) {
+        return false;
+      }
+
+      if (search) {
+        const q = search.toLowerCase();
+        const name = `${r.vorname || ""} ${r.nachname || ""}`.toLowerCase();
+        if (!name.includes(q)) return false;
+      }
+
+      return true;
+    });
+  }, [requests, filter, therapistFilter, search]);
+
+  const sorted = useMemo(() => {
+    return [...filtered].sort((a, b) => {
+      if (sort === "name") {
+        return `${a.nachname || ""}${a.vorname || ""}`.localeCompare(
+          `${b.nachname || ""}${b.vorname || ""}`
+        );
+      }
+
+      const aSessions = sessionsByRequest[String(a.id)] || [];
+      const bSessions = sessionsByRequest[String(b.id)] || [];
+
+      const sa = aSessions.length ? aSessions[aSessions.length - 1]?.date : null;
+      const sb = bSessions.length ? bSessions[bSessions.length - 1]?.date : null;
+
+      const da = sa ? new Date(sa) : new Date(a.created_at);
+      const db = sb ? new Date(sb) : new Date(b.created_at);
+
+      return db - da;
+    });
+  }, [filtered, sort, sessionsByRequest]);
+
+  const billingByClient = useMemo(() => {
+    const map = {};
+
+    (billingSessions || []).forEach((s) => {
+      if (!s?.anfrage_id) return;
+
+      if (!map[s.anfrage_id]) {
+        map[s.anfrage_id] = {
+          klient:
+            `${s.anfragen?.vorname || ""} ${s.anfragen?.nachname || ""}`.trim() ||
+            "Unbekannt",
+          therapist: s.therapist,
+          sessions: 0,
+          umsatz: 0,
+          provision: 0,
+          payout: 0,
+        };
+      }
+
+      map[s.anfrage_id].sessions += 1;
+      map[s.anfrage_id].umsatz += Number(s.price) || 0;
+      map[s.anfrage_id].provision += Number(s.commission) || 0;
+      map[s.anfrage_id].payout += Number(s.payout) || 0;
+    });
+
+    return Object.values(map);
+  }, [billingSessions]);
+
+  /* ---------- EARLY RETURN (NACH ALLEN HOOKS!) ---------- */
+  if (!user) return <div>Bitte einloggen…</div>;
 
   /* ================= UI ================= */
 
@@ -828,192 +507,221 @@ if (!user) return <div>Bitte einloggen…</div>;
         ➕ Bestandsklient:in anlegen
       </button>
 
-{/* ================= ABRECHNUNG ================= */}
-{filter === "abrechnung" && (
-  <section style={{ border: "1px solid #ddd", borderRadius: 12, padding: 16 }}>
-    <h2>💶 Abrechnung</h2>
-
-    {/* EBENE 1 – KLINT:INNEN */}
-    <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
-      <select
-        value={billingMode}
-        onChange={(e) => {
-          setBillingMode(e.target.value);
-          setBillingClientId("");
-        }}
-      >
-        <option value="all">Alle Klient:innen</option>
-        <option value="single">Eine Klient:in</option>
-      </select>
-
-      {billingMode === "single" && (
-        <select
-          value={billingClientId}
-          onChange={(e) => setBillingClientId(e.target.value)}
+      {/* ABRECHNUNG */}
+      {filter === "abrechnung" && (
+        <section
+          style={{
+            border: "1px solid #ddd",
+            borderRadius: 12,
+            padding: 16,
+          }}
         >
-          <option value="">Klient:in wählen…</option>
-          {requests.map((r) => (
-            <option key={r.id} value={r.id}>
-              {r.vorname} {r.nachname}
-            </option>
-          ))}
-        </select>
-      )}
-    </div>
-
-    {/* EBENE 2 – ZEITRAUM */}
-    <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
-      <select value={billingSpan} onChange={(e) => setBillingSpan(e.target.value)}>
-        <option value="monat">Monat</option>
-        <option value="quartal">Quartal</option>
-      </select>
-
-      <select value={billingYear} onChange={(e) => setBillingYear(Number(e.target.value))}>
-        {[2023, 2024, 2025, 2026].map((y) => (
-          <option key={y} value={y}>{y}</option>
-        ))}
-      </select>
-
-      {billingSpan === "monat" && (
-        <select
-          value={billingMonth}
-          onChange={(e) => setBillingMonth(Number(e.target.value))}
-        >
-          {[...Array(12)].map((_, i) => (
-            <option key={i + 1} value={i + 1}>
-              {i + 1}
-            </option>
-          ))}
-        </select>
-      )}
-
-      {billingSpan === "quartal" && (
-        <select
-          value={billingQuarter}
-          onChange={(e) => setBillingQuarter(Number(e.target.value))}
-        >
-          <option value={1}>Q1</option>
-          <option value={2}>Q2</option>
-          <option value={3}>Q3</option>
-          <option value={4}>Q4</option>
-        </select>
-      )}
-    </div>
-
-    {/* TABELLE */}
-    <table style={{ width: "100%", borderCollapse: "collapse" }}>
-      <thead>
-        <tr>
-          <th align="left">Klient:in</th>
-          <th>Sitzungen</th>
-          <th>Umsatz €</th>
-          <th>Provision €</th>
-          <th>Auszahlung €</th>
-        </tr>
-      </thead>
-      <tbody>
-        {billingByClient.map((b, i) => (
-          <tr key={i}>
-            <td>{b.klient}</td>
-            <td align="center">{b.sessions}</td>
-            <td align="right">{b.umsatz.toFixed(2)}</td>
-            <td align="right">{b.provision.toFixed(2)}</td>
-            <td align="right">{b.payout.toFixed(2)}</td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
-{/* EXPORT */}
-<div
+        <details
   style={{
-    display: "flex",
-    gap: 8,
-    marginTop: 12,
-    flexWrap: "wrap",
+    marginTop: 10,
+    border: "1px solid #eee",
+    borderRadius: 10,
+    background: "#FAFAFA",
+    padding: 10,
   }}
 >
-  <button
-    onClick={() => exportBillingCSV(billingByClient)}
-    style={{
-      padding: "6px 12px",
-      borderRadius: 8,
-      border: "1px solid #ccc",
-    }}
-  >
-    📄 CSV exportieren
-  </button>
+  <summary style={{ cursor: "pointer", fontWeight: 600 }}>
+    🧾 Rechnungsdaten (deine Angaben)
+  </summary>
 
-  <button
-    onClick={() => exportBillingPDF(billingByClient)}
-    style={{
-      padding: "6px 12px",
-      borderRadius: 8,
-      border: "1px solid #ccc",
-    }}
-  >
-    📑 PDF exportieren
-  </button>
-</div>
- 
+  <div style={{ marginTop: 10 }}>
+    {invoiceLoading && <div>Lade Rechnungsdaten…</div>}
 
+    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+      <div>
+        <label>Name / Firma</label>
+        <input
+          value={invoiceSettings.company_name}
+          onChange={(e) =>
+            setInvoiceSettings({
+              ...invoiceSettings,
+              company_name: e.target.value,
+            })
+          }
+        />
+      </div>
 
-    {/* GESAMT */}
-    <hr />
-    <p><strong>Gesamt Sitzungen:</strong> {billingTotals.sessions}</p>
-    <p><strong>Gesamt Provision:</strong> {billingTotals.provision.toFixed(2)} €</p>
-  </section>
-)}
-      {/* POISE – TEAMÜBERSICHT */}
-{filter === "abrechnung" && (
-  <>
-    <hr style={{ margin: "20px 0" }} />
+      <div>
+        <label>Logo URL</label>
+        <input
+          value={invoiceSettings.logo_url}
+          onChange={(e) =>
+            setInvoiceSettings({
+              ...invoiceSettings,
+              logo_url: e.target.value,
+            })
+          }
+        />
+      </div>
 
-    <h3>
-      🏢 Abrechnungsübersicht
-      {user?.email === "hallo@mypoise.de" ? " – Poise (alle Teammitglieder)" : ""}
-    </h3>
+      <div style={{ gridColumn: "1 / -1" }}>
+        <label>Adresse</label>
+        <textarea
+          value={invoiceSettings.address}
+          onChange={(e) =>
+            setInvoiceSettings({
+              ...invoiceSettings,
+              address: e.target.value,
+            })
+          }
+        />
+      </div>
 
-    <table style={{ width: "100%", borderCollapse: "collapse" }}>
-      <thead>
-        <tr>
-          <th align="left">
-            {user?.email === "hallo@mypoise.de"
-              ? "Therapeut:in"
-              : "Meine Abrechnung"}
-          </th>
-          <th>Sitzungen</th>
-          <th>Umsatz €</th>
-          <th>Provision €</th>
-        </tr>
-      </thead>
+      <div>
+        <label>IBAN</label>
+        <input
+          value={invoiceSettings.iban}
+          onChange={(e) =>
+            setInvoiceSettings({
+              ...invoiceSettings,
+              iban: e.target.value,
+            })
+          }
+        />
+      </div>
 
-      <tbody>
-        {billingByTherapist.map((t) => (
-          <tr key={t.therapist}>
-            <td>
-              {teamData.find((x) => x.email === t.therapist)?.name ||
-                t.therapist}
-            </td>
-            <td align="center">{t.sessions}</td>
-            <td align="right">{t.umsatz.toFixed(2)}</td>
-            <td align="right">{t.provision.toFixed(2)}</td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
+      <div>
+        <label>BIC</label>
+        <input
+          value={invoiceSettings.bic}
+          onChange={(e) =>
+            setInvoiceSettings({
+              ...invoiceSettings,
+              bic: e.target.value,
+            })
+          }
+        />
+      </div>
 
-    <div style={{ marginTop: 12, color: "#555" }}>
-      ℹ️ Jahresgesamt {billingYear}:{" "}
-      <strong>{billingYearTotals.sessions}</strong> Sitzungen ·{" "}
-      <strong>{billingYearTotals.provision.toFixed(2)} €</strong> Provision
+      <div>
+        <label>Land</label>
+        <select
+          value={invoiceSettings.default_vat_country}
+          onChange={(e) =>
+            setInvoiceSettings({
+              ...invoiceSettings,
+              default_vat_country: e.target.value,
+            })
+          }
+        >
+          <option value="AT">Österreich</option>
+          <option value="DE">Deutschland</option>
+        </select>
+      </div>
+
+      <div>
+        <label>Standard USt %</label>
+        <input
+          type="number"
+          value={invoiceSettings.default_vat_rate}
+          onChange={(e) =>
+            setInvoiceSettings({
+              ...invoiceSettings,
+              default_vat_rate: Number(e.target.value),
+            })
+          }
+        />
+      </div>
     </div>
-  </>
-)}
 
+    <div style={{ marginTop: 10, display: "flex", justifyContent: "flex-end" }}>
+      <button
+        onClick={async () => {
+          await fetch("/api/invoice-settings", {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              user_email: user.email,
+              settings: invoiceSettings,
+            }),
+          });
+          alert("Rechnungsdaten gespeichert");
+        }}
+      >
+        💾 Speichern
+      </button>
+    </div>
+  </div>
+</details>
+          <h2>💶 Abrechnung</h2>
 
+          <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
+            <button
+              onClick={() => exportBillingCSV(billingByClient)}
+              style={{
+                padding: "6px 12px",
+                borderRadius: 8,
+                border: "1px solid #ccc",
+              }}
+            >
+              📄 CSV exportieren
+            </button>
 
+            <button
+              onClick={() => exportBillingPDF(billingByClient)}
+              style={{
+                padding: "6px 12px",
+                borderRadius: 8,
+                border: "1px solid #ccc",
+              }}
+            >
+              📑 PDF exportieren
+            </button>
+          </div>
 
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <thead>
+              <tr>
+                <th align="left">Klient:in</th>
+                <th>Sitzungen</th>
+                <th>Umsatz (€)</th>
+                <th>Provision Poise (€)</th>
+                <th>Auszahlung (€)</th>
+              </tr>
+            </thead>
 
+            <tbody>
+              {billingByClient.map((b, i) => (
+                <tr key={i}>
+                  <td>{b.klient}</td>
+                  <td align="center">{b.sessions}</td>
+                  <td align="right">{Number(b.umsatz || 0).toFixed(2)}</td>
+                  <td align="right">{Number(b.provision || 0).toFixed(2)}</td>
+                  <td align="right">{Number(b.payout || 0).toFixed(2)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+
+          <hr />
+
+          <p>
+            <strong>Gesamt Umsatz:</strong>{" "}
+            {billingByClient.reduce((s, b) => s + (Number(b.umsatz) || 0), 0).toFixed(2)} €
+          </p>
+
+          <p>
+            <strong>Provision Poise:</strong>{" "}
+            {billingByClient
+              .reduce((s, b) => s + (Number(b.provision) || 0), 0)
+              .toFixed(2)}{" "}
+            €
+          </p>
+
+          <p>
+            <strong>Auszahlung Therapeut:innen:</strong>{" "}
+            {billingByClient
+              .reduce((s, b) => s + (Number(b.payout) || 0), 0)
+              .toFixed(2)}{" "}
+            €
+          </p>
+        </section>
+      )}
 
       {/* KARTEN */}
       {filter !== "abrechnung" &&
