@@ -203,6 +203,18 @@ export default function DashboardFull() {
   const [bestandTherapeut, setBestandTherapeut] = useState("");
 
   const [billingSessions, setBillingSessions] = useState([]);
+  // ================= ABRECHNUNG FILTER =================
+const [billingMode, setBillingMode] = useState("monat");
+// "monat" | "quartal" | "jahr" | "einzeln"
+
+const now = new Date();
+const [billingYear, setBillingYear] = useState(now.getFullYear());
+const [billingMonth, setBillingMonth] = useState(now.getMonth() + 1);
+const [billingQuarter, setBillingQuarter] = useState(
+  Math.floor(now.getMonth() / 3) + 1
+);
+
+const [billingDate, setBillingDate] = useState(""); // YYYY-MM-DD
 
   const [invoiceSettings, setInvoiceSettings] = useState({
   company_name: "",
@@ -406,37 +418,108 @@ const [invoiceLoading, setInvoiceLoading] = useState(false);
       return db - da;
     });
   }, [filtered, sort, sessionsByRequest]);
+/* ---------- FILTER (ANFRAGEN / KARTEN) ---------- */
 
-  const billingByClient = useMemo(() => {
-    const map = {};
+const UNBEARBEITET = ["offen", "termin_neu", "termin_bestaetigt"];
 
-    (billingSessions || []).forEach((s) => {
-      if (!s?.anfrage_id) return;
+const FILTER_MAP = {
+  unbearbeitet: ["offen", "termin_neu", "termin_bestaetigt"],
+  aktiv: ["active"],
+  beendet: ["beendet"],
+  papierkorb: ["papierkorb"],
+  abrechnung: [], // Abrechnung hat eigene Logik
+  alle: [
+    "offen",
+    "termin_neu",
+    "termin_bestaetigt",
+    "active",
+    "beendet",
+    "papierkorb",
+  ],
+};
 
-      if (!map[s.anfrage_id]) {
-        map[s.anfrage_id] = {
-          klient:
-            `${s.anfragen?.vorname || ""} ${s.anfragen?.nachname || ""}`.trim() ||
-            "Unbekannt",
-          therapist: s.therapist,
-          sessions: 0,
-          umsatz: 0,
-          provision: 0,
-          payout: 0,
-        };
-      }
+/* --- gefilterte Anfragen (für Kartenansicht) --- */
+const filtered = useMemo(() => {
+  const allowed = FILTER_MAP[filter] || FILTER_MAP.alle;
 
-      map[s.anfrage_id].sessions += 1;
-      map[s.anfrage_id].umsatz += Number(s.price) || 0;
-      map[s.anfrage_id].provision += Number(s.commission) || 0;
-      map[s.anfrage_id].payout += Number(s.payout) || 0;
-    });
+  return requests.filter((r) => {
+    if (!allowed.includes(r._status)) return false;
 
-    return Object.values(map);
-  }, [billingSessions]);
+    if (
+      therapistFilter !== "alle" &&
+      r.wunschtherapeut !== therapistFilter
+    ) {
+      return false;
+    }
 
-  /* ---------- EARLY RETURN (NACH ALLEN HOOKS!) ---------- */
-  if (!user) return <div>Bitte einloggen…</div>;
+    if (search) {
+      const q = search.toLowerCase();
+      const name = `${r.vorname || ""} ${r.nachname || ""}`.toLowerCase();
+      if (!name.includes(q)) return false;
+    }
+
+    return true;
+  });
+}, [requests, filter, therapistFilter, search]);
+
+/* --- Sortierung der Karten --- */
+const sorted = useMemo(() => {
+  return [...filtered].sort((a, b) => {
+    if (sort === "name") {
+      return `${a.nachname || ""}${a.vorname || ""}`.localeCompare(
+        `${b.nachname || ""}${b.vorname || ""}`
+      );
+    }
+
+    const aSessions = sessionsByRequest[String(a.id)] || [];
+    const bSessions = sessionsByRequest[String(b.id)] || [];
+
+    const sa = aSessions.length
+      ? aSessions[aSessions.length - 1]?.date
+      : null;
+    const sb = bSessions.length
+      ? bSessions[bSessions.length - 1]?.date
+      : null;
+
+    const da = sa ? new Date(sa) : new Date(a.created_at);
+    const db = sb ? new Date(sb) : new Date(b.created_at);
+
+    return db - da;
+  });
+}, [filtered, sort, sessionsByRequest]);
+
+/* ---------- ABRECHNUNG: GRUPPIERUNG NACH KLIENT ---------- */
+
+const billingByClient = useMemo(() => {
+  const map = {};
+
+  (filteredBillingSessions || []).forEach((s) => {
+    if (!s?.anfrage_id) return;
+
+    if (!map[s.anfrage_id]) {
+      map[s.anfrage_id] = {
+        klient:
+          `${s.anfragen?.vorname || ""} ${s.anfragen?.nachname || ""}`.trim() ||
+          "Unbekannt",
+        therapist: s.therapist,
+        sessions: 0,
+        umsatz: 0,
+        provision: 0,
+        payout: 0,
+      };
+    }
+
+    map[s.anfrage_id].sessions += 1;
+    map[s.anfrage_id].umsatz += Number(s.price) || 0;
+    map[s.anfrage_id].provision += Number(s.commission) || 0;
+    map[s.anfrage_id].payout += Number(s.payout) || 0;
+  });
+
+  return Object.values(map);
+}, [filteredBillingSessions]);
+
+/* ---------- EARLY RETURN (NACH ALLEN HOOKS!) ---------- */
+if (!user) return <div>Bitte einloggen…</div>;
 
   /* ================= UI ================= */
 
@@ -513,6 +596,75 @@ const [invoiceLoading, setInvoiceLoading] = useState(false);
 
       {/* ABRECHNUNG */}
       {filter === "abrechnung" && (
+      <div
+  style={{
+    display: "flex",
+    gap: 8,
+    marginBottom: 14,
+    flexWrap: "wrap",
+    alignItems: "center",
+  }}
+>
+  <strong>Zeitraum:</strong>
+
+  <select
+    value={billingMode}
+    onChange={(e) => setBillingMode(e.target.value)}
+  >
+    <option value="monat">Monat</option>
+    <option value="quartal">Quartal</option>
+    <option value="jahr">Jahr</option>
+    <option value="einzeln">Einzelne Sitzung</option>
+  </select>
+
+  {(billingMode === "monat" ||
+    billingMode === "quartal" ||
+    billingMode === "jahr") && (
+    <select
+      value={billingYear}
+      onChange={(e) => setBillingYear(Number(e.target.value))}
+    >
+      {[2023, 2024, 2025, 2026, 2027].map((y) => (
+        <option key={y} value={y}>
+          {y}
+        </option>
+      ))}
+    </select>
+  )}
+
+  {billingMode === "monat" && (
+    <select
+      value={billingMonth}
+      onChange={(e) => setBillingMonth(Number(e.target.value))}
+    >
+      {[...Array(12)].map((_, i) => (
+        <option key={i + 1} value={i + 1}>
+          {i + 1}
+        </option>
+      ))}
+    </select>
+  )}
+
+  {billingMode === "quartal" && (
+    <select
+      value={billingQuarter}
+      onChange={(e) => setBillingQuarter(Number(e.target.value))}
+    >
+      <option value={1}>Q1</option>
+      <option value={2}>Q2</option>
+      <option value={3}>Q3</option>
+      <option value={4}>Q4</option>
+    </select>
+  )}
+
+  {billingMode === "einzeln" && (
+    <input
+      type="date"
+      value={billingDate}
+      onChange={(e) => setBillingDate(e.target.value)}
+    />
+  )}
+</div>
         <section
           style={{
             border: "1px solid #ddd",
