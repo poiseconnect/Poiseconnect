@@ -587,298 +587,323 @@ if (!user) return <div>Bitte einloggen…</div>;
           fontWeight: 600,
         }}
       >
-       
-
+    
       
     ➕ Bestandsklient:in anlegen
   </button>
-)}
 
       {/* ABRECHNUNG */}
-      {filter === "abrechnung" && (
-      <div
-  style={{
-    display: "flex",
-    gap: 8,
-    marginBottom: 14,
-    flexWrap: "wrap",
-    alignItems: "center",
-  }}
->
-  <strong>Zeitraum:</strong>
-
-  <select
-    value={billingMode}
-    onChange={(e) => setBillingMode(e.target.value)}
-  >
-    <option value="monat">Monat</option>
-    <option value="quartal">Quartal</option>
-    <option value="jahr">Jahr</option>
-    <option value="einzeln">Einzelne Sitzung</option>
-  </select>
-
-  {(billingMode === "monat" ||
-    billingMode === "quartal" ||
-    billingMode === "jahr") && (
-    <select
-      value={billingYear}
-      onChange={(e) => setBillingYear(Number(e.target.value))}
+     {filter === "abrechnung" && (
+  <>
+    {/* FILTERBAR: Zeitraum */}
+    <div
+      style={{
+        display: "flex",
+        gap: 8,
+        marginBottom: 14,
+        flexWrap: "wrap",
+        alignItems: "center",
+      }}
     >
-      {[2023, 2024, 2025, 2026, 2027].map((y) => (
-        <option key={y} value={y}>
-          {y}
-        </option>
-      ))}
-    </select>
-  )}
+      <strong>Zeitraum:</strong>
 
-  {billingMode === "monat" && (
-    <select
-      value={billingMonth}
-      onChange={(e) => setBillingMonth(Number(e.target.value))}
-    >
-      {[...Array(12)].map((_, i) => (
-        <option key={i + 1} value={i + 1}>
-          {i + 1}
-        </option>
-      ))}
-    </select>
-  )}
-
-  {billingMode === "quartal" && (
-    <select
-      value={billingQuarter}
-      onChange={(e) => setBillingQuarter(Number(e.target.value))}
-    >
-      <option value={1}>Q1</option>
-      <option value={2}>Q2</option>
-      <option value={3}>Q3</option>
-      <option value={4}>Q4</option>
-    </select>
-  )}
-
-  {billingMode === "einzeln" && (
-    <input
-      type="date"
-      value={billingDate}
-      onChange={(e) => setBillingDate(e.target.value)}
-    />
-  )}
-</div>
-        <section
-          style={{
-            border: "1px solid #ddd",
-            borderRadius: 12,
-            padding: 16,
-          }}
-        >
-        <details
-  style={{
-    marginTop: 10,
-    border: "1px solid #eee",
-    borderRadius: 10,
-    background: "#FAFAFA",
-    padding: 10,
-  }}
->
-  <summary style={{ cursor: "pointer", fontWeight: 600 }}>
-    🧾 Rechnungsdaten (deine Angaben)
-  </summary>
-
-  <div style={{ marginTop: 10 }}>
-    {invoiceLoading && <div>Lade Rechnungsdaten…</div>}
-
-    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-      <div>
-        <label>Name / Firma</label>
-        <input
-          value={invoiceSettings.company_name}
-          onChange={(e) =>
-            setInvoiceSettings({
-              ...invoiceSettings,
-              company_name: e.target.value,
-            })
-          }
-        />
-      </div>
-
-      <div>
-        <label>Logo URL</label>
-        <input
-          value={invoiceSettings.logo_url}
-          onChange={(e) =>
-            setInvoiceSettings({
-              ...invoiceSettings,
-              logo_url: e.target.value,
-            })
-          }
-        />
-      </div>
-
-      <div style={{ gridColumn: "1 / -1" }}>
-        <label>Adresse</label>
-        <textarea
-          value={invoiceSettings.address}
-          onChange={(e) =>
-            setInvoiceSettings({
-              ...invoiceSettings,
-              address: e.target.value,
-            })
-          }
-        />
-      </div>
-
-      <div>
-        <label>IBAN</label>
-        <input
-          value={invoiceSettings.iban}
-          onChange={(e) =>
-            setInvoiceSettings({
-              ...invoiceSettings,
-              iban: e.target.value,
-            })
-          }
-        />
-      </div>
-
-      <div>
-        <label>BIC</label>
-        <input
-          value={invoiceSettings.bic}
-          onChange={(e) =>
-            setInvoiceSettings({
-              ...invoiceSettings,
-              bic: e.target.value,
-            })
-          }
-        />
-      </div>
-
-      <div>
-        <label>Land</label>
-        <select
-          value={invoiceSettings.default_vat_country}
-          onChange={(e) =>
-            setInvoiceSettings({
-              ...invoiceSettings,
-              default_vat_country: e.target.value,
-            })
-          }
-        >
-          <option value="AT">Österreich</option>
-          <option value="DE">Deutschland</option>
-        </select>
-      </div>
-
-      <div>
-        <label>Standard USt %</label>
-        <input
-          type="number"
-          value={invoiceSettings.default_vat_rate}
-          onChange={(e) =>
-            setInvoiceSettings({
-              ...invoiceSettings,
-              default_vat_rate: Number(e.target.value),
-            })
-          }
-        />
-      </div>
-    </div>
-
-    <div style={{ marginTop: 10, display: "flex", justifyContent: "flex-end" }}>
-      <button
-        onClick={async () => {
-          await fetch("/api/invoice-settings", {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              user_email: user.email,
-              settings: invoiceSettings,
-            }),
-          });
-          alert("Rechnungsdaten gespeichert");
-        }}
+      <select
+        value={billingMode}
+        onChange={(e) => setBillingMode(e.target.value)}
       >
-        💾 Speichern
-      </button>
-    </div>
-  </div>
-</details>
-          <h2>💶 Abrechnung</h2>
+        <option value="monat">Monat</option>
+        <option value="quartal">Quartal</option>
+        <option value="jahr">Jahr</option>
+        <option value="einzeln">Einzelne Sitzung</option>
+      </select>
 
-          <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
-            <button
-              onClick={() => exportBillingCSV(billingByClient)}
-              style={{
-                padding: "6px 12px",
-                borderRadius: 8,
-                border: "1px solid #ccc",
-              }}
-            >
-              📄 CSV exportieren
-            </button>
-
-            <button
-              onClick={() => exportBillingPDF(billingByClient)}
-              style={{
-                padding: "6px 12px",
-                borderRadius: 8,
-                border: "1px solid #ccc",
-              }}
-            >
-              📑 PDF exportieren
-            </button>
-          </div>
-
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
-            <thead>
-              <tr>
-                <th align="left">Klient:in</th>
-                <th>Sitzungen</th>
-                <th>Umsatz (€)</th>
-                <th>Provision Poise (€)</th>
-                <th>Auszahlung (€)</th>
-              </tr>
-            </thead>
-
-            <tbody>
-              {billingByClient.map((b, i) => (
-                <tr key={i}>
-                  <td>{b.klient}</td>
-                  <td align="center">{b.sessions}</td>
-                  <td align="right">{Number(b.umsatz || 0).toFixed(2)}</td>
-                  <td align="right">{Number(b.provision || 0).toFixed(2)}</td>
-                  <td align="right">{Number(b.payout || 0).toFixed(2)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-
-          <hr />
-
-          <p>
-            <strong>Gesamt Umsatz:</strong>{" "}
-            {billingByClient.reduce((s, b) => s + (Number(b.umsatz) || 0), 0).toFixed(2)} €
-          </p>
-
-          <p>
-            <strong>Provision Poise:</strong>{" "}
-            {billingByClient
-              .reduce((s, b) => s + (Number(b.provision) || 0), 0)
-              .toFixed(2)}{" "}
-            €
-          </p>
-
-          <p>
-            <strong>Auszahlung Therapeut:innen:</strong>{" "}
-            {billingByClient
-              .reduce((s, b) => s + (Number(b.payout) || 0), 0)
-              .toFixed(2)}{" "}
-            €
-          </p>
-        </section>
+      {(billingMode === "monat" ||
+        billingMode === "quartal" ||
+        billingMode === "jahr") && (
+        <select
+          value={billingYear}
+          onChange={(e) => setBillingYear(Number(e.target.value))}
+        >
+          {[2023, 2024, 2025, 2026, 2027].map((y) => (
+            <option key={y} value={y}>
+              {y}
+            </option>
+          ))}
+        </select>
       )}
 
+      {billingMode === "monat" && (
+        <select
+          value={billingMonth}
+          onChange={(e) => setBillingMonth(Number(e.target.value))}
+        >
+          {[...Array(12)].map((_, i) => (
+            <option key={i + 1} value={i + 1}>
+              {i + 1}
+            </option>
+          ))}
+        </select>
+      )}
+
+      {billingMode === "quartal" && (
+        <select
+          value={billingQuarter}
+          onChange={(e) => setBillingQuarter(Number(e.target.value))}
+        >
+          <option value={1}>Q1</option>
+          <option value={2}>Q2</option>
+          <option value={3}>Q3</option>
+          <option value={4}>Q4</option>
+        </select>
+      )}
+
+      {billingMode === "einzeln" && (
+        <input
+          type="date"
+          value={billingDate}
+          onChange={(e) => setBillingDate(e.target.value)}
+        />
+      )}
+    </div>
+
+    {/* ABRECHNUNG */}
+    <section
+      style={{
+        border: "1px solid #ddd",
+        borderRadius: 12,
+        padding: 16,
+      }}
+    >
+      <details
+        style={{
+          marginTop: 10,
+          border: "1px solid #eee",
+          borderRadius: 10,
+          background: "#FAFAFA",
+          padding: 10,
+        }}
+      >
+        <summary style={{ cursor: "pointer", fontWeight: 600 }}>
+          🧾 Rechnungsdaten (deine Angaben)
+        </summary>
+
+        <div style={{ marginTop: 10 }}>
+          {invoiceLoading && <div>Lade Rechnungsdaten…</div>}
+
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "1fr 1fr",
+              gap: 10,
+            }}
+          >
+            <div>
+              <label>Name / Firma</label>
+              <input
+                value={invoiceSettings.company_name}
+                onChange={(e) =>
+                  setInvoiceSettings({
+                    ...invoiceSettings,
+                    company_name: e.target.value,
+                  })
+                }
+              />
+            </div>
+
+            <div>
+              <label>Logo URL</label>
+              <input
+                value={invoiceSettings.logo_url}
+                onChange={(e) =>
+                  setInvoiceSettings({
+                    ...invoiceSettings,
+                    logo_url: e.target.value,
+                  })
+                }
+              />
+            </div>
+
+            <div style={{ gridColumn: "1 / -1" }}>
+              <label>Adresse</label>
+              <textarea
+                value={invoiceSettings.address}
+                onChange={(e) =>
+                  setInvoiceSettings({
+                    ...invoiceSettings,
+                    address: e.target.value,
+                  })
+                }
+              />
+            </div>
+
+            <div>
+              <label>IBAN</label>
+              <input
+                value={invoiceSettings.iban}
+                onChange={(e) =>
+                  setInvoiceSettings({
+                    ...invoiceSettings,
+                    iban: e.target.value,
+                  })
+                }
+              />
+            </div>
+
+            <div>
+              <label>BIC</label>
+              <input
+                value={invoiceSettings.bic}
+                onChange={(e) =>
+                  setInvoiceSettings({
+                    ...invoiceSettings,
+                    bic: e.target.value,
+                  })
+                }
+              />
+            </div>
+
+            <div>
+              <label>Land</label>
+              <select
+                value={invoiceSettings.default_vat_country}
+                onChange={(e) =>
+                  setInvoiceSettings({
+                    ...invoiceSettings,
+                    default_vat_country: e.target.value,
+                  })
+                }
+              >
+                <option value="AT">Österreich</option>
+                <option value="DE">Deutschland</option>
+              </select>
+            </div>
+
+            <div>
+              <label>Standard USt %</label>
+              <input
+                type="number"
+                value={invoiceSettings.default_vat_rate}
+                onChange={(e) =>
+                  setInvoiceSettings({
+                    ...invoiceSettings,
+                    default_vat_rate: Number(e.target.value),
+                  })
+                }
+              />
+            </div>
+          </div>
+
+          <div
+            style={{
+              marginTop: 10,
+              display: "flex",
+              justifyContent: "flex-end",
+            }}
+          >
+            <button
+              onClick={async () => {
+                await fetch("/api/invoice-settings", {
+                  method: "PUT",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    user_email: user.email,
+                    settings: invoiceSettings,
+                  }),
+                });
+                alert("Rechnungsdaten gespeichert");
+              }}
+            >
+              💾 Speichern
+            </button>
+          </div>
+        </div>
+      </details>
+
+      <h2>💶 Abrechnung</h2>
+
+      <div
+        style={{
+          display: "flex",
+          gap: 8,
+          marginBottom: 12,
+          flexWrap: "wrap",
+        }}
+      >
+        <button
+          onClick={() => exportBillingCSV(billingByClient)}
+          style={{
+            padding: "6px 12px",
+            borderRadius: 8,
+            border: "1px solid #ccc",
+          }}
+        >
+          📄 CSV exportieren
+        </button>
+
+        <button
+          onClick={() => exportBillingPDF(billingByClient)}
+          style={{
+            padding: "6px 12px",
+            borderRadius: 8,
+            border: "1px solid #ccc",
+          }}
+        >
+          📑 PDF exportieren
+        </button>
+      </div>
+
+      <table style={{ width: "100%", borderCollapse: "collapse" }}>
+        <thead>
+          <tr>
+            <th align="left">Klient:in</th>
+            <th>Sitzungen</th>
+            <th>Umsatz (€)</th>
+            <th>Provision Poise (€)</th>
+            <th>Auszahlung (€)</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          {billingByClient.map((b, i) => (
+            <tr key={i}>
+              <td>{b.klient}</td>
+              <td align="center">{b.sessions}</td>
+              <td align="right">{Number(b.umsatz || 0).toFixed(2)}</td>
+              <td align="right">{Number(b.provision || 0).toFixed(2)}</td>
+              <td align="right">{Number(b.payout || 0).toFixed(2)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+
+      <hr />
+
+      <p>
+        <strong>Gesamt Umsatz:</strong>{" "}
+        {billingByClient
+          .reduce((s, b) => s + (Number(b.umsatz) || 0), 0)
+          .toFixed(2)}{" "}
+        €
+      </p>
+
+      <p>
+        <strong>Provision Poise:</strong>{" "}
+        {billingByClient
+          .reduce((s, b) => s + (Number(b.provision) || 0), 0)
+          .toFixed(2)}{" "}
+        €
+      </p>
+
+      <p>
+        <strong>Auszahlung Therapeut:innen:</strong>{" "}
+        {billingByClient
+          .reduce((s, b) => s + (Number(b.payout) || 0), 0)
+          .toFixed(2)}{" "}
+        €
+      </p>
+    </section>
+  </>
+)}
       {/* KARTEN */}
       {filter !== "abrechnung" &&
         sorted.map((r) => {
