@@ -389,6 +389,7 @@ const [billingMode, setBillingMode] = useState("all");
 
 // Auswahl Klient (nur bei single)
 const [billingClientId, setBillingClientId] = useState("");
+  const [selectedSessionIds, setSelectedSessionIds] = useState([]);
 
 // Zeitraum
 const [billingSpan, setBillingSpan] = useState("monat"); 
@@ -400,6 +401,20 @@ const [billingMonth, setBillingMonth] = useState(now.getMonth() + 1);
 const [billingQuarter, setBillingQuarter] = useState(
   Math.floor(now.getMonth() / 3) + 1
 );
+
+
+/* ================= INVOICE SETTINGS (Therapeut:in) ================= */
+const [invoiceSettings, setInvoiceSettings] = useState({
+  company_name: "",
+  address: "",
+  iban: "",
+  bic: "",
+  logo_url: "",
+  default_vat_country: "AT",
+  default_vat_rate: 0,
+});
+const [invoiceLoading, setInvoiceLoading] = useState(false);
+
 
   /* ================= ABRECHNUNG – LOGIK ================= */
 
@@ -436,6 +451,16 @@ const scopedBillingSessions = useMemo(() => {
   }
   return filteredBillingSessions;
 }, [filteredBillingSessions, billingMode, billingClientId]);
+
+
+useEffect(() => {
+  if (billingMode === "single" && billingClientId) {
+    setSelectedSessionIds(scopedBillingSessions.map((s) => s.id));
+  } else {
+    setSelectedSessionIds([]);
+  }
+}, [billingMode, billingClientId, scopedBillingSessions]);
+
 
 // 3. Gruppierung pro Klient
 const billingByClient = useMemo(() => {
@@ -600,6 +625,51 @@ useEffect(() => {
     setUser(data?.user || null);
   });
 }, []);
+
+
+
+/* ---------- LOAD INVOICE SETTINGS (only Abrechnung tab) ---------- */
+useEffect(() => {
+  if (!user?.email) return;
+  if (filter !== "abrechnung") return;
+
+  let isMounted = true;
+
+  async function loadInvoiceSettings() {
+    setInvoiceLoading(true);
+    try {
+      const res = await fetch("/api/invoice-settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ user_email: user.email }),
+      });
+
+      if (!res.ok) {
+        console.warn("Invoice settings load failed");
+        return;
+      }
+
+      const data = await res.json();
+      if (!isMounted) return;
+
+      if (data?.settings) {
+        setInvoiceSettings((prev) => ({
+          ...prev,
+          ...data.settings,
+          default_vat_country: data.settings.default_vat_country || "AT",
+          default_vat_rate: Number(data.settings.default_vat_rate || 0),
+        }));
+      }
+    } finally {
+      if (isMounted) setInvoiceLoading(false);
+    }
+  }
+
+  loadInvoiceSettings();
+  return () => {
+    isMounted = false;
+  };
+}, [user, filter]);
 
 /* ---------- LOAD REQUESTS ---------- */
 useEffect(() => {
@@ -815,7 +885,9 @@ if (!user) return <div>Bitte einloggen…</div>;
       </div>
 
       {filter === "aktiv" && (
-<button
+
+
+      <button
         onClick={() => setCreateBestandOpen(true)}
         style={{
           marginBottom: 16,
@@ -831,11 +903,113 @@ if (!user) return <div>Bitte einloggen…</div>;
 
 
       )}
-
 {/* ================= ABRECHNUNG ================= */}
 {filter === "abrechnung" && (
   <section style={{ border: "1px solid #ddd", borderRadius: 12, padding: 16 }}>
     <h2>💶 Abrechnung</h2>
+
+    {/* ================= RECHNUNGSDATEN (Therapeut:in) ================= */}
+<details style={{ marginTop: 10, border: "1px solid #eee", borderRadius: 10, background: "#FAFAFA", padding: 10 }}>
+  <summary style={{ cursor: "pointer", fontWeight: 600 }}>
+    🧾 Rechnungsdaten (deine Angaben)
+  </summary>
+  <div style={{ marginTop: 10 }}>
+
+{invoiceLoading && <div style={{ color: "#777" }}>Lade Rechnungsdaten…</div>}
+
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+        <div>
+          <label>Rechnungssteller / Name</label>
+          <input
+            value={invoiceSettings.company_name || ""}
+            onChange={(e) => setInvoiceSettings({ ...invoiceSettings, company_name: e.target.value })}
+            style={{ width: "100%" }}
+          />  </div>
+</details>
+
+        <div>
+          <label>Logo URL (optional)</label>
+          <input
+            value={invoiceSettings.logo_url || ""}
+            onChange={(e) => setInvoiceSettings({ ...invoiceSettings, logo_url: e.target.value })}
+            style={{ width: "100%" }}
+          />
+        </div>
+
+        <div style={{ gridColumn: "1 / -1" }}>
+          <label>Adresse</label>
+          <textarea
+            value={invoiceSettings.address || ""}
+            onChange={(e) => setInvoiceSettings({ ...invoiceSettings, address: e.target.value })}
+            style={{ width: "100%" }}
+          />
+        </div>
+
+        <div>
+          <label>IBAN</label>
+          <input
+            value={invoiceSettings.iban || ""}
+            onChange={(e) => setInvoiceSettings({ ...invoiceSettings, iban: e.target.value })}
+            style={{ width: "100%" }}
+          />
+        </div>
+
+        <div>
+          <label>BIC (optional)</label>
+          <input
+            value={invoiceSettings.bic || ""}
+            onChange={(e) => setInvoiceSettings({ ...invoiceSettings, bic: e.target.value })}
+            style={{ width: "100%" }}
+          />
+        </div>
+
+        <div>
+          <label>Standard-Land (für Steuersatz)</label>
+          <select
+            value={invoiceSettings.default_vat_country || "AT"}
+            onChange={(e) => setInvoiceSettings({ ...invoiceSettings, default_vat_country: e.target.value })}
+            style={{ width: "100%" }}
+          >
+            <option value="AT">Österreich</option>
+            <option value="DE">Deutschland</option>
+          </select>
+        </div>
+
+        <div>
+          <label>Standard USt % (optional)</label>
+          <input
+            type="number"
+            value={invoiceSettings.default_vat_rate ?? 0}
+            onChange={(e) => setInvoiceSettings({ ...invoiceSettings, default_vat_rate: Number(e.target.value) })}
+            style={{ width: "100%" }}
+          />
+          <div style={{ fontSize: 12, color: "#777" }}>
+            Standard ist USt-frei pro Klient; Abweichungen steuerst du pro Klient.
+          </div>
+        </div>
+      </div>
+
+      <div style={{ marginTop: 10, display: "flex", justifyContent: "flex-end" }}>
+        <button
+          onClick={async () => {
+            const res = await fetch("/api/invoice-settings", {
+              method: "PUT",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ user_email: user.email, settings: invoiceSettings }),
+            });
+            if (!res.ok) {
+              alert("Fehler beim Speichern der Rechnungsdaten");
+              return;
+            }
+            alert("Rechnungsdaten gespeichert");
+          }}
+          style={{ padding: "8px 12px", borderRadius: 8, border: "1px solid #ccc" }}
+        >
+          💾 Rechnungsdaten speichern
+        </button>
+      </div>
+    </div>
+
 
     {/* EBENE 1 – KLINT:INNEN */}
     <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
@@ -927,18 +1101,35 @@ if (!user) return <div>Bitte einloggen…</div>;
         ))}
       </tbody>
     
+
 {/* EINZEL-SITZUNGEN (bei Einzel-Klient) */}
 {billingMode === "single" && billingClientId && (
   <div style={{ marginTop: 14, padding: 12, borderRadius: 10, border: "1px solid #eee", background: "#fff" }}>
-    <h3 style={{ marginTop: 0 }}>🧾 Einzelsitzungen</h3>
+    <h3 style={{ marginTop: 0 }}>🧾 Einzelsitzungen (Auswahl)</h3>
 
     <div style={{ marginBottom: 10, color: "#666", fontSize: 13 }}>
-      Hier siehst du alle Sitzungen der ausgewählten Klient:in im gewählten Zeitraum.
+      Wähle aus, welche Sitzungen in die Klienten-Rechnung / den Export sollen.
+    </div>
+
+    <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
+      <button
+        onClick={() => setSelectedSessionIds(scopedBillingSessions.map((s) => s.id))}
+        style={{ padding: "6px 10px", borderRadius: 8, border: "1px solid #ccc" }}
+      >
+        ✓ Alle auswählen
+      </button>
+      <button
+        onClick={() => setSelectedSessionIds([])}
+        style={{ padding: "6px 10px", borderRadius: 8, border: "1px solid #ccc" }}
+      >
+        ✕ Auswahl leeren
+      </button>
     </div>
 
     <table style={{ width: "100%", borderCollapse: "collapse" }}>
       <thead>
         <tr>
+          <th></th>
           <th align="left">Datum</th>
           <th>Dauer</th>
           <th align="right">Betrag €</th>
@@ -947,6 +1138,18 @@ if (!user) return <div>Bitte einloggen…</div>;
       <tbody>
         {scopedBillingSessions.map((s) => (
           <tr key={s.id}>
+            <td style={{ width: 34 }}>
+              <input
+                type="checkbox"
+                checked={selectedSessionIds.includes(s.id)}
+                onChange={(e) => {
+                  const checked = e.target.checked;
+                  setSelectedSessionIds((prev) =>
+                    checked ? [...prev, s.id] : prev.filter((id) => id !== s.id)
+                  );
+                }}
+              />
+            </td>
             <td>{new Date(s.date).toLocaleString("de-AT")}</td>
             <td align="center">{s.duration_min || 60} Min</td>
             <td align="right">{Number(s.price || 0).toFixed(2)}</td>
@@ -965,7 +1168,7 @@ if (!user) return <div>Bitte einloggen…</div>;
 
           exportClientInvoicePDF({
             client: clientName,
-            sessions: scopedBillingSessions,
+            sessions: scopedBillingSessions.filter((s) => selectedSessionIds.includes(s.id)),
             year: billingYear,
             month: billingSpan === "monat" ? billingMonth : `Q${billingQuarter}`,
             therapistName,
@@ -978,10 +1181,13 @@ if (!user) return <div>Bitte einloggen…</div>;
 
       <button
         onClick={() =>
-          exportSessionsCSV(scopedBillingSessions, {
-            year: billingYear,
-            month: billingSpan === "monat" ? billingMonth : `Q${billingQuarter}`,
-          })
+          exportSessionsCSV(
+            scopedBillingSessions.filter((s) => selectedSessionIds.includes(s.id)),
+            {
+              year: billingYear,
+              month: billingSpan === "monat" ? billingMonth : `Q${billingQuarter}`,
+            }
+          )
         }
         style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid #ccc" }}
       >
@@ -1505,7 +1711,7 @@ if (!user) return <div>Bitte einloggen…</div>;
                           therapist: user.email,
                           sessions: newSessions.map((s) => ({
                             date: s.date,
-                            duration: s.duration,
+                            duration_min: s.duration,
                             price: Number(editTarif),
                           })),
                         }),
@@ -1615,7 +1821,6 @@ if (!user) return <div>Bitte einloggen…</div>;
                     vorname: bestandVorname,
                     nachname: bestandNachname,
                     wunschtherapeut: bestandTherapeut,
-                    status: "active",
                   }),
                 });
 
