@@ -390,8 +390,6 @@ const [billingMode, setBillingMode] = useState("all");
 // Auswahl Klient (nur bei single)
 const [billingClientId, setBillingClientId] = useState("");
 
-
-  const [selectedSessionIds, setSelectedSessionIds] = useState([]);
 // Zeitraum
 const [billingSpan, setBillingSpan] = useState("monat"); 
 // "monat" | "quartal"
@@ -403,21 +401,7 @@ const [billingQuarter, setBillingQuarter] = useState(
   Math.floor(now.getMonth() / 3) + 1
 );
 
-  
-
-  /* ================= INVOICE SETTINGS (Therapeut:in) ================= */
-  const [invoiceSettings, setInvoiceSettings] = useState({
-    company_name: "",
-    address: "",
-    iban: "",
-    bic: "",
-    logo_url: "",
-    default_vat_country: "AT",
-    default_vat_rate: 0,
-  });
-  const [invoiceLoading, setInvoiceLoading] = useState(false);
-
-/* ================= ABRECHNUNG – LOGIK ================= */
+  /* ================= ABRECHNUNG – LOGIK ================= */
 
 // 1. Zeitraumfilter
 const filteredBillingSessions = useMemo(() => {
@@ -449,17 +433,7 @@ const scopedBillingSessions = useMemo(() => {
     return filteredBillingSessions.filter(
       (s) => String(s.anfrage_id) === String(billingClientId)
     );
-  
-
-// 2b. Auswahl (Einzelsitzungen)
-const selectedBillingSessions = useMemo(() => {
-  if (billingMode !== "single") return scopedBillingSessions;
-  if (!Array.isArray(selectedSessionIds) || selectedSessionIds.length === 0) return scopedBillingSessions;
-  const setIds = new Set(selectedSessionIds.map(String));
-  return scopedBillingSessions.filter((s) => setIds.has(String(s.id)));
-}, [scopedBillingSessions, billingMode, selectedSessionIds]);
-
-}
+  }
   return filteredBillingSessions;
 }, [filteredBillingSessions, billingMode, billingClientId]);
 
@@ -467,7 +441,7 @@ const selectedBillingSessions = useMemo(() => {
 const billingByClient = useMemo(() => {
   const map = {};
 
-  selectedBillingSessions.forEach((s) => {
+  scopedBillingSessions.forEach((s) => {
     if (!s.anfrage_id) return;
 
     if (!map[s.anfrage_id]) {
@@ -489,7 +463,7 @@ const billingByClient = useMemo(() => {
   });
 
   return Object.values(map);
-}, [selectedBillingSessions]);
+}, [scopedBillingSessions]);
 
 // 4. Gesamtsummen (für Poise & Jahresinfo)
 const billingTotals = useMemo(() => {
@@ -626,48 +600,6 @@ useEffect(() => {
     setUser(data?.user || null);
   });
 }, []);
-
-
-
-/* ---------- LOAD INVOICE SETTINGS (only Abrechnung tab) ---------- */
-useEffect(() => {
-  if (!user?.email) return;
-  if (filter !== "abrechnung") return;
-
-  let isMounted = true;
-
-  async function loadInvoiceSettings() {
-    setInvoiceLoading(true);
-    try {
-      const res = await fetch("/api/invoice-settings", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ user_email: user.email }),
-      });
-
-      if (!res.ok) return;
-
-      const data = await res.json();
-      if (!isMounted) return;
-
-      if (data?.settings) {
-        setInvoiceSettings((prev) => ({
-          ...prev,
-          ...data.settings,
-          default_vat_country: data.settings.default_vat_country || "AT",
-          default_vat_rate: Number(data.settings.default_vat_rate || 0),
-        }));
-      }
-    } finally {
-      if (isMounted) setInvoiceLoading(false);
-    }
-  }
-
-  loadInvoiceSettings();
-  return () => {
-    isMounted = false;
-  };
-}, [user, filter]);
 
 /* ---------- LOAD REQUESTS ---------- */
 useEffect(() => {
@@ -835,6 +767,381 @@ if (!user) return <div>Bitte einloggen…</div>;
 
       {/* FILTER */}
       <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
+        <button onClick={() => setFilter("unbearbeitet")}>Unbearbeitet</button>
+
+        <button onClick={() => setFilter("abrechnung")}>💶 Abrechnung</button>
+
+        <button onClick={() => setFilter("aktiv")}>Aktiv</button>
+        <button onClick={() => setFilter("papierkorb")}>Papierkorb</button>
+        <button onClick={() => setFilter("beendet")}>Beendet</button>
+        <button onClick={() => setFilter("alle")}>Alle</button>
+
+        <select
+          value={therapistFilter}
+          onChange={(e) => setTherapistFilter(e.target.value)}
+        >
+          <option value="alle">Alle Teammitglieder</option>
+          {teamData.map((t) => (
+            <option key={t.email} value={t.email}>
+              {t.name}
+            </option>
+          ))}
+        </select>
+
+        <input
+          placeholder="🔍 Klient:in suchen…"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          style={{
+            padding: "6px 10px",
+            borderRadius: 8,
+            border: "1px solid #ccc",
+            minWidth: 220,
+          }}
+        />
+
+        <select
+          value={sort}
+          onChange={(e) => setSort(e.target.value)}
+          style={{
+            padding: "6px 10px",
+            borderRadius: 8,
+            border: "1px solid #ccc",
+          }}
+        >
+          <option value="last">Letzte Aktivität</option>
+          <option value="name">Name A–Z</option>
+        </select>
+      </div>
+
+      <button
+        onClick={() => setCreateBestandOpen(true)}
+        style={{
+          marginBottom: 16,
+          padding: "8px 14px",
+          borderRadius: 999,
+          background: "#E8FFF0",
+          border: "1px solid #90D5A0",
+          fontWeight: 600,
+        }}
+      >
+        ➕ Bestandsklient:in anlegen
+      </button>
+
+{/* ================= ABRECHNUNG ================= */}
+{filter === "abrechnung" && (
+  <section style={{ border: "1px solid #ddd", borderRadius: 12, padding: 16 }}>
+    <h2>💶 Abrechnung</h2>
+
+    {/* EBENE 1 – KLINT:INNEN */}
+    <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+      <select
+        value={billingMode}
+        onChange={(e) => {
+          setBillingMode(e.target.value);
+          setBillingClientId("");
+        }}
+      >
+        <option value="all">Alle Klient:innen</option>
+        <option value="single">Eine Klient:in</option>
+      </select>
+
+      {billingMode === "single" && (
+        <select
+          value={billingClientId}
+          onChange={(e) => setBillingClientId(e.target.value)}
+        >
+          <option value="">Klient:in wählen…</option>
+          {requests.map((r) => (
+            <option key={r.id} value={r.id}>
+              {r.vorname} {r.nachname}
+            </option>
+          ))}
+        </select>
+      )}
+    </div>
+
+    {/* EBENE 2 – ZEITRAUM */}
+    <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+      <select value={billingSpan} onChange={(e) => setBillingSpan(e.target.value)}>
+        <option value="monat">Monat</option>
+        <option value="quartal">Quartal</option>
+      </select>
+
+      <select value={billingYear} onChange={(e) => setBillingYear(Number(e.target.value))}>
+        {[2023, 2024, 2025, 2026].map((y) => (
+          <option key={y} value={y}>{y}</option>
+        ))}
+      </select>
+
+      {billingSpan === "monat" && (
+        <select
+          value={billingMonth}
+          onChange={(e) => setBillingMonth(Number(e.target.value))}
+        >
+          {[...Array(12)].map((_, i) => (
+            <option key={i + 1} value={i + 1}>
+              {i + 1}
+            </option>
+          ))}
+        </select>
+      )}
+
+      {billingSpan === "quartal" && (
+        <select
+          value={billingQuarter}
+          onChange={(e) => setBillingQuarter(Number(e.target.value))}
+        >
+          <option value={1}>Q1</option>
+          <option value={2}>Q2</option>
+          <option value={3}>Q3</option>
+          <option value={4}>Q4</option>
+        </select>
+      )}
+    </div>
+
+    {/* TABELLE */}
+    <table style={{ width: "100%", borderCollapse: "collapse" }}>
+      <thead>
+        <tr>
+          <th align="left">Klient:in</th>
+          <th>Sitzungen</th>
+          <th>Umsatz €</th>
+          <th>Provision €</th>
+          <th>Auszahlung €</th>
+        </tr>
+      </thead>
+      <tbody>
+        {billingByClient.map((b, i) => (
+          <tr key={i}>
+            <td>{b.klient}</td>
+            <td align="center">{b.sessions}</td>
+            <td align="right">{b.umsatz.toFixed(2)}</td>
+            <td align="right">{b.provision.toFixed(2)}</td>
+            <td align="right">{b.payout.toFixed(2)}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+{/* EXPORT */}
+<div
+  style={{
+    display: "flex",
+    gap: 8,
+    marginTop: 12,
+    flexWrap: "wrap",
+  }}
+>
+  <button
+    onClick={() => exportBillingCSV(billingByClient)}
+    style={{
+      padding: "6px 12px",
+      borderRadius: 8,
+      border: "1px solid #ccc",
+    }}
+  >
+    📄 CSV exportieren
+  </button>
+
+  <button
+    onClick={() => exportBillingPDF(billingByClient)}
+    style={{
+      padding: "6px 12px",
+      borderRadius: 8,
+      border: "1px solid #ccc",
+    }}
+  >
+    📑 PDF exportieren
+  </button>
+</div>
+ 
+
+
+    {/* GESAMT */}
+    <hr />
+    <p><strong>Gesamt Sitzungen:</strong> {billingTotals.sessions}</p>
+    <p><strong>Gesamt Provision:</strong> {billingTotals.provision.toFixed(2)} €</p>
+  </section>
+)}
+      {/* POISE – TEAMÜBERSICHT */}
+{filter === "abrechnung" && (
+  <>
+    <hr style={{ margin: "20px 0" }} />
+
+    <h3>
+      🏢 Abrechnungsübersicht
+      {user?.email === "hallo@mypoise.de" ? " – Poise (alle Teammitglieder)" : ""}
+    </h3>
+
+    <table style={{ width: "100%", borderCollapse: "collapse" }}>
+      <thead>
+        <tr>
+          <th align="left">
+            {user?.email === "hallo@mypoise.de"
+              ? "Therapeut:in"
+              : "Meine Abrechnung"}
+          </th>
+          <th>Sitzungen</th>
+          <th>Umsatz €</th>
+          <th>Provision €</th>
+        </tr>
+      </thead>
+
+      <tbody>
+        {billingByTherapist.map((t) => (
+          <tr key={t.therapist}>
+            <td>
+              {teamData.find((x) => x.email === t.therapist)?.name ||
+                t.therapist}
+            </td>
+            <td align="center">{t.sessions}</td>
+            <td align="right">{t.umsatz.toFixed(2)}</td>
+            <td align="right">{t.provision.toFixed(2)}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+
+    <div style={{ marginTop: 12, color: "#555" }}>
+      ℹ️ Jahresgesamt {billingYear}:{" "}
+      <strong>{billingYearTotals.sessions}</strong> Sitzungen ·{" "}
+      <strong>{billingYearTotals.provision.toFixed(2)} €</strong> Provision
+    </div>
+  </>
+)}
+
+
+
+
+
+
+      {/* KARTEN */}
+      {filter !== "abrechnung" &&
+        sorted.map((r) => {
+          const sessionList = sessionsByRequest[String(r.id)] || [];
+          const lastSessionDate = sessionList.length
+            ? sessionList[sessionList.length - 1]?.date
+            : null;
+
+          const daysSinceLast =
+            lastSessionDate && !isNaN(Date.parse(lastSessionDate))
+              ? (Date.now() - new Date(lastSessionDate).getTime()) / 86400000
+              : null;
+
+          return (
+            <article
+              key={r.id}
+              style={{
+                border: "1px solid #ddd",
+                borderRadius: 12,
+                padding: 16,
+                marginBottom: 16,
+              }}
+            >
+              <strong>
+                {safeText(r.vorname, "")} {safeText(r.nachname, "")}
+              </strong>
+
+              <div>{STATUS_LABEL[r._status] || safeText(r._status)}</div>
+
+              {r.wunschtherapeut && (
+                <div style={{ fontSize: 13, color: "#555" }}>
+                  👤{" "}
+                  {teamData.find((t) => t.email === r.wunschtherapeut)?.name ||
+                    r.wunschtherapeut}
+                </div>
+              )}
+
+              {r._status === "active" && (
+                <div style={{ fontSize: 13, color: "#555", marginTop: 4 }}>
+                  🧠 Sitzungen: {sessionList.length}
+                  {lastSessionDate && !isNaN(Date.parse(lastSessionDate)) && (
+                    <>
+                      {" "}
+                      · letzte:{" "}
+                      {new Date(lastSessionDate).toLocaleDateString("de-AT")}
+                    </>
+                  )}
+                </div>
+              )}
+
+              {r._status === "active" &&
+                daysSinceLast != null &&
+                daysSinceLast > 30 && (
+                  <div style={{ marginTop: 6, color: "darkred", fontSize: 13 }}>
+                    ⚠️ keine Sitzung seit {Math.round(daysSinceLast)} Tagen
+                  </div>
+                )}
+
+              <p>{typeof r.anliegen === "string" ? r.anliegen : "–"}</p>
+
+              <button
+                onClick={() => {
+                  setDetailsModal(r);
+                  setEditTarif(r.honorar_klient || "");
+                  setNewSessions([{ date: "", duration: 60 }]);
+                }}
+              >
+                🔍 Details
+              </button>
+
+              {/* ENTSCHEIDUNGEN */}
+              {UNBEARBEITET.includes(r._status) && (
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                  <button
+                    onClick={() =>
+                      fetch("/api/confirm-appointment", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                          requestId: r.id,
+                          therapist: user.email,
+                          client: r.email,
+                          slot: r.bevorzugte_zeit,
+                          vorname: r.vorname,
+                        }),
+                      }).then(() => location.reload())
+                    }
+                  >
+                    ✔ Termin bestätigen
+                  </button>
+
+                  <button onClick={() => moveToTrash(r)}>✖ Absagen</button>
+                  <button onClick={() => moveToTrash(r)}>🔁 Neuer Termin</button>
+                  <button onClick={() => moveToTrash(r)}>👥 Weiterleiten</button>
+                </div>
+              )}
+
+              {/* MATCH / NO MATCH */}
+              {r._status === "termin_bestaetigt" && (
+                <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+                  <button
+                    onClick={() =>
+                      fetch("/api/match-client", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                          anfrageId: r.id,
+                          therapistEmail: user.email,
+                          honorar: r.honorar_klient,
+                        }),
+                      }).then(() => location.reload())
+                    }
+                  >
+                    ❤️ Match
+                  </button>
+
+                  <button
+                    onClick={() =>
+                      fetch("/api/no-match", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ anfrageId: r.id }),
+                      }).then(() => location.reload())
+                    }
+                  >
+                    ❌ Kein Match
+                  </button>
                 </div>
               )}
 
@@ -1229,7 +1536,6 @@ if (!user) return <div>Bitte einloggen…</div>;
                     vorname: bestandVorname,
                     nachname: bestandNachname,
                     wunschtherapeut: bestandTherapeut,
-                    status: "active",
                   }),
                 });
 
