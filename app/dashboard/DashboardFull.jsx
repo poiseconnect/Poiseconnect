@@ -41,6 +41,23 @@ const STATUS_LABEL = {
   beendet: "Beendet",
   papierkorb: "Papierkorb",
 };
+const STATUS_FILTER_MAP = {
+  unbearbeitet: ["offen", "termin_neu"],
+  aktiv: ["active"],
+  abrechnung: ["active", "beendet"],
+  beendet: ["beendet"],
+  papierkorb: ["papierkorb"],
+  alle: [
+    "offen",
+    "termin_neu",
+    "termin_bestaetigt",
+    "active",
+    "beendet",
+    "papierkorb",
+  ],
+};
+const UNBEARBEITET = ["offen", "termin_neu"];
+
 
 /* ================= MODAL ================= */
 
@@ -202,7 +219,7 @@ export default function DashboardFull() {
   const [bestandNachname, setBestandNachname] = useState("");
   const [bestandTherapeut, setBestandTherapeut] = useState("");
 
-  const [billingSessions, setBillingSessions] = useState([]);
+ 
   // ================= ABRECHNUNG FILTER =================
 const [billingMode, setBillingMode] = useState("monat");
 // "monat" | "quartal" | "jahr" | "einzeln"
@@ -227,14 +244,10 @@ const [billingDate, setBillingDate] = useState(""); // YYYY-MM-DD
 });
 
 const [invoiceLoading, setInvoiceLoading] = useState(false);
-  const [sessions, setSessions] = useState([]);
 
-  /* ================= SAFE SESSIONS (BUILD-SAFE) ================= */
 
-// falls Sessions später per useEffect kommen
-const sessionsSafe = Array.isArray(sessions)
-  ? sessions
-  : [];
+
+
 
 
   /* ---------- LOAD USER ---------- */
@@ -244,7 +257,7 @@ const sessionsSafe = Array.isArray(sessions)
     });
   }, []);
 
-  useEffect(() => {
+ useEffect(() => {
   if (!user?.email) return;
   if (filter !== "abrechnung") return;
 
@@ -268,66 +281,12 @@ const sessionsSafe = Array.isArray(sessions)
 
     if (mounted) setInvoiceLoading(false);
   })();
-  /* ---------- STATUS FILTER ---------- */
-
-
-
-
-/* ---------- GEFILTERTE ANFRAGEN ---------- */
-
-  const allowed = STATUS_FILTER_MAP[filter] || STATUS_FILTER_MAP.alle;
-
-  return requests.filter((r) => {
-    if (allowed.length && !allowed.includes(r._status)) return false;
-
-    if (
-      therapistFilter !== "alle" &&
-      r.wunschtherapeut !== therapistFilter
-    ) {
-      return false;
-    }
-
-    if (search) {
-      const q = search.toLowerCase();
-      const name = `${r.vorname || ""} ${r.nachname || ""}`.toLowerCase();
-      if (!name.includes(q)) return false;
-    }
-
-    return true;
-  });
-}, [requests, filter, therapistFilter, search]);
-
-/* ---------- SORTIERUNG ---------- */
-
-  return [...filteredRequests].sort((a, b) => {
-    if (sort === "name") {
-      return `${a.nachname || ""}${a.vorname || ""}`.localeCompare(
-        `${b.nachname || ""}${b.vorname || ""}`
-      );
-    }
-
-    const aSessions = sessionsByRequest[String(a.id)] || [];
-    const bSessions = sessionsByRequest[String(b.id)] || [];
-
-    const sa = aSessions.length
-      ? aSessions[aSessions.length - 1]?.date
-      : null;
-    const sb = bSessions.length
-      ? bSessions[bSessions.length - 1]?.date
-      : null;
-
-    const da = sa ? new Date(sa) : new Date(a.created_at);
-    const db = sb ? new Date(sb) : new Date(b.created_at);
-
-    return db - da;
-  });
-}, [filteredRequests, sort, sessionsByRequest]);
-  
 
   return () => {
     mounted = false;
   };
 }, [user, filter]);
+
 
   /* ---------- LOAD REQUESTS ---------- */
   useEffect(() => {
@@ -429,14 +388,11 @@ useEffect(() => {
     }
   });
 }, [user]);
-
-/* =========================================================
-   SICHERE SESSION-QUELLE (ersetzt früheres "sessions")
-========================================================= */
-
+  
 const sessionsSafe = useMemo(() => {
   return Array.isArray(billingSessions) ? billingSessions : [];
 }, [billingSessions]);
+
 
 /* =========================================================
    GEFILTERTE ANFRAGEN (KARTEN / LISTEN)
@@ -524,6 +480,8 @@ const filteredBillingSessions = useMemo(() => {
     if (billingMode === "einzeln") {
       return billingDate && s.date.startsWith(billingDate);
     }
+    if (!s.price || Number(s.price) <= 0) return false;
+ }
 
     return true;
   });
@@ -921,7 +879,7 @@ const billingByClient = useMemo(() => {
 )}
       {/* KARTEN */}
       {filter !== "abrechnung" &&
-        sorted.map((r) => {
+        sortedRequests.map((r) => {
           const sessionList = sessionsByRequest[String(r.id)] || [];
           const lastSessionDate = sessionList.length
             ? sessionList[sessionList.length - 1]?.date
