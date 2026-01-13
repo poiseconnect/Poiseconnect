@@ -1,11 +1,10 @@
 "use client";
-export const dynamic = "force-dynamic";
-export const revalidate = 0;
-
-
 
 import DashboardFull from "./DashboardFull";
 
-export default function Page() {
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
+export default function DashboardPage() {
   return <DashboardFull />;
 }
