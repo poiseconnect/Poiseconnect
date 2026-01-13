@@ -227,6 +227,8 @@ const [billingDate, setBillingDate] = useState(""); // YYYY-MM-DD
 });
 
 const [invoiceLoading, setInvoiceLoading] = useState(false);
+  const [sessions, setSessions] = useState([]);
+
   /* ================= SAFE SESSIONS (BUILD-SAFE) ================= */
 
 // falls Sessions später per useEffect kommen
