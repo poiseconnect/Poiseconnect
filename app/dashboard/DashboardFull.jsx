@@ -391,7 +391,6 @@ const [billingMode, setBillingMode] = useState("all");
 const [billingClientId, setBillingClientId] = useState("");
 
 
-
   const [selectedSessionIds, setSelectedSessionIds] = useState([]);
 // Zeitraum
 const [billingSpan, setBillingSpan] = useState("monat"); 
@@ -406,17 +405,17 @@ const [billingQuarter, setBillingQuarter] = useState(
 
   
 
-/* ================= INVOICE SETTINGS (Therapeut:in) ================= */
-const [invoiceSettings, setInvoiceSettings] = useState({
-  company_name: "",
-  address: "",
-  iban: "",
-  bic: "",
-  logo_url: "",
-  default_vat_country: "AT",
-  default_vat_rate: 0,
-});
-const [invoiceLoading, setInvoiceLoading] = useState(false);
+  /* ================= INVOICE SETTINGS (Therapeut:in) ================= */
+  const [invoiceSettings, setInvoiceSettings] = useState({
+    company_name: "",
+    address: "",
+    iban: "",
+    bic: "",
+    logo_url: "",
+    default_vat_country: "AT",
+    default_vat_rate: 0,
+  });
+  const [invoiceLoading, setInvoiceLoading] = useState(false);
 
 /* ================= ABRECHNUNG – LOGIK ================= */
 
@@ -836,7 +835,7 @@ if (!user) return <div>Bitte einloggen…</div>;
 
       {/* FILTER */}
       <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
-</div>
+                </div>
               )}
 
               {/* AKTIV */}
