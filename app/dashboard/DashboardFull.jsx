@@ -576,26 +576,27 @@ if (!user) return <div>Bitte einloggen…</div>;
         </select>
       </div>
 
-     {filter === "aktiv" && (
-  <button onClick={() => setCreateBestandOpen(true)}>
-        style={{
-          marginBottom: 16,
-          padding: "8px 14px",
-          borderRadius: 999,
-          background: "#E8FFF0",
-          border: "1px solid #90D5A0",
-          fontWeight: 600,
-        }}
-      >
-    
-      
-    ➕ Bestandsklient:in anlegen
-  </button>
+{filter === "aktiv" && (
+  <div style={{ marginBottom: 16 }}>
+    <button
+      onClick={() => setCreateBestandOpen(true)}
+      style={{
+        padding: "8px 14px",
+        borderRadius: 999,
+        background: "#E8FFF0",
+        border: "1px solid #90D5A0",
+        fontWeight: 600,
+      }}
+    >
+      ➕ Bestandsklient:in anlegen
+    </button>
+  </div>
+)}
 
-      {/* ABRECHNUNG */}
-     {filter === "abrechnung" && (
+{/* ================= ABRECHNUNG ================= */}
+{filter === "abrechnung" && (
   <>
-    {/* FILTERBAR: Zeitraum */}
+    {/* FILTERBAR */}
     <div
       style={{
         display: "flex",
@@ -666,7 +667,6 @@ if (!user) return <div>Bitte einloggen…</div>;
       )}
     </div>
 
-    {/* ABRECHNUNG */}
     <section
       style={{
         border: "1px solid #ddd",
@@ -674,9 +674,10 @@ if (!user) return <div>Bitte einloggen…</div>;
         padding: 16,
       }}
     >
+      {/* RECHNUNGSDATEN */}
       <details
         style={{
-          marginTop: 10,
+          marginBottom: 16,
           border: "1px solid #eee",
           borderRadius: 10,
           background: "#FAFAFA",
@@ -791,30 +792,6 @@ if (!user) return <div>Bitte einloggen…</div>;
                 }
               />
             </div>
-          </div>
-
-          <div
-            style={{
-              marginTop: 10,
-              display: "flex",
-              justifyContent: "flex-end",
-            }}
-          >
-            <button
-              onClick={async () => {
-                await fetch("/api/invoice-settings", {
-                  method: "PUT",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({
-                    user_email: user.email,
-                    settings: invoiceSettings,
-                  }),
-                });
-                alert("Rechnungsdaten gespeichert");
-              }}
-            >
-              💾 Speichern
-            </button>
           </div>
         </div>
       </details>
