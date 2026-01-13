@@ -259,6 +259,75 @@ const [invoiceLoading, setInvoiceLoading] = useState(false);
 
     if (mounted) setInvoiceLoading(false);
   })();
+  /* ---------- STATUS FILTER ---------- */
+const STATUS_UNBEARBEITET = ["offen", "termin_neu", "termin_bestaetigt"];
+
+const STATUS_FILTER_MAP = {
+  unbearbeitet: STATUS_UNBEARBEITET,
+  aktiv: ["active"],
+  beendet: ["beendet"],
+  papierkorb: ["papierkorb"],
+  abrechnung: [], // Abrechnung hat eigene Logik
+  alle: [
+    "offen",
+    "termin_neu",
+    "termin_bestaetigt",
+    "active",
+    "beendet",
+    "papierkorb",
+  ],
+};
+
+/* ---------- GEFILTERTE ANFRAGEN ---------- */
+const filteredRequests = useMemo(() => {
+  const allowed = STATUS_FILTER_MAP[filter] || STATUS_FILTER_MAP.alle;
+
+  return requests.filter((r) => {
+    if (allowed.length && !allowed.includes(r._status)) return false;
+
+    if (
+      therapistFilter !== "alle" &&
+      r.wunschtherapeut !== therapistFilter
+    ) {
+      return false;
+    }
+
+    if (search) {
+      const q = search.toLowerCase();
+      const name = `${r.vorname || ""} ${r.nachname || ""}`.toLowerCase();
+      if (!name.includes(q)) return false;
+    }
+
+    return true;
+  });
+}, [requests, filter, therapistFilter, search]);
+
+/* ---------- SORTIERUNG ---------- */
+const sortedRequests = useMemo(() => {
+  return [...filteredRequests].sort((a, b) => {
+    if (sort === "name") {
+      return `${a.nachname || ""}${a.vorname || ""}`.localeCompare(
+        `${b.nachname || ""}${b.vorname || ""}`
+      );
+    }
+
+    const aSessions = sessionsByRequest[String(a.id)] || [];
+    const bSessions = sessionsByRequest[String(b.id)] || [];
+
+    const sa = aSessions.length
+      ? aSessions[aSessions.length - 1]?.date
+      : null;
+    const sb = bSessions.length
+      ? bSessions[bSessions.length - 1]?.date
+      : null;
+
+    const da = sa ? new Date(sa) : new Date(a.created_at);
+    const db = sb ? new Date(sb) : new Date(b.created_at);
+
+    return db - da;
+  });
+}, [filteredRequests, sort, sessionsByRequest]);
+  
 
   return () => {
     mounted = false;
