@@ -475,7 +475,7 @@ const filteredBillingSessions = useMemo(() => {
 
     // 👤 TEAMFILTER
     if (
-      therapistFilter !== "alle" &&
+      
       s.therapist !== therapistFilter
     ) {
       return false;
@@ -529,12 +529,18 @@ const billingByClient = useMemo(() => {
   const map = {};
 
   (filteredBillingSessions || []).forEach((s) => {
-    if (!s?.anfrage_id) return;
+    if (therapistFilter !== "alle") {
+  // 1️⃣ normale Anfragen / Aktiv / Beendet
+  if (r.wunschtherapeut && r.wunschtherapeut !== therapistFilter) {
+    return false;
+  }
 
-    // 🔴 WICHTIG: Therapeut:innen-Filter für Abrechnung
-    if (therapistFilter !== "alle" && s.therapist !== therapistFilter) {
-      return;
-    }
+  // 2️⃣ Bestandsklient:innen (haben evtl. keinen Wunschtherapeut)
+  if (!r.wunschtherapeut && user.email !== "hallo@mypoise.de") {
+    return false;
+  }
+}
+
 
     if (!map[s.anfrage_id]) {
       map[s.anfrage_id] = {
