@@ -544,6 +544,26 @@ map[s.anfrage_id].payout += payout;
 
   return Object.values(map);
 }, [filteredBillingSessions]);
+  const provisionByQuarter = useMemo(() => {
+  if (!detailsModal) return [];
+
+  const sessions = sessionsByRequest[String(detailsModal.id)] || [];
+  const map = {};
+
+  sessions.forEach((s) => {
+    const q = quarterKeyFromDate(s.date);
+    if (!q) return;
+    map[q] = (map[q] || 0) + (Number(s.price) || 0) * 0.3;
+  });
+
+  return Object.entries(map).sort((a, b) => {
+    const [aq, ay] = a[0].split(" ");
+    const [bq, by] = b[0].split(" ");
+    if (ay !== by) return Number(by) - Number(ay);
+    return Number(bq.replace("Q", "")) - Number(aq.replace("Q", ""));
+  });
+}, [detailsModal, sessionsByRequest]);
+
 
   return (
     <div style={{ padding: 24, maxWidth: 1100, margin: "0 auto" }}>
@@ -1297,62 +1317,18 @@ map[s.anfrage_id].payout += payout;
       €
     </p>
 
-    <h4>Provision pro Quartal</h4>
-    {(() => {
-      const sessions = sessionsByRequest[String(detailsModal.id)] || [];
-      const map = sessions.reduce((acc, s) => {
-        const q = quarterKeyFromDate(s.date);
-        if (!q) return acc;
-        acc[q] = (acc[q] || 0) + (Number(s.price) || 0) * 0.3;
-        return acc;
-      }, {});
+  <h4>Provision pro Quartal</h4>
 
-      const entries = Object.entries(map).sort((a, b) => {
-        const [aq, ay] = a[0].split(" ");
-        const [bq, by] = b[0].split(" ");
-        const an = Number(aq.replace("Q", ""));
-        const bn = Number(bq.replace("Q", ""));
-        if (ay !== by) return Number(by) - Number(ay);
-        return bn - an;
-      });
+{provisionByQuarter.length === 0 ? (
+  <div style={{ color: "#777" }}>– Noch keine Sitzungen erfasst</div>
+) : (
+  provisionByQuarter.map(([q, sum]) => (
+    <div key={q}>
+      {q}: {Number(sum || 0).toFixed(2)} €
+    </div>
+  ))
+)}
 
-      const cq = currentQuarterKey();
-      const currentSum = map[cq] || 0;
-
-      return (
-        <div>
-          <div
-            style={{
-              padding: "10px 12px",
-              borderRadius: 10,
-              border: "1px solid #ddd",
-              background: currentSum === 0 ? "#FFF7EC" : "#EAF8EF",
-              marginBottom: 10,
-            }}
-          >
-            <strong>Aktuelles Quartal ({cq}):</strong>{" "}
-            {currentSum.toFixed(2)} €
-            {currentSum === 0 && (
-              <div style={{ marginTop: 6, color: "#8B5A2B" }}>
-                ⚠️ Noch keine Provision in diesem Quartal
-              </div>
-            )}
-          </div>
-
-          {entries.length === 0 ? (
-            <div style={{ color: "#777" }}>
-              – Noch keine Sitzungen erfasst
-            </div>
-          ) : (
-            entries.map(([q, sum]) => (
-              <div key={q}>
-                {q}: {Number(sum || 0).toFixed(2)} €
-              </div>
-            ))
-          )}
-        </div>
-      );
-    })()}
 
     {/* ================= SITZUNGEN ================= */}
     <h4 style={{ marginTop: 16 }}>Sitzungen</h4>
