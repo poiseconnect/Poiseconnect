@@ -784,6 +784,22 @@ map[s.anfrage_id].payout += payout;
                 }
               />
             </div>
+<label>sevDesk API Token (optional)</label>
+<input
+  type="password"
+  placeholder="sevdesk_xxx..."
+  value={invoiceSettings.sevdesk_token || ""}
+  onChange={(e) =>
+    setInvoiceSettings({
+      ...invoiceSettings,
+      sevdesk_token: e.target.value,
+    })
+  }
+/>
+
+<small>
+  Nur nötig, wenn Rechnungen automatisch an sevDesk übertragen werden sollen.
+</small>
 
             <div>
               <label>Land</label>
