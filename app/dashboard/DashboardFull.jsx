@@ -459,6 +459,21 @@ const filteredBillingSessions = useMemo(() => {
   return sessionsSafe.filter((s) => {
     if (!s?.date) return false;
 
+    // 👤 TEAMFILTER
+    if (
+      therapistFilter !== "alle" &&
+      s.therapist !== therapistFilter
+    ) {
+      return false;
+    }
+
+    // 🔍 KLIENT SUCHEN
+    if (search) {
+      const q = search.toLowerCase();
+      const name = `${s.anfragen?.vorname || ""} ${s.anfragen?.nachname || ""}`.toLowerCase();
+      if (!name.includes(q)) return false;
+    }
+
     const d = new Date(s.date);
 
     if (billingMode === "jahr") {
@@ -490,7 +505,10 @@ const filteredBillingSessions = useMemo(() => {
   billingMonth,
   billingQuarter,
   billingDate,
+  therapistFilter,
+  search,
 ]);
+
 
 
 const billingByClient = useMemo(() => {
@@ -584,18 +602,21 @@ map[s.anfrage_id].payout += payout;
           }}
         />
 
-        <select
-          value={sort}
-          onChange={(e) => setSort(e.target.value)}
-          style={{
-            padding: "6px 10px",
-            borderRadius: 8,
-            border: "1px solid #ccc",
-          }}
-        >
-          <option value="last">Letzte Aktivität</option>
-          <option value="name">Name A–Z</option>
-        </select>
+        {filter !== "abrechnung" && (
+  <select
+    value={sort}
+    onChange={(e) => setSort(e.target.value)}
+    style={{
+      padding: "6px 10px",
+      borderRadius: 8,
+      border: "1px solid #ccc",
+    }}
+  >
+    <option value="last">Letzte Aktivität</option>
+    <option value="name">Name A–Z</option>
+  </select>
+)}
+
       </div>
 
 {filter === "aktiv" && (
