@@ -1339,7 +1339,7 @@ map[s.anfrage_id].payout += payout;
                     </div>
                   );
                 })()}
-{/* ================= SITZUNGEN (BEARBEITEN / LÖSCHEN) ================= */}
+{/* ================= SITZUNGEN (NUR ANZEIGEN + LÖSCHEN) ================= */}
 
 <h4 style={{ marginTop: 14 }}>Sitzungen</h4>
 
@@ -1347,53 +1347,30 @@ map[s.anfrage_id].payout += payout;
   <div style={{ color: "#777" }}>Noch keine Sitzungen erfasst</div>
 )}
 
-{(sessionsByRequest[String(detailsModal.id)] || []).map((s) => (
+{(sessionsByRequest[String(detailsModal.id)] || []).map((s, i) => (
   <div
-    key={s.id}
+    key={s.id || i}
     style={{
       display: "grid",
-      gridTemplateColumns: "1fr 120px 70px",
-      gap: 8,
+      gridTemplateColumns: "1fr 80px 90px",
+      gap: 10,
       alignItems: "center",
       marginBottom: 10,
+      padding: "8px 10px",
+      border: "1px solid #eee",
+      borderRadius: 10,
+      background: "#FAFAFA",
     }}
   >
-    {/* DATUM */}
-    <input
-      type="datetime-local"
-      value={s.date ? s.date.slice(0, 16) : ""}
-      onChange={async (e) => {
-        await fetch("/api/update-session", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            sessionId: s.id,
-            date: e.target.value,
-            duration: s.duration_min,
-          }),
-        });
-      }}
-    />
+    {/* DATUM (READONLY) */}
+    <div>
+      {safeDateString(s.date) || "–"}
+    </div>
 
-    {/* DAUER */}
-    <select
-      value={s.duration_min}
-      onChange={async (e) => {
-        await fetch("/api/update-session", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            sessionId: s.id,
-            date: s.date,
-            duration: Number(e.target.value),
-          }),
-        });
-      }}
-    >
-      <option value={50}>50</option>
-      <option value={60}>60</option>
-      <option value={75}>75</option>
-    </select>
+    {/* DAUER (READONLY) */}
+    <div style={{ textAlign: "center" }}>
+      {safeNumber(s.duration_min)} Min
+    </div>
 
     {/* LÖSCHEN */}
     <div style={{ textAlign: "center" }}>
@@ -1409,20 +1386,28 @@ map[s.anfrage_id].payout += payout;
           });
 
           if (!res.ok) {
-            alert("Fehler beim Löschen");
+            alert("Fehler beim Löschen der Sitzung");
             return;
           }
 
           location.reload();
         }}
-        style={{ fontSize: 18 }}
+        style={{
+          fontSize: 18,
+          background: "none",
+          border: "none",
+          cursor: "pointer",
+        }}
       >
         🗑
       </button>
-      <div style={{ fontSize: 12, color: "#777" }}>Sitzung löschen</div>
+      <div style={{ fontSize: 12, color: "#777" }}>
+        Sitzung löschen
+      </div>
     </div>
   </div>
 ))}
+
 
 
 
