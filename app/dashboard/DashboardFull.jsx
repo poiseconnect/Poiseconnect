@@ -869,6 +869,104 @@ map[s.anfrage_id].payout += payout;
           </div>
         </div>
       </details>
+      {/* ================= ABRECHNUNG EXPORT & ÜBERSICHT ================= */}
+<div
+  style={{
+    borderTop: "1px solid #eee",
+    paddingTop: 16,
+    marginTop: 16,
+  }}
+>
+  <div
+    style={{
+      display: "flex",
+      gap: 8,
+      flexWrap: "wrap",
+      justifyContent: "flex-end",
+      marginBottom: 12,
+    }}
+  >
+    <button
+      onClick={() => exportBillingCSV(billingByClient)}
+      disabled={!billingByClient.length}
+    >
+      📄 CSV exportieren
+    </button>
+
+    <button
+      onClick={() => exportBillingPDF(billingByClient)}
+      disabled={!billingByClient.length}
+    >
+      🧾 PDF exportieren
+    </button>
+
+    <button
+      disabled={!invoiceSettings.sevdesk_token}
+      onClick={async () => {
+        const res = await fetch("/api/sevdesk-export", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            rows: billingByClient,
+            invoiceSettings,
+            period: {
+              billingMode,
+              billingYear,
+              billingMonth,
+              billingQuarter,
+            },
+          }),
+        });
+
+        if (!res.ok) {
+          alert("Fehler beim sevDesk Export");
+          return;
+        }
+
+        alert("Rechnungen erfolgreich an sevDesk übertragen");
+      }}
+    >
+      📤 sevDesk Export
+    </button>
+  </div>
+
+  {/* TABELLE */}
+  {billingByClient.length === 0 ? (
+    <div style={{ color: "#777" }}>
+      – Keine Abrechnungsdaten für diesen Zeitraum
+    </div>
+  ) : (
+    <table
+      style={{
+        width: "100%",
+        borderCollapse: "collapse",
+        fontSize: 14,
+      }}
+    >
+      <thead>
+        <tr>
+          <th align="left">Klient</th>
+          <th>Sitzungen</th>
+          <th align="right">Umsatz €</th>
+          <th align="right">Provision €</th>
+          <th align="right">Auszahlung €</th>
+        </tr>
+      </thead>
+      <tbody>
+        {billingByClient.map((r, i) => (
+          <tr key={i}>
+            <td>{r.klient}</td>
+            <td align="center">{r.sessions}</td>
+            <td align="right">{r.umsatz.toFixed(2)}</td>
+            <td align="right">{r.provision.toFixed(2)}</td>
+            <td align="right">{r.payout.toFixed(2)}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  )}
+</div>
+
     </section>
   </>
 )}
