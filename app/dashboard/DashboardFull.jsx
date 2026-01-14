@@ -1340,88 +1340,149 @@ map[s.anfrage_id].payout += payout;
                   );
                 })()}
 
-                <h4 style={{ marginTop: 14 }}>Sitzungen</h4>
-                {(sessionsByRequest[String(detailsModal.id)] || []).map((s, i) => (
-                  <div key={s.id || `${s.date}-${i}`}>
-                    {safeDateString(s.date) || "–"} · {safeNumber(s.duration_min)} Min
-                  </div>
-                ))}
+{/* ================= SITZUNGEN (BEARBEITEN / LÖSCHEN) ================= */}
 
-                <h4 style={{ marginTop: 14 }}>Neue Sitzung eintragen</h4>
+<h4 style={{ marginTop: 14 }}>Sitzungen</h4>
 
-                {newSessions.map((s, i) => (
-                  <div key={i} style={{ display: "flex", gap: 8, marginBottom: 8 }}>
-                    <input
-                      type="datetime-local"
-                      value={s.date}
-                      onChange={(e) => {
-                        const copy = [...newSessions];
-                        copy[i].date = e.target.value;
-                        setNewSessions(copy);
-                      }}
-                    />
+{(sessionsByRequest[String(detailsModal.id)] || []).length === 0 && (
+  <div style={{ color: "#777" }}>Noch keine Sitzungen erfasst</div>
+)}
 
-                    <select
-                      value={s.duration}
-                      onChange={(e) => {
-                        const copy = [...newSessions];
-                        copy[i].duration = Number(e.target.value);
-                        setNewSessions(copy);
-                      }}
-                    >
-                      <option value={50}>50 Min</option>
-                      <option value={60}>60 Min</option>
-                      <option value={75}>75 Min</option>
-                    </select>
-                  </div>
-                ))}
+{(sessionsByRequest[String(detailsModal.id)] || []).map((s) => (
+  <div
+    key={s.id}
+    style={{
+      border: "1px solid #ddd",
+      borderRadius: 8,
+      padding: 8,
+      marginBottom: 8,
+      display: "flex",
+      gap: 8,
+      alignItems: "center",
+      flexWrap: "wrap",
+    }}
+  >
+    {/* DATUM */}
+    <input
+      type="datetime-local"
+      value={s.date ? s.date.slice(0, 16) : ""}
+      onChange={(e) =>
+        fetch("/api/update-session", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            sessionId: s.id,
+            date: e.target.value,
+            duration: s.duration_min,
+          }),
+        })
+      }
+    />
 
-                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                  <button
-                    onClick={() => setNewSessions([...newSessions, { date: "", duration: 60 }])}
-                  >
-                    ➕ Weitere Sitzung
-                  </button>
+    {/* DAUER */}
+    <select
+      value={s.duration_min}
+      onChange={(e) =>
+        fetch("/api/update-session", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            sessionId: s.id,
+            date: s.date,
+            duration: Number(e.target.value),
+          }),
+        })
+      }
+    >
+      <option value={50}>50 Min</option>
+      <option value={60}>60 Min</option>
+      <option value={75}>75 Min</option>
+    </select>
 
-         <button
-  onClick={async () => {
-    // ✅ FRONTEND-SCHUTZ
-    const validSessions = newSessions.filter(
-      (s) => s.date && String(s.date).trim() !== ""
-    );
+    {/* LÖSCHEN */}
+    <button
+      type="button"
+      style={{ color: "darkred" }}
+      onClick={async () => {
+        if (!confirm("Sitzung wirklich löschen?")) return;
 
-    if (!validSessions.length) {
-      alert("Bitte mindestens eine Sitzung mit Datum eingeben");
-      return;
+        const res = await fetch("/api/delete-session", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ sessionId: s.id }),
+        });
+
+        if (!res.ok) {
+          alert("Fehler beim Löschen");
+          return;
+        }
+
+        location.reload();
+      }}
+    >
+      🗑️
+    </button>
+  </div>
+))}
+
+<h4 style={{ marginTop: 16 }}>Neue Sitzung eintragen</h4>
+
+<div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
+  <input
+    type="datetime-local"
+    value={newSessions[0]?.date || ""}
+    onChange={(e) =>
+      setNewSessions([{ date: e.target.value, duration: 60 }])
     }
+  />
 
-    const res = await fetch("/api/add-sessions-batch", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        anfrageId: detailsModal.id,
-        therapist: user.email,
-        sessions: validSessions.map((s) => ({
-          date: s.date,
-          duration: s.duration,
-          price: Number(editTarif),
-        })),
-      }),
-    });
-
-    if (!res.ok) {
-      alert("Fehler beim Speichern der Sitzungen");
-      return;
+  <select
+    value={newSessions[0]?.duration || 60}
+    onChange={(e) =>
+      setNewSessions([{ date: newSessions[0]?.date, duration: Number(e.target.value) }])
     }
+  >
+    <option value={50}>50 Min</option>
+    <option value={60}>60 Min</option>
+    <option value={75}>75 Min</option>
+  </select>
 
-    location.reload();
-  }}
->
-  💾 Sitzungen speichern
-</button>
+  <button
+    type="button"
+    onClick={async () => {
+      if (!newSessions[0]?.date) {
+        alert("Bitte Datum wählen");
+        return;
+      }
 
+      const res = await fetch("/api/add-sessions-batch", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          anfrageId: detailsModal.id,
+          therapist: user.email,
+          sessions: [
+            {
+              date: newSessions[0].date,
+              duration: newSessions[0].duration,
+              price: Number(editTarif),
+            },
+          ],
+        }),
+      });
 
-                </div>
+      if (!res.ok) {
+        alert("Fehler beim Speichern");
+        return;
+      }
+
+      location.reload();
+    }}
+  >
+    💾 Sitzung speichern
+  </button>
+</div>
+
               </div>
             )}
 
