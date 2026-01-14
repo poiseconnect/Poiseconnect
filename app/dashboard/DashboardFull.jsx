@@ -403,39 +403,36 @@ const filteredRequests = useMemo(() => {
     STATUS_FILTER_MAP[filter] ?? STATUS_FILTER_MAP.alle;
 
   return requests.filter((r) => {
-    // 1️⃣ Status
     if (!allowedStatuses.includes(r._status)) return false;
 
-    // 2️⃣ Therapeut:innen-Filter → über Sitzungen
+    // 🔹 Therapeut:innen-Filter
     if (therapistFilter !== "alle") {
-      const sessions = sessionsByRequest[String(r.id)] || [];
+      // Unbearbeitet → Wunschtherapeut
+      if (filter === "unbearbeitet") {
+        if (r.wunschtherapeut !== therapistFilter) return false;
+      }
 
-      const hasSessionWithTherapist = sessions.some(
-        (s) => s.therapist === therapistFilter
-      );
-
-      if (!hasSessionWithTherapist) return false;
+      // Aktiv / Beendet → es muss mind. 1 Session mit dieser Therapeutin geben
+      if (filter === "aktiv" || filter === "beendet") {
+        const sessions = sessionsByRequest[String(r.id)] || [];
+        const hasTherapistSession = sessions.some(
+          (s) => s.therapist === therapistFilter
+        );
+        if (!hasTherapistSession) return false;
+      }
     }
 
-    // 3️⃣ Klient-Suche (Name + Mail)
+    // 🔹 Klient:in suchen
     if (search) {
-      const q = search.toLowerCase().trim();
-
-      const haystack = [
-        r.vorname,
-        r.nachname,
-        r.email,
-      ]
-        .filter(Boolean)
-        .join(" ")
-        .toLowerCase();
-
-      if (!haystack.includes(q)) return false;
+      const q = search.toLowerCase();
+      const name = `${r.vorname || ""} ${r.nachname || ""}`.toLowerCase();
+      if (!name.includes(q)) return false;
     }
 
     return true;
   });
 }, [requests, filter, therapistFilter, search, sessionsByRequest]);
+
 
 
 
@@ -534,51 +531,46 @@ const billingByClient = useMemo(() => {
   (filteredBillingSessions || []).forEach((s) => {
     if (!s?.anfrage_id) return;
 
+    // 🔴 WICHTIG: Therapeut:innen-Filter für Abrechnung
+    if (therapistFilter !== "alle" && s.therapist !== therapistFilter) {
+      return;
+    }
+
     if (!map[s.anfrage_id]) {
       map[s.anfrage_id] = {
         klient:
           `${s.anfragen?.vorname || ""} ${s.anfragen?.nachname || ""}`.trim() ||
           "Unbekannt",
-        therapist: s.therapist,
         sessions: 0,
         umsatz: 0,
         provision: 0,
-        payout: 0,
       };
     }
-// Anzahl Sitzungen
-map[s.anfrage_id].sessions += 1;
 
-// Endpreis, den der Klient zahlt
-const price = Number(s.price || 0);
+    map[s.anfrage_id].sessions += 1;
 
-// Umsatzsteuer-Satz aus Rechnungsdaten
-const vatRate = Number(invoiceSettings.default_vat_rate || 0);
+    const price = Number(s.price || 0);
+    const vatRate = Number(invoiceSettings.default_vat_rate || 0);
 
-// Anliegen ist USt-befreit (medizinisch etc.)
-const isVatExemptCase = vatRate === 0;
+    // Netto-Basis für Provision
+    const netBase =
+      vatRate > 0
+        ? price / (1 + vatRate / 100)
+        : price;
 
-// 1️⃣ Netto-Bemessungsgrundlage
-const netBase =
-  !isVatExemptCase && vatRate > 0
-    ? price / (1 + vatRate / 100)
-    : price;
+    const provisionNet = netBase * 0.3;
 
-// 2️⃣ Provision (30 % vom Netto)
-const provisionNet = netBase * 0.3;
-
-// 3️⃣ Auszahlung an Therapeut (Klient zahlt immer den Endpreis)
-const payout = price - provisionNet;
-
-// 4️⃣ Summieren
-map[s.anfrage_id].umsatz += price;
-map[s.anfrage_id].provision += provisionNet;
-map[s.anfrage_id].payout += payout;
-
+    map[s.anfrage_id].umsatz += price;
+    map[s.anfrage_id].provision += provisionNet;
   });
 
   return Object.values(map);
-}, [filteredBillingSessions]);
+}, [
+  filteredBillingSessions,
+  therapistFilter,
+  invoiceSettings.default_vat_rate,
+]);
+
 
   return (
     <div style={{ padding: 24, maxWidth: 1100, margin: "0 auto" }}>
