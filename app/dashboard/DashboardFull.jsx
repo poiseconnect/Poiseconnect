@@ -1384,15 +1384,14 @@ map[s.anfrage_id].payout += payout;
                   </button>
 
          <button
-  type="button"
   onClick={async () => {
-    // ✅ nur gültige Sitzungen behalten
+    // ✅ FRONTEND-SCHUTZ
     const validSessions = newSessions.filter(
-      (s) => s.date && !isNaN(Date.parse(s.date))
+      (s) => s.date && String(s.date).trim() !== ""
     );
 
-    if (validSessions.length === 0) {
-      alert("Bitte mindestens eine gültige Sitzung mit Datum eintragen");
+    if (!validSessions.length) {
+      alert("Bitte mindestens eine Sitzung mit Datum eingeben");
       return;
     }
 
@@ -1403,16 +1402,14 @@ map[s.anfrage_id].payout += payout;
         anfrageId: detailsModal.id,
         therapist: user.email,
         sessions: validSessions.map((s) => ({
-          date: s.date, // ✅ garantiert gültig
-          duration: Number(s.duration),
+          date: s.date,
+          duration: s.duration,
           price: Number(editTarif),
         })),
       }),
     });
 
     if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      console.error("ADD SESSIONS ERROR", err);
       alert("Fehler beim Speichern der Sitzungen");
       return;
     }
