@@ -593,6 +593,7 @@ map[s.anfrage_id].payout += payout;
     });
     location.reload();
   }
+   }
     return (
     <div style={{ padding: 24, maxWidth: 1100, margin: "0 auto" }}>
       <h1>Poise Dashboard</h1>
