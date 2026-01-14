@@ -1339,7 +1339,7 @@ map[s.anfrage_id].payout += payout;
                     </div>
                   );
                 })()}
-{/* ================= SITZUNGEN (KOMPAKT / EDITIERBAR) ================= */}
+{/* ================= SITZUNGEN (BEARBEITEN / LÖSCHEN – GLEICH WIE NEU) ================= */}
 
 <h4 style={{ marginTop: 14 }}>Sitzungen</h4>
 
@@ -1351,76 +1351,90 @@ map[s.anfrage_id].payout += payout;
   <div
     key={s.id}
     style={{
-      display: "grid",
-      gridTemplateColumns: "1fr 100px 40px",
-      gap: 8,
-      alignItems: "center",
-      marginBottom: 6,
-      padding: "6px 8px",
-      border: "1px solid #ddd",
-      borderRadius: 6,
+      marginBottom: 14,
+      paddingBottom: 14,
+      borderBottom: "1px solid #eee",
     }}
   >
-    {/* DATUM */}
-    <input
-      type="datetime-local"
-      value={s.date ? s.date.slice(0, 16) : ""}
-      onChange={(e) =>
-        fetch("/api/update-session", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            sessionId: s.id,
-            date: e.target.value,
-            duration: s.duration_min,
-          }),
-        })
-      }
-    />
-
-    {/* DAUER */}
-    <select
-      value={s.duration_min}
-      onChange={(e) =>
-        fetch("/api/update-session", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            sessionId: s.id,
-            date: s.date,
-            duration: Number(e.target.value),
-          }),
-        })
-      }
+    <div
+      style={{
+        display: "grid",
+        gridTemplateColumns: "1fr 120px 44px",
+        gap: 8,
+        alignItems: "center",
+        marginBottom: 8,
+      }}
     >
-      <option value={50}>50</option>
-      <option value={60}>60</option>
-      <option value={75}>75</option>
-    </select>
+      {/* DATUM */}
+      <input
+        type="datetime-local"
+        value={s.date ? s.date.slice(0, 16) : ""}
+        onChange={(e) => {
+          s._editDate = e.target.value;
+        }}
+        style={{ width: "100%" }}
+      />
 
-    {/* LÖSCHEN */}
+      {/* DAUER */}
+      <select
+        defaultValue={s.duration_min}
+        onChange={(e) => {
+          s._editDuration = Number(e.target.value);
+        }}
+      >
+        <option value={50}>50 Min</option>
+        <option value={60}>60 Min</option>
+        <option value={75}>75 Min</option>
+      </select>
+
+      {/* LÖSCHEN */}
+      <button
+        type="button"
+        title="Sitzung löschen"
+        onClick={async () => {
+          if (!confirm("Sitzung wirklich löschen?")) return;
+
+          const res = await fetch("/api/delete-session", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ sessionId: s.id }),
+          });
+
+          if (!res.ok) {
+            alert("Fehler beim Löschen");
+            return;
+          }
+
+          location.reload();
+        }}
+      >
+        🗑
+      </button>
+    </div>
+
+    {/* SPEICHERN */}
     <button
       type="button"
-      title="Sitzung löschen"
-      style={{ color: "darkred" }}
       onClick={async () => {
-        if (!confirm("Sitzung wirklich löschen?")) return;
-
-        const res = await fetch("/api/delete-session", {
+        const res = await fetch("/api/update-session", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ sessionId: s.id }),
+          body: JSON.stringify({
+            sessionId: s.id,
+            date: s._editDate || s.date,
+            duration: s._editDuration || s.duration_min,
+          }),
         });
 
         if (!res.ok) {
-          alert("Fehler beim Löschen");
+          alert("Fehler beim Speichern der Sitzung");
           return;
         }
 
         location.reload();
       }}
     >
-      🗑
+      💾 Sitzung speichern
     </button>
   </div>
 ))}
