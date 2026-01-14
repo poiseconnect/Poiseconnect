@@ -1,6 +1,3 @@
-export const dynamic = "force-dynamic";
-
-import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
 const supabase = createClient(
@@ -8,39 +5,36 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
-export async function POST(req) {
+export async function POST(request) {
   try {
-    const body = await req.json();
+    const body = await request.json();
     const { anfrageId, tarif } = body;
 
-    const numericTarif = Number(tarif);
-
-    if (!anfrageId || !Number.isFinite(numericTarif)) {
-      return NextResponse.json(
-        { error: "INVALID_PAYLOAD" },
+    if (!anfrageId) {
+      return new Response(
+        JSON.stringify({ error: "Missing anfrageId" }),
         { status: 400 }
       );
     }
 
     const { error } = await supabase
       .from("anfragen")
-      .update({ honorar_klient: numericTarif })
+      .update({ honorar_klient: tarif })
       .eq("id", anfrageId);
 
     if (error) {
-      console.error("SUPABASE UPDATE ERROR:", error);
-      return NextResponse.json(
-        { error: "DB_UPDATE_FAILED" },
+      console.error("UPDATE TARIF ERROR", error);
+      return new Response(
+        JSON.stringify({ error: error.message }),
         { status: 500 }
       );
     }
 
-    return NextResponse.json({ ok: true });
-
-  } catch (err) {
-    console.error("UPDATE TARIF SERVER ERROR:", err);
-    return NextResponse.json(
-      { error: "SERVER_ERROR", detail: String(err) },
+    return new Response(JSON.stringify({ ok: true }), { status: 200 });
+  } catch (e) {
+    console.error("UPDATE TARIF SERVER ERROR", e);
+    return new Response(
+      JSON.stringify({ error: "Server error" }),
       { status: 500 }
     );
   }
