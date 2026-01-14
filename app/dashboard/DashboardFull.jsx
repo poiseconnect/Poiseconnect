@@ -524,23 +524,18 @@ const filteredBillingSessions = useMemo(() => {
 ]);
 
 
-
 const billingByClient = useMemo(() => {
   const map = {};
 
   (filteredBillingSessions || []).forEach((s) => {
     if (!s?.anfrage_id) return;
 
-    // 🔴 WICHTIG: Therapeut:innen-Filter für Abrechnung
-    if (therapistFilter !== "alle" && s.therapist !== therapistFilter) {
-      return;
-    }
-
     if (!map[s.anfrage_id]) {
       map[s.anfrage_id] = {
         klient:
           `${s.anfragen?.vorname || ""} ${s.anfragen?.nachname || ""}`.trim() ||
           "Unbekannt",
+        therapist: s.therapist,
         sessions: 0,
         umsatz: 0,
         provision: 0,
@@ -552,11 +547,8 @@ const billingByClient = useMemo(() => {
     const price = Number(s.price || 0);
     const vatRate = Number(invoiceSettings.default_vat_rate || 0);
 
-    // Netto-Basis für Provision
     const netBase =
-      vatRate > 0
-        ? price / (1 + vatRate / 100)
-        : price;
+      vatRate > 0 ? price / (1 + vatRate / 100) : price;
 
     const provisionNet = netBase * 0.3;
 
@@ -565,11 +557,8 @@ const billingByClient = useMemo(() => {
   });
 
   return Object.values(map);
-}, [
-  filteredBillingSessions,
-  therapistFilter,
-  invoiceSettings.default_vat_rate,
-]);
+}, [filteredBillingSessions, invoiceSettings.default_vat_rate]);
+
 
 
 
