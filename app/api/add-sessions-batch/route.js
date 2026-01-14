@@ -1,6 +1,3 @@
-export const dynamic = "force-dynamic";
-
-import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
 const supabase = createClient(
@@ -8,66 +5,41 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
-export async function POST(req) {
+export async function POST(request) {
   try {
-    const body = await req.json();
-    const { anfrageId, therapist, sessions } = body || {};
+    const body = await request.json();
+    const { anfrageId, therapist, sessions } = body;
 
-    if (!anfrageId || !therapist || !Array.isArray(sessions) || sessions.length === 0) {
-      return NextResponse.json(
-        { error: "INVALID_PAYLOAD" },
+    if (!anfrageId || !Array.isArray(sessions)) {
+      return new Response(
+        JSON.stringify({ error: "Invalid payload" }),
         { status: 400 }
       );
     }
 
-    const rows = sessions.map((s) => {
-      const date = s?.date;
-      const duration_min = Number(s?.duration_min ?? s?.duration ?? 60);
-      const price = Number(s?.price ?? 0);
+    const rows = sessions.map((s) => ({
+      anfrage_id: anfrageId,
+      therapist,
+      date: s.date,
+      duration_min: s.duration,
+      price: s.price,
+    }));
 
-      if (!date || !Number.isFinite(duration_min) || duration_min <= 0) {
-        return null;
-      }
-
-      const commission = Number.isFinite(price) ? price * 0.3 : 0;
-      const payout = Number.isFinite(price) ? price - commission : 0;
-
-      return {
-        anfrage_id: anfrageId,
-        therapist,
-        date,
-        duration_min,
-        price: Number.isFinite(price) ? price : 0,
-        commission,
-        payout,
-      };
-    }).filter(Boolean);
-
-    if (rows.length === 0) {
-      return NextResponse.json(
-        { error: "NO_VALID_ROWS" },
-        { status: 400 }
-      );
-    }
-
-    const { data, error } = await supabase
-      .from("sessions")
-      .insert(rows)
-      .select("id");
+    const { error } = await supabase.from("sessions").insert(rows);
 
     if (error) {
-      console.error("INSERT ERROR:", error);
-      return NextResponse.json(
-        { error: "DB_INSERT_FAILED", detail: error.message },
+      console.error("ADD SESSIONS ERROR", error);
+      return new Response(
+        JSON.stringify({ error: error.message }),
         { status: 500 }
       );
     }
 
-    return NextResponse.json({ ok: true, inserted: data?.length || 0 });
-  } catch (err) {
-    console.error("ADD SESSIONS SERVER ERROR:", err);
-    return NextResponse.json(
-      { error: "SERVER_ERROR", detail: String(err) },
+    return new Response(JSON.stringify({ ok: true }), { status: 200 });
+  } catch (e) {
+    console.error("ADD SESSIONS SERVER ERROR", e);
+    return new Response(
+      JSON.stringify({ error: "Server error" }),
       { status: 500 }
     );
   }
