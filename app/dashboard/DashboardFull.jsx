@@ -511,11 +511,35 @@ const billingByClient = useMemo(() => {
         payout: 0,
       };
     }
+// Anzahl Sitzungen
+map[s.anfrage_id].sessions += 1;
 
-    map[s.anfrage_id].sessions += 1;
-    map[s.anfrage_id].umsatz += Number(s.price) || 0;
-    map[s.anfrage_id].provision += Number(s.commission) || 0;
-    map[s.anfrage_id].payout += Number(s.payout) || 0;
+// Endpreis, den der Klient zahlt
+const price = Number(s.price || 0);
+
+// Umsatzsteuer-Satz aus Rechnungsdaten
+const vatRate = Number(invoiceSettings.default_vat_rate || 0);
+
+// Anliegen ist USt-befreit (medizinisch etc.)
+const isVatExemptCase = vatRate === 0;
+
+// 1️⃣ Netto-Bemessungsgrundlage
+const netBase =
+  !isVatExemptCase && vatRate > 0
+    ? price / (1 + vatRate / 100)
+    : price;
+
+// 2️⃣ Provision (30 % vom Netto)
+const provisionNet = netBase * 0.3;
+
+// 3️⃣ Auszahlung an Therapeut (Klient zahlt immer den Endpreis)
+const payout = price - provisionNet;
+
+// 4️⃣ Summieren
+map[s.anfrage_id].umsatz += price;
+map[s.anfrage_id].provision += provisionNet;
+map[s.anfrage_id].payout += payout;
+
   });
 
   return Object.values(map);
