@@ -874,7 +874,6 @@ map[s.anfrage_id].payout += payout;
 )}
 
 
-
       {/* KARTEN */}
       {filter !== "abrechnung" &&
         sortedRequests.map((r) => {
