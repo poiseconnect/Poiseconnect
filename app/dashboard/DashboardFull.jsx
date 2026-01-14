@@ -1383,25 +1383,43 @@ map[s.anfrage_id].payout += payout;
                     ➕ Weitere Sitzung
                   </button>
 
-                  <button
-                    onClick={() =>
-                      fetch("/api/add-sessions-batch", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({
-                          anfrageId: detailsModal.id,
-                          therapist: user.email,
-                          sessions: newSessions.map((s) => ({
-                            date: s.date,
-                            duration: s.duration,
-                            price: Number(editTarif),
-                          })),
-                        }),
-                      }).then(() => location.reload())
-                    }
-                  >
-                    💾 Sitzungen speichern
-                  </button>
+         <button
+  type="button"
+  onClick={async () => {
+    // einfache Validierung
+    if (!newSessions.length || !newSessions[0]?.date) {
+      alert("Bitte mindestens eine Sitzung mit Datum eingeben");
+      return;
+    }
+
+    const res = await fetch("/api/add-sessions-batch", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        anfrageId: detailsModal.id,
+        therapist: user.email,
+        sessions: newSessions.map((s) => ({
+          date: s.date,
+          duration: s.duration,
+          price: Number(editTarif),
+        })),
+      }),
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      alert("Fehler beim Speichern der Sitzungen");
+      console.error("ADD SESSION ERROR", err);
+      return;
+    }
+
+    // ✅ erst JETZT reload
+    location.reload();
+  }}
+>
+  💾 Sitzungen speichern
+</button>
+
                 </div>
               </div>
             )}
