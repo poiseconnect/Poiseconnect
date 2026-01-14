@@ -142,7 +142,7 @@ function exportBillingCSV(rows) {
     "Sitzungen",
     "Umsatz",
     "Provision Poise",
-    "Auszahlung Therapeut:in",
+  
   ];
 
   const csvRows = [
@@ -180,7 +180,7 @@ function exportBillingPDF(rows) {
   doc.autoTable({
     startY: 22,
     head: [
-      ["Klient", "Sitzungen", "Umsatz (€)", "Provision (€)", "Auszahlung (€)"],
+  
     ],
     body: rows.map((r) => [
       r.klient,
@@ -397,32 +397,30 @@ const sessionsSafe = useMemo(() => {
 /* =========================================================
    GEFILTERTE ANFRAGEN (KARTEN / LISTEN)
 ========================================================= */
-
 const filteredRequests = useMemo(() => {
   const allowedStatuses =
     STATUS_FILTER_MAP[filter] ?? STATUS_FILTER_MAP.alle;
 
   return requests.filter((r) => {
+    // STATUS
     if (!allowedStatuses.includes(r._status)) return false;
 
-    // 🔹 Therapeut:innen-Filter
+    // 👤 THERAPEUT:IN FILTER
     if (therapistFilter !== "alle") {
-      // Unbearbeitet → Wunschtherapeut
-      if (filter === "unbearbeitet") {
-        if (r.wunschtherapeut !== therapistFilter) return false;
-      }
-
-      // Aktiv / Beendet → es muss mind. 1 Session mit dieser Therapeutin geben
-      if (filter === "aktiv" || filter === "beendet") {
+      // 1️⃣ Wenn Wunschtherapeut passt → OK
+      if (r.wunschtherapeut === therapistFilter) {
+        // ok
+      } else {
+        // 2️⃣ Oder es gibt mind. eine Session mit dieser Therapeut:in
         const sessions = sessionsByRequest[String(r.id)] || [];
-        const hasTherapistSession = sessions.some(
+        const hasSession = sessions.some(
           (s) => s.therapist === therapistFilter
         );
-        if (!hasTherapistSession) return false;
+        if (!hasSession) return false;
       }
     }
 
-    // 🔹 Klient:in suchen
+    // 🔍 KLIENT:IN SUCHEN
     if (search) {
       const q = search.toLowerCase();
       const name = `${r.vorname || ""} ${r.nachname || ""}`.toLowerCase();
@@ -432,6 +430,7 @@ const filteredRequests = useMemo(() => {
     return true;
   });
 }, [requests, filter, therapistFilter, search, sessionsByRequest]);
+
 
 
 
@@ -473,15 +472,15 @@ const filteredBillingSessions = useMemo(() => {
   return sessionsSafe.filter((s) => {
     if (!s?.date) return false;
 
-    // 👤 TEAMFILTER
+    // 👤 TEAMFILTER (NUR wenn nicht "alle")
     if (
-      
+      therapistFilter !== "alle" &&
       s.therapist !== therapistFilter
     ) {
       return false;
     }
 
-    // 🔍 KLIENT SUCHEN
+    // 🔍 KLIENT:IN SUCHEN
     if (search) {
       const q = search.toLowerCase();
       const name = `${s.anfragen?.vorname || ""} ${s.anfragen?.nachname || ""}`.toLowerCase();
@@ -522,6 +521,7 @@ const filteredBillingSessions = useMemo(() => {
   therapistFilter,
   search,
 ]);
+
 
 
 const billingByClient = useMemo(() => {
@@ -969,7 +969,7 @@ const billingByClient = useMemo(() => {
           <th>Sitzungen</th>
           <th align="right">Umsatz €</th>
           <th align="right">Provision €</th>
-          <th align="right">Auszahlung €</th>
+         
         </tr>
       </thead>
       <tbody>
@@ -979,7 +979,7 @@ const billingByClient = useMemo(() => {
             <td align="center">{r.sessions}</td>
             <td align="right">{r.umsatz.toFixed(2)}</td>
             <td align="right">{r.provision.toFixed(2)}</td>
-            <td align="right">{r.payout.toFixed(2)}</td>
+        
           </tr>
         ))}
       </tbody>
