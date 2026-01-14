@@ -1339,8 +1339,7 @@ map[s.anfrage_id].payout += payout;
                     </div>
                   );
                 })()}
-
-{/* ================= SITZUNGEN (BEARBEITEN / LÖSCHEN) ================= */}
+{/* ================= SITZUNGEN (KOMPAKT / EDITIERBAR) ================= */}
 
 <h4 style={{ marginTop: 14 }}>Sitzungen</h4>
 
@@ -1352,14 +1351,14 @@ map[s.anfrage_id].payout += payout;
   <div
     key={s.id}
     style={{
-      border: "1px solid #ddd",
-      borderRadius: 8,
-      padding: 8,
-      marginBottom: 8,
-      display: "flex",
+      display: "grid",
+      gridTemplateColumns: "1fr 100px 40px",
       gap: 8,
       alignItems: "center",
-      flexWrap: "wrap",
+      marginBottom: 6,
+      padding: "6px 8px",
+      border: "1px solid #ddd",
+      borderRadius: 6,
     }}
   >
     {/* DATUM */}
@@ -1394,14 +1393,15 @@ map[s.anfrage_id].payout += payout;
         })
       }
     >
-      <option value={50}>50 Min</option>
-      <option value={60}>60 Min</option>
-      <option value={75}>75 Min</option>
+      <option value={50}>50</option>
+      <option value={60}>60</option>
+      <option value={75}>75</option>
     </select>
 
     {/* LÖSCHEN */}
     <button
       type="button"
+      title="Sitzung löschen"
       style={{ color: "darkred" }}
       onClick={async () => {
         if (!confirm("Sitzung wirklich löschen?")) return;
@@ -1420,10 +1420,11 @@ map[s.anfrage_id].payout += payout;
         location.reload();
       }}
     >
-      🗑️
+      🗑
     </button>
   </div>
 ))}
+
 
 <h4 style={{ marginTop: 16 }}>Neue Sitzung eintragen</h4>
 
