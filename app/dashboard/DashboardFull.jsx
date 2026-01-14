@@ -1014,7 +1014,7 @@ map[s.anfrage_id].payout += payout;
       </tbody>
     </table>
   )}
-</div>
+
 
     </section>
   </>
