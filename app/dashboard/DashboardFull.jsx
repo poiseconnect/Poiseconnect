@@ -529,18 +529,12 @@ const billingByClient = useMemo(() => {
   const map = {};
 
   (filteredBillingSessions || []).forEach((s) => {
-    if (therapistFilter !== "alle") {
-  // 1️⃣ normale Anfragen / Aktiv / Beendet
-  if (r.wunschtherapeut && r.wunschtherapeut !== therapistFilter) {
-    return false;
-  }
+    if (!s?.anfrage_id) return;
 
-  // 2️⃣ Bestandsklient:innen (haben evtl. keinen Wunschtherapeut)
-  if (!r.wunschtherapeut && user.email !== "hallo@mypoise.de") {
-    return false;
-  }
-}
-
+    // 🔴 WICHTIG: Therapeut:innen-Filter für Abrechnung
+    if (therapistFilter !== "alle" && s.therapist !== therapistFilter) {
+      return;
+    }
 
     if (!map[s.anfrage_id]) {
       map[s.anfrage_id] = {
@@ -576,6 +570,7 @@ const billingByClient = useMemo(() => {
   therapistFilter,
   invoiceSettings.default_vat_rate,
 ]);
+
 
 
   return (
