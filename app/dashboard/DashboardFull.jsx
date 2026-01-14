@@ -1344,97 +1344,49 @@ map[s.anfrage_id].payout += payout;
 
 <h4 style={{ marginTop: 14 }}>Sitzungen</h4>
 
-{(sessionsByRequest[String(detailsModal.id)] || []).length === 0 && (
-  <div style={{ color: "#777", marginBottom: 8 }}>
-    – Noch keine Sitzungen erfasst
-  </div>
-)}
-
-{/* BESTEHENDE SITZUNGEN */}
-{(sessionsByRequest[String(detailsModal.id)] || []).map((s) => (
+{(sessionsByRequest[String(detailsModal.id)] || []).map((s, i) => (
   <div
-    key={s.id}
+    key={s.id || `${s.date}-${i}`}
     style={{
       display: "flex",
-      gap: 8,
+      justifyContent: "space-between",
       alignItems: "center",
       marginBottom: 6,
     }}
   >
-    <input
-      type="datetime-local"
-      value={s.date ? s.date.slice(0, 16) : ""}
-      onChange={async (e) => {
-        if (!e.target.value) return;
-
-        await fetch("/api/update-session", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            sessionId: s.id,
-            date: e.target.value,
-            duration: s.duration_min,
-          }),
-        });
-      }}
-    />
-
-    <select
-      value={s.duration_min}
-      onChange={async (e) => {
-        await fetch("/api/update-session", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            sessionId: s.id,
-            date: s.date,
-            duration: Number(e.target.value),
-          }),
-        });
-      }}
-    >
-      <option value={50}>50 Min</option>
-      <option value={60}>60 Min</option>
-      <option value={75}>75 Min</option>
-    </select>
+    <span>
+      {safeDateString(s.date) || "–"} · {safeNumber(s.duration_min)} Min
+    </span>
 
     <button
-      title="Sitzung löschen"
-      style={{
-        color: "darkred",
-        border: "none",
-        background: "transparent",
-        cursor: "pointer",
-        fontSize: 16,
-      }}
+      type="button"
+      style={{ color: "darkred" }}
       onClick={async () => {
         if (!confirm("Sitzung wirklich löschen?")) return;
 
-        await fetch("/api/delete-session", {
+        const res = await fetch("/api/delete-session", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ sessionId: s.id }),
         });
 
+        if (!res.ok) {
+          alert("Fehler beim Löschen");
+          return;
+        }
+
         location.reload();
       }}
     >
-      🗑
+      🗑️
     </button>
   </div>
 ))}
 
-<hr style={{ margin: "16px 0" }} />
-
-{/* ================= NEUE SITZUNGEN ================= */}
-
-<h4>Neue Sitzung eintragen</h4>
+<h4 style={{ marginTop: 16 }}>Neue Sitzung eintragen</h4>
 
 {newSessions.map((s, i) => (
-  <div
-    key={i}
-    style={{ display: "flex", gap: 8, marginBottom: 8 }}
-  >
+  <div key={i} style={{ display: "flex", gap: 8, marginBottom: 8 }}>
     <input
       type="datetime-local"
       value={s.date}
@@ -1460,8 +1412,9 @@ map[s.anfrage_id].payout += payout;
   </div>
 ))}
 
-<div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+<div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 8 }}>
   <button
+    type="button"
     onClick={() =>
       setNewSessions([...newSessions, { date: "", duration: 60 }])
     }
@@ -1470,8 +1423,8 @@ map[s.anfrage_id].payout += payout;
   </button>
 
   <button
+    type="button"
     onClick={async () => {
-      // ✅ Frontend-Schutz gegen leere Datumswerte
       const validSessions = newSessions.filter(
         (s) => s.date && String(s.date).trim() !== ""
       );
@@ -1507,8 +1460,6 @@ map[s.anfrage_id].payout += payout;
   </button>
 </div>
 
-  💾 Sitzungen speichern
-</button>
 
 
                 </div>
