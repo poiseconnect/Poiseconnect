@@ -565,7 +565,6 @@ map[s.anfrage_id].payout += payout;
 }, [detailsModal, sessionsByRequest]);
 
 
-
     /* ---------- HELPERS (API) ---------- */
 
   async function moveToTrash(r) {
