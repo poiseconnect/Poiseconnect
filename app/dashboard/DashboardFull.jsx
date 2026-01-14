@@ -566,6 +566,34 @@ map[s.anfrage_id].payout += payout;
 
 
   return (
+    /* ---------- HELPERS (API) ---------- */
+
+  async function moveToTrash(r) {
+    await fetch("/api/update-status", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ anfrageId: r.id, status: "papierkorb" }),
+    });
+    location.reload();
+  }
+
+  async function restoreFromTrash(r) {
+    await fetch("/api/update-status", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ anfrageId: r.id, status: "offen" }),
+    });
+    location.reload();
+  }
+
+  async function deleteForever(r) {
+    await fetch("/api/delete-request", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ anfrageId: r.id }),
+    });
+    location.reload();
+  }
     <div style={{ padding: 24, maxWidth: 1100, margin: "0 auto" }}>
       <h1>Poise Dashboard</h1>
 
@@ -1563,32 +1591,5 @@ map[s.anfrage_id].payout += payout;
     </div>
   );
 
-  /* ---------- HELPERS (API) ---------- */
-
-  async function moveToTrash(r) {
-    await fetch("/api/update-status", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ anfrageId: r.id, status: "papierkorb" }),
-    });
-    location.reload();
-  }
-
-  async function restoreFromTrash(r) {
-    await fetch("/api/update-status", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ anfrageId: r.id, status: "offen" }),
-    });
-    location.reload();
-  }
-
-  async function deleteForever(r) {
-    await fetch("/api/delete-request", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ anfrageId: r.id }),
-    });
-    location.reload();
-  }
+  
 }
