@@ -1412,31 +1412,6 @@ map[s.anfrage_id].payout += payout;
       </button>
     </div>
 
-    {/* SPEICHERN */}
-    <button
-      type="button"
-      onClick={async () => {
-        const res = await fetch("/api/update-session", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            sessionId: s.id,
-            date: s._editDate || s.date,
-            duration: s._editDuration || s.duration_min,
-          }),
-        });
-
-        if (!res.ok) {
-          alert("Fehler beim Speichern der Sitzung");
-          return;
-        }
-
-        location.reload();
-      }}
-    >
-      💾 Sitzung speichern
-    </button>
-  </div>
 ))}
 
 
