@@ -5,41 +5,54 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
-export async function POST(request) {
+export async function POST(req) {
   try {
-    const body = await request.json();
+    const body = await req.json();
+
     const { anfrageId, therapist, sessions } = body;
 
-    if (!anfrageId || !Array.isArray(sessions)) {
-      return new Response(
-        JSON.stringify({ error: "Invalid payload" }),
+    if (!anfrageId || !therapist || !Array.isArray(sessions)) {
+      return Response.json(
+        { error: "Ungültige Parameter" },
         { status: 400 }
       );
     }
 
-    const rows = sessions.map((s) => ({
-      anfrage_id: anfrageId,
-      therapist,
-      date: s.date,
-      duration_min: s.duration,
-      price: s.price,
-    }));
+    // 🔒 LEERE / UNGÜLTIGE SESSIONS ENTFERNEN
+    const cleanSessions = sessions
+      .filter((s) => s.date && String(s.date).trim() !== "")
+      .map((s) => ({
+        anfrage_id: anfrageId,
+        therapist,
+        date: new Date(s.date).toISOString(),
+        duration_min: Number(s.duration),
+        price: Number(s.price),
+      }));
 
-    const { error } = await supabase.from("sessions").insert(rows);
+    if (!cleanSessions.length) {
+      return Response.json(
+        { error: "Keine gültigen Sitzungen übergeben" },
+        { status: 400 }
+      );
+    }
+
+    const { error } = await supabase
+      .from("sessions")
+      .insert(cleanSessions);
 
     if (error) {
       console.error("ADD SESSIONS ERROR", error);
-      return new Response(
-        JSON.stringify({ error: error.message }),
+      return Response.json(
+        { error: error.message },
         { status: 500 }
       );
     }
 
-    return new Response(JSON.stringify({ ok: true }), { status: 200 });
-  } catch (e) {
-    console.error("ADD SESSIONS SERVER ERROR", e);
-    return new Response(
-      JSON.stringify({ error: "Server error" }),
+    return Response.json({ success: true });
+  } catch (err) {
+    console.error("ADD SESSIONS SERVER ERROR", err);
+    return Response.json(
+      { error: "Serverfehler" },
       { status: 500 }
     );
   }
