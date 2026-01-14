@@ -689,6 +689,7 @@ map[s.anfrage_id].payout += payout;
       )}
     </div>
 
+    {/* ABRECHNUNGSBEREICH */}
     <section
       style={{
         border: "1px solid #ddd",
@@ -696,178 +697,182 @@ map[s.anfrage_id].payout += payout;
         padding: 16,
       }}
     >
-{/* RECHNUNGSDATEN */}
-<details
-  style={{
-    marginBottom: 16,
-    border: "1px solid #eee",
-    borderRadius: 10,
-    background: "#FAFAFA",
-    padding: 10,
-  }}
->
-  <summary style={{ cursor: "pointer", fontWeight: 600 }}>
-    🧾 Rechnungsdaten (deine Angaben)
-  </summary>
-
-  <div style={{ marginTop: 10 }}>
-    {invoiceLoading && <div>Lade Rechnungsdaten…</div>}
-
-    <div
-      style={{
-        display: "grid",
-        gridTemplateColumns: "1fr 1fr",
-        gap: 10,
-      }}
-    >
-      <div>
-        <label>Name / Firma</label>
-        <input
-          value={invoiceSettings.company_name}
-          onChange={(e) =>
-            setInvoiceSettings({
-              ...invoiceSettings,
-              company_name: e.target.value,
-            })
-          }
-        />
-      </div>
-
-      <div>
-        <label>Logo URL</label>
-        <input
-          value={invoiceSettings.logo_url}
-          onChange={(e) =>
-            setInvoiceSettings({
-              ...invoiceSettings,
-              logo_url: e.target.value,
-            })
-          }
-        />
-      </div>
-
-      <div style={{ gridColumn: "1 / -1" }}>
-        <label>Adresse</label>
-        <textarea
-          value={invoiceSettings.address}
-          onChange={(e) =>
-            setInvoiceSettings({
-              ...invoiceSettings,
-              address: e.target.value,
-            })
-          }
-        />
-      </div>
-
-      <div>
-        <label>IBAN</label>
-        <input
-          value={invoiceSettings.iban}
-          onChange={(e) =>
-            setInvoiceSettings({
-              ...invoiceSettings,
-              iban: e.target.value,
-            })
-          }
-        />
-      </div>
-
-      <div>
-        <label>BIC</label>
-        <input
-          value={invoiceSettings.bic}
-          onChange={(e) =>
-            setInvoiceSettings({
-              ...invoiceSettings,
-              bic: e.target.value,
-            })
-          }
-        />
-      </div>
-
-      {/* sevDesk TOKEN */}
-      <div style={{ gridColumn: "1 / -1" }}>
-        <label>sevDesk API Token (optional)</label>
-        <input
-          type="password"
-          placeholder="sevdesk_xxx..."
-          value={invoiceSettings.sevdesk_token || ""}
-          onChange={(e) =>
-            setInvoiceSettings({
-              ...invoiceSettings,
-              sevdesk_token: e.target.value,
-            })
-          }
-        />
-        <small style={{ color: "#666" }}>
-          Nur nötig, wenn Rechnungen automatisch an sevDesk übertragen werden sollen.
-        </small>
-      </div>
-
-      <div>
-        <label>Land</label>
-        <select
-          value={invoiceSettings.default_vat_country}
-          onChange={(e) =>
-            setInvoiceSettings({
-              ...invoiceSettings,
-              default_vat_country: e.target.value,
-            })
-          }
-        >
-          <option value="AT">Österreich</option>
-          <option value="DE">Deutschland</option>
-        </select>
-      </div>
-
-      <div>
-        <label>Standard USt %</label>
-        <input
-          type="number"
-          value={invoiceSettings.default_vat_rate}
-          onChange={(e) =>
-            setInvoiceSettings({
-              ...invoiceSettings,
-              default_vat_rate: Number(e.target.value),
-            })
-          }
-        />
-      </div>
-    </div>
-
-    {/* SAVE BUTTON – AUSSERHALB DES GRIDS */}
-    <div
-      style={{
-        marginTop: 12,
-        display: "flex",
-        justifyContent: "flex-end",
-      }}
-    >
-      <button
-        type="button"
-        onClick={async () => {
-          const res = await fetch("/api/accounting-settings", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              therapist_email: user.email,
-              ...invoiceSettings,
-            }),
-          });
-
-          if (!res.ok) {
-            alert("Fehler beim Speichern der Rechnungsdaten");
-            return;
-          }
-
-          alert("Rechnungsdaten gespeichert");
+      {/* RECHNUNGSDATEN */}
+      <details
+        style={{
+          marginBottom: 16,
+          border: "1px solid #eee",
+          borderRadius: 10,
+          background: "#FAFAFA",
+          padding: 10,
         }}
       >
-        💾 Rechnungsdaten speichern
-      </button>
-    </div>
-  </div>
-</details>
+        <summary style={{ cursor: "pointer", fontWeight: 600 }}>
+          🧾 Rechnungsdaten (deine Angaben)
+        </summary>
+
+        <div style={{ marginTop: 10 }}>
+          {invoiceLoading && <div>Lade Rechnungsdaten…</div>}
+
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "1fr 1fr",
+              gap: 10,
+            }}
+          >
+            <div>
+              <label>Name / Firma</label>
+              <input
+                value={invoiceSettings.company_name}
+                onChange={(e) =>
+                  setInvoiceSettings({
+                    ...invoiceSettings,
+                    company_name: e.target.value,
+                  })
+                }
+              />
+            </div>
+
+            <div>
+              <label>Logo URL</label>
+              <input
+                value={invoiceSettings.logo_url}
+                onChange={(e) =>
+                  setInvoiceSettings({
+                    ...invoiceSettings,
+                    logo_url: e.target.value,
+                  })
+                }
+              />
+            </div>
+
+            <div style={{ gridColumn: "1 / -1" }}>
+              <label>Adresse</label>
+              <textarea
+                value={invoiceSettings.address}
+                onChange={(e) =>
+                  setInvoiceSettings({
+                    ...invoiceSettings,
+                    address: e.target.value,
+                  })
+                }
+              />
+            </div>
+
+            <div>
+              <label>IBAN</label>
+              <input
+                value={invoiceSettings.iban}
+                onChange={(e) =>
+                  setInvoiceSettings({
+                    ...invoiceSettings,
+                    iban: e.target.value,
+                  })
+                }
+              />
+            </div>
+
+            <div>
+              <label>BIC</label>
+              <input
+                value={invoiceSettings.bic}
+                onChange={(e) =>
+                  setInvoiceSettings({
+                    ...invoiceSettings,
+                    bic: e.target.value,
+                  })
+                }
+              />
+            </div>
+
+            {/* sevDesk TOKEN */}
+            <div style={{ gridColumn: "1 / -1" }}>
+              <label>sevDesk API Token (optional)</label>
+              <input
+                type="password"
+                placeholder="sevdesk_xxx..."
+                value={invoiceSettings.sevdesk_token || ""}
+                onChange={(e) =>
+                  setInvoiceSettings({
+                    ...invoiceSettings,
+                    sevdesk_token: e.target.value,
+                  })
+                }
+              />
+              <small style={{ color: "#666" }}>
+                Nur nötig, wenn Rechnungen automatisch an sevDesk übertragen werden sollen.
+              </small>
+            </div>
+
+            <div>
+              <label>Land</label>
+              <select
+                value={invoiceSettings.default_vat_country}
+                onChange={(e) =>
+                  setInvoiceSettings({
+                    ...invoiceSettings,
+                    default_vat_country: e.target.value,
+                  })
+                }
+              >
+                <option value="AT">Österreich</option>
+                <option value="DE">Deutschland</option>
+              </select>
+            </div>
+
+            <div>
+              <label>Standard USt %</label>
+              <input
+                type="number"
+                value={invoiceSettings.default_vat_rate}
+                onChange={(e) =>
+                  setInvoiceSettings({
+                    ...invoiceSettings,
+                    default_vat_rate: Number(e.target.value),
+                  })
+                }
+              />
+            </div>
+          </div>
+
+          {/* SAVE BUTTON */}
+          <div
+            style={{
+              marginTop: 12,
+              display: "flex",
+              justifyContent: "flex-end",
+            }}
+          >
+            <button
+              type="button"
+              onClick={async () => {
+                const res = await fetch("/api/accounting-settings", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    therapist_email: user.email,
+                    ...invoiceSettings,
+                  }),
+                });
+
+                if (!res.ok) {
+                  alert("Fehler beim Speichern der Rechnungsdaten");
+                  return;
+                }
+
+                alert("Rechnungsdaten gespeichert");
+              }}
+            >
+              💾 Rechnungsdaten speichern
+            </button>
+          </div>
+        </div>
+      </details>
+    </section>
+  </>
+)}
+
 
 
       {/* KARTEN */}
