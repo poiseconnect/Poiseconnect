@@ -799,7 +799,7 @@ map[s.anfrage_id].payout += payout;
             })
           }
         />
-        <small>
+        <small style={{ color: "#666" }}>
           Nur nötig, wenn Rechnungen automatisch an sevDesk übertragen werden sollen.
         </small>
       </div>
@@ -844,6 +844,7 @@ map[s.anfrage_id].payout += payout;
       }}
     >
       <button
+        type="button"
         onClick={async () => {
           const res = await fetch("/api/accounting-settings", {
             method: "POST",
@@ -867,6 +868,7 @@ map[s.anfrage_id].payout += payout;
     </div>
   </div>
 </details>
+
 
       {/* KARTEN */}
       {filter !== "abrechnung" &&
