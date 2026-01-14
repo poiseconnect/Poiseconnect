@@ -403,18 +403,21 @@ const filteredRequests = useMemo(() => {
     STATUS_FILTER_MAP[filter] ?? STATUS_FILTER_MAP.alle;
 
   return requests.filter((r) => {
-    // Status
+    // 1️⃣ Status
     if (!allowedStatuses.includes(r._status)) return false;
 
-    // Therapeut:in
-    if (
-      therapistFilter !== "alle" &&
-      r.wunschtherapeut !== therapistFilter
-    ) {
-      return false;
+    // 2️⃣ Therapeut:innen-Filter → über Sitzungen
+    if (therapistFilter !== "alle") {
+      const sessions = sessionsByRequest[String(r.id)] || [];
+
+      const hasSessionWithTherapist = sessions.some(
+        (s) => s.therapist === therapistFilter
+      );
+
+      if (!hasSessionWithTherapist) return false;
     }
 
-    // 🔍 KLient suchen (Name + Mail)
+    // 3️⃣ Klient-Suche (Name + Mail)
     if (search) {
       const q = search.toLowerCase().trim();
 
@@ -432,7 +435,8 @@ const filteredRequests = useMemo(() => {
 
     return true;
   });
-}, [requests, filter, therapistFilter, search]);
+}, [requests, filter, therapistFilter, search, sessionsByRequest]);
+
 
 
 /* =========================================================
