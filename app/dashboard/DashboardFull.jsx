@@ -403,8 +403,10 @@ const filteredRequests = useMemo(() => {
     STATUS_FILTER_MAP[filter] ?? STATUS_FILTER_MAP.alle;
 
   return requests.filter((r) => {
+    // Status
     if (!allowedStatuses.includes(r._status)) return false;
 
+    // Therapeut:in
     if (
       therapistFilter !== "alle" &&
       r.wunschtherapeut !== therapistFilter
@@ -412,15 +414,26 @@ const filteredRequests = useMemo(() => {
       return false;
     }
 
+    // 🔍 KLient suchen (Name + Mail)
     if (search) {
-      const q = search.toLowerCase();
-      const name = `${r.vorname || ""} ${r.nachname || ""}`.toLowerCase();
-      if (!name.includes(q)) return false;
+      const q = search.toLowerCase().trim();
+
+      const haystack = [
+        r.vorname,
+        r.nachname,
+        r.email,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+
+      if (!haystack.includes(q)) return false;
     }
 
     return true;
   });
 }, [requests, filter, therapistFilter, search]);
+
 
 /* =========================================================
    SORTIERUNG DER ANFRAGEN
