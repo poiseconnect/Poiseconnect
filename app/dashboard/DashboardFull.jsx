@@ -1386,9 +1386,13 @@ map[s.anfrage_id].payout += payout;
          <button
   type="button"
   onClick={async () => {
-    // einfache Validierung
-    if (!newSessions.length || !newSessions[0]?.date) {
-      alert("Bitte mindestens eine Sitzung mit Datum eingeben");
+    // ✅ nur gültige Sitzungen behalten
+    const validSessions = newSessions.filter(
+      (s) => s.date && !isNaN(Date.parse(s.date))
+    );
+
+    if (validSessions.length === 0) {
+      alert("Bitte mindestens eine gültige Sitzung mit Datum eintragen");
       return;
     }
 
@@ -1398,9 +1402,9 @@ map[s.anfrage_id].payout += payout;
       body: JSON.stringify({
         anfrageId: detailsModal.id,
         therapist: user.email,
-        sessions: newSessions.map((s) => ({
-          date: s.date,
-          duration: s.duration,
+        sessions: validSessions.map((s) => ({
+          date: s.date, // ✅ garantiert gültig
+          duration: Number(s.duration),
           price: Number(editTarif),
         })),
       }),
@@ -1408,17 +1412,17 @@ map[s.anfrage_id].payout += payout;
 
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
+      console.error("ADD SESSIONS ERROR", err);
       alert("Fehler beim Speichern der Sitzungen");
-      console.error("ADD SESSION ERROR", err);
       return;
     }
 
-    // ✅ erst JETZT reload
     location.reload();
   }}
 >
   💾 Sitzungen speichern
 </button>
+
 
                 </div>
               </div>
