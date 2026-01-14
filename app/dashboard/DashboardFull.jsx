@@ -472,19 +472,12 @@ const filteredBillingSessions = useMemo(() => {
   return sessionsSafe.filter((s) => {
     if (!s?.date) return false;
 
-    // 👤 TEAMFILTER (NUR wenn nicht "alle")
+    // ✅ THERAPEUTENFILTER – ABRECHNUNG
     if (
       therapistFilter !== "alle" &&
       s.therapist !== therapistFilter
     ) {
       return false;
-    }
-
-    // 🔍 KLIENT:IN SUCHEN
-    if (search) {
-      const q = search.toLowerCase();
-      const name = `${s.anfragen?.vorname || ""} ${s.anfragen?.nachname || ""}`.toLowerCase();
-      if (!name.includes(q)) return false;
     }
 
     const d = new Date(s.date);
@@ -513,13 +506,12 @@ const filteredBillingSessions = useMemo(() => {
   });
 }, [
   sessionsSafe,
+  therapistFilter,
   billingMode,
   billingYear,
   billingMonth,
   billingQuarter,
   billingDate,
-  therapistFilter,
-  search,
 ]);
 
 
