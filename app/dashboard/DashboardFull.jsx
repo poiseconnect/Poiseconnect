@@ -544,57 +544,8 @@ map[s.anfrage_id].payout += payout;
 
   return Object.values(map);
 }, [filteredBillingSessions]);
-  const provisionByQuarter = useMemo(() => {
-  if (!detailsModal) return [];
 
-  const sessions = sessionsByRequest[String(detailsModal.id)] || [];
-  const map = {};
-
-  sessions.forEach((s) => {
-    const q = quarterKeyFromDate(s.date);
-    if (!q) return;
-    map[q] = (map[q] || 0) + (Number(s.price) || 0) * 0.3;
-  });
-
-  return Object.entries(map).sort((a, b) => {
-    const [aq, ay] = a[0].split(" ");
-    const [bq, by] = b[0].split(" ");
-    if (ay !== by) return Number(by) - Number(ay);
-    return Number(bq.replace("Q", "")) - Number(aq.replace("Q", ""));
-  });
-}, [detailsModal, sessionsByRequest]);
-
-
-    /* ---------- HELPERS (API) ---------- */
-
-  async function moveToTrash(r) {
-    await fetch("/api/update-status", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ anfrageId: r.id, status: "papierkorb" }),
-    });
-    location.reload();
-  }
-
-  async function restoreFromTrash(r) {
-    await fetch("/api/update-status", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ anfrageId: r.id, status: "offen" }),
-    });
-    location.reload();
-  }
-
-  async function deleteForever(r) {
-    await fetch("/api/delete-request", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ anfrageId: r.id }),
-    });
-    location.reload();
-  }
-   }
-    return (
+  return (
     <div style={{ padding: 24, maxWidth: 1100, margin: "0 auto" }}>
       <h1>Poise Dashboard</h1>
 
@@ -1294,194 +1245,196 @@ map[s.anfrage_id].payout += payout;
             </section>
 
             {/* AKTIV-BEREICH */}
-{detailsModal._status === "active" && (
-  <div style={{ marginTop: 12 }}>
-    <hr />
+            {detailsModal._status === "active" && (
+              <div style={{ marginTop: 12 }}>
+                <hr />
 
-    <p>
-      <strong>Anzahl Sitzungen:</strong>{" "}
-      {(sessionsByRequest[String(detailsModal.id)] || []).length}
-    </p>
+                <p>
+                  <strong>Anzahl Sitzungen:</strong>{" "}
+                  {(sessionsByRequest[String(detailsModal.id)] || []).length}
+                </p>
 
-    {/* ================= STUNDENSATZ ================= */}
-    <label>Stundensatz (€)</label>
-    <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-      <input
-        type="number"
-        value={editTarif}
-        onChange={(e) => setEditTarif(e.target.value)}
-        style={{ width: 140 }}
-      />
-      <button
-        type="button"
-        onClick={async () => {
-          const res = await fetch("/api/update-tarif", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              anfrageId: detailsModal.id,
-              tarif: Number(editTarif),
-            }),
-          });
+                <label>Stundensatz (€)</label>
+                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                  <input
+                    type="number"
+                    value={editTarif}
+                    onChange={(e) => setEditTarif(e.target.value)}
+                    style={{ width: 140 }}
+                  />
+                  <button
+                    onClick={() =>
+                      fetch("/api/update-tarif", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                          anfrageId: detailsModal.id,
+                          tarif: Number(editTarif),
+                        }),
+                      })
+                    }
+                  >
+                    💾 Speichern
+                  </button>
+                </div>
 
-          if (!res.ok) {
-            alert("Fehler beim Speichern des Stundensatzes");
-            return;
-          }
+                <h4 style={{ marginTop: 14 }}>Provision</h4>
+                <p>
+                  <strong>Gesamt:</strong>{" "}
+                  {(sessionsByRequest[String(detailsModal.id)] || [])
+                    .reduce((sum, s) => sum + (Number(s.price) || 0) * 0.3, 0)
+                    .toFixed(2)}{" "}
+                  €
+                </p>
 
-          alert("Stundensatz gespeichert");
-        }}
-      >
-        💾 Speichern
-      </button>
-    </div>
+                <h4>Provision pro Quartal</h4>
+                {(() => {
+                  const sessions = sessionsByRequest[String(detailsModal.id)] || [];
+                  const map = sessions.reduce((acc, s) => {
+                    const q = quarterKeyFromDate(s.date);
+                    if (!q) return acc;
+                    acc[q] = (acc[q] || 0) + (Number(s.price) || 0) * 0.3;
+                    return acc;
+                  }, {});
+                  const entries = Object.entries(map).sort((a, b) => {
+                    const [aq, ay] = a[0].split(" ");
+                    const [bq, by] = b[0].split(" ");
+                    const an = Number(String(aq).replace("Q", ""));
+                    const bn = Number(String(bq).replace("Q", ""));
+                    if (Number(ay) !== Number(by)) return Number(by) - Number(ay);
+                    return bn - an;
+                  });
 
-    {/* ================= PROVISION ================= */}
-    <h4 style={{ marginTop: 14 }}>Provision</h4>
-    <p>
-      <strong>Gesamt:</strong>{" "}
-      {(sessionsByRequest[String(detailsModal.id)] || [])
-        .reduce((sum, s) => sum + (Number(s.price) || 0) * 0.3, 0)
-        .toFixed(2)}{" "}
-      €
-    </p>
+                  const cq = currentQuarterKey();
+                  const currentSum = map[cq] || 0;
 
-  <h4>Provision pro Quartal</h4>
+                  return (
+                    <div>
+                      <div
+                        style={{
+                          padding: "10px 12px",
+                          borderRadius: 10,
+                          border: "1px solid #ddd",
+                          background: currentSum === 0 ? "#FFF7EC" : "#EAF8EF",
+                          marginBottom: 10,
+                        }}
+                      >
+                        <strong>Aktuelles Quartal ({cq}):</strong> {currentSum.toFixed(2)} €
+                        {currentSum === 0 && (
+                          <div style={{ marginTop: 6, color: "#8B5A2B" }}>
+                            ⚠️ Noch keine Provision in diesem Quartal (keine erfassten Sitzungen).
+                          </div>
+                        )}
+                      </div>
 
-{provisionByQuarter.length === 0 ? (
-  <div style={{ color: "#777" }}>– Noch keine Sitzungen erfasst</div>
-) : (
-  provisionByQuarter.map(([q, sum]) => (
-    <div key={q}>
-      {q}: {Number(sum || 0).toFixed(2)} €
-    </div>
-  ))
-)}
+                      {entries.length === 0 ? (
+                        <div style={{ color: "#777" }}>– Noch keine Sitzungen erfasst</div>
+                      ) : (
+                        entries.map(([q, sum]) => (
+                          <div key={q}>
+                            {q}: {Number(sum || 0).toFixed(2)} €
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  );
+                })()}
+
+                <h4 style={{ marginTop: 14 }}>Sitzungen</h4>
+                {(sessionsByRequest[String(detailsModal.id)] || []).map((s, i) => (
+                  <div key={s.id || `${s.date}-${i}`}>
+                    {safeDateString(s.date) || "–"} · {safeNumber(s.duration_min)} Min
+                  </div>
+                ))}
+
+                <h4 style={{ marginTop: 14 }}>Neue Sitzung eintragen</h4>
+
+                {newSessions.map((s, i) => (
+                  <div key={i} style={{ display: "flex", gap: 8, marginBottom: 8 }}>
+                    <input
+                      type="datetime-local"
+                      value={s.date}
+                      onChange={(e) => {
+                        const copy = [...newSessions];
+                        copy[i].date = e.target.value;
+                        setNewSessions(copy);
+                      }}
+                    />
+
+                    <select
+                      value={s.duration}
+                      onChange={(e) => {
+                        const copy = [...newSessions];
+                        copy[i].duration = Number(e.target.value);
+                        setNewSessions(copy);
+                      }}
+                    >
+                      <option value={50}>50 Min</option>
+                      <option value={60}>60 Min</option>
+                      <option value={75}>75 Min</option>
+                    </select>
+                  </div>
+                ))}
+
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  <button
+                    onClick={() => setNewSessions([...newSessions, { date: "", duration: 60 }])}
+                  >
+                    ➕ Weitere Sitzung
+                  </button>
+
+         <button
+  onClick={async () => {
+    // ✅ FRONTEND-SCHUTZ
+    const validSessions = newSessions.filter(
+      (s) => s.date && String(s.date).trim() !== ""
+    );
+
+    if (!validSessions.length) {
+      alert("Bitte mindestens eine Sitzung mit Datum eingeben");
+      return;
+    }
+
+    const res = await fetch("/api/add-sessions-batch", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        anfrageId: detailsModal.id,
+        therapist: user.email,
+        sessions: validSessions.map((s) => ({
+          date: s.date,
+          duration: s.duration,
+          price: Number(editTarif),
+        })),
+      }),
+    });
+
+    if (!res.ok) {
+      alert("Fehler beim Speichern der Sitzungen");
+      return;
+    }
+
+    location.reload();
+  }}
+>
+  💾 Sitzungen speichern
+</button>
 
 
-    {/* ================= SITZUNGEN ================= */}
-    <h4 style={{ marginTop: 16 }}>Sitzungen</h4>
+                </div>
+              </div>
+            )}
 
-    {(sessionsByRequest[String(detailsModal.id)] || []).map((s, i) => (
-      <div
-        key={s.id || `${s.date}-${i}`}
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          marginBottom: 6,
-        }}
-      >
-        <span>
-          {safeDateString(s.date) || "–"} ·{" "}
-          {safeNumber(s.duration_min)} Min
-        </span>
+            <hr />
 
-        <button
-          type="button"
-          style={{ color: "darkred" }}
-          onClick={async () => {
-            if (!confirm("Sitzung wirklich löschen?")) return;
+            <div style={{ display: "flex", justifyContent: "flex-end" }}>
+              <button onClick={() => setDetailsModal(null)}>Schließen</button>
+            </div>
+          </div>
+        </Modal>
+      )}
 
-            const res = await fetch("/api/delete-session", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ sessionId: s.id }),
-            });
-
-            if (!res.ok) {
-              alert("Fehler beim Löschen");
-              return;
-            }
-
-            location.reload();
-          }}
-        >
-          🗑️
-        </button>
-      </div>
-    ))}
-
-    {/* ================= NEUE SITZUNG ================= */}
-    <h4 style={{ marginTop: 16 }}>Neue Sitzung eintragen</h4>
-
-    {newSessions.map((s, i) => (
-      <div key={i} style={{ display: "flex", gap: 8, marginBottom: 8 }}>
-        <input
-          type="datetime-local"
-          value={s.date}
-          onChange={(e) => {
-            const copy = [...newSessions];
-            copy[i].date = e.target.value;
-            setNewSessions(copy);
-          }}
-        />
-
-        <select
-          value={s.duration}
-          onChange={(e) => {
-            const copy = [...newSessions];
-            copy[i].duration = Number(e.target.value);
-            setNewSessions(copy);
-          }}
-        >
-          <option value={50}>50 Min</option>
-          <option value={60}>60 Min</option>
-          <option value={75}>75 Min</option>
-        </select>
-      </div>
-    ))}
-
-    <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
-      <button
-        type="button"
-        onClick={() =>
-          setNewSessions([...newSessions, { date: "", duration: 60 }])
-        }
-      >
-        ➕ Weitere Sitzung
-      </button>
-
-      <button
-        type="button"
-        onClick={async () => {
-          const validSessions = newSessions.filter(
-            (s) => s.date && String(s.date).trim() !== ""
-          );
-
-          if (!validSessions.length) {
-            alert("Bitte mindestens eine Sitzung mit Datum eingeben");
-            return;
-          }
-
-          const res = await fetch("/api/add-sessions-batch", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              anfrageId: detailsModal.id,
-              therapist: user.email,
-              sessions: validSessions.map((s) => ({
-                date: s.date,
-                duration: s.duration,
-                price: Number(editTarif),
-              })),
-            }),
-          });
-
-          if (!res.ok) {
-            alert("Fehler beim Speichern der Sitzungen");
-            return;
-          }
-
-          location.reload();
-        }}
-      >
-        💾 Sitzungen speichern
-      </button>
-    </div>
-  </div>
-)}
-
+      {/* REASSIGN */}
       {reassignModal && (
         <Modal onClose={() => setReassignModal(null)}>
           <h3>Therapeut wechseln</h3>
@@ -1592,5 +1545,32 @@ map[s.anfrage_id].payout += payout;
     </div>
   );
 
-  
+  /* ---------- HELPERS (API) ---------- */
+
+  async function moveToTrash(r) {
+    await fetch("/api/update-status", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ anfrageId: r.id, status: "papierkorb" }),
+    });
+    location.reload();
+  }
+
+  async function restoreFromTrash(r) {
+    await fetch("/api/update-status", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ anfrageId: r.id, status: "offen" }),
+    });
+    location.reload();
+  }
+
+  async function deleteForever(r) {
+    await fetch("/api/delete-request", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ anfrageId: r.id }),
+    });
+    location.reload();
+  }
 }
