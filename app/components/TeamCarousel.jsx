@@ -15,7 +15,7 @@ export default function TeamCarousel({ members, onSelect }) {
 
   return (
     <div style={{ overflowX: "auto", whiteSpace: "nowrap", paddingBottom: "1rem" }}>
-     {members.map((m) => (
+ {members.map((m, i) => (
   <div
     key={m.name}
     style={{
@@ -31,6 +31,7 @@ export default function TeamCarousel({ members, onSelect }) {
       whiteSpace: "normal",
     }}
   >
+
 
           <img
             src={m.image}
