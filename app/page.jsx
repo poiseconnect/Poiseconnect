@@ -603,7 +603,7 @@ const slotsByMonth = useMemo(() => {
         </div>
       </div>
 
-{/* STEP 0 – Anliegen (Checkboxen + Freitext, klicksicher) */}
+{/* STEP 0 – Anliegen (Checkboxen + Freitext) */}
 {step === 0 && (
   <div className="step-container">
     <h2>Wobei wünschst du dir Unterstützung?</h2>
@@ -612,61 +612,56 @@ const slotsByMonth = useMemo(() => {
       Du kannst ein oder mehrere Themen auswählen.
     </p>
 
-    {/* CHECKBOXEN */}
-    <div
-      style={{
-        display: "grid",
-        gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-        gap: 12,
-        marginTop: 16,
-      }}
-    >
+    <div style={{ display: "grid", gap: 12, marginTop: 16 }}>
       {THEMEN.map((t) => {
         const active = form.themen.includes(t.key);
 
         return (
-          <div
+          <button
             key={t.key}
-            onClick={() => toggleThema(t.key, setForm)}
+            type="button"
+            onClick={() => toggleThema(t.key)}
             style={{
+              width: "100%",
+              textAlign: "left",
               display: "flex",
               alignItems: "center",
-              gap: 10,
-              padding: "12px 14px",
-              borderRadius: 12,
-              border: active
-                ? "2px solid #A27C77"
-                : "1px solid #ddd",
+              gap: 12,
+              padding: "14px 14px",
+              borderRadius: 14,
+              border: active ? "2px solid #A27C77" : "1px solid #ddd",
               background: active ? "#F3E9E7" : "#fff",
               cursor: "pointer",
-              userSelect: "none",
+              touchAction: "manipulation", // iOS click reliability
             }}
           >
-            {/* VISUELLE CHECKBOX */}
-            <input
-              type="checkbox"
-              checked={active}
-              readOnly
+            <span
+              aria-hidden="true"
               style={{
-                pointerEvents: "none",
+                width: 22,
+                height: 22,
+                borderRadius: 6,
+                border: active ? "2px solid #A27C77" : "2px solid #bbb",
+                background: active ? "#A27C77" : "transparent",
+                display: "inline-block",
+                flex: "0 0 auto",
               }}
             />
-            <span>{t.label}</span>
-          </div>
+            <span style={{ lineHeight: 1.2, wordBreak: "break-word" }}>
+              {t.label}
+            </span>
+          </button>
         );
       })}
     </div>
 
-    {/* OPTIONALER FREITEXT */}
-    <div style={{ marginTop: 24 }}>
+    <div style={{ marginTop: 20 }}>
       <label style={{ fontSize: 14, color: "#666" }}>
         Möchtest du noch etwas ergänzen?
       </label>
       <textarea
         value={form.anliegen}
-        onChange={(e) =>
-          setForm({ ...form, anliegen: e.target.value })
-        }
+        onChange={(e) => setForm({ ...form, anliegen: e.target.value })}
         placeholder="Optional – z. B. aktuelle Situation, wichtige Details…"
         style={{ marginTop: 6 }}
       />
@@ -674,16 +669,12 @@ const slotsByMonth = useMemo(() => {
 
     <div className="footer-buttons">
       <span />
-      <button
-        disabled={form.themen.length === 0}
-        onClick={next}
-      >
+      <button disabled={form.themen.length === 0} onClick={next}>
         Weiter
       </button>
     </div>
   </div>
 )}
-
 
       {/* STEP 1 – Leidensdruck */}
       {step === 1 && (
