@@ -295,8 +295,25 @@ const [selectedDay, setSelectedDay] = useState(null);
 // -------------------------------------
 
 const matchedTeam = useMemo(() => {
-  return teamData;
-}, []);
+  if (!form.anliegen) return teamData;
+
+  const words = form.anliegen
+    .toLowerCase()
+    .split(/[\s,.;!?]+/)
+    .filter(Boolean);
+
+  const score = (member) =>
+    member.tags?.reduce((sum, tag) => {
+      tag = tag.toLowerCase();
+      const matches = words.some((w) => tag.includes(w));
+      if (!matches) return sum;
+      return sum + (TAG_WEIGHTS[tag] ?? 1);
+    }, 0) || 0;
+
+  return [...teamData]
+    .map((m) => ({ ...m, _score: score(m) }))
+    .sort((a, b) => b._score - a._score);
+}, [form.anliegen]);
 
   // -------------------------------------
 // -------------------------------------
