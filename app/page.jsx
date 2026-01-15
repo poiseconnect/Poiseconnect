@@ -909,37 +909,82 @@ const slotsByMonth = useMemo(() => {
           </div>
         </div>
       )}
+{/* STEP 6 – Beschäftigungsgrad */}
+{step === 6 && (
+  <div className="step-container">
+    <h2>Beschäftigungsgrad</h2>
 
-      {/* STEP 6 – Beschäftigungsgrad */}
-      {step === 6 && (
-        <div className="step-container">
-          <h2>Beschäftigungsgrad</h2>
-          <select
-            value={form.beschaeftigungsgrad}
-            onChange={(e) =>
-              setForm({
-                ...form,
-                beschaeftigungsgrad: e.target.value,
-              })
-            }
-          >
-            <option value="">Bitte auswählen…</option>
-            <option>Angestellt</option>
-            <option>Selbstständig</option>
-            <option>Arbeitssuchend</option>
-            <option>Schule/Studium</option>
-          </select>
-          <div className="footer-buttons">
-            <button onClick={back}>Zurück</button>
-            <button
-              disabled={!form.beschaeftigungsgrad}
-              onClick={next}
-            >
-              Weiter
-            </button>
-          </div>
+    <div style={{ display: "grid", gap: 12, marginTop: 12 }}>
+      {/* Berufstätig */}
+      <button
+        type="button"
+        onClick={() =>
+          setForm({
+            ...form,
+            beschaeftigungsgrad: "berufstaetig",
+          })
+        }
+        style={{
+          textAlign: "left",
+          padding: "14px 16px",
+          borderRadius: 16,
+          border:
+            form.beschaeftigungsgrad === "berufstaetig"
+              ? "2px solid #A27C77"
+              : "1px solid #ddd",
+          background:
+            form.beschaeftigungsgrad === "berufstaetig"
+              ? "#F3E9E7"
+              : "#fff",
+          cursor: "pointer",
+        }}
+      >
+        <strong>Berufstätig</strong>
+      </button>
+
+      {/* In Ausbildung */}
+      <button
+        type="button"
+        onClick={() =>
+          setForm({
+            ...form,
+            beschaeftigungsgrad: "ausbildung",
+          })
+        }
+        style={{
+          textAlign: "left",
+          padding: "14px 16px",
+          borderRadius: 16,
+          border:
+            form.beschaeftigungsgrad === "ausbildung"
+              ? "2px solid #A27C77"
+              : "1px solid #ddd",
+          background:
+            form.beschaeftigungsgrad === "ausbildung"
+              ? "#F3E9E7"
+              : "#fff",
+          cursor: "pointer",
+        }}
+      >
+        <strong>In Ausbildung</strong>
+        <div style={{ fontSize: 14, color: "#666", marginTop: 4 }}>
+          beziehe kein Einkommen
         </div>
-      )}
+      </button>
+    </div>
+
+    <div className="footer-buttons">
+      <button onClick={back}>Zurück</button>
+      <button
+        disabled={!form.beschaeftigungsgrad}
+        onClick={next}
+      >
+        Weiter
+      </button>
+    </div>
+  </div>
+)}
+
 
       {/* STEP 7 – Hinweise / Datenschutz */}
       {step === 7 && (
