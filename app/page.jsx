@@ -47,6 +47,7 @@ const THEMEN = [
 ];
 
 
+
 const isRedFlag = (t) =>
   t && RED_FLAGS.some((x) => t.toLowerCase().includes(x));
 
@@ -613,7 +614,8 @@ const slotsByMonth = useMemo(() => {
     </p>
 
     <div style={{ display: "grid", gap: 12, marginTop: 16 }}>
-      {THEMEN.map((t) => {
+     {THEMEN.filter(t => t.key && t.label).map((t) => {
+
         const active = form.themen.includes(t.key);
 
         return (
