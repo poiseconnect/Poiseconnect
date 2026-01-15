@@ -15,24 +15,23 @@ export default function TeamCarousel({ members, onSelect }) {
 
   return (
     <div style={{ overflowX: "auto", whiteSpace: "nowrap", paddingBottom: "1rem" }}>
- {members.map((m, i) => (
-  <div
-    key={m.name}
-    style={{
-      display: "inline-block",
-      width: 300,
-      marginRight: 18,
-      verticalAlign: "top",
-      background: "#fff",
-      borderRadius: 18,
-      boxShadow: "0 8px 28px rgba(0,0,0,0.08)",
-      padding: "1.2rem",
-      textAlign: "center",
-      whiteSpace: "normal",
-    }}
-  >
-
-
+      {members.map((m, i) => (
+        <div
+          // ✅ WICHTIG: stabiler Key (ohne Index), damit Sortierung sichtbar wird
+          key={m?.name || `member-${i}`}
+          style={{
+            display: "inline-block",
+            width: 300,
+            marginRight: 18,
+            verticalAlign: "top",
+            background: "#fff",
+            borderRadius: 18,
+            boxShadow: "0 8px 28px rgba(0,0,0,0.08)",
+            padding: "1.2rem",
+            textAlign: "center",
+            whiteSpace: "normal",
+          }}
+        >
           <img
             src={m.image}
             alt={m.name}
@@ -55,7 +54,7 @@ export default function TeamCarousel({ members, onSelect }) {
                 opacity: 0.8,
                 marginTop: 2,
                 lineHeight: 1.3,
-                wordBreak: "break-word", // <-- Fix: keine Überlappung
+                wordBreak: "break-word",
               }}
             >
               {m.role}
@@ -76,7 +75,7 @@ export default function TeamCarousel({ members, onSelect }) {
           )}
 
           <button
-            onClick={() => toggleOpen(i)}
+            onClick={() => toggleOpen(i)} // ✅ i existiert, weil map((m, i) ...)
             style={{
               marginTop: 10,
               background: "transparent",
@@ -104,7 +103,6 @@ export default function TeamCarousel({ members, onSelect }) {
                 </p>
               )}
 
-              {/* Buttons vertikal gestapelt */}
               <div
                 style={{
                   display: "flex",
@@ -115,7 +113,7 @@ export default function TeamCarousel({ members, onSelect }) {
               >
                 {m.video && (
                   <button
-                    onClick={() => openVideo(i)}
+                    onClick={() => openVideo(i)} // ✅ i existiert
                     style={{
                       background: "#E9D7D4",
                       color: "#7A5350",
