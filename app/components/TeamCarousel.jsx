@@ -15,22 +15,23 @@ export default function TeamCarousel({ members, onSelect }) {
 
   return (
     <div style={{ overflowX: "auto", whiteSpace: "nowrap", paddingBottom: "1rem" }}>
-      {members.map((m, i) => (
-        <div
-          key={`${m.name}-${i}`}
-          style={{
-            display: "inline-block",
-            width: 300,
-            marginRight: 18,
-            verticalAlign: "top",
-            background: "#fff",
-            borderRadius: 18,
-            boxShadow: "0 8px 28px rgba(0,0,0,0.08)",
-            padding: "1.2rem",
-            textAlign: "center",
-            whiteSpace: "normal", // <-- Fix: Texte umbrechen
-          }}
-        >
+     {members.map((m) => (
+  <div
+    key={m.name}
+    style={{
+      display: "inline-block",
+      width: 300,
+      marginRight: 18,
+      verticalAlign: "top",
+      background: "#fff",
+      borderRadius: 18,
+      boxShadow: "0 8px 28px rgba(0,0,0,0.08)",
+      padding: "1.2rem",
+      textAlign: "center",
+      whiteSpace: "normal",
+    }}
+  >
+
           <img
             src={m.image}
             alt={m.name}
