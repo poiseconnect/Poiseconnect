@@ -295,35 +295,44 @@ const [selectedDay, setSelectedDay] = useState(null);
 // -------------------------------------
 
 const matchedTeam = useMemo(() => {
-  if (!form.anliegen) return teamData;
-
-  const words = form.anliegen
-    .toLowerCase()
-    .split(/[\s,.;!?]+/)
-    .filter(Boolean);
-
-  const score = (member) =>
-    member.tags?.reduce((sum, tag) => {
-      tag = tag.toLowerCase();
-      const matches = words.some((w) => tag.includes(w));
-      if (!matches) return sum;
-      return sum + (TAG_WEIGHTS[tag] ?? 1);
-    }, 0) || 0;
+  const selectedThemen = form.themen || [];
+  const text = form.anliegen || "";
 
   return [...teamData]
-    .map((m) => ({ ...m, _score: score(m) }))
+    .map((m) => {
+      let score = 0;
+
+      // 1️⃣ Checkbox-Themen (Hauptsignal)
+      selectedThemen.forEach((t) => {
+        if (m.tags?.includes(t)) score += 5;
+      });
+
+      // 2️⃣ Freitext (Feinsignal)
+      if (text) {
+        const words = text.toLowerCase().split(/\W+/);
+        words.forEach((w) => {
+          if (m.tags?.some((tag) => tag.includes(w))) {
+            score += 1;
+          }
+        });
+      }
+
+      return { ...m, _score: score };
+    })
     .sort((a, b) => b._score - a._score);
-}, [form.anliegen]);
+}, [form.themen, form.anliegen]);
+
 
   // -------------------------------------
 // -------------------------------------
 // STEP 8 – FINALE LISTE (MATCH + VERFÜGBARKEIT)
 // -------------------------------------
 const step8Members = useMemo(() => {
-  return matchedTeam.filter((m) =>
-    availableTherapists.includes(m.name)
-  );
+  return matchedTeam
+    .filter((m) => availableTherapists.includes(m.name))
+    .sort((a, b) => (b._score ?? 0) - (a._score ?? 0));
 }, [matchedTeam, availableTherapists]);
+
 
 
 
