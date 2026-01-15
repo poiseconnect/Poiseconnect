@@ -770,23 +770,27 @@ const slotsByMonth = useMemo(() => {
       )}
 
       {/* STEP 4 – Ziel */}
-      {step === 4 && (
-        <div className="step-container">
-          <h2>Was wünschst du dir?</h2>
-          <textarea
-            value={form.ziel}
-            onChange={(e) =>
-              setForm({ ...form, ziel: e.target.value })
-            }
-          />
-          <div className="footer-buttons">
-            <button onClick={back}>Zurück</button>
-            <button disabled={!form.ziel} onClick={next}>
-              Weiter
-            </button>
-          </div>
-        </div>
-      )}
+{step === 4 && (
+  <div className="step-container">
+    <h2>Was ist dein Ziel?</h2>
+
+    <textarea
+      value={form.ziel}
+      onChange={(e) =>
+        setForm({ ...form, ziel: e.target.value })
+      }
+      placeholder="Zum Beispiel: mehr innere Ruhe, besser mit Stress umgehen, Klarheit gewinnen …"
+    />
+
+    <div className="footer-buttons">
+      <button onClick={back}>Zurück</button>
+      <button disabled={!form.ziel} onClick={next}>
+        Weiter
+      </button>
+    </div>
+  </div>
+)}
+
 
       {/* STEP 5 – Kontaktdaten */}
       {step === 5 && (
