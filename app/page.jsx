@@ -953,6 +953,7 @@ const slotsByMonth = useMemo(() => {
             form.beschaeftigungsgrad === "berufstaetig"
               ? "#F3E9E7"
               : "#fff",
+          color: "#000", // ✅ WICHTIG: Textfarbe erzwingen
           cursor: "pointer",
         }}
       >
@@ -980,6 +981,7 @@ const slotsByMonth = useMemo(() => {
             form.beschaeftigungsgrad === "ausbildung"
               ? "#F3E9E7"
               : "#fff",
+          color: "#000", // ✅ auch hier
           cursor: "pointer",
         }}
       >
@@ -992,10 +994,7 @@ const slotsByMonth = useMemo(() => {
 
     <div className="footer-buttons">
       <button onClick={back}>Zurück</button>
-      <button
-        disabled={!form.beschaeftigungsgrad}
-        onClick={next}
-      >
+      <button disabled={!form.beschaeftigungsgrad} onClick={next}>
         Weiter
       </button>
     </div>
