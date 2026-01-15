@@ -355,19 +355,21 @@ const [invoiceLoading, setInvoiceLoading] = useState(false);
    Quelle für ALLE Abrechnungen
 ========================================================= */
 
+/* =========================================================
+   LOAD BILLING SESSIONS (IMMER ALLE – FILTER NUR IM FRONTEND)
+========================================================= */
+
 const [billingSessions, setBillingSessions] = useState([]);
 
 useEffect(() => {
   if (!user?.email) return;
 
-  let query = supabase
+  supabase
     .from("sessions")
     .select(`
       id,
       date,
       price,
-      commission,
-      payout,
       therapist,
       anfrage_id,
       anfragen (
@@ -375,19 +377,14 @@ useEffect(() => {
         nachname,
         status
       )
-    `);
-
-  // Therapeut:innen sehen nur ihre eigenen Sitzungen
-  if (user.email !== "hallo@mypoise.de") {
-    query = query.eq("therapist", user.email);
-  }
-
-  query.then(({ data, error }) => {
-    if (!error) {
-      setBillingSessions(data || []);
-    }
-  });
+    `)
+    .then(({ data, error }) => {
+      if (!error) {
+        setBillingSessions(data || []);
+      }
+    });
 }, [user]);
+
   
 const sessionsSafe = useMemo(() => {
   return Array.isArray(billingSessions) ? billingSessions : [];
@@ -472,11 +469,8 @@ const filteredBillingSessions = useMemo(() => {
   return sessionsSafe.filter((s) => {
     if (!s?.date) return false;
 
-    // ✅ THERAPEUTENFILTER – ABRECHNUNG
-    if (
-      therapistFilter !== "alle" &&
-      s.therapist !== therapistFilter
-    ) {
+    // 👤 Therapeut:innen-Filter (NUR HIER!)
+    if (therapistFilter !== "alle" && s.therapist !== therapistFilter) {
       return false;
     }
 
@@ -513,6 +507,7 @@ const filteredBillingSessions = useMemo(() => {
   billingQuarter,
   billingDate,
 ]);
+
 
 
 
