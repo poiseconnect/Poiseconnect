@@ -603,7 +603,7 @@ const slotsByMonth = useMemo(() => {
         </div>
       </div>
 
-{/* STEP 0 – Anliegen (Checkboxen + Freitext) */}
+{/* STEP 0 – Anliegen (Checkboxen + Freitext, klicksicher) */}
 {step === 0 && (
   <div className="step-container">
     <h2>Wobei wünschst du dir Unterstützung?</h2>
@@ -612,6 +612,7 @@ const slotsByMonth = useMemo(() => {
       Du kannst ein oder mehrere Themen auswählen.
     </p>
 
+    {/* CHECKBOXEN */}
     <div
       style={{
         display: "grid",
@@ -620,37 +621,44 @@ const slotsByMonth = useMemo(() => {
         marginTop: 16,
       }}
     >
-      {THEMEN.map((t) => (
-        <label
-          key={t.key}
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 10,
-            padding: "12px 14px",
-            borderRadius: 12,
-            border: form.themen.includes(t.key)
-              ? "2px solid #A27C77"
-              : "1px solid #ddd",
-            background: form.themen.includes(t.key)
-              ? "#F3E9E7"
-              : "#fff",
-            cursor: "pointer",
-          }}
-        >
-          <input
-            type="checkbox"
-            checked={form.themen.includes(t.key)}
-            onChange={() =>
-              toggleThema(t.key, setForm)
-            }
-          />
-          {t.label}
-        </label>
-      ))}
+      {THEMEN.map((t) => {
+        const active = form.themen.includes(t.key);
+
+        return (
+          <div
+            key={t.key}
+            onClick={() => toggleThema(t.key, setForm)}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 10,
+              padding: "12px 14px",
+              borderRadius: 12,
+              border: active
+                ? "2px solid #A27C77"
+                : "1px solid #ddd",
+              background: active ? "#F3E9E7" : "#fff",
+              cursor: "pointer",
+              userSelect: "none",
+            }}
+          >
+            {/* VISUELLE CHECKBOX */}
+            <input
+              type="checkbox"
+              checked={active}
+              readOnly
+              style={{
+                pointerEvents: "none",
+              }}
+            />
+            <span>{t.label}</span>
+          </div>
+        );
+      })}
     </div>
 
-    <div style={{ marginTop: 20 }}>
+    {/* OPTIONALER FREITEXT */}
+    <div style={{ marginTop: 24 }}>
       <label style={{ fontSize: 14, color: "#666" }}>
         Möchtest du noch etwas ergänzen?
       </label>
