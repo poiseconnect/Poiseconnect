@@ -33,6 +33,19 @@ const RED_FLAGS = [
   "borderline",
   "svv",
 ];
+const THEMEN = [
+  { key: "angst", label: "Angst & Panik" },
+  { key: "depression", label: "Depressive Stimmung" },
+  { key: "burnout", label: "Burnout & Erschöpfung" },
+  { key: "trauma", label: "Belastende Erfahrungen / Trauma" },
+  { key: "essstoerung", label: "Essstörung / Körperbild" },
+  { key: "selbstwert", label: "Selbstwert & Selbstkritik" },
+  { key: "beziehung", label: "Beziehung / Trennung" },
+  { key: "stress", label: "Stress & Überforderung" },
+  { key: "arbeit", label: "Arbeit / Studium" },
+  { key: "sonstiges", label: "Sonstiges" },
+];
+
 
 const isRedFlag = (t) =>
   t && RED_FLAGS.some((x) => t.toLowerCase().includes(x));
@@ -150,6 +163,35 @@ async function therapistHasFreeSlots(therapist) {
   }
 }
 // --------------------------------------------------
+// MATCHING – Checkboxen + Freitext
+// --------------------------------------------------
+function matchTeam(themen, text, team) {
+  return [...team]
+    .map((m) => {
+      let score = 0;
+
+      // 1️⃣ Checkboxen = starkes Signal
+      themen.forEach((t) => {
+        if (m.tags?.includes(t)) score += 5;
+      });
+
+      // 2️⃣ Freitext = schwaches Zusatzsignal
+      if (text) {
+        const words = text.toLowerCase().split(/\W+/);
+        words.forEach((w) => {
+          if (m.tags?.some((t) => t.includes(w))) {
+            score += 1;
+          }
+        });
+      }
+
+      return { ...m, _score: score };
+    })
+    .filter((m) => m._score > 0)
+    .sort((a, b) => b._score - a._score);
+}
+
+// --------------------------------------------------
 // PAGE COMPONENT
 // --------------------------------------------------
 export default function Home() {
@@ -160,6 +202,7 @@ export default function Home() {
 
   // Formular-Daten
   const [form, setForm] = useState({
+    themen: [],
     anliegen: "",
     leidensdruck: "",
     verlauf: "",
@@ -178,6 +221,7 @@ export default function Home() {
     check_gesundheit: false,
     terminISO: "",
     terminDisplay: "",
+    
   });
 
   // Validierungs-Fehler für Step "Kontaktdaten"
@@ -230,12 +274,14 @@ const [selectedDay, setSelectedDay] = useState(null);
   const next = () => setStep((s) => s + 1);
   const back = () => setStep((s) => s - 1);
   // -------------------------------------
-// MATCHING – Anliegen → passende Therapeut:innen
+// -------------------------------------
+// MATCHING – Checkboxen + Freitext
 // -------------------------------------
 
 const matchedTeam = useMemo(() => {
-  return matchTeamMembers(form.anliegen, teamData);
-}, [form.anliegen]);
+  return matchTeam(form.themen, form.anliegen, teamData);
+}, [form.themen, form.anliegen]);
+
   // -------------------------------------
 // -------------------------------------
 // STEP 8 – FINALE LISTE (MATCH + VERFÜGBARKEIT)
@@ -557,25 +603,79 @@ const slotsByMonth = useMemo(() => {
         </div>
       </div>
 
+{/* STEP 0 – Anliegen (Checkboxen + Freitext) */}
+{step === 0 && (
+  <div className="step-container">
+    <h2>Wobei wünschst du dir Unterstützung?</h2>
 
-      {/* STEP 0 – Anliegen */}
-      {step === 0 && (
-        <div className="step-container">
-          <h2>Anliegen</h2>
-          <textarea
-            value={form.anliegen}
-            onChange={(e) =>
-              setForm({ ...form, anliegen: e.target.value })
+    <p style={{ fontSize: 14, color: "#666" }}>
+      Du kannst ein oder mehrere Themen auswählen.
+    </p>
+
+    <div
+      style={{
+        display: "grid",
+        gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+        gap: 12,
+        marginTop: 16,
+      }}
+    >
+      {THEMEN.map((t) => (
+        <label
+          key={t.key}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+            padding: "12px 14px",
+            borderRadius: 12,
+            border: form.themen.includes(t.key)
+              ? "2px solid #A27C77"
+              : "1px solid #ddd",
+            background: form.themen.includes(t.key)
+              ? "#F3E9E7"
+              : "#fff",
+            cursor: "pointer",
+          }}
+        >
+          <input
+            type="checkbox"
+            checked={form.themen.includes(t.key)}
+            onChange={() =>
+              toggleThema(t.key, setForm)
             }
           />
-          <div className="footer-buttons">
-            <span />
-            <button disabled={!form.anliegen} onClick={next}>
-              Weiter
-            </button>
-          </div>
-        </div>
-      )}
+          {t.label}
+        </label>
+      ))}
+    </div>
+
+    <div style={{ marginTop: 20 }}>
+      <label style={{ fontSize: 14, color: "#666" }}>
+        Möchtest du noch etwas ergänzen?
+      </label>
+      <textarea
+        value={form.anliegen}
+        onChange={(e) =>
+          setForm({ ...form, anliegen: e.target.value })
+        }
+        placeholder="Optional – z. B. aktuelle Situation, wichtige Details…"
+        style={{ marginTop: 6 }}
+      />
+    </div>
+
+    <div className="footer-buttons">
+      <span />
+      <button
+        disabled={form.themen.length === 0}
+        onClick={next}
+      >
+        Weiter
+      </button>
+    </div>
+  </div>
+)}
+
 
       {/* STEP 1 – Leidensdruck */}
       {step === 1 && (
