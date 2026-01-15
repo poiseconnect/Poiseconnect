@@ -633,24 +633,26 @@ const slotsByMonth = useMemo(() => {
         const active = form.themen.includes(t.key);
 
         return (
-          <button
-            key={t.key}
-            type="button"
-            onClick={() => toggleThema(t.key, setForm)}
-            style={{
-              width: "100%",
-              textAlign: "left",
-              display: "flex",
-              alignItems: "center",
-              gap: 14,
-              padding: "14px 16px",
-              borderRadius: 16,
-              border: active ? "2px solid #A27C77" : "1px solid #ddd",
-              background: active ? "#F3E9E7" : "#fff",
-              cursor: "pointer",
-              touchAction: "manipulation",
-            }}
-          >
+        <button
+  key={t.key}
+  type="button"
+  onClick={() => toggleThema(t.key, setForm)}
+  style={{
+    width: "100%",
+    textAlign: "left",
+    display: "flex",
+    alignItems: "center",
+    gap: 14,
+    padding: "14px 16px",
+    borderRadius: 16,
+    border: active ? "2px solid #A27C77" : "1px solid #ddd",
+    background: active ? "#F3E9E7" : "#fff",
+    color: "#111",                 // ✅ WICHTIG: Textfarbe fix
+    cursor: "pointer",
+    touchAction: "manipulation",
+  }}
+>
+
             {/* CHECK-ICON */}
             <div
               aria-hidden
