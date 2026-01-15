@@ -191,6 +191,21 @@ function matchTeam(themen, text, team) {
     .filter((m) => m._score > 0)
     .sort((a, b) => b._score - a._score);
 }
+// --------------------------------------------------
+// TOGGLE THEMA (Checkbox-Handling)
+// --------------------------------------------------
+function toggleThema(key, setForm) {
+  setForm((prev) => {
+    const exists = prev.themen.includes(key);
+
+    return {
+      ...prev,
+      themen: exists
+        ? prev.themen.filter((t) => t !== key)
+        : [...prev.themen, key],
+    };
+  });
+}
 
 // --------------------------------------------------
 // PAGE COMPONENT
@@ -604,7 +619,7 @@ const slotsByMonth = useMemo(() => {
         </div>
       </div>
 
-{/* STEP 0 – Anliegen (Checkboxen + Freitext) */}
+{/* STEP 0 – Anliegen (stabil, klicksicher) */}
 {step === 0 && (
   <div className="step-container">
     <h2>Wobei wünschst du dir Unterstützung?</h2>
@@ -614,42 +629,43 @@ const slotsByMonth = useMemo(() => {
     </p>
 
     <div style={{ display: "grid", gap: 12, marginTop: 16 }}>
-     {THEMEN.filter(t => t.key && t.label).map((t) => {
-
+      {THEMEN.filter((t) => t.key && t.label).map((t) => {
         const active = form.themen.includes(t.key);
 
         return (
           <button
             key={t.key}
             type="button"
-            onClick={() => toggleThema(t.key)}
+            onClick={() => toggleThema(t.key, setForm)}
             style={{
               width: "100%",
               textAlign: "left",
               display: "flex",
               alignItems: "center",
-              gap: 12,
-              padding: "14px 14px",
-              borderRadius: 14,
+              gap: 14,
+              padding: "14px 16px",
+              borderRadius: 16,
               border: active ? "2px solid #A27C77" : "1px solid #ddd",
               background: active ? "#F3E9E7" : "#fff",
               cursor: "pointer",
-              touchAction: "manipulation", // iOS click reliability
+              touchAction: "manipulation",
             }}
           >
-            <span
-              aria-hidden="true"
+            {/* CHECK-ICON */}
+            <div
+              aria-hidden
               style={{
                 width: 22,
                 height: 22,
                 borderRadius: 6,
                 border: active ? "2px solid #A27C77" : "2px solid #bbb",
                 background: active ? "#A27C77" : "transparent",
-                display: "inline-block",
                 flex: "0 0 auto",
               }}
             />
-            <span style={{ lineHeight: 1.2, wordBreak: "break-word" }}>
+
+            {/* LABEL */}
+            <span style={{ lineHeight: 1.3 }}>
               {t.label}
             </span>
           </button>
@@ -663,7 +679,9 @@ const slotsByMonth = useMemo(() => {
       </label>
       <textarea
         value={form.anliegen}
-        onChange={(e) => setForm({ ...form, anliegen: e.target.value })}
+        onChange={(e) =>
+          setForm({ ...form, anliegen: e.target.value })
+        }
         placeholder="Optional – z. B. aktuelle Situation, wichtige Details…"
         style={{ marginTop: 6 }}
       />
@@ -671,12 +689,16 @@ const slotsByMonth = useMemo(() => {
 
     <div className="footer-buttons">
       <span />
-      <button disabled={form.themen.length === 0} onClick={next}>
+      <button
+        disabled={form.themen.length === 0}
+        onClick={next}
+      >
         Weiter
       </button>
     </div>
   </div>
 )}
+
 
       {/* STEP 1 – Leidensdruck */}
       {step === 1 && (
