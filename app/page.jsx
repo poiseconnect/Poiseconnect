@@ -7,7 +7,7 @@ import StepIndicator from "./components/StepIndicator";
 import TeamCarousel from "./components/TeamCarousel";
 import { teamData } from "./lib/teamData";
 import { supabase } from "./lib/supabase";
-import { matchTeamMembers } from "./lib/matchTeamMembers";
+
 
 
 // -------------------------------------
@@ -295,8 +295,8 @@ const [selectedDay, setSelectedDay] = useState(null);
 // -------------------------------------
 
 const matchedTeam = useMemo(() => {
-  return matchTeam(form.themen, form.anliegen, teamData);
-}, [form.themen, form.anliegen]);
+  return teamData;
+}, []);
 
   // -------------------------------------
 // -------------------------------------
