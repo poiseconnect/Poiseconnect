@@ -356,19 +356,62 @@ const [selectedDay, setSelectedDay] = useState(null);
 // MATCHING – Checkboxen + Freitext
 // -------------------------------------
 
+// Ableitung Ausbildung aus role (role = Ausbildung)
+const ROLE_TO_AUSBILDUNG = (role = "") => {
+  const r = role.toLowerCase();
+
+  if (r.includes("klinisch")) return "klinischer_psychologe";
+  if (r.includes("psychotherapeut")) return "psychotherapeut";
+  if (r.includes("heilpraktiker")) return "heilpraktiker_psychotherapie";
+  if (r.includes("coach")) return "coach";
+
+  return null;
+};
+
+const AUSBILDUNGS_BONUS = {
+  klinischer_psychologe: {
+    depressive_verstimmung: 2,
+    angst_panik: 2,
+    krankheit_psychosomatik: 2,
+  },
+  psychotherapeut: {
+    depressive_verstimmung: 2,
+    angst_panik: 2,
+  },
+  heilpraktiker_psychotherapie: {
+    angst_panik: 1,
+    stress: 1,
+  },
+  coach: {
+    beruf_ziele_orientierung: 2,
+    selbstwert_selbstliebe: 2,
+    partnerschaft_beziehung: 1,
+  },
+};
+
 const matchedTeam = useMemo(() => {
   return [...teamData]
     .map((m) => {
       let score = 0;
 
+      // 1️⃣ Themen-Scores (aus Tabellen)
       form.themen.forEach((t) => {
         score += m.scores?.[t] ?? 0;
+
+        // 2️⃣ Ausbildungsbonus (aus role)
+        const ausbildung = ROLE_TO_AUSBILDUNG(m.role);
+        score += AUSBILDUNGS_BONUS?.[ausbildung]?.[t] ?? 0;
       });
+
+      // 3️⃣ Qualitätslevel (leichter Bonus)
+      const q = m.qualificationLevel ?? 0;
+      score += q * 0.5;
 
       return { ...m, _score: score };
     })
     .sort((a, b) => b._score - a._score);
 }, [form.themen]);
+
 
 
 
