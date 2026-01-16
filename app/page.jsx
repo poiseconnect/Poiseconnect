@@ -34,16 +34,78 @@ const RED_FLAGS = [
   "svv",
 ];
 const THEMEN = [
-  { key: "angst", label: "Angst & Panik" },
-  { key: "depression", label: "Depressive Stimmung" },
-  { key: "burnout", label: "Burnout & Erschöpfung" },
-  { key: "trauma", label: "Belastende Erfahrungen / Trauma" },
-  { key: "essstoerung", label: "Essstörung / Körperbild" },
-  { key: "selbstwert", label: "Selbstwert & Selbstkritik" },
-  { key: "beziehung", label: "Beziehung / Trennung" },
-  { key: "stress", label: "Stress & Überforderung" },
-  { key: "arbeit", label: "Arbeit / Studium" },
-  { key: "sonstiges", label: "Sonstiges" },
+  {
+    key: "partnerschaft_beziehung",
+    label: "Partnerschaft & Beziehung",
+    description:
+      "Trennung, Kinderwunsch, toxische Beziehungen, Konflikte, Freundschaften",
+  },
+  {
+    key: "beruf_ziele_orientierung",
+    label: "Beruf, Ziele & Orientierung",
+    description:
+      "Jobwechsel, Beförderung, Umzug, Orientierungslosigkeit",
+  },
+  {
+    key: "emotionales_essen",
+    label: "Emotionales Essen",
+    description:
+      "Fressanfälle, kontrolliertes Essen, Emotionsregulation",
+  },
+  {
+    key: "depressive_verstimmung",
+    label: "Depressive Verstimmung",
+    description:
+      "Erschöpfung, Antriebslosigkeit, Schlafstörungen, innere Leere",
+  },
+  {
+    key: "stress",
+    label: "Stress",
+    description:
+      "Schlafprobleme, körperliche Beschwerden, Gedankenkreisen",
+  },
+  {
+    key: "burnout",
+    label: "Burnout",
+    description:
+      "Überforderung, Leistungsabfall, Erschöpfung",
+  },
+  {
+    key: "selbstwert_selbstliebe",
+    label: "Selbstwert & Selbstliebe",
+    description:
+      "Selbstvertrauen, innere Kritiker, Gefühl nicht gut genug zu sein",
+  },
+  {
+    key: "angst_panik",
+    label: "Angst & Panikattacken",
+    description:
+      "Herzrasen, Atemnot, Prüfungsangst, Panik",
+  },
+  {
+    key: "krankheit_psychosomatik",
+    label: "Krankheit & Psychosomatik",
+    description:
+      "Umgang mit Diagnosen, Körper & Psyche stärken",
+  },
+  {
+    key: "angehoerige",
+    label: "Angehörige",
+    description:
+      "Grenzen setzen, Selbstfürsorge",
+  },
+  {
+    key: "sexualitaet",
+    label: "Sexualität",
+    description:
+      "Lustlosigkeit, Libido, Schmerzen, Orientierung",
+  },
+  {
+    key: "trauer",
+    label: "Trauer",
+    description:
+      "Verlust, Fehlgeburt, Abschied",
+  },
 ];
 
 
@@ -295,32 +357,19 @@ const [selectedDay, setSelectedDay] = useState(null);
 // -------------------------------------
 
 const matchedTeam = useMemo(() => {
-  const selectedThemen = form.themen || [];
-  const text = form.anliegen || "";
-
   return [...teamData]
     .map((m) => {
       let score = 0;
 
-      // 1️⃣ Checkbox-Themen (Hauptsignal)
-      selectedThemen.forEach((t) => {
-        if (m.tags?.includes(t)) score += 5;
+      form.themen.forEach((t) => {
+        score += m.scores?.[t] ?? 0;
       });
-
-      // 2️⃣ Freitext (Feinsignal)
-      if (text) {
-        const words = text.toLowerCase().split(/\W+/);
-        words.forEach((w) => {
-          if (m.tags?.some((tag) => tag.includes(w))) {
-            score += 1;
-          }
-        });
-      }
 
       return { ...m, _score: score };
     })
     .sort((a, b) => b._score - a._score);
-}, [form.themen, form.anliegen]);
+}, [form.themen]);
+
 
 
   // -------------------------------------
@@ -645,82 +694,51 @@ const slotsByMonth = useMemo(() => {
         </div>
       </div>
 
-{/* STEP 0 – Anliegen (stabil, klicksicher) */}
 {step === 0 && (
   <div className="step-container">
-    <h2>Wobei wünschst du dir Unterstützung?</h2>
-
-    <p style={{ fontSize: 14, color: "#666" }}>
-      Du kannst ein oder mehrere Themen auswählen.
+    <h2>Was ist dein aktuelles Anliegen?</h2>
+    <p style={{ opacity: 0.7 }}>
+      Du kannst mehrere Themen auswählen.
     </p>
 
     <div style={{ display: "grid", gap: 12, marginTop: 16 }}>
-      {THEMEN.filter((t) => t.key && t.label).map((t) => {
+      {THEMEN.map((t) => {
         const active = form.themen.includes(t.key);
 
         return (
-        <button
-  key={t.key}
-  type="button"
-  onClick={() => toggleThema(t.key, setForm)}
-  style={{
-    width: "100%",
-    textAlign: "left",
-    display: "flex",
-    alignItems: "center",
-    gap: 14,
-    padding: "14px 16px",
-    borderRadius: 16,
-    border: active ? "2px solid #A27C77" : "1px solid #ddd",
-    background: active ? "#F3E9E7" : "#fff",
-    color: "#111",                 // ✅ WICHTIG: Textfarbe fix
-    cursor: "pointer",
-    touchAction: "manipulation",
-  }}
->
-
-            {/* CHECK-ICON */}
-            <div
-              aria-hidden
-              style={{
-                width: 22,
-                height: 22,
-                borderRadius: 6,
-                border: active ? "2px solid #A27C77" : "2px solid #bbb",
-                background: active ? "#A27C77" : "transparent",
-                flex: "0 0 auto",
-              }}
-            />
-
-            {/* LABEL */}
-            <span style={{ lineHeight: 1.3 }}>
-              {t.label}
-            </span>
+          <button
+            key={t.key}
+            type="button"
+            onClick={() =>
+              setForm({
+                ...form,
+                themen: active
+                  ? form.themen.filter((x) => x !== t.key)
+                  : [...form.themen, t.key],
+              })
+            }
+            style={{
+              textAlign: "left",
+              padding: "14px 16px",
+              borderRadius: 16,
+              border: active
+                ? "2px solid #A27C77"
+                : "1px solid #ddd",
+              background: active ? "#F3E9E7" : "#fff",
+              color: "#000",
+            }}
+          >
+            <strong>{t.label}</strong>
+            <div style={{ fontSize: 14, opacity: 0.7, marginTop: 4 }}>
+              {t.description}
+            </div>
           </button>
         );
       })}
     </div>
 
-    <div style={{ marginTop: 20 }}>
-      <label style={{ fontSize: 14, color: "#666" }}>
-        Möchtest du noch etwas ergänzen?
-      </label>
-      <textarea
-        value={form.anliegen}
-        onChange={(e) =>
-          setForm({ ...form, anliegen: e.target.value })
-        }
-        placeholder="Optional – z. B. aktuelle Situation, wichtige Details…"
-        style={{ marginTop: 6 }}
-      />
-    </div>
-
     <div className="footer-buttons">
-      <span />
-      <button
-        disabled={form.themen.length === 0}
-        onClick={next}
-      >
+      <button disabled={form.themen.length === 0} onClick={next}>
         Weiter
       </button>
     </div>
