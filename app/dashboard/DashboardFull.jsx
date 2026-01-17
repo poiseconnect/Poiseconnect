@@ -44,13 +44,13 @@ const STATUS_LABEL = {
   papierkorb: "Papierkorb",
 };
 const STATUS_FILTER_MAP = {
-  unbearbeitet: ["offen", "termin_neu"],
+  unbearbeitet: ["neu", "termin_neu"],
   aktiv: ["active"],
   abrechnung: ["active", "beendet"],
   beendet: ["beendet"],
   papierkorb: ["papierkorb"],
   alle: [
-    "offen",
+    "neu",
     "termin_neu",
     "termin_bestaetigt",
     "active",
@@ -58,7 +58,8 @@ const STATUS_FILTER_MAP = {
     "papierkorb",
   ],
 };
-const UNBEARBEITET = ["offen", "termin_neu"];
+
+const UNBEARBEITET = ["neu", "termin_neu"];
 
 
 /* ================= MODAL ================= */
