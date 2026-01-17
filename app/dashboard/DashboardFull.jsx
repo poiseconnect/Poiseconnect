@@ -9,10 +9,11 @@ import "jspdf-autotable";
 /* ================= STATUS ================= */
 
 function normalizeStatus(raw) {
-  if (!raw) return "offen";
+  if (!raw) return "neu";
   const s = String(raw).toLowerCase().trim();
 
-  if (["offen", "neu", ""].includes(s)) return "offen";
+  if (["neu"].includes(s)) return "neu";
+  if (["offen"].includes(s)) return "neu"; // fallback
   if (["termin_neu", "new_appointment"].includes(s)) return "termin_neu";
   if (
     [
@@ -29,8 +30,9 @@ function normalizeStatus(raw) {
   if (["beendet", "finished"].includes(s)) return "beendet";
   if (["papierkorb"].includes(s)) return "papierkorb";
 
-  return "offen";
+  return "neu";
 }
+
 
 const STATUS_LABEL = {
   offen: "Neu",
