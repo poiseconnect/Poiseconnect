@@ -35,7 +35,7 @@ function normalizeStatus(raw) {
 
 
 const STATUS_LABEL = {
-  offen: "Neu",
+ neu: "Neu",
   termin_neu: "Neuer Termin",
   termin_bestaetigt: "Termin bestätigt",
   active: "Begleitung aktiv",
@@ -536,17 +536,18 @@ const billingByClient = useMemo(() => {
         <button onClick={() => setFilter("beendet")}>Beendet</button>
         <button onClick={() => setFilter("alle")}>Alle</button>
 
-        <select
-          value={therapistFilter}
-          onChange={(e) => setTherapistFilter(e.target.value)}
-        >
-          <option value="alle">Alle Teammitglieder</option>
-          {teamData.map((t) => (
-            <option key={t.email} value={t.email}>
-              {t.name}
-            </option>
-          ))}
-        </select>
+<select
+  value={therapistFilter}
+  onChange={(e) => setTherapistFilter(e.target.value)}
+>
+  <option value="alle">Alle Teammitglieder</option>
+  {teamData.map((t) => (
+    <option key={t.name} value={t.name}>
+      {t.name}
+    </option>
+  ))}
+</select>
+
 
         <input
           placeholder="🔍 Klient:in suchen…"
@@ -983,8 +984,8 @@ const billingByClient = useMemo(() => {
               {r.wunschtherapeut && (
                 <div style={{ fontSize: 13, color: "#555" }}>
                   👤{" "}
-                  {teamData.find((t) => t.email === r.wunschtherapeut)?.name ||
-                    r.wunschtherapeut}
+                 {r.wunschtherapeut}
+
                 </div>
               )}
 
@@ -1425,7 +1426,10 @@ const billingByClient = useMemo(() => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           anfrageId: detailsModal.id,
-          therapist: user.email,
+therapist:
+  teamData.find(t => t.email === user.email)?.name || user.email,
+
+
           sessions: [
             {
               date: newSessions[0].date,
@@ -1472,10 +1476,11 @@ const billingByClient = useMemo(() => {
           >
             <option value="">Bitte wählen…</option>
             {teamData.map((t) => (
-              <option key={t.email} value={t.email}>
-                {t.name}
-              </option>
-            ))}
+  <option key={t.name} value={t.name}>
+    {t.name}
+  </option>
+))}
+
           </select>
 
           <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
@@ -1524,11 +1529,12 @@ const billingByClient = useMemo(() => {
             style={{ width: "100%", marginBottom: 12 }}
           >
             <option value="">Bitte wählen…</option>
-            {teamData.map((t) => (
-              <option key={t.email} value={t.email}>
-                {t.name}
-              </option>
-            ))}
+{teamData.map((t) => (
+  <option key={t.name} value={t.name}>
+    {t.name}
+  </option>
+))}
+
           </select>
 
           <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
