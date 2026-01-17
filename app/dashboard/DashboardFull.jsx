@@ -319,8 +319,20 @@ const [invoiceLoading, setInvoiceLoading] = useState(false);
       .order("created_at", { ascending: false });
 
     if (user.email !== "hallo@mypoise.de") {
-      query = query.eq("wunschtherapeut", user.email);
-    }
+  const therapist = teamData.find(
+    (t) => t.email === user.email
+  );
+
+  if (therapist?.name) {
+    query = query.in("wunschtherapeut", [
+      therapist.name,
+      therapist.email,
+    ]);
+  } else {
+    query = query.eq("wunschtherapeut", user.email);
+  }
+}
+
 
     query.then(({ data }) => {
       setRequests(
