@@ -358,7 +358,8 @@ const [selectedDay, setSelectedDay] = useState(null);
 
 // Ableitung Ausbildung aus role (role = Ausbildung)
 const ROLE_TO_AUSBILDUNG = (role = "") => {
-  const r = role.toLowerCase();
+const r = (role || "").toLowerCase();
+
 
   if (r.includes("klinisch")) return "klinischer_psychologe";
   if (r.includes("psychotherapeut")) return "psychotherapeut";
