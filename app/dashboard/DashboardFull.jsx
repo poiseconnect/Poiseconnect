@@ -321,20 +321,8 @@ const [invoiceLoading, setInvoiceLoading] = useState(false);
       )
       .order("created_at", { ascending: false });
 
-    if (user.email !== "hallo@mypoise.de") {
-  const therapist = teamData.find(
-    (t) => t.email === user.email
-  );
-
-  if (therapist?.name) {
-    query = query.in("wunschtherapeut", [
-      therapist.name,
-      therapist.email,
-    ]);
-  } else {
-    query = query.eq("wunschtherapeut", user.email);
-  }
-}
+  // ⚠️ TEMP: kein Therapeut:innen-Filter
+// Alle Anfragen laden
 
 
     query.then(({ data }) => {
