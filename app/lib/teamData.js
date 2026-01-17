@@ -235,7 +235,6 @@ scores: {
   status: "frei",
   ics: "https://calendar.google.com/calendar/ical/a6b036ba257178278f5c92b72e04e9120ea076157959112266c8ec220ed2217f%40group.calendar.google.com/public/basic.ics",
   scores: {
-scores: {
   partnerschaft_beziehung: 0,
   beruf_ziele_orientierung: 5,
   stress: 4,
@@ -550,8 +549,7 @@ scores: {
   angehoerige: 4,
   sexualitaet: 4,
   trauer: 4,
-}
-,
+},
 },
 
 {
