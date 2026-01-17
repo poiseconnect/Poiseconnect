@@ -325,14 +325,17 @@ const [invoiceLoading, setInvoiceLoading] = useState(false);
 // Alle Anfragen laden
 
 
-    query.then(({ data }) => {
-      setRequests(
-        (data || []).map((r) => ({
-          ...r,
-          _status: normalizeStatus(r.status),
-        }))
-      );
-    });
+query.then(({ data, error }) => {
+  console.log("SUPABASE anfragen:", data, error);
+
+  setRequests(
+    (data || []).map((r) => ({
+      ...r,
+      _status: normalizeStatus(r.status),
+    }))
+  );
+});
+
   }, [user]);
 
   /* ---------- LOAD SESSIONS ---------- */
