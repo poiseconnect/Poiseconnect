@@ -282,50 +282,48 @@ useEffect(() => {
 
   /* ---------- LOAD REQUESTS ---------- */
   useEffect(() => {
-    if (!user?.email) return;
+  console.log("🚀 LOAD REQUESTS EFFECT START");
 
-    let query = supabase
-      .from("anfragen")
-      .select(
-        `
-        id,
-        created_at,
-        vorname,
-        nachname,
-        email,
-        telefon,
-        strasse_hausnr,
-        plz_ort,
-        geburtsdatum,
-        beschaeftigungsgrad,
-        leidensdruck,
-        anliegen,
-        verlauf,
-        ziel,
-        status,
-        bevorzugte_zeit,
-        wunschtherapeut,
-        honorar_klient
-      `
-      )
-      .order("created_at", { ascending: false });
+  supabase
+    .from("anfragen")
+    .select(`
+      id,
+      created_at,
+      vorname,
+      nachname,
+      email,
+      telefon,
+      strasse_hausnr,
+      plz_ort,
+      geburtsdatum,
+      beschaeftigungsgrad,
+      leidensdruck,
+      anliegen,
+      verlauf,
+      ziel,
+      status,
+      bevorzugte_zeit,
+      wunschtherapeut,
+      honorar_klient
+    `)
+    .order("created_at", { ascending: false })
+    .then(({ data, error }) => {
+      console.log("📦 SUPABASE anfragen DATA:", data);
+      console.log("❌ SUPABASE anfragen ERROR:", error);
 
-  // ⚠️ TEMP: kein Therapeut:innen-Filter
-// Alle Anfragen laden
+      if (error) {
+        console.error("🔥 Fehler beim Laden der Anfragen:", error);
+        return;
+      }
 
-
-query.then(({ data, error }) => {
-  console.log("SUPABASE anfragen:", data, error);
-
-  setRequests(
-    (data || []).map((r) => ({
-      ...r,
-      _status: normalizeStatus(r.status),
-    }))
-  );
-});
-
-  }, [user]);
+      setRequests(
+        (data || []).map((r) => ({
+          ...r,
+          _status: normalizeStatus(r.status),
+        }))
+      );
+    });
+}, []);
 
   /* ---------- LOAD SESSIONS ---------- */
   useEffect(() => {
