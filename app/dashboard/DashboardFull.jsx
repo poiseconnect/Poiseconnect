@@ -15,17 +15,18 @@ function normalizeStatus(raw) {
   const s = String(raw).toLowerCase().trim();
 
   if (["neu", "offen"].includes(s)) return "neu";
-  if (["termin_neu", "new_appointment"].includes(s)) return "termin_neu";
+  if (["termin_neu"].includes(s)) return "termin_neu";
   if (["termin_bestaetigt", "bestaetigt", "confirmed"].includes(s))
     return "termin_bestaetigt";
   if (["active", "aktiv"].includes(s)) return "active";
-  if (["kein_match", "no_match"].includes(s)) return "kein_match";
+  if (["kein_match"].includes(s)) return "kein_match";
   if (["beendet", "finished"].includes(s)) return "beendet";
   if (["papierkorb"].includes(s)) return "papierkorb";
 
+  console.warn("⚠️ UNBEKANNTER STATUS:", raw);
   return "neu";
-
 }
+
 
 
 const STATUS_LABEL = {
