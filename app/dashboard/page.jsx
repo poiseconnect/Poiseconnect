@@ -1,6 +1,6 @@
 "use client";
 
-import DashboardFull from "@/components/DashboardFull";
+import DashboardFull from "./DashboardFull";
 
 export default function DashboardPage() {
   console.log("DASHBOARD ROUTE page.jsx GELADEN");
