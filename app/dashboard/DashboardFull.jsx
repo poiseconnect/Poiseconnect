@@ -6,6 +6,8 @@ import { teamData } from "../lib/teamData";
 import jsPDF from "jspdf";
 import "jspdf-autotable";
 
+console.log("DASHBOARD FULL GELADEN"); // ← GENAU HIER
+
 /* ================= STATUS ================= */
 function normalizeStatus(raw) {
   if (!raw) return "neu";
