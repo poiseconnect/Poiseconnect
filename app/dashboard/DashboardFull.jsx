@@ -1089,71 +1089,74 @@ const billingByClient = useMemo(() => {
                 🔍 Details
               </button>
 
-              {/* ENTSCHEIDUNGEN */}
               {UNBEARBEITET.includes(r._status) && (
-                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                  <button
-                    onClick={() =>
-                      fetch("/api/confirm-appointment", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({
-                          requestId: r.id,
-                          therapist: user.email,
-                          client: r.email,
-                          slot: r.bevorzugte_zeit,
-                          vorname: r.vorname,
-                        }),
-                      }).then(() => location.reload())
-                    }
-                  >
-                    ✔ Termin bestätigen
-                  </button>
+  <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+    <button
+      onClick={() =>
+        fetch("/api/confirm-appointment", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            requestId: r.id,
+            therapist: user.email,
+            client: r.email,
+            slot: r.bevorzugte_zeit,
+            vorname: r.vorname,
+          }),
+        }).then(() => location.reload())
+      }
+    >
+      ✔ Termin bestätigen
+    </button>
 
-                 <button
-  onClick={() =>
-    fetch("/api/no-match", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ anfrageId: r.id }),
-    }).then(() => location.reload())
-  }
->
-  ❌ Kein Match
-</button>
-<button
-  onClick={() =>
-    fetch("/api/new-appointment", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        requestId: r.id,
-        client: r.email,
-        therapistName:
-          teamData.find(t => t.email === user.email)?.name || user.email,
-        vorname: r.vorname,
-      }),
-    }).then(() => location.reload())
-  }
->
-  🔁 Neuer Termin
-</button>
+    <button
+      onClick={() =>
+        fetch("/api/no-match", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ anfrageId: r.id }),
+        }).then(() => location.reload())
+      }
+    >
+      ❌ Kein Match
+    </button>
 
-<button
-  onClick={() =>
-    fetch("/api/forward-request", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        requestId: r.id,
-        client: r.email,
-        vorname: r.vorname,
-      }),
-    }).then(() => location.reload())
-  }
->
-  👥 Weiterleiten
-</button>
+    <button
+      onClick={() =>
+        fetch("/api/new-appointment", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            requestId: r.id,
+            client: r.email,
+            therapistName:
+              teamData.find(t => t.email === user.email)?.name || user.email,
+            vorname: r.vorname,
+          }),
+        }).then(() => location.reload())
+      }
+    >
+      🔁 Neuer Termin
+    </button>
+
+    <button
+      onClick={() =>
+        fetch("/api/forward-request", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            requestId: r.id,
+            client: r.email,
+            vorname: r.vorname,
+          }),
+        }).then(() => location.reload())
+      }
+    >
+      👥 Weiterleiten
+    </button>
+  </div>
+)}
+
 
 
               {/* MATCH / NO MATCH */}
