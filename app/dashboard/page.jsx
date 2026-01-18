@@ -1,10 +1,8 @@
 "use client";
 
-import DashboardFull from "./DashboardFull";
-
-export const dynamic = "force-dynamic";
-export const revalidate = 0;
+import DashboardFull from "@/components/DashboardFull";
 
 export default function DashboardPage() {
+  console.log("DASHBOARD ROUTE page.jsx GELADEN");
   return <DashboardFull />;
 }
