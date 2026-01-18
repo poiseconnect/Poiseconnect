@@ -7,23 +7,14 @@ import jsPDF from "jspdf";
 import "jspdf-autotable";
 
 /* ================= STATUS ================= */
-
 function normalizeStatus(raw) {
   if (!raw) return "neu";
+
   const s = String(raw).toLowerCase().trim();
 
-  if (["neu"].includes(s)) return "neu";
-  if (["offen"].includes(s)) return "neu"; // fallback
+  if (["neu", "offen"].includes(s)) return "neu";
   if (["termin_neu", "new_appointment"].includes(s)) return "termin_neu";
-  if (
-    [
-      "termin_bestaetigt",
-      "termin bestätigt",
-      "confirmed",
-      "appointment_confirmed",
-      "bestaetigt",
-    ].includes(s)
-  )
+  if (["termin_bestaetigt", "bestaetigt", "confirmed"].includes(s))
     return "termin_bestaetigt";
   if (["active", "aktiv"].includes(s)) return "active";
   if (["kein_match", "no_match"].includes(s)) return "kein_match";
@@ -31,6 +22,7 @@ function normalizeStatus(raw) {
   if (["papierkorb"].includes(s)) return "papierkorb";
 
   return "neu";
+
 }
 
 
@@ -49,14 +41,7 @@ const STATUS_FILTER_MAP = {
   abrechnung: ["active", "beendet"],
   beendet: ["beendet"],
   papierkorb: ["papierkorb"],
-  alle: [
-    "neu",
-    "termin_neu",
-    "termin_bestaetigt",
-    "active",
-    "beendet",
-    "papierkorb",
-  ],
+  alle: ["neu", "termin_neu", "termin_bestaetigt", "active", "beendet", "papierkorb"],
 };
 
 const UNBEARBEITET = ["neu", "termin_neu"];
@@ -401,34 +386,10 @@ const sessionsSafe = useMemo(() => {
    GEFILTERTE ANFRAGEN (KARTEN / LISTEN)
 ========================================================= */
 const filteredRequests = useMemo(() => {
-  const allowedStatuses =
-    STATUS_FILTER_MAP[filter] ?? STATUS_FILTER_MAP.alle;
+  console.log("FILTER OFF – REQUESTS:", requests);
+  return requests;
+}, [requests]);
 
-  return requests.filter((r) => {
-    // STATUS
-    if (!allowedStatuses.includes(r._status)) return false;
-
-    // 👤 THERAPEUT:IN FILTER (nur wenn ausgewählt)
-    if (therapistFilter !== "alle") {
-      // Wunschtherapeut ist bei dir NAME (nicht email) → Vergleich über Name
-      if (r.wunschtherapeut !== therapistFilter) {
-        // oder: wenn bereits Sitzungen existieren und die Session-Therapeut:in passt
-        const sessions = sessionsByRequest[String(r.id)] || [];
-        const hasSession = sessions.some((s) => s.therapist === therapistFilter);
-        if (!hasSession) return false;
-      }
-    }
-
-    // 🔍 Suche
-    if (search) {
-      const q = search.toLowerCase();
-      const name = `${r.vorname || ""} ${r.nachname || ""}`.toLowerCase();
-      if (!name.includes(q)) return false;
-    }
-
-    return true;
-  });
-}, [requests, filter, therapistFilter, search, sessionsByRequest]);
 
 
 
