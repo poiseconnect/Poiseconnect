@@ -316,12 +316,38 @@ useEffect(() => {
         return;
       }
 
-      setRequests(
-        (data || []).map((r) => ({
-          ...r,
-          _status: normalizeStatus(r.status),
-        }))
+      const VALID_STATUSES = [
+  "neu",
+  "termin_neu",
+  "termin_bestaetigt",
+  "active",
+  "kein_match",
+  "beendet",
+  "papierkorb",
+];
+
+setRequests(
+  (data || []).map((r) => {
+    const normalized = normalizeStatus(r.status);
+
+    if (!VALID_STATUSES.includes(normalized)) {
+      console.warn(
+        "⚠️ UNBEKANNTER STATUS",
+        r.status,
+        "→",
+        normalized,
+        "ID:",
+        r.id
       );
+    }
+
+    return {
+      ...r,
+      _status: normalized,
+    };
+  })
+);
+
     });
 }, []);
 
@@ -522,6 +548,31 @@ const billingByClient = useMemo(() => {
 
   return (
     <div style={{ padding: 24, maxWidth: 1100, margin: "0 auto" }}>
+      {/* ================= DEBUG OVERLAY (DEV ONLY) ================= */}
+{process.env.NODE_ENV === "development" && (
+  <pre
+    style={{
+      background: "#f4f4f4",
+      padding: 12,
+      fontSize: 12,
+      borderRadius: 8,
+      marginBottom: 16,
+      border: "1px solid #ddd",
+    }}
+  >
+    {JSON.stringify(
+      {
+        filter,
+        totalRequests: requests.length,
+        visibleRequests: filteredRequests.length,
+        statuses: requests.map((r) => r._status),
+      },
+      null,
+      2
+    )}
+  </pre>
+)}
+
       <h1>Poise Dashboard</h1>
 
       {/* FILTER */}
@@ -559,6 +610,21 @@ const billingByClient = useMemo(() => {
             minWidth: 220,
           }}
         />
+{filter !== "abrechnung" && sortedRequests.length === 0 && (
+  <div
+    style={{
+      padding: 24,
+      textAlign: "center",
+      color: "#777",
+      border: "1px dashed #ccc",
+      borderRadius: 12,
+      marginBottom: 20,
+    }}
+  >
+    Keine Einträge für diesen Filter<br />
+    <small>Aktiver Filter: {filter}</small>
+  </div>
+)}
 
         {filter !== "abrechnung" && (
   <select
