@@ -388,9 +388,16 @@ const sessionsSafe = useMemo(() => {
    GEFILTERTE ANFRAGEN (KARTEN / LISTEN)
 ========================================================= */
 const filteredRequests = useMemo(() => {
-  console.log("FILTER OFF – REQUESTS:", requests);
-  return requests;
-}, [requests]);
+  console.log("🔍 FILTER:", filter);
+  console.log("📦 REQUESTS RAW:", requests);
+
+  const allowedStatuses = STATUS_FILTER_MAP[filter] || [];
+
+  return requests.filter((r) =>
+    allowedStatuses.includes(r._status)
+  );
+}, [requests, filter]);
+
 
 
 
