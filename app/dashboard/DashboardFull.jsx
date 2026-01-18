@@ -401,8 +401,34 @@ const sessionsSafe = useMemo(() => {
    GEFILTERTE ANFRAGEN (KARTEN / LISTEN)
 ========================================================= */
 const filteredRequests = useMemo(() => {
-  return requests;
-}, [requests]);
+  const allowedStatuses =
+    STATUS_FILTER_MAP[filter] ?? STATUS_FILTER_MAP.alle;
+
+  return requests.filter((r) => {
+    // STATUS
+    if (!allowedStatuses.includes(r._status)) return false;
+
+    // 👤 THERAPEUT:IN FILTER (nur wenn ausgewählt)
+    if (therapistFilter !== "alle") {
+      // Wunschtherapeut ist bei dir NAME (nicht email) → Vergleich über Name
+      if (r.wunschtherapeut !== therapistFilter) {
+        // oder: wenn bereits Sitzungen existieren und die Session-Therapeut:in passt
+        const sessions = sessionsByRequest[String(r.id)] || [];
+        const hasSession = sessions.some((s) => s.therapist === therapistFilter);
+        if (!hasSession) return false;
+      }
+    }
+
+    // 🔍 Suche
+    if (search) {
+      const q = search.toLowerCase();
+      const name = `${r.vorname || ""} ${r.nachname || ""}`.toLowerCase();
+      if (!name.includes(q)) return false;
+    }
+
+    return true;
+  });
+}, [requests, filter, therapistFilter, search, sessionsByRequest]);
 
 
 
