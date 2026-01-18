@@ -6,7 +6,7 @@ import { teamData } from "../lib/teamData";
 import jsPDF from "jspdf";
 import "jspdf-autotable";
 
-console.log("🔥 DASHBOARD FULL DATEI WIRD AUSGEFÜHRT 🔥");
+console.log("🔥 DashboardFull RENDERED");
 
 /* ================= STATUS ================= */
 function normalizeStatus(raw) {
