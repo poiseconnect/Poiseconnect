@@ -241,11 +241,13 @@ const [invoiceLoading, setInvoiceLoading] = useState(false);
 
 
   /* ---------- LOAD USER ---------- */
-  useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      setUser(data?.user || null);
-    });
-  }, []);
+useEffect(() => {
+  supabase.auth.getUser().then(({ data, error }) => {
+    console.log("AUTH getUser:", data, error);
+    setUser(data?.user || null);
+  });
+}, []);
+
 
  useEffect(() => {
   if (!user?.email) return;
