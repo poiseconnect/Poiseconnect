@@ -1121,10 +1121,40 @@ const billingByClient = useMemo(() => {
 >
   ❌ Kein Match
 </button>
-                  <button onClick={() => moveToTrash(r)}>🔁 Neuer Termin</button>
-                  <button onClick={() => moveToTrash(r)}>👥 Weiterleiten</button>
-                </div>
-              )}
+<button
+  onClick={() =>
+    fetch("/api/new-appointment", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        requestId: r.id,
+        client: r.email,
+        therapistName:
+          teamData.find(t => t.email === user.email)?.name || user.email,
+        vorname: r.vorname,
+      }),
+    }).then(() => location.reload())
+  }
+>
+  🔁 Neuer Termin
+</button>
+
+<button
+  onClick={() =>
+    fetch("/api/forward-request", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        requestId: r.id,
+        client: r.email,
+        vorname: r.vorname,
+      }),
+    }).then(() => location.reload())
+  }
+>
+  👥 Weiterleiten
+</button>
+
 
               {/* MATCH / NO MATCH */}
               {r._status === "termin_bestaetigt" && (
