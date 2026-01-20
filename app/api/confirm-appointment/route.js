@@ -13,20 +13,20 @@ export async function POST(request) {
 
     console.log("CONFIRM BODY:", body);
 
-    const {
-      requestId,
-      therapist,
-      client,
-      slot,
-      vorname,
-    } = body || {};
+   const {
+  requestId,
+  therapist,
+  client,
+  vorname,
+} = body || {};
 
-    if (!requestId || !therapist || !client || !slot) {
-      return new Response(
-        JSON.stringify({ error: "missing_fields" }),
-        { status: 400 }
-      );
-    }
+if (!requestId || !therapist || !client) {
+  return new Response(
+    JSON.stringify({ error: "missing_fields" }),
+    { status: 400 }
+  );
+}
+
 
     const baseUrl =
       process.env.NEXT_PUBLIC_SITE_URL ||
