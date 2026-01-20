@@ -36,7 +36,6 @@ if (!requestId || !therapist || !client) {
     const { error: updateError } = await supabase
       .from("anfragen")
       .update({
-        bevorzugte_zeit: slot,
         status: "termin_bestaetigt",
       })
       .eq("id", requestId);
