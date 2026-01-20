@@ -7,6 +7,8 @@ import StepIndicator from "./components/StepIndicator";
 import TeamCarousel from "./components/TeamCarousel";
 import { teamData } from "./lib/teamData";
 import { supabase } from "./lib/supabase";
+import { useSearchParams } from "next/navigation";
+
 
 
 
@@ -274,6 +276,10 @@ function toggleThema(key, setForm) {
 // --------------------------------------------------
 export default function Home() {
   const today = new Date();
+  const searchParams = useSearchParams();
+
+  const anfrageId = searchParams.get("anfrageId"); // ✅ ENTSCHEIDEND
+
   const [step, setStep] = useState(0);
   const [subStep9, setSubStep9] = useState(0);
   const totalSteps = 12;
@@ -475,6 +481,32 @@ const step8Members = useMemo(() => {
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   }
+// -------------------------------------
+// LOAD EXISTING REQUEST BY ID (🔥 WICHTIG)
+// -------------------------------------
+useEffect(() => {
+  if (!anfrageId) return;
+
+  supabase
+    .from("anfragen")
+    .select("*")
+    .eq("id", anfrageId)
+    .single()
+    .then(({ data, error }) => {
+      if (error) {
+        console.error("LOAD ANFRAGE BY ID ERROR", error);
+        return;
+      }
+
+      if (data) {
+        console.log("LOADED EXISTING REQUEST", data);
+        setForm((prev) => ({
+          ...prev,
+          ...data, // ✅ ALLE FELDER BLEIBEN
+        }));
+      }
+    });
+}, [anfrageId]);
 
   // -------------------------------------
   // Resume-Flow (Therapist-Response Links)
@@ -514,14 +546,17 @@ const step8Members = useMemo(() => {
 
     if (targetStep === null) return;
 
-    setForm((prev) => ({
-      ...prev,
-      email: emailParam || prev.email,
-      wunschtherapeut:
-        targetStep === 8 ? "" : therapistParam || prev.wunschtherapeut,
-      terminISO: "",
-      terminDisplay: "",
-    }));
+setForm((prev) => ({
+  ...prev,
+  email: prev.email || emailParam, // ❗ NICHT überschreiben
+  wunschtherapeut:
+    targetStep === 8
+      ? ""
+      : prev.wunschtherapeut || therapistParam,
+  terminISO: "",
+  terminDisplay: "",
+}));
+
 
     setStep(targetStep);
 
@@ -668,14 +703,12 @@ const slotsByMonth = useMemo(() => {
   // -------------------------------------
   const send = async () => {
     try {
-      const res = await fetch("/api/form-submit", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...form,
-          therapist_from_url: form.wunschtherapeut,
-        }),
-      });
+   body: JSON.stringify({
+  ...form,
+  anfrageId, // ✅ ENTSCHEIDEND
+  therapist_from_url: form.wunschtherapeut,
+}),
+
 
       let json = null;
       try {
