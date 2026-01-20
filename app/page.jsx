@@ -701,36 +701,39 @@ const slotsByMonth = useMemo(() => {
   // -------------------------------------
   // Formular absenden
   // -------------------------------------
-  const send = async () => {
+const send = async () => {
+  try {
+    const res = await fetch("/api/form-submit", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        ...form,
+        therapist_from_url: form.wunschtherapeut,
+      }),
+    }); // ✅ DAS war der fehlende Abschluss
+
+    let json = null;
     try {
-   body: JSON.stringify({
-  ...form,
-  anfrageId, // ✅ ENTSCHEIDEND
-  therapist_from_url: form.wunschtherapeut,
-}),
-
-
-      let json = null;
-      try {
-        if (res.headers.get("content-type")?.includes("application/json")) {
-          json = await res.json();
-        }
-      } catch (_) {
-        // ignorieren
+      if (res.headers.get("content-type")?.includes("application/json")) {
+        json = await res.json();
       }
-
-      if (!res.ok) {
-        console.error("API Fehler:", json || res.status);
-        alert("Fehler – Anfrage konnte nicht gesendet werden.");
-        return;
-      }
-
-      alert("Danke – deine Anfrage wurde erfolgreich gesendet 🤍");
-    } catch (err) {
-      console.error("Client Fehler:", err);
-      alert("Unerwarteter Fehler – bitte später erneut versuchen.");
+    } catch (_) {
+      // ignorieren
     }
-  };
+
+    if (!res.ok) {
+      console.error("API Fehler:", json || res.status);
+      alert("Fehler – Anfrage konnte nicht gesendet werden.");
+      return;
+    }
+
+    alert("Danke – deine Anfrage wurde erfolgreich gesendet 🤍");
+  } catch (err) {
+    console.error("Client Fehler:", err);
+    alert("Unerwarteter Fehler – bitte später erneut versuchen.");
+  }
+};
+
 
   // -------------------------------------
   // Render
