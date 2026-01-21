@@ -2,21 +2,14 @@ export const dynamic = "force-dynamic";
 
 import { createClient } from "@supabase/supabase-js";
 
-/**
- * ⚠️ WICHTIG:
- * In app/api/** IMMER eigenen Supabase-Client verwenden
- */
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
-export async function POST(request) {
+export async function POST(req) {
   try {
-    const body = await request.json();
-    const { anfrageId } = body || {};
-
-    console.log("NO-MATCH BODY:", body);
+    const { anfrageId } = await req.json();
 
     if (!anfrageId) {
       return new Response(
@@ -27,31 +20,22 @@ export async function POST(request) {
 
     const { error } = await supabase
       .from("anfragen")
-      .update({ status: "kein_match" }) // ⚠️ konsistent mit deinem Frontend
+      .update({ status: "papierkorb" })
       .eq("id", anfrageId);
 
     if (error) {
-      console.error("NO-MATCH UPDATE ERROR:", error);
+      console.error("NO-MATCH ERROR:", error);
       return new Response(
-        JSON.stringify({
-          error: "update_failed",
-          detail: error.message,
-        }),
+        JSON.stringify({ error: "update_failed" }),
         { status: 500 }
       );
     }
 
+    return new Response(JSON.stringify({ ok: true }), { status: 200 });
+  } catch (e) {
+    console.error("NO-MATCH SERVER ERROR:", e);
     return new Response(
-      JSON.stringify({ ok: true }),
-      { status: 200 }
-    );
-  } catch (err) {
-    console.error("NO-MATCH SERVER ERROR:", err);
-    return new Response(
-      JSON.stringify({
-        error: "server_error",
-        detail: String(err),
-      }),
+      JSON.stringify({ error: "server_error" }),
       { status: 500 }
     );
   }
