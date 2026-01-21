@@ -11,37 +11,56 @@ export async function POST(request) {
   try {
     const body = await request.json();
 
-    console.log("CONFIRM BODY:", body);
+    console.log("✅ CONFIRM-APPOINTMENT BODY:", body);
 
-   const {
-  requestId,
-  therapist,
-  client,
-  vorname,
-} = body || {};
+    const { requestId, client, vorname } = body || {};
 
-if (!requestId || !therapist || !client) {
-  return new Response(
-    JSON.stringify({ error: "missing_fields" }),
-    { status: 400 }
-  );
-}
+    if (!requestId || !client) {
+      return new Response(
+        JSON.stringify({ error: "missing_fields" }),
+        { status: 400 }
+      );
+    }
 
+    /* --------------------------------------------------
+       1️⃣ AKTUELLE ANFRAGE LADEN (SICHERHEIT)
+    -------------------------------------------------- */
+    const { data: existing, error: loadError } = await supabase
+      .from("anfragen")
+      .select("id, status")
+      .eq("id", requestId)
+      .single();
 
-    const baseUrl =
-      process.env.NEXT_PUBLIC_SITE_URL ||
-      "https://poiseconnect.vercel.app";
+    if (loadError || !existing) {
+      console.error("❌ LOAD REQUEST ERROR:", loadError);
+      return new Response(
+        JSON.stringify({ error: "request_not_found" }),
+        { status: 404 }
+      );
+    }
 
-    // 1️⃣ Anfrage aktualisieren
+    // ❗ Schon bestätigt → nichts tun (idempotent)
+    if (existing.status === "termin_bestaetigt") {
+      console.log("ℹ️ already confirmed:", requestId);
+      return new Response(
+        JSON.stringify({ ok: true, alreadyConfirmed: true }),
+        { status: 200 }
+      );
+    }
+
+    /* --------------------------------------------------
+       2️⃣ STATUS → termin_bestaetigt
+    -------------------------------------------------- */
     const { error: updateError } = await supabase
       .from("anfragen")
-      .update({
-        status: "termin_bestaetigt",
-      })
+      .update(
+        { status: "termin_bestaetigt" },
+        { returning: "minimal" }
+      )
       .eq("id", requestId);
 
     if (updateError) {
-      console.error("CONFIRM UPDATE ERROR:", updateError);
+      console.error("❌ CONFIRM UPDATE ERROR:", updateError);
       return new Response(
         JSON.stringify({
           error: "update_failed",
@@ -51,7 +70,15 @@ if (!requestId || !therapist || !client) {
       );
     }
 
-    // 2️⃣ Mail an Klient
+    console.log("✅ STATUS UPDATED → termin_bestaetigt:", requestId);
+
+    /* --------------------------------------------------
+       3️⃣ MAIL AN KLIENT:IN
+    -------------------------------------------------- */
+    const baseUrl =
+      process.env.NEXT_PUBLIC_SITE_URL ||
+      "https://poiseconnect.vercel.app";
+
     const mailRes = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: {
@@ -76,7 +103,7 @@ if (!requestId || !therapist || !client) {
     });
 
     if (!mailRes.ok) {
-      console.warn("MAIL SEND FAILED – DB UPDATE OK");
+      console.warn("⚠️ MAIL FAILED – STATUS IST ABER KORREKT");
     }
 
     return new Response(
@@ -84,7 +111,7 @@ if (!requestId || !therapist || !client) {
       { status: 200 }
     );
   } catch (err) {
-    console.error("CONFIRM SERVER ERROR:", err);
+    console.error("🔥 CONFIRM SERVER ERROR:", err);
     return new Response(
       JSON.stringify({
         error: "server_error",
