@@ -1092,21 +1092,21 @@ const billingByClient = useMemo(() => {
               {UNBEARBEITET.includes(r._status) && (
   <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
     <button
-      onClick={() =>
-  fetch("/api/confirm-appointment", {
-  method: "POST",
-  headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({
-    requestId: r.id,
-    client: r.email,
-    vorname: r.vorname,
-  }),
-}).then(() => location.reload());
+  onClick={() => {
+    fetch("/api/confirm-appointment", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        requestId: r.id,
+        client: r.email,
+        vorname: r.vorname,
+      }),
+    }).then(() => location.reload());
+  }}
+>
+  ✔ Termin bestätigen
+</button>
 
-      }
-    >
-      ✔ Termin bestätigen
-    </button>
 
     <button
       onClick={() =>
