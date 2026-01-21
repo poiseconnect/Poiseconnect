@@ -1093,17 +1093,16 @@ const billingByClient = useMemo(() => {
   <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
     <button
       onClick={() =>
-        fetch("/api/confirm-appointment", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            requestId: r.id,
-            therapist: user.email,
-            client: r.email,
-            slot: r.bevorzugte_zeit,
-            vorname: r.vorname,
-          }),
-        }).then(() => location.reload())
+  fetch("/api/confirm-appointment", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    requestId: r.id,
+    client: r.email,
+    vorname: r.vorname,
+  }),
+}).then(() => location.reload());
+
       }
     >
       ✔ Termin bestätigen
