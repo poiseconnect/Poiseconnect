@@ -1328,7 +1328,8 @@ const billingByClient = useMemo(() => {
             </section>
 
             {/* AKTIV-BEREICH */}
-            {detailsModal._status === "active" && (
+          {normalizeStatus(detailsModal.status || detailsModal._status) === "active" && (
+
               <div style={{ marginTop: 12 }}>
                 <hr />
 
