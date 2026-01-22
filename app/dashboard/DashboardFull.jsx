@@ -1080,14 +1080,18 @@ const billingByClient = useMemo(() => {
               <p>{typeof r.anliegen === "string" ? r.anliegen : "–"}</p>
 
               <button
-                onClick={() => {
-                  setDetailsModal(r);
-                  setEditTarif(r.honorar_klient || "");
-                  setNewSessions([{ date: "", duration: 60 }]);
-                }}
-              >
-                🔍 Details
-              </button>
+  onClick={() => {
+    setDetailsModal({
+      ...r,
+      _status: r._status, // ✅ EXPLIZIT MITGEBEN
+    });
+    setEditTarif(r.honorar_klient || "");
+    setNewSessions([{ date: "", duration: 60 }]);
+  }}
+>
+  🔍 Details
+</button>
+
 
               {UNBEARBEITET.includes(r._status) && (
   <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
