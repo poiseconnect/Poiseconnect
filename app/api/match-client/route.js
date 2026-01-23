@@ -1,4 +1,7 @@
+
+
 export const dynamic = "force-dynamic";
+console.log("🔥 MATCH API CALLED");
 
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
@@ -17,6 +20,8 @@ const supabase = createClient(
 export async function POST(req) {
   try {
     const body = await req.json(); // ✅ genau ein json()
+    console.log("📥 MATCH BODY:", body);
+
 
     const { anfrageId, therapistEmail, honorar } = body || {};
 
@@ -40,26 +45,30 @@ export async function POST(req) {
         { status: 404 }
       );
     }
-function normalizeStatus(raw) {
-  if (!raw) return "";
-  const s = String(raw).toLowerCase().trim();
-  if (["confirmed", "bestaetigt", "termin_bestaetigt"].includes(s))
-    return "termin_bestaetigt";
-  return s;
-}
+const rawStatus = String(anfrage.status || "");
 
-const status = normalizeStatus(anfrage.status);
+const normalizedStatus = rawStatus
+  .toLowerCase()
+  .trim()
+  .replace("ä", "ae")
+  .replace(/\s+/g, "_");
 
-if (status !== "termin_bestaetigt") {
+console.log("🔍 MATCH STATUS CHECK:", {
+  rawStatus,
+  normalizedStatus,
+});
+
+if (!normalizedStatus.includes("termin")) {
   return NextResponse.json(
     {
       error: "MATCH_NOT_ALLOWED",
-      currentStatus: anfrage.status,
+      currentStatus: rawStatus,
+      normalizedStatus,
     },
     { status: 400 }
   );
 }
-
+ console.log("🟡 STATUS OK – UPDATE TO ACTIVE");
 
     // 2️⃣ Anfrage aktiv setzen
     const { error: updateError } = await supabase
@@ -77,7 +86,7 @@ if (status !== "termin_bestaetigt") {
         { status: 500 }
       );
     }
-
+    console.log("✅ MATCH UPDATE DONE");
     return NextResponse.json({ ok: true });
   } catch (err) {
     console.error("MATCH CLIENT ERROR:", err);
