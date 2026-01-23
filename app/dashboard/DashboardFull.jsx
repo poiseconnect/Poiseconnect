@@ -1163,46 +1163,60 @@ const billingByClient = useMemo(() => {
 
 
               {/* MATCH / NO MATCH */}
-              {filter === "unbearbeitet" && r._status === "termin_bestaetigt" && (
-                <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
-                  <button
-onClick={async () => {
-  const res = await fetch("/api/match-client", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      anfrageId: r.id,
-      honorar: r.honorar_klient ?? null,
-    }),
-  });
+              {/* MATCH / NO MATCH / WEITERLEITEN */}
+{r._status === "termin_bestaetigt" && (
+  <div style={{ display: "flex", gap: 8, marginTop: 8, flexWrap: "wrap" }}>
 
-  if (!res.ok) {
-    const err = await res.json();
-    alert(err.error || "Match nicht möglich");
-    return;
-  }
+    {/* ❤️ MATCH */}
+    <button
+      onClick={() =>
+        fetch("/api/match-client", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            anfrageId: r.id,
+            therapistEmail: user.email,
+            honorar: r.honorar_klient,
+          }),
+        }).then(() => location.reload())
+      }
+    >
+      ❤️ Match
+    </button>
 
-  location.reload();
-}}
+    {/* ❌ KEIN MATCH */}
+    <button
+      onClick={() =>
+        fetch("/api/no-match", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ anfrageId: r.id }),
+        }).then(() => location.reload())
+      }
+    >
+      ❌ Kein Match
+    </button>
 
->
-  ❤️ Match
-</button>
+    {/* 👥 WEITERLEITEN */}
+    <button
+      onClick={() =>
+        fetch("/api/forward-request", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            requestId: r.id,
+            client: r.email,
+            vorname: r.vorname,
+          }),
+        }).then(() => location.reload())
+      }
+    >
+      👥 Weiterleiten
+    </button>
 
+  </div>
+)}
 
-                  <button
-                    onClick={() =>
-                      fetch("/api/no-match", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ anfrageId: r.id }),
-                      }).then(() => location.reload())
-                    }
-                  >
-                    ❌ Kein Match
-                  </button>
-                </div>
-              )}
 
               {/* AKTIV */}
               {r._status === "active" && (
