@@ -1,7 +1,7 @@
 
 
 export const dynamic = "force-dynamic";
-console.log("🔥 MATCH API CALLED");
+
 
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
