@@ -18,7 +18,8 @@ function normalizeStatus(raw) {
   if (["termin_neu"].includes(s)) return "termin_neu";
   if (["termin_bestaetigt", "bestaetigt", "confirmed"].includes(s))
     return "termin_bestaetigt";
-  if (["active", "aktiv"].includes(s)) return "active";
+if (["active", "aktiv", "begleitung aktiv"].includes(s)) return "active";
+
   if (["kein_match"].includes(s)) return "kein_match";
   if (["beendet", "finished"].includes(s)) return "beendet";
   if (["papierkorb"].includes(s)) return "papierkorb";
