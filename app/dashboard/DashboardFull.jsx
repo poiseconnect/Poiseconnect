@@ -1168,21 +1168,32 @@ const billingByClient = useMemo(() => {
   <div style={{ display: "flex", gap: 8, marginTop: 8, flexWrap: "wrap" }}>
 
     {/* ❤️ MATCH */}
-    <button
-      onClick={() =>
-        fetch("/api/match-client", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            anfrageId: r.id,
-            therapistEmail: user.email,
-            honorar: r.honorar_klient,
-          }),
-        }).then(() => location.reload())
+   <button
+  onClick={() => {
+    fetch("/api/match-client", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        anfrageId: r.id,
+        therapistEmail: user.email,
+        honorar: r.honorar_klient,
+      }),
+    }).then(async (res) => {
+      const data = await res.json();
+      if (!res.ok) {
+        alert(
+          "Match fehlgeschlagen:\n" +
+            JSON.stringify(data, null, 2)
+        );
+        return;
       }
-    >
-      ❤️ Match
-    </button>
+      location.reload();
+    });
+  }}
+>
+  ❤️ Match
+</button>
+
 
     {/* ❌ KEIN MATCH */}
     <button
