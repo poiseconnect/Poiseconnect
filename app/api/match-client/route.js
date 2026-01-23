@@ -40,17 +40,26 @@ export async function POST(req) {
         { status: 404 }
       );
     }
+function normalizeStatus(raw) {
+  if (!raw) return "";
+  const s = String(raw).toLowerCase().trim();
+  if (["confirmed", "bestaetigt", "termin_bestaetigt"].includes(s))
+    return "termin_bestaetigt";
+  return s;
+}
 
-    const status = String(anfrage.status || "").toLowerCase();
+const status = normalizeStatus(anfrage.status);
 
-    if (
-      !["confirmed", "termin_bestaetigt", "bestaetigt"].includes(status)
-    ) {
-      return NextResponse.json(
-        { error: "Match erst nach bestätigtem Termin erlaubt" },
-        { status: 400 }
-      );
-    }
+if (status !== "termin_bestaetigt") {
+  return NextResponse.json(
+    {
+      error: "MATCH_NOT_ALLOWED",
+      currentStatus: anfrage.status,
+    },
+    { status: 400 }
+  );
+}
+
 
     // 2️⃣ Anfrage aktiv setzen
     const { error: updateError } = await supabase
