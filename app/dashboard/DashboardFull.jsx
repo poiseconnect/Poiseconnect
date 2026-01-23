@@ -460,6 +460,18 @@ const sortedRequests = useMemo(() => {
     return db - da;
   });
 }, [filteredRequests, sort, sessionsByRequest]);
+/* =========================================================
+   THERAPEUT:IN FILTER NUR FÜR AKTIV TAB
+========================================================= */
+const therapistFilteredRequests = useMemo(() => {
+  // nur im Aktiv-Tab filtern (damit Unbearbeitet/Alle/Beendet nicht kaputt gehen)
+  if (filter !== "aktiv") return sortedRequests;
+
+  if (therapistFilter === "alle") return sortedRequests;
+
+  // in "anfragen" ist wunschtherapeut bei dir der NAME (z.B. "Anja")
+  return sortedRequests.filter((r) => r.wunschtherapeut === therapistFilter);
+}, [sortedRequests, therapistFilter, filter]);
 
 /* =========================================================
    ABRECHNUNG – SESSION FILTER (ZEITRAUM)
@@ -595,7 +607,7 @@ const billingByClient = useMemo(() => {
 >
   <option value="alle">Alle Teammitglieder</option>
   {teamData.map((t) => (
-    <option key={t.name} value={t.name}>
+ <option key={t.email} value={t.name}>
       {t.name}
     </option>
   ))}
@@ -1021,8 +1033,8 @@ const billingByClient = useMemo(() => {
 
 
       {/* KARTEN */}
-      {filter !== "abrechnung" &&
-        sortedRequests.map((r) => {
+{filter !== "abrechnung" &&
+  therapistFilteredRequests.map((r) => {
           const sessionList = sessionsByRequest[String(r.id)] || [];
           const lastSessionDate = sessionList.length
             ? sessionList[sessionList.length - 1]?.date
@@ -1134,7 +1146,8 @@ const billingByClient = useMemo(() => {
             requestId: r.id,
             client: r.email,
             therapistName:
-              teamData.find(t => t.email === user.email)?.name || user.email,
+therapist: user.email,
+
             vorname: r.vorname,
           }),
         }).then(() => location.reload())
@@ -1575,7 +1588,8 @@ const billingByClient = useMemo(() => {
         body: JSON.stringify({
           anfrageId: detailsModal.id,
 therapist:
-  teamData.find(t => t.email === user.email)?.name || user.email,
+therapist: user.email,
+
 
 
           sessions: [
@@ -1624,7 +1638,7 @@ therapist:
           >
             <option value="">Bitte wählen…</option>
             {teamData.map((t) => (
-  <option key={t.name} value={t.name}>
+ <option key={t.email} value={t.name}>
     {t.name}
   </option>
 ))}
