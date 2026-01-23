@@ -1163,23 +1163,32 @@ const billingByClient = useMemo(() => {
 
 
               {/* MATCH / NO MATCH */}
-              {r._status === "termin_bestaetigt" && (
+              {filter === "unbearbeitet" && r._status === "termin_bestaetigt" && (
                 <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
                   <button
-                    onClick={() =>
-                      fetch("/api/match-client", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({
-                          anfrageId: r.id,
-                          therapistEmail: user.email,
-                          honorar: r.honorar_klient,
-                        }),
-                      }).then(() => location.reload())
-                    }
-                  >
-                    ❤️ Match
-                  </button>
+onClick={async () => {
+  const res = await fetch("/api/match-client", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      anfrageId: r.id,
+      honorar: r.honorar_klient ?? null,
+    }),
+  });
+
+  if (!res.ok) {
+    const err = await res.json();
+    alert(err.error || "Match nicht möglich");
+    return;
+  }
+
+  location.reload();
+}}
+
+>
+  ❤️ Match
+</button>
+
 
                   <button
                     onClick={() =>
