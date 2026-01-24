@@ -1130,79 +1130,114 @@ const billingByClient = useMemo(() => {
 
 
 {["neu", "termin_neu"].includes(r._status) && (
-  <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 8 }}>
+  <div
+    style={{
+      display: "flex",
+      gap: 16,
+      marginTop: 12,
+      flexWrap: "wrap",
+    }}
+  >
+    {/* ✅ TERMIN BESTÄTIGEN */}
+    <div style={{ maxWidth: 240 }}>
+      <button
+        onClick={() =>
+          fetch("/api/confirm-appointment", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ anfrageId: r.id }),
+          }).then(() => location.reload())
+        }
+      >
+        ✅ Termin bestätigen
+      </button>
+      <div style={{ fontSize: 12, opacity: 0.7, marginTop: 4 }}>
+        Anliegen passt zu mir – ich führe das Erstgespräch
+      </div>
+    </div>
 
-    <Action
-      label="✔ Termin bestätigen"
-      hint="Anliegen passt zu mir – ich führe das Erstgespräch"
-      onClick={() =>
-        fetch("/api/confirm-appointment", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            requestId: r.id,
-            client: r.email,
-            vorname: r.vorname,
-          }),
-        }).then(() => location.reload())
-      }
-    />
+    {/* ❌ KEIN MATCH POISE */}
+    <div style={{ maxWidth: 240 }}>
+      <button
+        onClick={() =>
+          fetch("/api/no-match", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ anfrageId: r.id }),
+          }).then(() => location.reload())
+        }
+      >
+        ❌ Kein Match (Poise)
+      </button>
+      <div style={{ fontSize: 12, opacity: 0.7, marginTop: 4 }}>
+        Anliegen passt grundsätzlich nicht zu Poise
+      </div>
+    </div>
 
-    <Action
-      label="❌ Kein Match (Poise)"
-      hint="Anliegen passt grundsätzlich nicht zu Poise"
-      onClick={() =>
-        fetch("/api/update-status", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ anfrageId: r.id, status: "papierkorb" }),
-        }).then(() => location.reload())
-      }
-    />
+    {/* 🔁 NEUER TERMIN */}
+    <div style={{ maxWidth: 240 }}>
+      <button
+        onClick={() =>
+          fetch("/api/new-appointment", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              requestId: r.id,
+              client: r.email,
+              therapistName: r.therapeut,
+              vorname: r.vorname,
+            }),
+          })
+        }
+      >
+        🔁 Neuer Termin
+      </button>
+      <div style={{ fontSize: 12, opacity: 0.7, marginTop: 4 }}>
+        Termin passt nicht – Klient:in wählt neu
+      </div>
+    </div>
 
-    <Action
-      label="🔁 Neuer Termin"
-      hint="Termin passt nicht – Klient:in wählt neuen Termin"
-      onClick={() =>
-        fetch("/api/new-appointment", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            requestId: r.id,
-            client: r.email,
-            vorname: r.vorname,
-          }),
-        })
-      }
-    />
+    {/* ⏸ KEINE KAPAZITÄTEN */}
+    <div style={{ maxWidth: 240 }}>
+      <button
+        onClick={() =>
+          fetch("/api/update-status", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              anfrageId: r.id,
+              status: "keine_kapazitaeten",
+            }),
+          }).then(() => location.reload())
+        }
+      >
+        ⏸ Keine Kapazitäten
+      </button>
+      <div style={{ fontSize: 12, opacity: 0.7, marginTop: 4 }}>
+        Anliegen passt, aber aktuell keine Kapazitäten
+      </div>
+    </div>
 
-    <Action
-      label="⏸ Keine Kapazitäten"
-      hint="Anliegen passt, aber aktuell keine Kapazitäten"
-      onClick={() =>
-        fetch("/api/forward-request", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            requestId: r.id,
-            reason: "keine_kapazitaeten",
-          }),
-        }).then(() => location.reload())
-      }
-    />
-
-    <Action
-      label="👥 Anliegen passt nicht zu mir"
-      hint="Admin wählt passende Therapeut:innen"
-      onClick={() =>
-        fetch("/api/update-status", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ anfrageId: r.id, status: "admin_pruefen" }),
-        }).then(() => location.reload())
-      }
-    />
-
+    {/* 👥 ANLIEGEN PASST NICHT ZU MIR */}
+    <div style={{ maxWidth: 260 }}>
+      <button
+        onClick={() =>
+          fetch("/api/update-status", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              anfrageId: r.id,
+              status: "admin_pruefen",
+            }),
+          }).then(() => location.reload())
+        }
+      >
+        👥 Anliegen passt nicht zu mir
+      </button>
+      <div style={{ fontSize: 12, opacity: 0.7, marginTop: 4 }}>
+        Admin wählt passende Therapeut:innen
+      </div>
+    </div>
   </div>
 )}
 
