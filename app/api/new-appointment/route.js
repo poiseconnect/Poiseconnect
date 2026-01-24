@@ -2,22 +2,24 @@ export const dynamic = "force-dynamic";
 
 import { createClient } from "@supabase/supabase-js";
 
-/**
- * ⚠️ WICHTIG:
- * In app/api/* IMMER eigenen Supabase-Client verwenden
- */
+// 🔧 Supabase SERVER Client
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
-export async function POST(request) {
+export async function POST(req) {
   try {
-    const body = await request.json();
+    // ✅ BODY GENAU EINMAL
+    const body = await req.json();
+    console.log("📥 NEW APPOINTMENT BODY:", body);
 
-    console.log("NEW APPOINTMENT BODY:", body);
-
-    const { requestId, client, therapistName, vorname } = body || {};
+    const {
+      requestId,
+      client,          // E-Mail Klient:in
+      therapistName,   // Anzeigename Therapeut:in
+      vorname,
+    } = body || {};
 
     if (!requestId || !client || !therapistName) {
       return new Response(
@@ -30,7 +32,7 @@ export async function POST(request) {
       process.env.NEXT_PUBLIC_SITE_URL ||
       "https://poiseconnect.vercel.app";
 
-    // 1️⃣ Anfrage zurücksetzen
+    // 1️⃣ Anfrage zurücksetzen (Termin neu wählen)
     const { error: updateError } = await supabase
       .from("anfragen")
       .update({
@@ -40,15 +42,17 @@ export async function POST(request) {
       .eq("id", requestId);
 
     if (updateError) {
-      console.error("NEW APPOINTMENT UPDATE ERROR:", updateError);
+      console.error("❌ NEW APPOINTMENT UPDATE ERROR:", updateError);
       return new Response(
         JSON.stringify({
-          error: "update_failed",
+          error: "UPDATE_FAILED",
           detail: updateError.message,
         }),
         { status: 500 }
       );
     }
+
+    console.log("🟡 STATUS → termin_neu gesetzt");
 
     // 2️⃣ Mail an Klient:in
     const mailRes = await fetch("https://api.resend.com/emails", {
@@ -81,18 +85,21 @@ export async function POST(request) {
     });
 
     if (!mailRes.ok) {
-      console.warn("NEW APPOINTMENT MAIL FAILED – DB UPDATE OK");
+      console.warn("⚠️ MAIL FAILED – DB UPDATE OK");
+    } else {
+      console.log("📧 MAIL SENT");
     }
 
     return new Response(
       JSON.stringify({ ok: true }),
       { status: 200 }
     );
+
   } catch (err) {
-    console.error("NEW APPOINTMENT SERVER ERROR:", err);
+    console.error("🔥 NEW APPOINTMENT SERVER ERROR:", err);
     return new Response(
       JSON.stringify({
-        error: "server_error",
+        error: "SERVER_ERROR",
         detail: String(err),
       }),
       { status: 500 }
