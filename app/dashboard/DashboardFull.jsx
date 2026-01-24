@@ -306,24 +306,30 @@ useEffect(() => {
   supabase
     .from("anfragen")
     .select(`
-      id,
-      created_at,
-      vorname,
-      nachname,
-      email,
-      telefon,
-      strasse_hausnr,
-      plz_ort,
-      geburtsdatum,
-      beschaeftigungsgrad,
-      leidensdruck,
-      anliegen,
-      verlauf,
-      ziel,
-      status,
-      bevorzugte_zeit,
-      wunschtherapeut,
-      honorar_klient
+    .select(`
+  id,
+  created_at,
+  vorname,
+  nachname,
+  email,
+  telefon,
+  strasse_hausnr,
+  plz_ort,
+  geburtsdatum,
+  beschaeftigungsgrad,
+
+  anliegen,
+  leidensdruck,
+  verlauf,
+  ziel,
+  diagnose,
+
+  status,
+  bevorzugte_zeit,
+  wunschtherapeut,
+  honorar_klient
+`)
+
     `)
     .order("created_at", { ascending: false })
     .then(({ data, error }) => {
@@ -1408,82 +1414,77 @@ const billingByClient = useMemo(() => {
       </h3>
 
       {/* ================= FORMULARDATEN ================= */}
-      <section>
-        {/* Kontaktdaten – erst ab Termin bestätigt sichtbar */}
-        {["termin_bestaetigt", "active", "beendet"].includes(
-          normalizeStatus(detailsModal.status || detailsModal._status)
-        ) && (
-          <>
-            <p>
-              <strong>E-Mail:</strong>{" "}
-              {safeText(detailsModal.email)}
-            </p>
+<section>
+  {/* KONTAKTDATEN – IMMER anzeigen, wenn vorhanden */}
+  <p>
+    <strong>E-Mail:</strong>{" "}
+    {safeText(detailsModal.email)}
+  </p>
 
-            <p>
-              <strong>Telefon:</strong>{" "}
-              {safeText(detailsModal.telefon)}
-            </p>
+  <p>
+    <strong>Telefon:</strong>{" "}
+    {safeText(detailsModal.telefon)}
+  </p>
 
-            <p>
-              <strong>Adresse:</strong>{" "}
-              {safeText(detailsModal.adresse)}
-            </p>
-          </>
-        )}
+  <p>
+    <strong>Adresse:</strong>{" "}
+    {safeText(detailsModal.strasse_hausnr)}{" "}
+    {safeText(detailsModal.plz_ort)}
+  </p>
 
-        <p>
-          <strong>Alter:</strong>{" "}
-          {detailsModal.geburtsdatum &&
-          !isNaN(Date.parse(detailsModal.geburtsdatum))
-            ? new Date().getFullYear() -
-              new Date(detailsModal.geburtsdatum).getFullYear()
-            : "–"}
-        </p>
+  <p>
+    <strong>Alter:</strong>{" "}
+    {detailsModal.geburtsdatum &&
+    !isNaN(Date.parse(detailsModal.geburtsdatum))
+      ? new Date().getFullYear() -
+        new Date(detailsModal.geburtsdatum).getFullYear()
+      : "–"}
+  </p>
 
-        <hr />
+  <hr />
 
-        <p>
-          <strong>Anliegen:</strong>{" "}
-          {safeText(detailsModal.anliegen)}
-        </p>
+  <p>
+    <strong>Anliegen:</strong><br />
+    {safeText(detailsModal.anliegen)}
+  </p>
 
-        <p>
-          <strong>Leidensdruck:</strong>{" "}
-          {safeText(detailsModal.leidensdruck)}
-        </p>
+  <p>
+    <strong>Leidensdruck:</strong>{" "}
+    {safeText(detailsModal.leidensdruck)}
+  </p>
 
-        <p>
-          <strong>Wie lange schon:</strong>{" "}
-          {safeText(detailsModal.verlauf)}
-        </p>
+  <p>
+    <strong>Wie lange schon:</strong>{" "}
+    {safeText(detailsModal.verlauf)}
+  </p>
 
-        <p>
-          <strong>Ziel:</strong>{" "}
-          {safeText(detailsModal.ziel)}
-        </p>
+  <p>
+    <strong>Ziel:</strong>{" "}
+    {safeText(detailsModal.ziel)}
+  </p>
 
-        <p>
-          <strong>Beschäftigungsgrad:</strong>{" "}
-          {safeText(detailsModal.beschaeftigungsgrad)}
-        </p>
+  <p>
+    <strong>Beschäftigungsgrad:</strong>{" "}
+    {safeText(detailsModal.beschaeftigungsgrad)}
+  </p>
 
-        <hr />
+  <hr />
 
-        <p>
-          <strong>Wunschtherapeut:</strong>{" "}
-          {teamData.find(
-            (t) => t.email === detailsModal.wunschtherapeut
-          )?.name ||
-            safeText(detailsModal.wunschtherapeut)}
-        </p>
+  <p>
+    <strong>Wunschtherapeut:</strong>{" "}
+    {teamData.find(
+      (t) => t.email === detailsModal.wunschtherapeut
+    )?.name || safeText(detailsModal.wunschtherapeut)}
+  </p>
 
-        {detailsModal.bevorzugte_zeit && (
-          <p>
-            <strong>Ersttermin:</strong>{" "}
-            {safeDateString(detailsModal.bevorzugte_zeit)}
-          </p>
-        )}
-      </section>
+  {detailsModal.bevorzugte_zeit && (
+    <p>
+      <strong>Ersttermin:</strong>{" "}
+      {safeDateString(detailsModal.bevorzugte_zeit)}
+    </p>
+  )}
+</section>
+
 
       {/* ================= AKTIV-BEREICH ================= */}
       {normalizeStatus(detailsModal.status || detailsModal._status) ===
