@@ -1412,24 +1412,31 @@ const billingByClient = useMemo(() => {
         {safeText(detailsModal.nachname)}
       </h3>
 
-      {/* ================= FORMULARDATEN ================= */}
+     {/* ================= FORMULARDATEN ================= */}
 <section>
-  {/* KONTAKTDATEN – IMMER anzeigen, wenn vorhanden */}
-  <p>
-    <strong>E-Mail:</strong>{" "}
-    {safeText(detailsModal.email)}
-  </p>
+  {/* Kontaktdaten – NUR nach Terminbestätigung sichtbar */}
+  {["termin_bestaetigt", "active", "beendet"].includes(
+    normalizeStatus(detailsModal.status || detailsModal._status)
+  ) && (
+    <>
+      <p>
+        <strong>E-Mail:</strong>{" "}
+        {detailsModal.email || "–"}
+      </p>
 
-  <p>
-    <strong>Telefon:</strong>{" "}
-    {safeText(detailsModal.telefon)}
-  </p>
+      <p>
+        <strong>Telefon:</strong>{" "}
+        {detailsModal.telefon || "–"}
+      </p>
 
-  <p>
-    <strong>Adresse:</strong>{" "}
-    {safeText(detailsModal.strasse_hausnr)}{" "}
-    {safeText(detailsModal.plz_ort)}
-  </p>
+      <p>
+        <strong>Adresse:</strong>{" "}
+        {[detailsModal.strasse_hausnr, detailsModal.plz_ort]
+          .filter(Boolean)
+          .join(", ") || "–"}
+      </p>
+    </>
+  )}
 
   <p>
     <strong>Alter:</strong>{" "}
@@ -1444,27 +1451,27 @@ const billingByClient = useMemo(() => {
 
   <p>
     <strong>Anliegen:</strong><br />
-    {safeText(detailsModal.anliegen)}
+    {detailsModal.anliegen || "–"}
   </p>
 
   <p>
     <strong>Leidensdruck:</strong>{" "}
-    {safeText(detailsModal.leidensdruck)}
+    {detailsModal.leidensdruck || "–"}
   </p>
 
   <p>
     <strong>Wie lange schon:</strong>{" "}
-    {safeText(detailsModal.verlauf)}
+    {detailsModal.verlauf || "–"}
   </p>
 
   <p>
     <strong>Ziel:</strong>{" "}
-    {safeText(detailsModal.ziel)}
+    {detailsModal.ziel || "–"}
   </p>
 
   <p>
     <strong>Beschäftigungsgrad:</strong>{" "}
-    {safeText(detailsModal.beschaeftigungsgrad)}
+    {detailsModal.beschaeftigungsgrad || "–"}
   </p>
 
   <hr />
@@ -1473,7 +1480,7 @@ const billingByClient = useMemo(() => {
     <strong>Wunschtherapeut:</strong>{" "}
     {teamData.find(
       (t) => t.email === detailsModal.wunschtherapeut
-    )?.name || safeText(detailsModal.wunschtherapeut)}
+    )?.name || detailsModal.wunschtherapeut || "–"}
   </p>
 
   {detailsModal.bevorzugte_zeit && (
