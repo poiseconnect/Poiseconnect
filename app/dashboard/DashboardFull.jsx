@@ -299,8 +299,8 @@ useEffect(() => {
 }, [user, filter]);
 
 
-  /* ---------- LOAD REQUESTS ---------- */
- useEffect(() => {
+ /* ---------- LOAD REQUESTS ---------- */
+useEffect(() => {
   console.log("🚀 LOAD REQUESTS EFFECT START");
 
   supabase
@@ -316,13 +316,11 @@ useEffect(() => {
       plz_ort,
       geburtsdatum,
       beschaeftigungsgrad,
-
       anliegen,
       leidensdruck,
       verlauf,
       ziel,
       diagnose,
-
       status,
       bevorzugte_zeit,
       wunschtherapeut,
@@ -335,42 +333,20 @@ useEffect(() => {
 
       if (error) {
         console.error("🔥 Fehler beim Laden der Anfragen:", error);
+        setRequests([]);
         return;
       }
 
-      const VALID_STATUSES = [
-        "neu",
-        "termin_neu",
-        "termin_bestaetigt",
-        "active",
-        "kein_match",
-        "beendet",
-        "papierkorb",
-      ];
-
+      // ✅ EINZIGE WAHRHEIT: normalizeStatus
       setRequests(
-        (data || []).map((r) => {
-          const normalized = normalizeStatus(r.status);
-
-          if (!VALID_STATUSES.includes(normalized)) {
-            console.warn(
-              "⚠️ UNBEKANNTER STATUS",
-              r.status,
-              "→",
-              normalized,
-              "ID:",
-              r.id
-            );
-          }
-
-          return {
-            ...r,
-            _status: normalized,
-          };
-        })
+        (data || []).map((r) => ({
+          ...r,
+          _status: normalizeStatus(r.status),
+        }))
       );
     });
 }, []);
+
 
 
   /* ---------- LOAD SESSIONS ---------- */
