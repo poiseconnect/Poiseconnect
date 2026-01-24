@@ -464,14 +464,17 @@ const sortedRequests = useMemo(() => {
    THERAPEUT:IN FILTER NUR FÜR AKTIV TAB
 ========================================================= */
 const therapistFilteredRequests = useMemo(() => {
-  // nur im Aktiv-Tab filtern (damit Unbearbeitet/Alle/Beendet nicht kaputt gehen)
   if (filter !== "aktiv") return sortedRequests;
-
   if (therapistFilter === "alle") return sortedRequests;
 
-  // in "anfragen" ist wunschtherapeut bei dir der NAME (z.B. "Anja")
-  return sortedRequests.filter((r) => r.wunschtherapeut === therapistFilter);
-}, [sortedRequests, therapistFilter, filter]);
+  return sortedRequests.filter((r) => {
+    if (r.wunschtherapeut === therapistFilter) return true;
+
+    const sessions = sessionsByRequest[String(r.id)] || [];
+    return sessions.some((s) => s.therapist === therapistFilter);
+  });
+}, [sortedRequests, therapistFilter, filter, sessionsByRequest]);
+
 
 /* =========================================================
    ABRECHNUNG – SESSION FILTER (ZEITRAUM)
@@ -1210,7 +1213,7 @@ const billingByClient = useMemo(() => {
     }
 
     alert("MATCH OK – Seite wird neu geladen");
-    location.reload();
+  setTimeout(() => location.reload(), 300);
   }}
 >
   ❤️ Match
