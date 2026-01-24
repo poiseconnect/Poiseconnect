@@ -403,30 +403,34 @@ setRequests(
 ========================================================= */
 
 const [billingSessions, setBillingSessions] = useState([]);
-
 useEffect(() => {
-  if (!user?.email) return;
+  if (!user) return;
 
   supabase
     .from("sessions")
-    .select(`
-      id,
-      date,
-      price,
-      therapist,
-      anfrage_id,
-      anfragen (
-        vorname,
-        nachname,
-        status
-      )
-    `)
+    .select(
+      `
+        id,
+        date,
+        price,
+        therapist,
+        anfrage_id,
+        anfragen (
+          vorname,
+          nachname,
+          status
+        )
+      `
+    )
     .then(({ data, error }) => {
-      if (!error) {
-        setBillingSessions(data || []);
+      if (error) {
+        console.error("SESSION LOAD ERROR", error);
+        return;
       }
+      setBillingSessions(Array.isArray(data) ? data : []);
     });
 }, [user]);
+
 
   
 const sessionsSafe = useMemo(() => {
