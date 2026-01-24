@@ -297,6 +297,8 @@ export default function PageClient() {
     email: "",
     telefon: "",
     adresse: "",
+    plz_ort: "",
+strasse_hausnr: "",
     geburtsdatum: "",
     beschaeftigungsgrad: "",
     check_datenschutz: false,
@@ -770,7 +772,7 @@ const send = async () => {
   <div className="step-container">
     <h2>Was ist dein aktuelles Anliegen?</h2>
     <p style={{ opacity: 0.7 }}>
-      Du kannst mehrere Themen auswählen.
+      Du kannst mehrere Themen auswählen und dein Anliegen beschreiben.
     </p>
 
     <div style={{ display: "grid", gap: 12, marginTop: 16 }}>
@@ -797,7 +799,6 @@ const send = async () => {
                 ? "2px solid #A27C77"
                 : "1px solid #ddd",
               background: active ? "#F3E9E7" : "#fff",
-              color: "#000",
             }}
           >
             <strong>{t.label}</strong>
@@ -809,8 +810,25 @@ const send = async () => {
       })}
     </div>
 
+    {/* 🧠 FREITEXT-ANLIEGEN */}
+    <textarea
+      placeholder="Beschreibe dein Anliegen gerne in eigenen Worten…"
+      value={form.anliegen}
+      onChange={(e) =>
+        setForm({ ...form, anliegen: e.target.value })
+      }
+      style={{
+        marginTop: 16,
+        width: "100%",
+        minHeight: 120,
+      }}
+    />
+
     <div className="footer-buttons">
-      <button disabled={form.themen.length === 0} onClick={next}>
+      <button
+        disabled={form.themen.length === 0 && !form.anliegen}
+        onClick={next}
+      >
         Weiter
       </button>
     </div>
@@ -979,18 +997,22 @@ const send = async () => {
             <p style={{ color: "#d33", fontSize: 14 }}>{errors.telefon}</p>
           )}
 
-          <input
-            placeholder="Adresse"
-            value={form.adresse}
-            onChange={(e) =>
-              setForm({ ...form, adresse: e.target.value })
-            }
-            style={
-              errors.adresse
-                ? { borderColor: "#d33", borderWidth: 2 }
-                : {}
-            }
-          />
+         <input
+  placeholder="Straße & Hausnummer"
+  value={form.strasse_hausnr}
+  onChange={(e) =>
+    setForm({ ...form, strasse_hausnr: e.target.value })
+  }
+/>
+
+<input
+  placeholder="PLZ & Ort"
+  value={form.plz_ort}
+  onChange={(e) =>
+    setForm({ ...form, plz_ort: e.target.value })
+  }
+/>
+
           {errors.adresse && (
             <p style={{ color: "#d33", fontSize: 14 }}>{errors.adresse}</p>
           )}
