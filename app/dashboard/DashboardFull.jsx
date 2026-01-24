@@ -300,35 +300,33 @@ useEffect(() => {
 
 
   /* ---------- LOAD REQUESTS ---------- */
-  useEffect(() => {
+ useEffect(() => {
   console.log("🚀 LOAD REQUESTS EFFECT START");
 
   supabase
     .from("anfragen")
     .select(`
-  id,
-  created_at,
-  vorname,
-  nachname,
-  email,
-  telefon,
-  strasse_hausnr,
-  plz_ort,
-  geburtsdatum,
-  beschaeftigungsgrad,
+      id,
+      created_at,
+      vorname,
+      nachname,
+      email,
+      telefon,
+      strasse_hausnr,
+      plz_ort,
+      geburtsdatum,
+      beschaeftigungsgrad,
 
-  anliegen,
-  leidensdruck,
-  verlauf,
-  ziel,
-  diagnose,
+      anliegen,
+      leidensdruck,
+      verlauf,
+      ziel,
+      diagnose,
 
-  status,
-  bevorzugte_zeit,
-  wunschtherapeut,
-  honorar_klient
-`)
-
+      status,
+      bevorzugte_zeit,
+      wunschtherapeut,
+      honorar_klient
     `)
     .order("created_at", { ascending: false })
     .then(({ data, error }) => {
@@ -341,39 +339,39 @@ useEffect(() => {
       }
 
       const VALID_STATUSES = [
-  "neu",
-  "termin_neu",
-  "termin_bestaetigt",
-  "active",
-  "kein_match",
-  "beendet",
-  "papierkorb",
-];
+        "neu",
+        "termin_neu",
+        "termin_bestaetigt",
+        "active",
+        "kein_match",
+        "beendet",
+        "papierkorb",
+      ];
 
-setRequests(
-  (data || []).map((r) => {
-    const normalized = normalizeStatus(r.status);
+      setRequests(
+        (data || []).map((r) => {
+          const normalized = normalizeStatus(r.status);
 
-    if (!VALID_STATUSES.includes(normalized)) {
-      console.warn(
-        "⚠️ UNBEKANNTER STATUS",
-        r.status,
-        "→",
-        normalized,
-        "ID:",
-        r.id
+          if (!VALID_STATUSES.includes(normalized)) {
+            console.warn(
+              "⚠️ UNBEKANNTER STATUS",
+              r.status,
+              "→",
+              normalized,
+              "ID:",
+              r.id
+            );
+          }
+
+          return {
+            ...r,
+            _status: normalized,
+          };
+        })
       );
-    }
-
-    return {
-      ...r,
-      _status: normalized,
-    };
-  })
-);
-
     });
 }, []);
+
 
   /* ---------- LOAD SESSIONS ---------- */
   useEffect(() => {
