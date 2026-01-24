@@ -463,8 +463,10 @@ const step8Members = useMemo(() => {
       newErrors.telefon = "Bitte Telefonnummer eingeben.";
     }
 
-    if (!form.adresse?.trim()) {
-      newErrors.adresse = "Bitte Adresse eingeben.";
+    if (!form.strasse_hausnr?.trim() || !form.plz_ort?.trim()) {
+  newErrors.adresse = "Bitte Adresse eingeben.";
+}
+
     }
 
     if (!form.geburtsdatum?.trim()) {
