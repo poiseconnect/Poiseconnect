@@ -513,55 +513,48 @@ useEffect(() => {
   // ?resume=10&email=...&therapist=Ann  → Terminwahl
   // ?resume=5&email=...                 → anderes Teammitglied wählen (jetzt Step 8)
   // -------------------------------------
-  useEffect(() => {
-    if (typeof window === "undefined") return;
+useEffect(() => {
+  if (typeof window === "undefined") return;
 
-    const params = new URLSearchParams(window.location.search);
-    const resume = params.get("resume");
-    if (!resume) return;
+  const params = new URLSearchParams(window.location.search);
+  const resume = params.get("resume");
+  if (!resume) return;
 
-    const emailParam = params.get("email") || "";
-    const therapistParam =
-      params.get("therapist") || params.get("name") || "";
+  const anfrageIdParam = params.get("anfrageId");
+  const therapistParam =
+    params.get("therapist") || params.get("name") || "";
 
-    // Termin vom Team bestätigt
-    if (resume === "confirmed") {
-      alert("Termin wurde bestätigt ✅");
-      window.history.replaceState({}, "", window.location.pathname);
-      return;
-    }
-
-    let targetStep = null;
-    const n = parseInt(resume, 10);
-
-    if (!Number.isNaN(n)) {
-      // Mapping: alt 5 (anderes Teammitglied) → jetzt Step 8
-      if (n === 5) {
-        targetStep = 8;
-      } else {
-        targetStep = n;
-      }
-    }
-
-    if (targetStep === null) return;
-
-setForm((prev) => ({
-  ...prev,
-  email: prev.email || emailParam, // ❗ NICHT überschreiben
-  wunschtherapeut:
-    targetStep === 8
-      ? ""
-      : prev.wunschtherapeut || therapistParam,
-  terminISO: "",
-  terminDisplay: "",
-}));
-
-
-    setStep(targetStep);
-
-    // Query-Parameter entfernen
+  // 🔹 Nur Info, kein State-Change
+  if (resume === "confirmed") {
     window.history.replaceState({}, "", window.location.pathname);
-  }, []);
+    return;
+  }
+
+  let targetStep = null;
+  const n = parseInt(resume, 10);
+
+  if (!Number.isNaN(n)) {
+    if (n === 5) targetStep = 8;   // Weiterleiten
+    if (n === 10) targetStep = 10; // Neuer Termin
+    else targetStep = n;
+  }
+
+  if (targetStep === null) return;
+
+  // ✅ KRITISCHER RESET
+  setForm((prev) => ({
+    ...prev,
+    wunschtherapeut: therapistParam || prev.wunschtherapeut,
+    terminISO: "",
+    terminDisplay: "",
+  }));
+
+  setSelectedDay(null);   // ❗ WICHTIG
+  setStep(targetStep);
+
+  window.history.replaceState({}, "", window.location.pathname);
+}, []);
+
   // -------------------------------------
 // -------------------------------------
 // STEP 8 – Verfügbarkeit der Therapeut:innen laden
