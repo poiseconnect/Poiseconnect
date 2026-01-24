@@ -14,21 +14,36 @@ function normalizeStatus(raw) {
 
   const s = String(raw).toLowerCase().trim();
 
-  if (["neu", "offen"].includes(s)) return "neu";
-  if (["termin_neu"].includes(s)) return "termin_neu";
-  if (["termin_bestaetigt", "bestaetigt", "confirmed"].includes(s))
-    return "termin_bestaetigt";
-if (["active", "aktiv", "begleitung aktiv"].includes(s)) return "active";
+  // ✅ NEU / UNBEARBEITET
+  if (["neu", "offen", "new"].includes(s)) return "neu";
 
-  if (["kein_match"].includes(s)) return "kein_match";
-  if (["beendet", "finished"].includes(s)) return "beendet";
-  if (["papierkorb"].includes(s)) return "papierkorb";
+  if (["termin_neu"].includes(s)) return "termin_neu";
+
+  if (
+    ["termin_bestaetigt", "bestaetigt", "confirmed"].includes(s)
+  ) {
+    return "termin_bestaetigt";
+  }
+
+  // ✅ AKTIV
+  if (["active", "aktiv", "begleitung aktiv"].includes(s)) return "active";
+
+  // ❌ KEIN MATCH
+  if (["kein_match", "no_match"].includes(s)) return "kein_match";
+
+  // 🛂 ADMIN
   if (["admin_pruefen", "admin"].includes(s)) return "admin_pruefen";
 
+  // 🗑 PAPIERKORB
+  if (["papierkorb", "trash"].includes(s)) return "papierkorb";
+
+  // 🏁 BEENDET
+  if (["beendet", "finished"].includes(s)) return "beendet";
 
   console.warn("⚠️ UNBEKANNTER STATUS:", raw);
-  return "neu";
+  return "neu"; // 🔥 Fallback, damit nichts verschwindet
 }
+
 
 
 
