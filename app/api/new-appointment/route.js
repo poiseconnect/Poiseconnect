@@ -7,47 +7,46 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
+function json(data, status = 200) {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: { "Content-Type": "application/json" },
+  });
+}
+
 export async function POST(req) {
   try {
     const body = await req.json();
     console.log("📥 NEW APPOINTMENT BODY:", body);
 
-    const {
-      requestId,
-      client,
-      therapistName,
-      vorname,
-    } = body || {};
+    const { requestId, client, therapistName, vorname } = body || {};
 
     if (!requestId || !client || !therapistName) {
-      return new Response(
-        JSON.stringify({ error: "missing_fields" }),
-        { status: 400 }
-      );
+      return json({ error: "missing_fields" }, 400);
     }
 
     const baseUrl =
       process.env.NEXT_PUBLIC_SITE_URL ||
       "https://poiseconnect.vercel.app";
 
-    // ✅ 1️⃣ NUR Status ändern – KEINE Daten löschen
-    const { error } = await supabase
+    // 1️⃣ Status auf „termin_neu“ setzen (SONST NICHTS)
+    const { error: updateError } = await supabase
       .from("anfragen")
       .update({
         status: "termin_neu",
       })
       .eq("id", requestId);
 
-    if (error) {
-      console.error("❌ NEW APPOINTMENT UPDATE ERROR:", error);
-      return new Response(
-        JSON.stringify({ error: "update_failed" }),
-        { status: 500 }
+    if (updateError) {
+      console.error("❌ NEW APPOINTMENT UPDATE ERROR:", updateError);
+      return json(
+        { error: "update_failed", detail: updateError.message },
+        500
       );
     }
 
-    // ✅ 2️⃣ Mail mit RESUME-LINK
-    await fetch("https://api.resend.com/emails", {
+    // 2️⃣ Mail mit sauberem Resume-Link → Step 10
+    const mailRes = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
@@ -60,10 +59,14 @@ export async function POST(req) {
         html: `
           <p>Hallo ${vorname || ""},</p>
 
-          <p>Bitte wähle einen neuen Termin für dein Erstgespräch.</p>
+          <p>
+            bitte wähle einen <strong>neuen Termin</strong> für dein Erstgespräch.
+          </p>
 
           <p>
-            <a href="${baseUrl}?resume=termine&anfrageId=${requestId}"
+            <a href="${baseUrl}?resume=10&anfrageId=${requestId}&therapist=${encodeURIComponent(
+              therapistName
+            )}"
                style="color:#6f4f49; font-weight:bold;">
               Neuen Termin auswählen
             </a>
@@ -74,15 +77,16 @@ export async function POST(req) {
       }),
     });
 
-    return new Response(
-      JSON.stringify({ ok: true }),
-      { status: 200 }
-    );
+    if (!mailRes.ok) {
+      console.warn("⚠️ NEW APPOINTMENT MAIL FAILED – DB UPDATE OK");
+    }
+
+    return json({ ok: true });
   } catch (err) {
     console.error("🔥 NEW APPOINTMENT SERVER ERROR:", err);
-    return new Response(
-      JSON.stringify({ error: "server_error", detail: String(err) }),
-      { status: 500 }
+    return json(
+      { error: "server_error", detail: String(err) },
+      500
     );
   }
 }
