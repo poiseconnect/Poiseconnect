@@ -589,6 +589,32 @@ const billingByClient = useMemo(() => {
 
   return (
     <div style={{ padding: 24, maxWidth: 1100, margin: "0 auto" }}>
+      {/* 🔥 HARD DEBUG – NIEMALS LÖSCHEN */}
+<div
+  style={{
+    background: "#000",
+    color: "#0f0",
+    padding: 12,
+    marginBottom: 16,
+    fontSize: 12,
+    borderRadius: 8,
+    fontFamily: "monospace",
+  }}
+>
+  <div>DEBUG DASHBOARD</div>
+  <div>requests.length: {requests.length}</div>
+  <div>filter: {filter}</div>
+  <div>
+    statuses:
+    {requests.map((r) => r.status || "∅").join(" | ")}
+  </div>
+  <div>
+    normalized:
+    {requests.map((r) => r._status || "∅").join(" | ")}
+  </div>
+</div>
+
+      
       {/* ================= DEBUG OVERLAY (DEV ONLY) ================= */}
 {process.env.NODE_ENV === "development" && (
   <pre
