@@ -1143,13 +1143,13 @@ const billingByClient = useMemo(() => {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            requestId: r.id,
-            client: r.email,
-            therapistName:
-therapist: user.email,
+  requestId: r.id,
+  client: r.email,
+  therapistEmail: user.email,
+  therapistName: r.wunschtherapeut,
+  vorname: r.vorname,
+}),
 
-            vorname: r.vorname,
-          }),
         }).then(() => location.reload())
       }
     >
