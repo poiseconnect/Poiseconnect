@@ -1187,37 +1187,40 @@ const billingByClient = useMemo(() => {
     {/* ❤️ MATCH */}
   <button
   onClick={async () => {
-    console.log("❤️ MATCH CLICK", {
-      anfrageId: r.id,
-      status: r._status,
-    });
+    try {
+      const res = await fetch("/api/match-client", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          anfrageId: r.id,
+          therapistEmail: user?.email,
+          honorar: r.honorar_klient ?? null,
+        }),
+      });
 
-    const res = await fetch("/api/match-client", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        anfrageId: r.id,
-        therapistEmail: user?.email,
-        honorar: r.honorar_klient ?? null,
-      }),
-    });
+      if (!res.ok) {
+        const text = await res.text();
+        alert("MATCH FEHLER:\n" + text);
+        return;
+      }
 
-    console.log("MATCH RESPONSE STATUS:", res.status);
+      // ✅ OPTIMISTIC UI UPDATE
+      setRequests((prev) =>
+        prev.map((req) =>
+          req.id === r.id
+            ? { ...req, _status: "active", status: "active" }
+            : req
+        )
+      );
 
-    const text = await res.text();
-    console.log("MATCH RESPONSE BODY:", text);
-
-    if (!res.ok) {
-      alert("MATCH FEHLER:\n" + text);
-      return;
+    } catch (err) {
+      alert("Netzwerkfehler beim Match");
     }
-
-    alert("MATCH OK – Seite wird neu geladen");
-  setTimeout(() => location.reload(), 300);
   }}
 >
   ❤️ Match
 </button>
+
 
 
 
