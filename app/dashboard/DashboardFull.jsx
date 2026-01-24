@@ -1398,128 +1398,105 @@ const billingByClient = useMemo(() => {
           );
         })}
 
-      {/* DETAILANSICHT */}
-      {detailsModal && (
-        <Modal onClose={() => setDetailsModal(null)}>
-          <div>
-            <h3>
-              {safeText(detailsModal?.vorname)} {safeText(detailsModal?.nachname)}
-            </h3>
+{/* DETAILANSICHT */}
+{detailsModal && typeof detailsModal === "object" && (
+  <Modal onClose={() => setDetailsModal(null)}>
+    <div>
+      <h3>
+        {safeText(detailsModal.vorname)}{" "}
+        {safeText(detailsModal.nachname)}
+      </h3>
 
-            {/* FORMULARINFOS – IMMER */}
-            
-            <section>
-          {["termin_bestaetigt", "active", "beendet"].includes(
- normalizeStatus(detailsModal._status)
-) && (
-  <>
-    <p>
-      <strong>E-Mail:</strong> {safeText(detailsModal?.email)}
-    </p>
+      {/* ================= FORMULARDATEN ================= */}
+      <section>
+        {/* Kontaktdaten – erst ab Termin bestätigt sichtbar */}
+        {["termin_bestaetigt", "active", "beendet"].includes(
+          normalizeStatus(detailsModal.status || detailsModal._status)
+        ) && (
+          <>
+            <p>
+              <strong>E-Mail:</strong>{" "}
+              {safeText(detailsModal.email)}
+            </p>
 
-    <p>
-      <strong>Telefon:</strong> {safeText(detailsModal?.telefon)}
-    </p>
+            <p>
+              <strong>Telefon:</strong>{" "}
+              {safeText(detailsModal.telefon)}
+            </p>
 
-    <p>
-      <strong>Adresse:</strong>{" "}
-      {safeText(detailsModal?.strasse_hausnr)}{" "}
-      {safeText(detailsModal?.plz_ort)}
-    </p>
-  </>
-)}
+            <p>
+              <strong>Adresse:</strong>{" "}
+              {safeText(detailsModal.adresse)}
+            </p>
+          </>
+        )}
 
+        <p>
+          <strong>Alter:</strong>{" "}
+          {detailsModal.geburtsdatum &&
+          !isNaN(Date.parse(detailsModal.geburtsdatum))
+            ? new Date().getFullYear() -
+              new Date(detailsModal.geburtsdatum).getFullYear()
+            : "–"}
+        </p>
 
-              <p>
-                <strong>Alter:</strong>{" "}
-                {detailsModal?.geburtsdatum && !isNaN(Date.parse(detailsModal.geburtsdatum))
-                  ? new Date().getFullYear() -
-                    new Date(detailsModal.geburtsdatum).getFullYear()
-                  : "–"}
-              </p>
+        <hr />
 
-              <hr />
+        <p>
+          <strong>Anliegen:</strong>{" "}
+          {safeText(detailsModal.anliegen)}
+        </p>
 
-              <p>
-                <strong>Anliegen:</strong>{" "}
-                {typeof detailsModal?.anliegen === "string" ? detailsModal.anliegen : "–"}
-              </p>
+        <p>
+          <strong>Leidensdruck:</strong>{" "}
+          {safeText(detailsModal.leidensdruck)}
+        </p>
 
-              <p>
-                <strong>Leidensdruck:</strong> {safeText(detailsModal?.leidensdruck)}
-              </p>
+        <p>
+          <strong>Wie lange schon:</strong>{" "}
+          {safeText(detailsModal.verlauf)}
+        </p>
 
-              <p>
-                <strong>Wie lange schon:</strong> {safeText(detailsModal?.verlauf)}
-              </p>
+        <p>
+          <strong>Ziel:</strong>{" "}
+          {safeText(detailsModal.ziel)}
+        </p>
 
-              <p>
-                <strong>Ziel:</strong> {safeText(detailsModal?.ziel)}
-              </p>
+        <p>
+          <strong>Beschäftigungsgrad:</strong>{" "}
+          {safeText(detailsModal.beschaeftigungsgrad)}
+        </p>
 
-              <p>
-                <strong>Beschäftigungsgrad:</strong>{" "}
-                {safeText(detailsModal?.beschaeftigungsgrad)}
-              </p>
+        <hr />
 
-              <hr />
+        <p>
+          <strong>Wunschtherapeut:</strong>{" "}
+          {teamData.find(
+            (t) => t.email === detailsModal.wunschtherapeut
+          )?.name ||
+            safeText(detailsModal.wunschtherapeut)}
+        </p>
 
-              <p>
-                <strong>Wunschtherapeut:</strong>{" "}
-                {teamData.find((t) => t.email === detailsModal?.wunschtherapeut)?.name ||
-                  safeText(detailsModal?.wunschtherapeut)}
-              </p>
+        {detailsModal.bevorzugte_zeit && (
+          <p>
+            <strong>Ersttermin:</strong>{" "}
+            {safeDateString(detailsModal.bevorzugte_zeit)}
+          </p>
+        )}
+      </section>
 
-              {safeDateString(detailsModal?.bevorzugte_zeit) && (
-                <p>
-                  <strong>Ersttermin:</strong> {safeDateString(detailsModal.bevorzugte_zeit)}
-                </p>
-              )}
-            </section>
+      {/* ================= AKTIV-BEREICH ================= */}
+      {normalizeStatus(detailsModal.status || detailsModal._status) ===
+        "active" && (
+        <div style={{ marginTop: 12 }}>
+          <hr />
 
-            {/* AKTIV-BEREICH */}
-          {normalizeStatus(detailsModal.status || detailsModal._status) === "active" && (
+          <p>
+            <strong>Anzahl Sitzungen:</strong>{" "}
+            {(sessionsByRequest[String(detailsModal.id)] || [])
+              .length}
+          </p>
 
-              <div style={{ marginTop: 12 }}>
-                <hr />
-
-                <p>
-                  <strong>Anzahl Sitzungen:</strong>{" "}
-                  {(sessionsByRequest[String(detailsModal.id)] || []).length}
-                </p>
-
-                <label>Stundensatz (€)</label>
-                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                  <input
-                    type="number"
-                    value={editTarif}
-                    onChange={(e) => setEditTarif(e.target.value)}
-                    style={{ width: 140 }}
-                  />
-                  <button
-                    onClick={() =>
-                      fetch("/api/update-tarif", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({
-                          anfrageId: detailsModal.id,
-                          tarif: Number(editTarif),
-                        }),
-                      })
-                    }
-                  >
-                    💾 Speichern
-                  </button>
-                </div>
-
-                <h4 style={{ marginTop: 14 }}>Provision</h4>
-                <p>
-                  <strong>Gesamt:</strong>{" "}
-                  {(sessionsByRequest[String(detailsModal.id)] || [])
-                    .reduce((sum, s) => sum + (Number(s.price) || 0) * 0.3, 0)
-                    .toFixed(2)}{" "}
-                  €
-                </p>
 
                 <h4>Provision pro Quartal</h4>
                 {(() => {
@@ -1709,7 +1686,15 @@ body: JSON.stringify({
             <hr />
 
             <div style={{ display: "flex", justifyContent: "flex-end" }}>
-              <button onClick={() => setDetailsModal(null)}>Schließen</button>
+              <button
+  onClick={() => {
+    console.log("DETAILS OPEN:", r); // 🔍 Debug
+    setDetailsModal(r);
+  }}
+>
+  🔍 Details
+</button>
+
             </div>
           </div>
         </Modal>
