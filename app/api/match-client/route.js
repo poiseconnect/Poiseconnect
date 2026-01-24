@@ -87,7 +87,14 @@ if (!normalizedStatus.includes("termin")) {
       );
     }
     console.log("✅ MATCH UPDATE DONE");
-    return NextResponse.json({ ok: true });
+return new Response(
+  JSON.stringify({ ok: true }),
+  {
+    status: 200,
+    headers: { "Content-Type": "application/json" },
+  }
+);
+
   } catch (err) {
     console.error("MATCH CLIENT ERROR:", err);
     return NextResponse.json(
