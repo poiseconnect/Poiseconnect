@@ -440,50 +440,42 @@ const step8Members = useMemo(() => {
 
 
   // ----------------------------
-  // Validierung Step "Kontaktdaten"
-  // ----------------------------
-  function validateClientData(form) {
-    const newErrors = {};
+// Validierung Step "Kontaktdaten"
+// ----------------------------
+function validateClientData(form) {
+  const newErrors = {};
 
-    if (!form.vorname?.trim()) {
-      newErrors.vorname = "Bitte Vornamen eingeben.";
-    }
+  if (!form.vorname?.trim()) {
+    newErrors.vorname = "Bitte Vornamen eingeben.";
+  }
 
-    if (!form.nachname?.trim()) {
-      newErrors.nachname = "Bitte Nachnamen eingeben.";
-    }
+  if (!form.nachname?.trim()) {
+    newErrors.nachname = "Bitte Nachnamen eingeben.";
+  }
 
-    if (!form.email?.trim()) {
-      newErrors.email = "Bitte E-Mail eingeben.";
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) {
-      newErrors.email = "Bitte eine gültige E-Mail-Adresse eingeben.";
-    }
+  if (!form.email?.trim()) {
+    newErrors.email = "Bitte E-Mail eingeben.";
+  } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) {
+    newErrors.email = "Bitte eine gültige E-Mail-Adresse eingeben.";
+  }
 
-    if (!form.telefon?.trim()) {
-      newErrors.telefon = "Bitte Telefonnummer eingeben.";
-    }
+  if (!form.telefon?.trim()) {
+    newErrors.telefon = "Bitte Telefonnummer eingeben.";
+  }
 
-    if (!form.strasse_hausnr?.trim() || !form.plz_ort?.trim()) {
-  newErrors.adresse = "Bitte Adresse eingeben.";
+  // ✅ Adresse besteht aus 2 Feldern
+  if (!form.strasse_hausnr?.trim() || !form.plz_ort?.trim()) {
+    newErrors.adresse = "Bitte Adresse eingeben.";
+  }
+
+  if (!form.geburtsdatum?.trim()) {
+    newErrors.geburtsdatum = "Bitte Geburtsdatum eingeben.";
+  }
+
+  setErrors(newErrors);
+  return Object.keys(newErrors).length === 0;
 }
 
-    }
-
-    if (!form.geburtsdatum?.trim()) {
-      newErrors.geburtsdatum = "Bitte Geburtsdatum eingeben.";
-    } else {
-      const d = new Date(form.geburtsdatum);
-      if (Number.isNaN(d.getTime())) {
-        newErrors.geburtsdatum = "Bitte gültiges Datum wählen.";
-      } else if (!isAdult(form.geburtsdatum)) {
-        newErrors.geburtsdatum =
-          "Du musst mindestens 18 Jahre alt sein.";
-      }
-    }
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  }
 // -------------------------------------
 // LOAD EXISTING REQUEST BY ID (🔥 WICHTIG)
 // -------------------------------------
