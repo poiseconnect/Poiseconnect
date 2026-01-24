@@ -23,6 +23,8 @@ if (["active", "aktiv", "begleitung aktiv"].includes(s)) return "active";
   if (["kein_match"].includes(s)) return "kein_match";
   if (["beendet", "finished"].includes(s)) return "beendet";
   if (["papierkorb"].includes(s)) return "papierkorb";
+  if (["admin_pruefen", "admin"].includes(s)) return "admin_pruefen";
+
 
   console.warn("⚠️ UNBEKANNTER STATUS:", raw);
   return "neu";
@@ -38,6 +40,8 @@ const STATUS_LABEL = {
   kein_match: "Kein Match",
   beendet: "Beendet",
   papierkorb: "Papierkorb",
+  admin_pruefen: "Admin – Weiterleitung prüfen",
+
 };
 const STATUS_FILTER_MAP = {
   unbearbeitet: ["neu", "termin_neu", "termin_bestaetigt"],
@@ -45,6 +49,7 @@ const STATUS_FILTER_MAP = {
   abrechnung: ["active", "beendet"],
   beendet: ["beendet"],
   papierkorb: ["papierkorb"],
+  admin: ["admin_pruefen"],
   alle: ["neu", "termin_neu", "termin_bestaetigt", "active", "beendet", "papierkorb"],
 };
 
@@ -83,6 +88,17 @@ function Modal({ children, onClose }) {
         }}
       >
         {children}
+      </div>
+    </div>
+  );
+}
+
+function Action({ label, hint, onClick }) {
+  return (
+    <div style={{ marginBottom: 6 }}>
+      <button onClick={onClick}>{label}</button>
+      <div style={{ fontSize: 12, color: "#666", marginTop: 2 }}>
+        {hint}
       </div>
     </div>
   );
@@ -596,6 +612,10 @@ const billingByClient = useMemo(() => {
       {/* FILTER */}
       <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
         <button onClick={() => setFilter("unbearbeitet")}>Unbearbeitet</button>
+        <button onClick={() => setFilter("admin")}>
+  🛂 Admin – Weiterleitungen
+</button>
+
 
         <button onClick={() => setFilter("abrechnung")}>💶 Abrechnung</button>
 
@@ -1109,59 +1129,14 @@ const billingByClient = useMemo(() => {
 </button>
 
 
-              {UNBEARBEITET.includes(r._status) && (
-  <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-    <button
-  onClick={() => {
-    fetch("/api/confirm-appointment", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        requestId: r.id,
-        client: r.email,
-        vorname: r.vorname,
-      }),
-    }).then(() => location.reload());
-  }}
->
-  ✔ Termin bestätigen
-</button>
+{["neu", "termin_neu"].includes(r._status) && (
+  <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 8 }}>
 
-
-    <button
+    <Action
+      label="✔ Termin bestätigen"
+      hint="Anliegen passt zu mir – ich führe das Erstgespräch"
       onClick={() =>
-        fetch("/api/no-match", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ anfrageId: r.id }),
-        }).then(() => location.reload())
-      }
-    >
-      ❌ Kein Match
-    </button>
-
-    <button
-      onClick={() =>
-        fetch("/api/new-appointment", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-  requestId: r.id,
-  client: r.email,
-  therapistEmail: user.email,
-  therapistName: r.wunschtherapeut,
-  vorname: r.vorname,
-}),
-
-        }).then(() => location.reload())
-      }
-    >
-      🔁 Neuer Termin
-    </button>
-
-    <button
-      onClick={() =>
-        fetch("/api/forward-request", {
+        fetch("/api/confirm-appointment", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -1171,88 +1146,114 @@ const billingByClient = useMemo(() => {
           }),
         }).then(() => location.reload())
       }
-    >
-      👥 Weiterleiten
-    </button>
+    />
+
+    <Action
+      label="❌ Kein Match (Poise)"
+      hint="Anliegen passt grundsätzlich nicht zu Poise"
+      onClick={() =>
+        fetch("/api/update-status", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ anfrageId: r.id, status: "papierkorb" }),
+        }).then(() => location.reload())
+      }
+    />
+
+    <Action
+      label="🔁 Neuer Termin"
+      hint="Termin passt nicht – Klient:in wählt neuen Termin"
+      onClick={() =>
+        fetch("/api/new-appointment", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            requestId: r.id,
+            client: r.email,
+            vorname: r.vorname,
+          }),
+        })
+      }
+    />
+
+    <Action
+      label="⏸ Keine Kapazitäten"
+      hint="Anliegen passt, aber aktuell keine Kapazitäten"
+      onClick={() =>
+        fetch("/api/forward-request", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            requestId: r.id,
+            reason: "keine_kapazitaeten",
+          }),
+        }).then(() => location.reload())
+      }
+    />
+
+    <Action
+      label="👥 Anliegen passt nicht zu mir"
+      hint="Admin wählt passende Therapeut:innen"
+      onClick={() =>
+        fetch("/api/update-status", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ anfrageId: r.id, status: "admin_pruefen" }),
+        }).then(() => location.reload())
+      }
+    />
+
   </div>
 )}
+
 
 
 
               {/* MATCH / NO MATCH */}
               {/* MATCH / NO MATCH / WEITERLEITEN */}
 {r._status === "termin_bestaetigt" && (
-  <div style={{ display: "flex", gap: 8, marginTop: 8, flexWrap: "wrap" }}>
+  <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 8 }}>
 
-    {/* ❤️ MATCH */}
-  <button
-  onClick={async () => {
-    try {
-      const res = await fetch("/api/match-client", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          anfrageId: r.id,
-          therapistEmail: user?.email,
-          honorar: r.honorar_klient ?? null,
-        }),
-      });
-
-      if (!res.ok) {
-        const text = await res.text();
-        alert("MATCH FEHLER:\n" + text);
-        return;
-      }
-
-      // ✅ OPTIMISTIC UI UPDATE
-      setRequests((prev) =>
-        prev.map((req) =>
-          req.id === r.id
-            ? { ...req, _status: "active", status: "active" }
-            : req
-        )
-      );
-
-    } catch (err) {
-      alert("Netzwerkfehler beim Match");
-    }
-  }}
->
-  ❤️ Match
-</button>
-
-
-
-
-    {/* ❌ KEIN MATCH */}
-    <button
-      onClick={() =>
-        fetch("/api/no-match", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ anfrageId: r.id }),
-        }).then(() => location.reload())
-      }
-    >
-      ❌ Kein Match
-    </button>
-
-    {/* 👥 WEITERLEITEN */}
-    <button
-      onClick={() =>
-        fetch("/api/forward-request", {
+    <Action
+      label="❤️ Match"
+      hint="Erstgespräch war passend – Begleitung startet"
+      onClick={async () => {
+        const res = await fetch("/api/match-client", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            requestId: r.id,
-            client: r.email,
-            vorname: r.vorname,
+            anfrageId: r.id,
+            honorar: r.honorar_klient ?? null,
           }),
+        });
+
+        if (res.ok) location.reload();
+      }}
+    />
+
+    <Action
+      label="❌ Kein Match (Poise)"
+      hint="Nach Gespräch nicht passend für Poise"
+      onClick={() =>
+        fetch("/api/update-status", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ anfrageId: r.id, status: "papierkorb" }),
         }).then(() => location.reload())
       }
-    >
-      👥 Weiterleiten
-    </button>
+    />
+
+    <Action
+      label="👥 Anliegen passt doch nicht zu mir"
+      hint="Admin entscheidet über Weiterleitung"
+      onClick={() =>
+        fetch("/api/update-status", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ anfrageId: r.id, status: "admin_pruefen" }),
+        }).then(() => location.reload())
+      }
+    />
 
   </div>
 )}
