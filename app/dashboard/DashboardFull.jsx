@@ -306,7 +306,6 @@ useEffect(() => {
   supabase
     .from("anfragen")
     .select(`
-    .select(`
   id,
   created_at,
   vorname,
