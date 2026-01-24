@@ -59,13 +59,14 @@ const STATUS_LABEL = {
 
 };
 const STATUS_FILTER_MAP = {
-  unbearbeitet: ["neu", "termin_neu"],
-  admin: ["admin_pruefen"],
+  unbearbeitet: ["offen", "neu"],
+  admin_pruefen: ["admin_pruefen"],
   aktiv: ["active"],
-  abrechnung: ["active", "beendet"],
+  abrechnung: ["active"],
   beendet: ["beendet"],
   papierkorb: ["papierkorb"],
   alle: [
+    "offen",
     "neu",
     "termin_neu",
     "termin_bestaetigt",
@@ -76,6 +77,7 @@ const STATUS_FILTER_MAP = {
     "admin_pruefen",
   ],
 };
+
 
 
 
@@ -363,13 +365,21 @@ useEffect(() => {
         return;
       }
 
-      // ✅ EINZIGE WAHRHEIT: normalizeStatus
-      setRequests(
-        (data || []).map((r) => ({
-          ...r,
-          _status: normalizeStatus(r.status),
-        }))
-      );
+  setRequests(
+  (data || []).map((r) => {
+    const normalized = normalizeStatus(r.status);
+
+    if (!normalized) {
+      console.warn("⚠️ EMPTY STATUS", r.id, r.status);
+    }
+
+    return {
+      ...r,
+      _status: normalized || "offen",
+    };
+  })
+);
+
     });
 }, []);
 
