@@ -1212,49 +1212,96 @@ const billingByClient = useMemo(() => {
               {/* MATCH / NO MATCH */}
               {/* MATCH / NO MATCH / WEITERLEITEN */}
 {r._status === "termin_bestaetigt" && (
-  <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 8 }}>
+  <div
+    style={{
+      display: "flex",
+      gap: 16,
+      marginTop: 12,
+      flexWrap: "wrap",
+    }}
+  >
+    {/* ❤️ MATCH */}
+    <div style={{ maxWidth: 220 }}>
+      <button
+        onClick={() =>
+          fetch("/api/match-client", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              anfrageId: r.id,
+              honorar: r.honorar_klient,
+            }),
+          }).then(() => location.reload())
+        }
+      >
+        ❤️ Match
+      </button>
+      <div style={{ fontSize: 12, opacity: 0.7, marginTop: 4 }}>
+        Erstgespräch war passend – Begleitung startet
+      </div>
+    </div>
 
-    <Action
-      label="❤️ Match"
-      hint="Erstgespräch war passend – Begleitung startet"
-      onClick={async () => {
-        const res = await fetch("/api/match-client", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            anfrageId: r.id,
-            honorar: r.honorar_klient ?? null,
-          }),
-        });
+    {/* ❌ KEIN MATCH POISE */}
+    <div style={{ maxWidth: 220 }}>
+      <button
+        onClick={() =>
+          fetch("/api/no-match", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ anfrageId: r.id }),
+          }).then(() => location.reload())
+        }
+      >
+        ❌ Kein Match (Poise)
+      </button>
+      <div style={{ fontSize: 12, opacity: 0.7, marginTop: 4 }}>
+        Anliegen passt grundsätzlich nicht zu Poise
+      </div>
+    </div>
 
-        if (res.ok) location.reload();
-      }}
-    />
+    {/* 🔁 NEUER TERMIN */}
+    <div style={{ maxWidth: 220 }}>
+      <button
+        onClick={() =>
+          fetch("/api/new-appointment", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              requestId: r.id,
+              client: r.email,
+              therapistName: r.therapeut,
+              vorname: r.vorname,
+            }),
+          })
+        }
+      >
+        🔁 Neuer Termin
+      </button>
+      <div style={{ fontSize: 12, opacity: 0.7, marginTop: 4 }}>
+        Termin leider nicht verfügbar
+      </div>
+    </div>
 
-    <Action
-      label="❌ Kein Match (Poise)"
-      hint="Nach Gespräch nicht passend für Poise"
-      onClick={() =>
-        fetch("/api/update-status", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ anfrageId: r.id, status: "papierkorb" }),
-        }).then(() => location.reload())
-      }
-    />
-
-    <Action
-      label="👥 Anliegen passt doch nicht zu mir"
-      hint="Admin entscheidet über Weiterleitung"
-      onClick={() =>
-        fetch("/api/update-status", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ anfrageId: r.id, status: "admin_pruefen" }),
-        }).then(() => location.reload())
-      }
-    />
-
+    {/* 👥 ANLIEGEN PASST NICHT ZU MIR */}
+    <div style={{ maxWidth: 240 }}>
+      <button
+        onClick={() =>
+          fetch("/api/update-status", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              anfrageId: r.id,
+              status: "admin_pruefen",
+            }),
+          }).then(() => location.reload())
+        }
+      >
+        👥 Anliegen passt nicht zu mir
+      </button>
+      <div style={{ fontSize: 12, opacity: 0.7, marginTop: 4 }}>
+        Admin entscheidet über Weiterleitung
+      </div>
+    </div>
   </div>
 )}
 
