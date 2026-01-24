@@ -1585,21 +1585,17 @@ const billingByClient = useMemo(() => {
       const res = await fetch("/api/add-sessions-batch", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          anfrageId: detailsModal.id,
-therapist:
-therapist: user.email,
-
-
-
-          sessions: [
-            {
-              date: newSessions[0].date,
-              duration: newSessions[0].duration,
-              price: Number(editTarif),
-            },
-          ],
-        }),
+body: JSON.stringify({
+  anfrageId: detailsModal.id,
+  therapist: user.email,
+  sessions: [
+    {
+      date: newSessions[0].date,
+      duration: newSessions[0].duration,
+      price: Number(editTarif),
+    },
+  ],
+}),
       });
 
       if (!res.ok) {
