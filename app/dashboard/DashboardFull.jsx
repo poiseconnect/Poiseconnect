@@ -1321,24 +1321,28 @@ const billingByClient = useMemo(() => {
             </h3>
 
             {/* FORMULARINFOS – IMMER */}
+            
             <section>
-              <p>
-                <strong>Name:</strong> {safeText(detailsModal?.vorname)}{" "}
-                {safeText(detailsModal?.nachname)}
-              </p>
+          {["termin_bestaetigt", "active", "beendet"].includes(
+ normalizeStatus(detailsModal._status)
+) && (
+  <>
+    <p>
+      <strong>E-Mail:</strong> {safeText(detailsModal?.email)}
+    </p>
 
-              <p>
-                <strong>E-Mail:</strong> {safeText(detailsModal?.email)}
-              </p>
+    <p>
+      <strong>Telefon:</strong> {safeText(detailsModal?.telefon)}
+    </p>
 
-              <p>
-                <strong>Telefon:</strong> {safeText(detailsModal?.telefon)}
-              </p>
+    <p>
+      <strong>Adresse:</strong>{" "}
+      {safeText(detailsModal?.strasse_hausnr)}{" "}
+      {safeText(detailsModal?.plz_ort)}
+    </p>
+  </>
+)}
 
-              <p>
-                <strong>Adresse:</strong> {safeText(detailsModal?.strasse_hausnr)}{" "}
-                {safeText(detailsModal?.plz_ort)}
-              </p>
 
               <p>
                 <strong>Alter:</strong>{" "}
