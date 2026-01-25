@@ -684,7 +684,7 @@ const billingByClient = useMemo(() => {
         <button onClick={() => setFilter("erstgespraech")}>
   🗓 Erstgespräch
 </button>
-        )}>
+        
 <button onClick={() => setFilter("admin_pruefen")}>
     🛂 Admin – Weiterleitungen
   </button>
