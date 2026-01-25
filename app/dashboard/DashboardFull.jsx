@@ -1303,20 +1303,24 @@ setRequests((prev) =>
 
     {/* 👥 ANLIEGEN PASST NICHT ZU MIR */}
     <div style={{ maxWidth: 260 }}>
-      <button
-        onClick={() =>
-          fetch("/api/update-status", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              anfrageId: r.id,
-              status: "admin_pruefen",
-            }),
-          }).then(() => location.reload())
-        }
-      >
-        👥 Anliegen passt nicht zu mir
-      </button>
+<button
+  onClick={async () => {
+    await updateRequestStatus({
+      requestId: r.id,
+      status: "admin_weiterleiten",
+    });
+
+    setRequests((prev) =>
+      prev.map((x) =>
+        x.id === r.id
+          ? { ...x, _status: "admin_pruefen" }
+          : x
+      )
+    );
+  }}
+>
+  👥 Anliegen passt nicht zu mir
+</button>
       <div style={{ fontSize: 12, opacity: 0.7, marginTop: 4 }}>
         Admin wählt passende Therapeut:innen
       </div>
