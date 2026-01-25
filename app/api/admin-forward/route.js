@@ -11,7 +11,14 @@ export async function POST(req) {
   try {
     const body = await req.json();
     const { requestId, therapists, client, vorname } = body;
+    
+const cleanTherapists = Array.isArray(therapists)
+  ? therapists.filter(Boolean).slice(0, 3)
+  : [];
 
+if (!requestId || cleanTherapists.length === 0) {
+  return new Response("invalid_payload", { status: 400 });
+}
     if (!requestId || !Array.isArray(therapists) || therapists.length === 0) {
       return new Response("invalid_payload", { status: 400 });
     }
