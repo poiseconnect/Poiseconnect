@@ -276,6 +276,8 @@ function toggleThema(key, setForm) {
 export default function PageClient() {
   const today = new Date();
   const searchParams = useSearchParams();
+  const resumeMode = searchParams.get("resume");
+const isAdminResume = resumeMode === "admin";
 
   const anfrageId = searchParams.get("anfrageId"); // ✅ ENTSCHEIDEND
 
@@ -285,7 +287,8 @@ export default function PageClient() {
 
   // Formular-Daten
   const [form, setForm] = useState({
-    themen: [],
+admin_therapeuten: [],
+  themen: [],
     anliegen: "",
     leidensdruck: "",
     verlauf: "",
@@ -428,11 +431,29 @@ const matchedTeam = useMemo(() => {
 // STEP 8 – FINALE LISTE (MATCH + VERFÜGBARKEIT)
 // -------------------------------------
 const step8Members = useMemo(() => {
-  return matchedTeam
+  let base = matchedTeam;
+
+  // 🛂 ADMIN-WEITERLEITUNG → NUR AUSGEWÄHLTE THERAPEUT:INNEN
+  if (
+    isAdminResume &&
+    Array.isArray(form.admin_therapeuten) &&
+    form.admin_therapeuten.length > 0
+  ) {
+    base = base.filter((m) =>
+      form.admin_therapeuten.includes(m.email)
+    );
+  }
+
+  // ⏱ nur Therapeut:innen mit freien Terminen
+  return base
     .filter((m) => availableTherapists.includes(m.name))
     .sort((a, b) => (b._score ?? 0) - (a._score ?? 0));
-}, [matchedTeam, availableTherapists]);
-
+}, [
+  matchedTeam,
+  availableTherapists,
+  form.admin_therapeuten,
+  isAdminResume,
+]);
 
 
 
@@ -1200,7 +1221,16 @@ const send = async () => {
       </>
     ) : (
       <>
-        <h2>Wer könnte gut zu dir passen?</h2>
+<h2>
+  {isAdminResume
+    ? "Diese Therapeut:innen wurden für dich ausgewählt"
+    : "Wer könnte gut zu dir passen?"}
+</h2>
+        {isAdminResume && (
+  <p style={{ opacity: 0.7, marginBottom: 24 }}>
+    Du kannst aus diesen ausgewählten Therapeut:innen frei wählen.
+  </p>
+)}
 
         <p style={{ marginBottom: 24 }}>
           Vielleicht spricht dich sofort jemand an – oder wir orientieren uns
