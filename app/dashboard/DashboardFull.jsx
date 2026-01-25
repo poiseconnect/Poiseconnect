@@ -1188,6 +1188,89 @@ const billingByClient = useMemo(() => {
                 )}
 
               <p>{typeof r.anliegen === "string" ? r.anliegen : "–"}</p>
+              {r._status === "admin_pruefen" && (
+  <div
+    style={{
+      marginTop: 12,
+      borderTop: "1px dashed #ddd",
+      paddingTop: 12,
+    }}
+  >
+    <strong>Therapeut:innen auswählen (max. 3)</strong>
+
+    <div style={{ marginTop: 8 }}>
+      {teamData.map((t) => {
+        const selected = (r.admin_therapeuten || []).includes(t.email);
+        const maxReached = (r.admin_therapeuten || []).length >= 3;
+
+        return (
+          <label
+            key={t.email}
+            style={{
+              display: "block",
+              marginBottom: 6,
+              opacity: selected || !maxReached ? 1 : 0.4,
+            }}
+          >
+            <input
+              type="checkbox"
+              checked={selected}
+              disabled={!selected && maxReached}
+              onChange={() => {
+                setRequests((prev) =>
+                  prev.map((x) => {
+                    if (x.id !== r.id) return x;
+
+                    const current = x.admin_therapeuten || [];
+                    let next;
+
+                    if (current.includes(t.email)) {
+                      next = current.filter((e) => e !== t.email);
+                    } else {
+                      next = [...current, t.email].slice(0, 3);
+                    }
+
+                    return { ...x, admin_therapeuten: next };
+                  })
+                );
+              }}
+            />{" "}
+            {t.name}{" "}
+            <span style={{ color: "#777" }}>({t.email})</span>
+          </label>
+        );
+      })}
+    </div>
+
+    <button
+      style={{ marginTop: 10 }}
+      disabled={!r.admin_therapeuten || r.admin_therapeuten.length === 0}
+      onClick={async () => {
+        const res = await fetch("/api/admin-forward", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            requestId: r.id,
+            therapists: r.admin_therapeuten, // ✅ E-Mails
+            client: r.email,
+            vorname: r.vorname,
+          }),
+        });
+
+        if (!res.ok) {
+          const t = await res.text();
+          console.error("admin-forward failed:", t);
+          alert("Fehler beim Senden");
+          return;
+        }
+
+        alert("Mail an Klient:in gesendet ✅");
+      }}
+    >
+      📧 Weiterleiten & Mail senden
+    </button>
+  </div>
+)}
 
               <button
   onClick={() => {
