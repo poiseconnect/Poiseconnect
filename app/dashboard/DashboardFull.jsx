@@ -42,8 +42,7 @@ function normalizeStatus(raw) {
   // ✅ NEU / UNBEARBEITET
   if (["neu", "offen", "new"].includes(s)) return "neu";
 
-  if (["termin_neu"].includes(s)) return "termin_neu";
-
+if (["termin_neu", "neuer_termin"].includes(s)) return "termin_neu";
   if (
     ["termin_bestaetigt", "bestaetigt", "confirmed"].includes(s)
   ) {
@@ -56,9 +55,8 @@ function normalizeStatus(raw) {
   // ❌ KEIN MATCH
   if (["kein_match", "no_match"].includes(s)) return "kein_match";
 
-  // 🛂 ADMIN
-  if (["admin_pruefen", "admin"].includes(s)) return "admin_pruefen";
-
+// 🛂 ADMIN
+if (["admin_pruefen", "admin", "admin_weiterleiten"].includes(s)) return "admin_pruefen";
   // 🗑 PAPIERKORB
   if (["papierkorb", "trash"].includes(s)) return "papierkorb";
 
@@ -686,9 +684,10 @@ const billingByClient = useMemo(() => {
         <button onClick={() => setFilter("erstgespraech")}>
   🗓 Erstgespräch
 </button>
-        <button onClick={() => setFilter("admin")}>
-  🛂 Admin – Weiterleitungen
-</button>
+        )}>
+<button onClick={() => setFilter("admin_pruefen")}>
+    🛂 Admin – Weiterleitungen
+  </button>
 
 
         <button onClick={() => setFilter("abrechnung")}>💶 Abrechnung</button>
