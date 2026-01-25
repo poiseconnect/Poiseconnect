@@ -1,8 +1,7 @@
 export const dynamic = "force-dynamic";
 
 import { createClient } from "@supabase/supabase-js";
-import { confirmAppointment } from "../../../../lib/handlers/confirmAppointment";
-
+import { confirmAppointment } from "../../../lib/handlers/confirmAppointment";
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
