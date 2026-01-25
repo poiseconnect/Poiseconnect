@@ -89,7 +89,7 @@ erstgespraech: ["termin_bestaetigt"],
   aktiv: ["active"],
   abrechnung: ["active"],
   beendet: ["beendet"],
-  papierkorb: ["papierkorb", "kein_match"],
+  papierkorb: ["papierkorb"],
   alle: [
     "offen",
     "neu",
@@ -377,6 +377,7 @@ useEffect(() => {
       status,
       bevorzugte_zeit,
       wunschtherapeut,
+      admin_therapeuten,
       honorar_klient
     `)
     .order("created_at", { ascending: false })
@@ -1328,7 +1329,7 @@ setRequests((prev) =>
   onClick={async () => {
     await updateRequestStatus({
       requestId: r.id,
-      status: "kein_match",
+      status: "papierkorb",
     });
     setRequests((prev) =>
       prev.filter((x) => x.id !== r.id)
