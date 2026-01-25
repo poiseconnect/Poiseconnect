@@ -84,7 +84,8 @@ const STATUS_LABEL = {
 
 };
 const STATUS_FILTER_MAP = {
-  unbearbeitet: ["offen", "neu"],
+  unbearbeitet: ["neu", "termin_neu"],
+erstgespraech: ["termin_bestaetigt"],
   admin_pruefen: ["admin_pruefen"],
   aktiv: ["active"],
   abrechnung: ["active"],
@@ -682,6 +683,9 @@ const billingByClient = useMemo(() => {
       {/* FILTER */}
       <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
         <button onClick={() => setFilter("unbearbeitet")}>Unbearbeitet</button>
+        <button onClick={() => setFilter("erstgespraech")}>
+  🗓 Erstgespräch
+</button>
         <button onClick={() => setFilter("admin")}>
   🛂 Admin – Weiterleitungen
 </button>
@@ -1213,14 +1217,19 @@ const billingByClient = useMemo(() => {
 <button
   onClick={async () => {
     await updateRequestStatus({
-      requestId: r.id,
-      status: "termin_bestaetigt",
-      client: r.email,
-      vorname: r.vorname,
-    });
-    setRequests((prev) =>
-      prev.filter((x) => x.id !== r.id)
-    );
+  requestId: r.id,
+  status: "termin_bestaetigt",
+  client: r.email,
+  vorname: r.vorname,
+});
+
+setRequests((prev) =>
+  prev.map((x) =>
+    x.id === r.id
+      ? { ...x, _status: "termin_bestaetigt" }
+      : x
+  )
+);
   }}
 >
   ✅ Termin bestätigen
