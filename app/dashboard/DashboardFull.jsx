@@ -7,6 +7,31 @@ import jsPDF from "jspdf";
 import "jspdf-autotable";
 
 console.log("🔥 DashboardFull RENDERED");
+// ================= STATUS UPDATE (NEU, ZENTRAL) =================
+async function updateRequestStatus({
+  requestId,
+  status,
+  client,
+  vorname,
+}) {
+  const res = await fetch("/api/requests/update-status", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      requestId,
+      status,
+      client,
+      vorname,
+    }),
+  });
+
+  if (!res.ok) {
+    const t = await res.text();
+    console.error("❌ Status update failed:", t);
+    alert("Aktion fehlgeschlagen");
+    throw new Error("status_update_failed");
+  }
+}
 
 /* ================= STATUS ================= */
 function normalizeStatus(raw) {
@@ -1185,17 +1210,21 @@ const billingByClient = useMemo(() => {
   >
     {/* ✅ TERMIN BESTÄTIGEN */}
     <div style={{ maxWidth: 240 }}>
-      <button
-        onClick={() =>
-          fetch("/api/confirm-appointment", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ anfrageId: r.id }),
-          }).then(() => location.reload())
-        }
-      >
-        ✅ Termin bestätigen
-      </button>
+<button
+  onClick={async () => {
+    await updateRequestStatus({
+      requestId: r.id,
+      status: "termin_bestaetigt",
+      client: r.email,
+      vorname: r.vorname,
+    });
+    setRequests((prev) =>
+      prev.filter((x) => x.id !== r.id)
+    );
+  }}
+>
+  ✅ Termin bestätigen
+</button>
       <div style={{ fontSize: 12, opacity: 0.7, marginTop: 4 }}>
         Anliegen passt zu mir – ich führe das Erstgespräch
       </div>
@@ -1203,17 +1232,19 @@ const billingByClient = useMemo(() => {
 
     {/* ❌ KEIN MATCH POISE */}
     <div style={{ maxWidth: 240 }}>
-      <button
-        onClick={() =>
-          fetch("/api/no-match", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ anfrageId: r.id }),
-          }).then(() => location.reload())
-        }
-      >
-        ❌ Kein Match (Poise)
-      </button>
+     <button
+  onClick={async () => {
+    await updateRequestStatus({
+      requestId: r.id,
+      status: "kein_match",
+    });
+    setRequests((prev) =>
+      prev.filter((x) => x.id !== r.id)
+    );
+  }}
+>
+  ❌ Kein Match (Poise)
+</button>
       <div style={{ fontSize: 12, opacity: 0.7, marginTop: 4 }}>
         Anliegen passt grundsätzlich nicht zu Poise
       </div>
@@ -1244,20 +1275,19 @@ const billingByClient = useMemo(() => {
 
     {/* ⏸ KEINE KAPAZITÄTEN */}
     <div style={{ maxWidth: 240 }}>
-      <button
-        onClick={() =>
-          fetch("/api/update-status", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              anfrageId: r.id,
-              status: "keine_kapazitaeten",
-            }),
-          }).then(() => location.reload())
-        }
-      >
-        ⏸ Keine Kapazitäten
-      </button>
+<button
+  onClick={async () => {
+    await updateRequestStatus({
+      requestId: r.id,
+      status: "keine_kapazitaeten",
+    });
+    setRequests((prev) =>
+      prev.filter((x) => x.id !== r.id)
+    );
+  }}
+>
+  ⏸ Keine Kapazitäten
+</button>
       <div style={{ fontSize: 12, opacity: 0.7, marginTop: 4 }}>
         Anliegen passt, aber aktuell keine Kapazitäten
       </div>
@@ -1323,17 +1353,19 @@ const billingByClient = useMemo(() => {
 
     {/* ❌ KEIN MATCH POISE */}
     <div style={{ maxWidth: 220 }}>
-      <button
-        onClick={() =>
-          fetch("/api/no-match", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ anfrageId: r.id }),
-          }).then(() => location.reload())
-        }
-      >
-        ❌ Kein Match (Poise)
-      </button>
+   <button
+  onClick={async () => {
+    await updateRequestStatus({
+      requestId: r.id,
+      status: "kein_match",
+    });
+    setRequests((prev) =>
+      prev.filter((x) => x.id !== r.id)
+    );
+  }}
+>
+  ❌ Kein Match (Poise)
+</button>
       <div style={{ fontSize: 12, opacity: 0.7, marginTop: 4 }}>
         Anliegen passt grundsätzlich nicht zu Poise
       </div>
@@ -1341,22 +1373,21 @@ const billingByClient = useMemo(() => {
 
     {/* 🔁 NEUER TERMIN */}
     <div style={{ maxWidth: 220 }}>
-      <button
-        onClick={() =>
-          fetch("/api/new-appointment", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              requestId: r.id,
-              client: r.email,
-              therapistName: r.therapeut,
-              vorname: r.vorname,
-            }),
-          })
-        }
-      >
-        🔁 Neuer Termin
-      </button>
+<button
+  onClick={async () => {
+    await updateRequestStatus({
+      requestId: r.id,
+      status: "neuer_termin",
+      client: r.email,
+      vorname: r.vorname,
+    });
+    setRequests((prev) =>
+      prev.filter((x) => x.id !== r.id)
+    );
+  }}
+>
+  🔁 Neuer Termin
+</button>
       <div style={{ fontSize: 12, opacity: 0.7, marginTop: 4 }}>
         Termin leider nicht verfügbar
       </div>
@@ -1364,20 +1395,19 @@ const billingByClient = useMemo(() => {
 
     {/* 👥 ANLIEGEN PASST NICHT ZU MIR */}
     <div style={{ maxWidth: 240 }}>
-      <button
-        onClick={() =>
-          fetch("/api/update-status", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              anfrageId: r.id,
-              status: "admin_pruefen",
-            }),
-          }).then(() => location.reload())
-        }
-      >
-        👥 Anliegen passt nicht zu mir
-      </button>
+     <button
+  onClick={async () => {
+    await updateRequestStatus({
+      requestId: r.id,
+      status: "admin_weiterleiten",
+    });
+    setRequests((prev) =>
+      prev.filter((x) => x.id !== r.id)
+    );
+  }}
+>
+  👥 Anliegen passt nicht zu mir
+</button>
       <div style={{ fontSize: 12, opacity: 0.7, marginTop: 4 }}>
         Admin entscheidet über Weiterleitung
       </div>
@@ -1860,32 +1890,5 @@ body: JSON.stringify({
     </div>
   );
 
-  /* ---------- HELPERS (API) ---------- */
 
-  async function moveToTrash(r) {
-    await fetch("/api/update-status", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ anfrageId: r.id, status: "papierkorb" }),
-    });
-    location.reload();
-  }
-
-  async function restoreFromTrash(r) {
-    await fetch("/api/update-status", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ anfrageId: r.id, status: "offen" }),
-    });
-    location.reload();
-  }
-
-  async function deleteForever(r) {
-    await fetch("/api/delete-request", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ anfrageId: r.id }),
-    });
-    location.reload();
-  }
 }
