@@ -86,11 +86,11 @@ const STATUS_LABEL = {
 const STATUS_FILTER_MAP = {
   unbearbeitet: ["neu", "termin_neu"],
 erstgespraech: ["termin_bestaetigt"],
-  admin_pruefen: ["admin_pruefen"],
+  admin_pruefen: ["admin_pruefen", "admin_weiterleiten"],
   aktiv: ["active"],
   abrechnung: ["active"],
   beendet: ["beendet"],
-  papierkorb: ["papierkorb"],
+  papierkorb: ["papierkorb", "kein_match"],
   alle: [
     "offen",
     "neu",
