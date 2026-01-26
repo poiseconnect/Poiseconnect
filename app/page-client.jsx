@@ -276,8 +276,17 @@ function toggleThema(key, setForm) {
 export default function PageClient() {
   const today = new Date();
   const searchParams = useSearchParams();
-  const resumeMode = searchParams.get("resume");
-const isAdminResume = resumeMode === "admin";
+const resumeMode = searchParams.get("resume");
+
+// ✅ Admin-Flow, wenn:
+// - resume=admin (dein Admin-Link)
+// - resume=5 oder resume=8 (deine bestehenden Buttons/Links)
+// - ODER wenn die DB admin_therapeuten liefert (Sicherheits-Fallback)
+const isAdminResume =
+  resumeMode === "admin" ||
+  resumeMode === "5" ||
+  resumeMode === "8" ||
+  (Array.isArray(form?.admin_therapeuten) && form.admin_therapeuten.length > 0);
 
 const anfrageId =
   searchParams.get("anfrageId") || searchParams.get("rid");
@@ -434,16 +443,28 @@ const matchedTeam = useMemo(() => {
 const step8Members = useMemo(() => {
   let base = matchedTeam;
 
-  // 🛂 ADMIN-WEITERLEITUNG → NUR AUSGEWÄHLTE THERAPEUT:INNEN
- if (
+// 🛂 ADMIN-WEITERLEITUNG → NUR AUSGEWÄHLTE THERAPEUT:INNEN
+if (
   isAdminResume &&
   Array.isArray(form.admin_therapeuten) &&
   form.admin_therapeuten.length > 0
 ) {
-  base = base.filter((m) =>
-    form.admin_therapeuten.includes(m.name)
-  );
+  const adminList = form.admin_therapeuten
+    .map((v) => String(v).trim())
+    .filter(Boolean);
+
+  // erkennen, ob Admin E-Mails oder Namen gespeichert hat
+  const adminUsesEmail = adminList.some((v) => v.includes("@"));
+
+  base = base.filter((m) => {
+    if (adminUsesEmail) {
+      return adminList.includes(String(m.email).trim());
+    }
+    return adminList.includes(String(m.name).trim());
+  });
 }
+
+
   // ⏱ nur Therapeut:innen mit freien Terminen
   return base
     .filter((m) => availableTherapists.includes(m.name))
