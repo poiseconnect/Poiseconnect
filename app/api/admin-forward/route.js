@@ -27,7 +27,7 @@ if (!requestId || cleanTherapists.length === 0) {
     const { error: updateError } = await supabase
       .from("anfragen")
       .update({
-        admin_therapeuten: therapists,
+        admin_therapeuten: cleanTherapists,
         status: "admin_weiterleiten",
       })
       .eq("id", requestId);
@@ -42,11 +42,11 @@ if (!requestId || cleanTherapists.length === 0) {
       process.env.NEXT_PUBLIC_SITE_URL || "https://poiseconnect.vercel.app";
 
     // Link so, dass dein Formular später rid auslesen kann:
-    const link = `${baseUrl}/kontakt?resume=admin&rid=${requestId}`;
-
-    const therapistListHtml = therapists
-      .map((e) => `<li>${e}</li>`)
-      .join("");
+const link = `${baseUrl}/?resume=admin&anfrageId=${requestId}`;
+    
+    const therapistListHtml = cleanTherapists
+  .map((e) => `<li>${e}</li>`)
+  .join("");
 
     const mailRes = await fetch("https://api.resend.com/emails", {
       method: "POST",
