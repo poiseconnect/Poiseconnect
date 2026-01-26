@@ -39,8 +39,8 @@ export async function POST(req) {
       "https://poiseconnect.vercel.app";
 
     const link =
-      baseUrl + "/kontakt?resume=admin&rid=" + requestId;
-
+  baseUrl + "/kontakt?resume=8&anfrageId=" + requestId;
+    
     const therapistListHtml = therapists
       .map((name) => `<li><strong>${String(name)}</strong></li>`)
       .join("");
