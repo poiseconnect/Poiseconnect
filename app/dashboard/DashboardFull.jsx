@@ -59,7 +59,11 @@ if (["termin_neu", "neuer_termin"].includes(s)) return "termin_neu";
 if (["admin_pruefen", "admin", "admin_weiterleiten"].includes(s)) return "admin_pruefen";
   
   // 🗑 PAPIERKORB
-  if (["papierkorb", "trash"].includes(s)) return "papierkorb";
+if (
+  ["papierkorb", "trash", "deleted", "kein_match_poise"].includes(s)
+) {
+  return "papierkorb";
+}
 
   // 🏁 BEENDET
   if (["beendet", "finished"].includes(s)) return "beendet";
