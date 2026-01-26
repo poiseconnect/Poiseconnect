@@ -1337,14 +1337,19 @@ setRequests((prev) =>
 
     {/* ❌ KEIN MATCH POISE */}
     <div style={{ maxWidth: 240 }}>
-     <button
+    <button
   onClick={async () => {
     await updateRequestStatus({
       requestId: r.id,
       status: "papierkorb",
     });
+
     setRequests((prev) =>
-      prev.filter((x) => x.id !== r.id)
+      prev.map((x) =>
+        x.id === r.id
+          ? { ...x, _status: "papierkorb" }
+          : x
+      )
     );
   }}
 >
@@ -1466,14 +1471,19 @@ setRequests((prev) =>
 
     {/* ❌ KEIN MATCH POISE */}
     <div style={{ maxWidth: 220 }}>
-   <button
+  <button
   onClick={async () => {
     await updateRequestStatus({
       requestId: r.id,
-      status: "kein_match",
+      status: "papierkorb",
     });
+
     setRequests((prev) =>
-      prev.filter((x) => x.id !== r.id)
+      prev.map((x) =>
+        x.id === r.id
+          ? { ...x, _status: "papierkorb" }
+          : x
+      )
     );
   }}
 >
