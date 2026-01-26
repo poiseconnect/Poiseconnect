@@ -377,8 +377,8 @@ useEffect(() => {
       status,
       bevorzugte_zeit,
       wunschtherapeut,
-      admin_therapeuten,
-      honorar_klient
+      honorar_klient,
+      admin_therapeuten
     `)
     .order("created_at", { ascending: false })
     .then(({ data, error }) => {
@@ -399,10 +399,24 @@ useEffect(() => {
       console.warn("⚠️ EMPTY STATUS", r.id, r.status);
     }
 
-    return {
-      ...r,
-      _status: normalized || "offen",
-    };
+let adminTher = r.admin_therapeuten;
+
+// Falls Supabase es als String liefert (kommt vor)
+if (typeof adminTher === "string") {
+  try {
+    adminTher = JSON.parse(adminTher);
+  } catch {
+    adminTher = [];
+  }
+}
+
+if (!Array.isArray(adminTher)) adminTher = [];
+
+return {
+  ...r,
+  admin_therapeuten: adminTher,
+  _status: normalized || "neu",
+};
   })
 );
 
@@ -1201,6 +1215,7 @@ const billingByClient = useMemo(() => {
 
     <div style={{ marginTop: 8 }}>
       {teamData.map((t) => {
+    if (!t.email) return null;
         const selected = (r.admin_therapeuten || []).includes(t.email);
         const maxReached = (r.admin_therapeuten || []).length >= 3;
 
