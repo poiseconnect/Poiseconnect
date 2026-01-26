@@ -26,10 +26,10 @@ if (!requestId || cleanTherapists.length === 0) {
     // 1) Speichern (E-Mails) + Status setzen/halten
     const { error: updateError } = await supabase
       .from("anfragen")
-      .update({
-        admin_therapeuten: cleanTherapists,
-        status: "admin_weiterleiten",
-      })
+.update({
+  admin_therapeuten: therapists, // ✅ Array von NAMEN
+  status: "admin_weiterleiten",
+})
       .eq("id", requestId);
 
     if (updateError) {
@@ -63,7 +63,9 @@ const link = `${baseUrl}/?resume=admin&anfrageId=${requestId}`;
           <p>wir haben passende Therapeut:innen für dich ausgewählt.</p>
 
           <p><strong>Du kannst aus genau diesen auswählen:</strong></p>
-          <ul>${therapistListHtml}</ul>
+     const therapistListHtml = therapists
+  .map((name) => `<li><strong>${name}</strong></li>`)
+  .join("");
 
           <p>
             <a href="${link}" style="font-weight:bold;">
