@@ -589,6 +589,9 @@ useEffect(() => {
     });
 
 }, [anfrageId]);
+// -------------------------------------
+// Resume-Flow (NUR STEP STEUERN, KEINE DATEN ÄNDERN)
+// -------------------------------------
 useEffect(() => {
   if (typeof window === "undefined") return;
 
@@ -596,38 +599,22 @@ useEffect(() => {
   const resume = params.get("resume");
   if (!resume) return;
 
-  const anfrageIdParam = params.get("anfrageId");
-  const therapistParam =
-    params.get("therapist") || params.get("name") || "";
-
-  // 🔹 Nur Info, kein State-Change
-  if (resume === "confirmed") {
-    window.history.replaceState({}, "", window.location.pathname);
-    return;
-  }
-
   let targetStep = null;
   const n = parseInt(resume, 10);
 
   if (!Number.isNaN(n)) {
-    if (n === 5) targetStep = 8;   // Weiterleiten
-    if (n === 10) targetStep = 10; // Neuer Termin
+    if (n === 5) targetStep = 8;   // Admin-Weiterleitung
+    else if (n === 10) targetStep = 10; // Terminwahl
     else targetStep = n;
   }
 
   if (targetStep === null) return;
 
-  // ✅ KRITISCHER RESET
-  setForm((prev) => ({
-    ...prev,
-    wunschtherapeut: therapistParam || prev.wunschtherapeut,
-    terminISO: "",
-    terminDisplay: "",
-  }));
-
-  setSelectedDay(null);   // ❗ WICHTIG
+  // ❗ KEIN setForm MEHR HIER
+  setSelectedDay(null);
   setStep(targetStep);
 
+  // URL aufräumen
   window.history.replaceState({}, "", window.location.pathname);
 }, []);
 
