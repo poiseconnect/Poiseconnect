@@ -38,8 +38,8 @@ export async function POST(req) {
       process.env.NEXT_PUBLIC_SITE_URL ??
       "https://poiseconnect.vercel.app";
 
-    const link =
-  baseUrl + "/kontakt?resume=8&anfrageId=" + requestId;
+ const link =
+  baseUrl + "/kontakt?anfrageId=" + requestId;
     
     const therapistListHtml = therapists
       .map((name) => `<li><strong>${String(name)}</strong></li>`)
