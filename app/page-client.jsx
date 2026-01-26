@@ -435,16 +435,15 @@ const step8Members = useMemo(() => {
   let base = matchedTeam;
 
   // 🛂 ADMIN-WEITERLEITUNG → NUR AUSGEWÄHLTE THERAPEUT:INNEN
-  if (
-    isAdminResume &&
-    Array.isArray(form.admin_therapeuten) &&
-    form.admin_therapeuten.length > 0
-  ) {
-    base = base.filter((m) =>
-      form.admin_therapeuten.includes(m.email)
-    );
-  }
-
+ if (
+  isAdminResume &&
+  Array.isArray(form.admin_therapeuten) &&
+  form.admin_therapeuten.length > 0
+) {
+  base = base.filter((m) =>
+    form.admin_therapeuten.includes(m.name)
+  );
+}
   // ⏱ nur Therapeut:innen mit freien Terminen
   return base
     .filter((m) => availableTherapists.includes(m.name))
