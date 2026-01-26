@@ -1253,10 +1253,10 @@ const billingByClient = useMemo(() => {
           );
         }}
       />{" "}
-      <strong>{t.name}</strong>
-      {t.email && (
-        <span style={{ color: "#777" }}> ({t.email})</span>
-      )}
+     <strong>{t.name}</strong>
+{t.email ? (
+  <span style={{ color: "#777" }}> ({t.email})</span>
+) : null}
     </label>
   );
 })}
