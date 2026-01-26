@@ -401,16 +401,15 @@ useEffect(() => {
 
 let adminTher = r.admin_therapeuten;
 
-// Falls Supabase es als String liefert (kommt vor)
+// 🔥 WICHTIG: String → leeres Array (kein JSON!)
 if (typeof adminTher === "string") {
-  try {
-    adminTher = JSON.parse(adminTher);
-  } catch {
-    adminTher = [];
-  }
+  adminTher = adminTher.trim() ? [adminTher] : [];
 }
 
-if (!Array.isArray(adminTher)) adminTher = [];
+// 🔥 null / sonst was → leeres Array
+if (!Array.isArray(adminTher)) {
+  adminTher = [];
+}
 
 return {
   ...r,
