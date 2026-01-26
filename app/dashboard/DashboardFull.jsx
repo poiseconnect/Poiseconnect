@@ -1413,7 +1413,11 @@ setRequests((prev) =>
     setRequests((prev) =>
       prev.map((x) =>
         x.id === r.id
-          ? { ...x, _status: "admin_pruefen" }
+          ? {
+              ...x,
+              _status: "admin_pruefen",
+              admin_therapeuten: [], // 🔥 DAS IST DER FIX
+            }
           : x
       )
     );
