@@ -279,7 +279,8 @@ export default function PageClient() {
   const resumeMode = searchParams.get("resume");
 const isAdminResume = resumeMode === "admin";
 
-  const anfrageId = searchParams.get("anfrageId"); // ✅ ENTSCHEIDEND
+const anfrageId =
+  searchParams.get("anfrageId") || searchParams.get("rid");
 
   const [step, setStep] = useState(0);
   const [subStep9, setSubStep9] = useState(0);
@@ -498,10 +499,14 @@ function validateClientData(form) {
 }
 
 // -------------------------------------
-// LOAD EXISTING REQUEST BY ID (🔥 WICHTIG)
+// -------------------------------------
+// LOAD EXISTING REQUEST + RESUME LOGIC (🔥 ZENTRAL)
 // -------------------------------------
 useEffect(() => {
   if (!anfrageId) return;
+
+  const params = new URLSearchParams(window.location.search);
+  const resume = params.get("resume");
 
   supabase
     .from("anfragen")
@@ -514,22 +519,77 @@ useEffect(() => {
         return;
       }
 
-      if (data) {
-        console.log("LOADED EXISTING REQUEST", data);
-        setForm((prev) => ({
-          ...prev,
-          ...data, // ✅ ALLE FELDER BLEIBEN
-        }));
-      }
-    });
-}, [anfrageId]);
+      if (!data) return;
 
-  // -------------------------------------
-  // Resume-Flow (Therapist-Response Links)
-  // ?resume=confirmed&email=...&therapist=Ann
-  // ?resume=10&email=...&therapist=Ann  → Terminwahl
-  // ?resume=5&email=...                 → anderes Teammitglied wählen (jetzt Step 8)
-  // -------------------------------------
+      console.log("✅ LOADED EXISTING REQUEST", data);
+
+      // 🔒 admin_therapeuten immer als Array sicherstellen
+      let adminTherapeuten = data.admin_therapeuten;
+      if (typeof adminTherapeuten === "string") {
+        try {
+          adminTherapeuten = JSON.parse(adminTherapeuten);
+        } catch {
+          adminTherapeuten = [];
+        }
+      }
+      if (!Array.isArray(adminTherapeuten)) adminTherapeuten = [];
+
+      // ✅ Formular füllen (NICHTS verlieren)
+      setForm((prev) => ({
+        ...prev,
+        ...data,
+        admin_therapeuten: adminTherapeuten,
+      }));
+
+      // =================================================
+      // 🧭 STEP-ENTSCHEIDUNG (HIER IST DIE WAHRHEIT)
+      // =================================================
+
+      // 🛂 ADMIN-WEITERLEITUNG → IMMER STEP 8
+      if (resume === "admin") {
+        setStep(8);
+        setSelectedDay(null);
+        return;
+      }
+
+      // 🔢 NUMERISCHE RESUMES
+      const n = parseInt(resume, 10);
+
+      if (!Number.isNaN(n)) {
+        // 5 → Therapeut neu wählen → Step 8
+        if (n === 5) {
+          setStep(8);
+          setSelectedDay(null);
+          setForm((prev) => ({
+            ...prev,
+            terminISO: "",
+            terminDisplay: "",
+          }));
+          return;
+        }
+
+        // 10 → Termin neu wählen
+        if (n === 10) {
+          setStep(10);
+          setSelectedDay(null);
+          setForm((prev) => ({
+            ...prev,
+            terminISO: "",
+            terminDisplay: "",
+          }));
+          return;
+        }
+
+        // Fallback: direkter Step
+        setStep(n);
+        return;
+      }
+
+      // 🟢 DEFAULT: normaler Flow
+      // (Step bleibt wie er ist – meist 0)
+    });
+
+}, [anfrageId]);
 useEffect(() => {
   if (typeof window === "undefined") return;
 
