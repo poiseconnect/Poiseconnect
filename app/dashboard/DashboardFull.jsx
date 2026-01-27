@@ -640,13 +640,7 @@ const billingByClient = useMemo(() => {
 }, [filteredBillingSessions, invoiceSettings.default_vat_rate]);
 
 
-"use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { supabase } from "../lib/supabase";
-import { teamData } from "../lib/teamData";
-import jsPDF from "jspdf";
-import "jspdf-autotable";
 
 console.log("🔥 DashboardFull RENDERED");
 // ================= STATUS UPDATE (NEU, ZENTRAL) =================
