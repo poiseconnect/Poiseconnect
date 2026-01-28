@@ -1401,22 +1401,41 @@ setRequests((prev) =>
 
     {/* 🔁 NEUER TERMIN */}
     <div style={{ maxWidth: 240 }}>
-      <button
-        onClick={() =>
-          fetch("/api/new-appointment", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              requestId: r.id,
-              client: r.email,
-              therapistName: r.therapeut,
-              vorname: r.vorname,
-            }),
-          })
-        }
-      >
-        🔁 Neuer Termin
-      </button>
+     <button
+  onClick={async () => {
+    // ✅ Therapeut sauber bestimmen
+    const therapistName =
+      r.wunschtherapeut ||
+      sessionsByRequest[String(r.id)]?.[0]?.therapist;
+
+    if (!therapistName) {
+      alert("❌ Keine Therapeut:in für diese Anfrage gefunden");
+      return;
+    }
+
+    const res = await fetch("/api/new-appointment", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        requestId: r.id,
+        client: r.email,
+        therapistName, // ✅ JETZT IM BODY
+        vorname: r.vorname,
+      }),
+    });
+
+    if (!res.ok) {
+      const t = await res.text();
+      console.error("NEW APPOINTMENT FAILED:", t);
+      alert("Fehler beim Senden der E-Mail");
+      return;
+    }
+
+    alert("📧 Mail für neue Terminauswahl gesendet");
+  }}
+>
+  🔁 Neuer Termin
+</button>
       <div style={{ fontSize: 12, opacity: 0.7, marginTop: 4 }}>
         Termin passt nicht – Klient:in wählt neu
       </div>
