@@ -256,7 +256,46 @@ function exportBillingPDF(rows) {
 
   doc.save(`abrechnung_${new Date().toISOString().slice(0, 10)}.pdf`);
 }
+// ================= PAPIERKORB ACTIONS =================
 
+async function restoreFromTrash(r) {
+  const res = await fetch("/api/requests/update-status", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      requestId: r.id,
+      status: "neu",
+    }),
+  });
+
+  if (!res.ok) {
+    alert("Fehler beim Wiederherstellen");
+    return;
+  }
+
+  // 🔄 Frontend-State sofort aktualisieren
+  location.reload();
+}
+
+async function deleteForever(r) {
+  if (!confirm("Anfrage wirklich endgültig löschen?")) return;
+
+  const res = await fetch("/api/requests/delete-forever", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      requestId: r.id,
+    }),
+  });
+
+  if (!res.ok) {
+    alert("Fehler beim Löschen");
+    return;
+  }
+
+  // 🔄 Frontend-State aktualisieren
+  location.reload();
+}
 /* ================= DASHBOARD ================= */
 
 export default function DashboardFull() {
