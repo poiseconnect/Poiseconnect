@@ -27,9 +27,19 @@ export async function POST(req) {
       oldSlot, // ⬅️ WICHTIG
     } = body || {};
 
-    if (!requestId || !client || !therapistName || !oldSlot) {
-      return json({ error: "missing_fields" }, 400);
-    }
+if (!requestId || !client) {
+  return json({ error: "missing_fields" }, 400);
+}
+
+if (!therapistName) {
+  return json(
+    {
+      error: "missing_therapist",
+      hint: "therapistName fehlt im Request-Body",
+    },
+    400
+  );
+}
 
     const baseUrl =
       process.env.NEXT_PUBLIC_SITE_URL ||
