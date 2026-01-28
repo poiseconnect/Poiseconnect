@@ -19,9 +19,15 @@ export async function POST(req) {
     const body = await req.json();
     console.log("📥 NEW APPOINTMENT BODY:", body);
 
-    const { requestId, client, therapistName, vorname } = body || {};
+    const {
+      requestId,
+      client,
+      therapistName,
+      vorname,
+      oldSlot, // ⬅️ WICHTIG
+    } = body || {};
 
-    if (!requestId || !client || !therapistName) {
+    if (!requestId || !client || !therapistName || !oldSlot) {
       return json({ error: "missing_fields" }, 400);
     }
 
@@ -29,23 +35,59 @@ export async function POST(req) {
       process.env.NEXT_PUBLIC_SITE_URL ||
       "https://poiseconnect.vercel.app";
 
-    // 1️⃣ Status auf „termin_neu“ setzen (SONST NICHTS)
+    /* ===============================
+       1️⃣ Alten Termin blockieren
+       =============================== */
+
+    const start = new Date(oldSlot);
+    if (isNaN(start.getTime())) {
+      return json({ error: "invalid_oldSlot" }, 400);
+    }
+
+    const end = new Date(start.getTime() + 60 * 60 * 1000); // ✅ 60 Minuten
+
+    const { error: blockError } = await supabase
+      .from("blocked_slots")
+      .insert({
+        anfrage_id: requestId,
+        therapist_name: therapistName,
+        start_at: start.toISOString(),
+        end_at: end.toISOString(),
+        reason: "client_reschedule",
+      });
+
+    if (blockError) {
+      console.error("❌ BLOCK SLOT ERROR:", blockError);
+      return json(
+        { error: "block_failed", detail: blockError.message },
+        500
+      );
+    }
+
+    /* ===============================
+       2️⃣ Anfrage zurücksetzen
+       =============================== */
+
     const { error: updateError } = await supabase
       .from("anfragen")
       .update({
         status: "termin_neu",
+        bevorzugte_zeit: null, // 🔥 wichtig!
       })
       .eq("id", requestId);
 
     if (updateError) {
-      console.error("❌ NEW APPOINTMENT UPDATE ERROR:", updateError);
+      console.error("❌ UPDATE REQUEST ERROR:", updateError);
       return json(
         { error: "update_failed", detail: updateError.message },
         500
       );
     }
 
-    // 2️⃣ Mail mit sauberem Resume-Link → Step 10
+    /* ===============================
+       3️⃣ Mail mit neuem Auswahl-Link
+       =============================== */
+
     const mailRes = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: {
@@ -60,7 +102,8 @@ export async function POST(req) {
           <p>Hallo ${vorname || ""},</p>
 
           <p>
-            bitte wähle einen <strong>neuen Termin</strong> für dein Erstgespräch.
+            der ursprünglich gewählte Termin ist leider nicht verfügbar.
+            Bitte wähle einen <strong>neuen Termin</strong>.
           </p>
 
           <p>
@@ -68,7 +111,7 @@ export async function POST(req) {
               therapistName
             )}"
                style="color:#6f4f49; font-weight:bold;">
-              Neuen Termin auswählen
+              👉 Neuen Termin auswählen
             </a>
           </p>
 
@@ -78,7 +121,7 @@ export async function POST(req) {
     });
 
     if (!mailRes.ok) {
-      console.warn("⚠️ NEW APPOINTMENT MAIL FAILED – DB UPDATE OK");
+      console.warn("⚠️ MAIL FAILED – DB OK");
     }
 
     return json({ ok: true });
