@@ -31,14 +31,17 @@ export async function POST(request) {
       "https://poiseconnect.vercel.app";
 
     // 1) Anfrage zurücksetzen & weiterleiten
-    const { error: updateError } = await supabase
-      .from("anfragen")
-      .update({
-        wunschtherapeut: null,
-        bevorzugte_zeit: null,
-        status: "weitergeleitet",
-      })
-      .eq("id", requestId);
+const { error: updateError } = await supabase
+  .from("anfragen")
+  .update({
+    wunschtherapeut: null,
+    bevorzugte_zeit: null,
+    status: "weitergeleitet",
+    excluded_therapeuten: supabase.rpc
+      ? undefined
+      : undefined, // nur zur Klarheit – siehe unten
+  })
+  .eq("id", requestId);
 
     if (updateError) {
       console.error("FORWARD UPDATE ERROR:", updateError);
