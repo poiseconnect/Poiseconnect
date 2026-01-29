@@ -1442,17 +1442,30 @@ oldSlot: r.bevorzugte_zeit,
       </div>
     </div>
 
-    {/* ⏸ KEINE KAPAZITÄTEN */}
-    <div style={{ maxWidth: 240 }}>
 <button
   onClick={async () => {
-    await updateRequestStatus({
-      requestId: r.id,
-      status: "keine_kapazitaeten",
+    const res = await fetch("/api/forward-request", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        requestId: r.id,
+        client: r.email,
+        vorname: r.vorname,
+        excludedTherapist: r.wunschtherapeut, // 🔥 DAS IST DER SCHLÜSSEL
+      }),
     });
-    setRequests((prev) =>
-      prev.filter((x) => x.id !== r.id)
-    );
+
+    if (!res.ok) {
+      const t = await res.text();
+      console.error("FORWARD FAILED:", t);
+      alert("Fehler bei der Weiterleitung");
+      return;
+    }
+
+    // sofort aus UI entfernen
+    setRequests((prev) => prev.filter((x) => x.id !== r.id));
+
+    alert("📧 Anfrage weitergeleitet – Klient:in wählt neu");
   }}
 >
   ⏸ Keine Kapazitäten
