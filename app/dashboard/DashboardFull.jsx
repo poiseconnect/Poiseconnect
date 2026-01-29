@@ -1399,81 +1399,84 @@ setRequests((prev) =>
       </div>
     </div>
 
-    {/* 🔁 NEUER TERMIN */}
-    <div style={{ maxWidth: 240 }}>
-     <button
-  onClick={async () => {
-    // ✅ Therapeut sauber bestimmen
-    const therapistName =
-      r.wunschtherapeut ||
-      sessionsByRequest[String(r.id)]?.[0]?.therapist;
+{/* 🔁 NEUER TERMIN */}
+<div style={{ maxWidth: 240 }}>
+  <button
+    onClick={async () => {
+      const therapistName =
+        r.wunschtherapeut ||
+        sessionsByRequest[String(r.id)]?.[0]?.therapist;
 
-    if (!therapistName) {
-      alert("❌ Keine Therapeut:in für diese Anfrage gefunden");
-      return;
-    }
+      if (!therapistName) {
+        alert("❌ Keine Therapeut:in für diese Anfrage gefunden");
+        return;
+      }
 
-    const res = await fetch("/api/new-appointment", {
-  method: "POST",
-  headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({
-    requestId: r.id,
-    client: r.email,
-    vorname: r.vorname,
-    therapistName: r.wunschtherapeut,
-oldSlot: r.bevorzugte_zeit,
-  }),
-});
+      const res = await fetch("/api/new-appointment", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          requestId: r.id,
+          client: r.email,
+          vorname: r.vorname,
+          therapistName,
+          oldSlot: r.bevorzugte_zeit,
+        }),
+      });
 
-    if (!res.ok) {
-      const t = await res.text();
-      console.error("NEW APPOINTMENT FAILED:", t);
-      alert("Fehler beim Senden der E-Mail");
-      return;
-    }
+      if (!res.ok) {
+        const t = await res.text();
+        console.error("NEW APPOINTMENT FAILED:", t);
+        alert("Fehler beim Senden der E-Mail");
+        return;
+      }
 
-    alert("📧 Mail für neue Terminauswahl gesendet");
-  }}
->
-  🔁 Neuer Termin
-</button>
-      <div style={{ fontSize: 12, opacity: 0.7, marginTop: 4 }}>
-        Termin passt nicht – Klient:in wählt neu
-      </div>
-    </div>
+      alert("📧 Mail für neue Terminauswahl gesendet");
+    }}
+  >
+    🔁 Neuer Termin
+  </button>
 
-<button
-  onClick={async () => {
-    const res = await fetch("/api/forward-request", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        requestId: r.id,
-        client: r.email,
-        vorname: r.vorname,
-        excludedTherapist: r.wunschtherapeut, // 🔥 DAS IST DER SCHLÜSSEL
-      }),
-    });
+  <div style={{ fontSize: 12, opacity: 0.7, marginTop: 4 }}>
+    Termin passt nicht – Klient:in wählt neu
+  </div>
+</div>
 
-    if (!res.ok) {
-      const t = await res.text();
-      console.error("FORWARD FAILED:", t);
-      alert("Fehler bei der Weiterleitung");
-      return;
-    }
+{/* ⏸ KEINE KAPAZITÄTEN */}
+<div style={{ maxWidth: 240 }}>
+  <button
+    onClick={async () => {
+      const res = await fetch("/api/forward-request", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          requestId: r.id,
+          client: r.email,
+          vorname: r.vorname,
+          excludedTherapist: r.wunschtherapeut, // 🔥 wird in Step 8 ausgeschlossen
+        }),
+      });
 
-    // sofort aus UI entfernen
-    setRequests((prev) => prev.filter((x) => x.id !== r.id));
+      if (!res.ok) {
+        const t = await res.text();
+        console.error("FORWARD FAILED:", t);
+        alert("Fehler bei der Weiterleitung");
+        return;
+      }
 
-    alert("📧 Anfrage weitergeleitet – Klient:in wählt neu");
-  }}
->
-  ⏸ Keine Kapazitäten
-</button>
-      <div style={{ fontSize: 12, opacity: 0.7, marginTop: 4 }}>
-        Anliegen passt, aber aktuell keine Kapazitäten
-      </div>
-    </div>
+      // sofort aus UI entfernen
+      setRequests((prev) => prev.filter((x) => x.id !== r.id));
+
+      alert("📧 Anfrage weitergeleitet – Klient:in wählt neu");
+    }}
+  >
+    ⏸ Keine Kapazitäten
+  </button>
+
+  <div style={{ fontSize: 12, opacity: 0.7, marginTop: 4 }}>
+    Anliegen passt, aber aktuell keine Kapazitäten
+  </div>
+</div>
 
     {/* 👥 ANLIEGEN PASST NICHT ZU MIR */}
     <div style={{ maxWidth: 260 }}>
