@@ -728,10 +728,10 @@ useEffect(() => {
       let freeSlots = [...allSlots]; // ✅ WICHTIG
 
       // 1️⃣ gebuchte Termine entfernen
-      const { data } = await supabase
-        .from("booked_appointments")
-        .select("termin_iso")
-        .eq("therapist", form.wunschtherapeut);
+const { data } = await supabase
+  .from("blocked_slots")
+  .select("termin_iso")
+  .eq("therapist", form.wunschtherapeut);
 
       if (data?.length) {
         const bookedSet = new Set(data.map((r) => r.termin_iso));
