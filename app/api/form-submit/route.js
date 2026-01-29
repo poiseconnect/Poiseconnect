@@ -134,20 +134,38 @@ match_state: "pending", // 👈 NEU
 
     };
 
-    // -----------------------------------------
-    // 4️⃣ Insert
-    // -----------------------------------------
-    const { error } = await supabase
-      .from("anfragen")
-      .insert(payload);
+// -----------------------------------------
+// 4️⃣ Insert Anfrage
+// -----------------------------------------
+const { error } = await supabase
+  .from("anfragen")
+  .insert(payload);
 
-    if (error) {
-      console.error("❌ Insert Error:", error);
-      return JSONResponse(
-        { error: "DB_INSERT_FAILED", detail: error.message },
-        500
-      );
-    }
+if (error) {
+  console.error("❌ Insert Error:", error);
+  return JSONResponse(
+    { error: "DB_INSERT_FAILED", detail: error.message },
+    500
+  );
+}
+
+// -----------------------------------------
+// 🔒 SLOT BLOCKIEREN (NUR WENN INSERT OK)
+// -----------------------------------------
+if (body.terminISO && therapist) {
+  const { error: blockError } = await supabase
+    .from("blocked_slots")
+    .insert({
+      therapist: therapist,
+      termin_iso: body.terminISO,
+      source: "client_form",
+    });
+
+  if (blockError) {
+    console.error("❌ SLOT BLOCK ERROR:", blockError);
+    // ⚠️ absichtlich KEIN return → Anfrage ist trotzdem gültig
+  }
+}
 
     // -----------------------------------------
     // 5️⃣ Emails (unverändert)
