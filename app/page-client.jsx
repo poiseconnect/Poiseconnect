@@ -820,11 +820,20 @@ const send = async () => {
       // ignorieren
     }
 
-    if (!res.ok) {
-      console.error("API Fehler:", json || res.status);
-      alert("Fehler – Anfrage konnte nicht gesendet werden.");
-      return;
-    }
+if (!res.ok) {
+  const err = await res.json().catch(() => null);
+
+  if (err?.error === "slot_taken") {
+    alert(
+      "Dieser Termin wurde gerade vergeben. Bitte wähle einen neuen Termin."
+    );
+    setStep(10); // ⬅ zurück zur Terminwahl
+    return;
+  }
+
+  alert("Fehler – Anfrage konnte nicht gesendet werden.");
+  return;
+}
 
     alert("Danke – deine Anfrage wurde erfolgreich gesendet 🤍");
   } catch (err) {
