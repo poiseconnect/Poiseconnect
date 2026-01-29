@@ -60,7 +60,48 @@ export async function POST(req) {
       body.terminDisplay && !isNaN(Date.parse(body.terminDisplay))
         ? body.terminDisplay
         : null;
+// -----------------------------------------
+// 🔒 FIX 6 – SLOT ATOMAR BLOCKIEREN
+// -----------------------------------------
+const terminISO = body.terminISO || null;
 
+if (terminISO && therapist) {
+  // 1️⃣ prüfen ob Slot schon vergeben
+  const { data: existing } = await supabase
+    .from("booked_appointments")
+    .select("id")
+    .eq("therapist", therapist)
+    .eq("termin_iso", terminISO)
+    .maybeSingle();
+
+  if (existing) {
+    return JSONResponse(
+      {
+        error: "slot_taken",
+        message:
+          "Dieser Termin wurde leider gerade vergeben. Bitte wähle einen neuen.",
+      },
+      409
+    );
+  }
+
+  // 2️⃣ Slot blockieren
+  const { error: blockError } = await supabase
+    .from("booked_appointments")
+    .insert({
+      therapist,
+      termin_iso: terminISO,
+      source: "client_submit",
+    });
+
+  if (blockError) {
+    console.error("❌ SLOT BLOCK FAILED:", blockError);
+    return JSONResponse(
+      { error: "slot_block_failed", detail: blockError.message },
+      500
+    );
+  }
+}
     // -----------------------------------------
     // 3️⃣ Payload (NULL statt EMPTY)
     // -----------------------------------------
