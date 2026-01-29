@@ -34,6 +34,7 @@ export async function POST(req) {
   try {
     const body = await req.json();
     const supabase = getSupabase();
+
     if (!supabase) {
       return JSONResponse({ error: "SUPABASE_NOT_CONFIGURED" }, 500);
     }
@@ -41,69 +42,28 @@ export async function POST(req) {
     // -----------------------------------------
     // 1️⃣ Wunschtherapeut sauber ermitteln
     // -----------------------------------------
-    let therapist =
+    const therapist =
       body.wunschtherapeut ||
       body.therapist_from_url ||
       null;
 
     if (!therapist) {
       return JSONResponse(
-        { error: "THERAPIST_MISSING", detail: "wunschtherapeut leer" },
+        { error: "THERAPIST_MISSING" },
         400
       );
     }
 
     // -----------------------------------------
-    // 2️⃣ Termin sauber normalisieren
+    // 2️⃣ Termin normalisieren (ISO)
     // -----------------------------------------
-    const bevorzugteZeit =
-      body.terminDisplay && !isNaN(Date.parse(body.terminDisplay))
-        ? body.terminDisplay
-        : null;
-// -----------------------------------------
-// 🔒 FIX 6 – SLOT ATOMAR BLOCKIEREN
-// -----------------------------------------
-const terminISO = body.terminISO || null;
+    const terminISO = body.terminISO || null;
+    const startAt = terminISO ? new Date(terminISO) : null;
+    const endAt =
+      startAt ? new Date(startAt.getTime() + 60 * 60000) : null;
 
-if (terminISO && therapist) {
-  // 1️⃣ prüfen ob Slot schon vergeben
-  const { data: existing } = await supabase
-    .from("booked_appointments")
-    .select("id")
-    .eq("therapist", therapist)
-    .eq("termin_iso", terminISO)
-    .maybeSingle();
-
-  if (existing) {
-    return JSONResponse(
-      {
-        error: "slot_taken",
-        message:
-          "Dieser Termin wurde leider gerade vergeben. Bitte wähle einen neuen.",
-      },
-      409
-    );
-  }
-
-  // 2️⃣ Slot blockieren
-  const { error: blockError } = await supabase
-    .from("booked_appointments")
-    .insert({
-      therapist,
-      termin_iso: terminISO,
-      source: "client_submit",
-    });
-
-  if (blockError) {
-    console.error("❌ SLOT BLOCK FAILED:", blockError);
-    return JSONResponse(
-      { error: "slot_block_failed", detail: blockError.message },
-      500
-    );
-  }
-}
     // -----------------------------------------
-    // 3️⃣ Payload (NULL statt EMPTY)
+    // 3️⃣ Anfrage speichern
     // -----------------------------------------
     const payload = {
       vorname: body.vorname || null,
@@ -122,53 +82,52 @@ if (terminISO && therapist) {
       ziel: body.ziel || null,
 
       wunschtherapeut: therapist,
-      bevorzugte_zeit: body.terminISO || null,
-
+      bevorzugte_zeit: terminISO,
 
       check_suizid: Boolean(body.check_gesundheit),
       check_datenschutz: Boolean(body.check_datenschutz),
       check_online_setting: Boolean(body.check_online_setting),
 
       status: "neu",
-match_state: "pending", // 👈 NEU
-
+      match_state: "pending",
     };
 
-// -----------------------------------------
-// 4️⃣ Insert Anfrage
-// -----------------------------------------
-const { error } = await supabase
-  .from("anfragen")
-  .insert(payload);
+    const { data: inserted, error: insertError } = await supabase
+      .from("anfragen")
+      .insert(payload)
+      .select("id")
+      .single();
 
-if (error) {
-  console.error("❌ Insert Error:", error);
-  return JSONResponse(
-    { error: "DB_INSERT_FAILED", detail: error.message },
-    500
-  );
-}
-
-// -----------------------------------------
-// 🔒 SLOT BLOCKIEREN (NUR WENN INSERT OK)
-// -----------------------------------------
-if (body.terminISO && therapist) {
-  const { error: blockError } = await supabase
-    .from("blocked_slots")
-    .insert({
-      therapist: therapist,
-      termin_iso: body.terminISO,
-      source: "client_form",
-    });
-
-  if (blockError) {
-    console.error("❌ SLOT BLOCK ERROR:", blockError);
-    // ⚠️ absichtlich KEIN return → Anfrage ist trotzdem gültig
-  }
-}
+    if (insertError) {
+      console.error("❌ Insert Error:", insertError);
+      return JSONResponse(
+        { error: "DB_INSERT_FAILED", detail: insertError.message },
+        500
+      );
+    }
 
     // -----------------------------------------
-    // 5️⃣ Emails (unverändert)
+    // 4️⃣ SLOT BLOCKIEREN (blocked_slots)
+    // -----------------------------------------
+    if (startAt && endAt) {
+      const { error: blockError } = await supabase
+        .from("blocked_slots")
+        .insert({
+          anfrage_id: inserted.id,
+          therapist_name: therapist,
+          start_at: startAt.toISOString(),
+          end_at: endAt.toISOString(),
+          reason: "client_submit",
+        });
+
+      if (blockError) {
+        console.error("❌ SLOT BLOCK ERROR:", blockError);
+        // ❗ bewusst kein Abbruch – Anfrage bleibt gültig
+      }
+    }
+
+    // -----------------------------------------
+    // 5️⃣ Emails (wie gehabt)
     // -----------------------------------------
     const resendKey = process.env.RESEND_API_KEY;
     const baseUrl =
@@ -198,38 +157,27 @@ if (body.terminISO && therapist) {
         "Deine Anfrage ist eingegangen 🤍",
         `
           <h2>Hallo ${body.vorname},</h2>
-          <p>Vielen Dank für deine Anfrage! Deine ausgewählte Begleitung <strong>${therapist}</strong> meldet sich so bald wie möglich bei dir.</p>
-          <br/>
+          <p>
+            Vielen Dank für deine Anfrage!
+            Deine ausgewählte Begleitung <strong>${therapist}</strong>
+            meldet sich so bald wie möglich bei dir.
+          </p>
           <p>🤍 Dein Poise Team</p>
         `
       );
 
       await sendMail(
         "hallo@mypoise.de",
-        `Neue Anfrage eingegangen von ${clientName}`,
+        `Neue Anfrage von ${clientName}`,
         `
           <h2>Neue Anfrage</h2>
           <p><strong>Name:</strong> ${clientName}</p>
           <p><strong>Email:</strong> ${body.email}</p>
           <p><strong>Anliegen:</strong> ${body.anliegen}</p>
           <p><strong>Therapeut:</strong> ${therapist}</p>
-          <p><strong>Termin:</strong> ${bevorzugteZeit || "—"}</p>
+          <p><strong>Termin:</strong> ${terminISO || "—"}</p>
           <br/>
           <a href="${baseUrl}/dashboard">➡ Zum Dashboard</a>
-        `
-      );
-
-      await sendMail(
-        therapist,
-        `Neue Anfrage für dich von ${clientName}`,
-        `
-          <h2>Neue Anfrage 🤍</h2>
-          <p><strong>Name:</strong> ${clientName}</p>
-          <p><strong>Email:</strong> ${body.email}</p>
-          <p><strong>Anliegen:</strong> ${body.anliegen}</p>
-          <p><strong>Terminwunsch:</strong> ${bevorzugteZeit || "—"}</p>
-          <br/>
-          <a href="${baseUrl}/dashboard">➡ Im Dashboard ansehen</a>
         `
       );
     }
