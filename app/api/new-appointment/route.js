@@ -76,7 +76,8 @@ if (!therapistName) {
 const { error: updateError } = await supabase
   .from("anfragen")
   .update({
-    status: "termin_neu",
+    status: "papierkorb", // ✅ WICHTIG
+    match_state: "reschedule", // optional, aber sehr sauber
     bevorzugte_zeit: null,
   })
   .eq("id", requestId);
