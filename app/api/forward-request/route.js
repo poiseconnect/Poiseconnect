@@ -17,8 +17,8 @@ export async function POST(request) {
 
     console.log("FORWARD BODY:", body);
 
-    const { requestId, client, vorname } = body || {};
-
+const { requestId, client, vorname, excludedTherapist } = body || {};
+    
     if (!requestId || !client) {
       return new Response(
         JSON.stringify({ error: "missing_fields" }),
@@ -37,9 +37,9 @@ const { error: updateError } = await supabase
     wunschtherapeut: null,
     bevorzugte_zeit: null,
     status: "weitergeleitet",
-    excluded_therapeuten: supabase.rpc
-      ? undefined
-      : undefined, // nur zur Klarheit – siehe unten
+    excluded_therapeuten: excludedTherapist
+      ? [excludedTherapist]
+      : [],
   })
   .eq("id", requestId);
 
