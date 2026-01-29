@@ -73,22 +73,32 @@ if (!therapistName) {
         500
       );
     }
-
+const { error: updateError } = await supabase
+  .from("anfragen")
+  .update({
+    status: "termin_neu",
+    bevorzugte_zeit: null,
+  })
+  .eq("id", requestId);
     /* ===============================
        2️⃣ Anfrage zurücksetzen
        =============================== */
 
-const { data: req } = await supabase
+const { data: requestData } = await supabase
   .from("anfragen")
   .select("bevorzugte_zeit")
   .eq("id", requestId)
   .single();
 
-if (req?.bevorzugte_zeit) {
-  await supabase.from("booked_appointments").insert({
+if (requestData?.bevorzugte_zeit) {
+  await supabase.from("blocked_slots").insert({
     anfrage_id: requestId,
-    therapist: therapistName,
-    termin_iso: req.bevorzugte_zeit,
+    therapist_name: therapistName,
+    start_at: new Date(requestData.bevorzugte_zeit).toISOString(),
+    end_at: new Date(
+      new Date(requestData.bevorzugte_zeit).getTime() + 60 * 60 * 1000
+    ).toISOString(),
+    reason: "previous_selection",
   });
 }
     if (updateError) {
