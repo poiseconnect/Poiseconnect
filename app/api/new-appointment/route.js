@@ -78,14 +78,19 @@ if (!therapistName) {
        2️⃣ Anfrage zurücksetzen
        =============================== */
 
-    const { error: updateError } = await supabase
-      .from("anfragen")
-      .update({
-        status: "termin_neu",
-        bevorzugte_zeit: null, // 🔥 wichtig!
-      })
-      .eq("id", requestId);
+const { data: req } = await supabase
+  .from("anfragen")
+  .select("bevorzugte_zeit")
+  .eq("id", requestId)
+  .single();
 
+if (req?.bevorzugte_zeit) {
+  await supabase.from("booked_appointments").insert({
+    anfrage_id: requestId,
+    therapist: therapistName,
+    termin_iso: req.bevorzugte_zeit,
+  });
+}
     if (updateError) {
       console.error("❌ UPDATE REQUEST ERROR:", updateError);
       return json(
