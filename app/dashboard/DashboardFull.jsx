@@ -1420,7 +1420,8 @@ setRequests((prev) =>
     requestId: r.id,
     client: r.email,
     vorname: r.vorname,
-    therapistName: r.wunschtherapeut, // ✅ WICHTIG
+    therapistName: r.wunschtherapeut,
+    oldTerminISO: r.terminISO, // 🔥 DAS IST FIX 5
   }),
 });
 
