@@ -200,11 +200,11 @@ async function loadIcsSlots(icsUrl, daysAhead = null) {
 
     let t = new Date(start);
     while (t < end) {
-      const tEnd = new Date(t.getTime() + 30 * 60000);
+      const tEnd = new Date(t.getTime() + 60 * 60000);
       if (tEnd > end || tEnd <= now) break;
 
       slots.push({ start: new Date(t) });
-      t = new Date(t.getTime() + 30 * 60000);
+      t = new Date(t.getTime() + 60 * 60000);
     }
   }
 
@@ -334,7 +334,7 @@ const [slots, setSlots] = useState([]);
 const [loadingSlots, setLoadingSlots] = useState(false);
 const [slotsError, setSlotsError] = useState("");
 const [selectedDay, setSelectedDay] = useState(null);
-
+const [blockedOldTerminISO, setBlockedOldTerminISO] = useState("");
 
   // -------------------------------------
   // Matching – Team-Sortierung nach Tags
@@ -542,6 +542,22 @@ useEffect(() => {
       if (!data) return;
 
       console.log("✅ LOADED EXISTING REQUEST", data);
+      // ✅ alten Termin merken, damit er in Step 10 NICHT mehr angezeigt wird
+const rawOld =
+  data?.terminISO ||
+  data?.termin_iso ||
+  data?.terminISO_erstgespraech ||
+  data?.bevorzugte_zeit ||
+  "";
+
+let oldIso = "";
+if (rawOld) {
+  // rawOld kann ISO-String oder Timestamp sein → normalisieren
+  const d = new Date(rawOld);
+  oldIso = Number.isNaN(d.getTime()) ? String(rawOld) : d.toISOString();
+}
+
+setBlockedOldTerminISO(oldIso);
 
       // 🔒 admin_therapeuten immer als Array sicherstellen
       let adminTherapeuten = data.admin_therapeuten;
@@ -703,15 +719,15 @@ useEffect(() => {
         if (isMounted) {
           setSlots([]);
           setSlotsError("Kein Kalender hinterlegt.");
-          setLoadingSlots(false);
         }
         return;
       }
 
       const allSlots = await loadIcsSlots(therapistObj.ics);
 
-      let freeSlots = allSlots;
+      let freeSlots = [...allSlots]; // ✅ WICHTIG
 
+      // 1️⃣ gebuchte Termine entfernen
       const { data } = await supabase
         .from("booked_appointments")
         .select("termin_iso")
@@ -719,8 +735,15 @@ useEffect(() => {
 
       if (data?.length) {
         const bookedSet = new Set(data.map((r) => r.termin_iso));
-        freeSlots = allSlots.filter(
+        freeSlots = freeSlots.filter(
           (s) => !bookedSet.has(s.start.toISOString())
+        );
+      }
+
+      // 2️⃣ FIX 4 – alten Termin entfernen
+      if (blockedOldTerminISO) {
+        freeSlots = freeSlots.filter(
+          (s) => s.start.toISOString() !== blockedOldTerminISO
         );
       }
 
@@ -739,7 +762,7 @@ useEffect(() => {
   return () => {
     isMounted = false;
   };
-}, [step, form.wunschtherapeut]);
+}, [step, form.wunschtherapeut, blockedOldTerminISO]);
 
 
   // Slots nach Tagen gruppieren
