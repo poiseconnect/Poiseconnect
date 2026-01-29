@@ -1414,15 +1414,15 @@ setRequests((prev) =>
     }
 
     const res = await fetch("/api/new-appointment", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        requestId: r.id,
-        client: r.email,
-        therapistName, // ✅ JETZT IM BODY
-        vorname: r.vorname,
-      }),
-    });
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    requestId: r.id,
+    client: r.email,
+    vorname: r.vorname,
+    therapistName: r.wunschtherapeut, // ✅ WICHTIG
+  }),
+});
 
     if (!res.ok) {
       const t = await res.text();
