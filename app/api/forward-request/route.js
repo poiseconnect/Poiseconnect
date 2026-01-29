@@ -36,7 +36,7 @@ const { error: updateError } = await supabase
   .update({
     wunschtherapeut: null,
     bevorzugte_zeit: null,
-    status: "weitergeleitet",
+    status: "papierkorb",
     excluded_therapeuten: excludedTherapist
       ? [excludedTherapist]
       : [],
