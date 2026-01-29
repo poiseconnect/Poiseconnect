@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Image from "next/image";
 
-import StepIndicator from "./components/StepIndicator";
+import StepIndicator from "./components/StepIndicator";x
 import TeamCarousel from "./components/TeamCarousel";
 import { teamData } from "./lib/teamData";
 import { supabase } from "./lib/supabase";
@@ -444,27 +444,35 @@ const matchedTeam = useMemo(() => {
 const step8Members = useMemo(() => {
   let base = matchedTeam;
 
-// 🛂 ADMIN-WEITERLEITUNG → NUR AUSGEWÄHLTE THERAPEUT:INNEN
-if (
-  isAdminResume &&
-  Array.isArray(form.admin_therapeuten) &&
-  form.admin_therapeuten.length > 0
-) {
-  const adminList = form.admin_therapeuten
-    .map((v) => String(v).trim())
-    .filter(Boolean);
+  // 🛂 ADMIN-WEITERLEITUNG → NUR AUSGEWÄHLTE THERAPEUT:INNEN
+  if (
+    isAdminResume &&
+    Array.isArray(form.admin_therapeuten) &&
+    form.admin_therapeuten.length > 0
+  ) {
+    const adminList = form.admin_therapeuten
+      .map((v) => String(v).trim())
+      .filter(Boolean);
 
-  // erkennen, ob Admin E-Mails oder Namen gespeichert hat
-  const adminUsesEmail = adminList.some((v) => v.includes("@"));
+    const adminUsesEmail = adminList.some((v) => v.includes("@"));
 
-  base = base.filter((m) => {
-    if (adminUsesEmail) {
-      return adminList.includes(String(m.email).trim());
-    }
-    return adminList.includes(String(m.name).trim());
-  });
-}
+    base = base.filter((m) => {
+      if (adminUsesEmail) {
+        return adminList.includes(String(m.email).trim());
+      }
+      return adminList.includes(String(m.name).trim());
+    });
+  }
 
+  // 🚫 AUSGESCHLOSSENE THERAPEUT:INNEN ENTFERNEN
+  if (
+    Array.isArray(form.excluded_therapeuten) &&
+    form.excluded_therapeuten.length > 0
+  ) {
+    base = base.filter(
+      (m) => !form.excluded_therapeuten.includes(m.name)
+    );
+  }
 
   // ⏱ nur Therapeut:innen mit freien Terminen
   return base
@@ -474,6 +482,7 @@ if (
   matchedTeam,
   availableTherapists,
   form.admin_therapeuten,
+  form.excluded_therapeuten,
   isAdminResume,
 ]);
 
