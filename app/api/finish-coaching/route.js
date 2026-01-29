@@ -2,10 +2,19 @@ export const dynamic = "force-dynamic";
 
 import { createClient } from "@supabase/supabase-js";
 
+/**
+ * ⚠️ WICHTIG:
+ * In app/api NIE client-supabase verwenden!
+ */
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
+
+// 🔗 Feedback-Link (Microsoft Forms)
+const FEEDBACK_URL =
+  "https://forms.office.com/Pages/ResponsePage.aspx?id=XXXXXXX"; 
+// ⬆️ HIER deinen echten Forms-Link einsetzen
 
 export async function POST(req) {
   try {
@@ -45,11 +54,13 @@ export async function POST(req) {
       );
     }
 
-    // ✅ Status auf beendet setzen
-    const { error: updateError } = await supabase
+    // ✅ Status auf beendet setzen + Klientendaten laden
+    const { data: anfrage, error: updateError } = await supabase
       .from("anfragen")
       .update({ status: "beendet" })
-      .eq("id", anfrageId);
+      .eq("id", anfrageId)
+      .select("email, vorname")
+      .single();
 
     if (updateError) {
       console.error("❌ FINISH UPDATE ERROR:", updateError);
@@ -63,6 +74,43 @@ export async function POST(req) {
     }
 
     console.log("✅ COACHING BEENDET");
+
+    // 📧 Feedback-Mail senden
+    if (anfrage?.email) {
+      const mailRes = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          from: "Poise <noreply@mypoise.de>",
+          to: anfrage.email,
+          subject: "Danke für dein Vertrauen 🤍 – kurzes Feedback",
+          html: `
+            <p>Hallo ${anfrage.vorname || ""},</p>
+
+            <p>
+              vielen Dank für dein Vertrauen und die gemeinsame Zeit.
+              Wir würden uns sehr über dein kurzes Feedback freuen.
+            </p>
+
+            <p>
+              👉 <a href="${FEEDBACK_URL}"
+                   style="color:#6f4f49; font-weight:bold;">
+                Zum Feedbackbogen
+              </a>
+            </p>
+
+            <p>Danke dir 🤍<br/>Dein Poise-Team</p>
+          `,
+        }),
+      });
+
+      if (!mailRes.ok) {
+        console.warn("⚠️ FEEDBACK MAIL FAILED – STATUS IST TROTZDEM BEENDET");
+      }
+    }
 
     return new Response(
       JSON.stringify({ ok: true }),
