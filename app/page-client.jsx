@@ -282,11 +282,7 @@ const resumeMode = searchParams.get("resume");
 // - resume=admin (dein Admin-Link)
 // - resume=5 oder resume=8 (deine bestehenden Buttons/Links)
 // - ODER wenn die DB admin_therapeuten liefert (Sicherheits-Fallback)
-const isAdminResume =
-  resumeMode === "admin" ||
-  resumeMode === "5" ||
-  resumeMode === "8" ||
-  (Array.isArray(form?.admin_therapeuten) && form.admin_therapeuten.length > 0);
+
 
 const anfrageId =
   searchParams.get("anfrageId") || searchParams.get("rid");
@@ -321,6 +317,11 @@ strasse_hausnr: "",
     terminDisplay: "",
     
   });
+  const isAdminResume =
+  resumeMode === "admin" ||
+  resumeMode === "5" ||
+  resumeMode === "8" ||
+  (Array.isArray(form.admin_therapeuten) && form.admin_therapeuten.length > 0);
 
   // Validierungs-Fehler für Step "Kontaktdaten"
   const [errors, setErrors] = useState({});
@@ -699,7 +700,7 @@ useEffect(() => {
 
 
 // -------------------------------------
-// STEP 10 – ICS + Supabase (booked_appointments)
+// STEP 10 – ICS + Supabase (blocked_slots)
 // -------------------------------------
 useEffect(() => {
   if (step !== 10 || !form.wunschtherapeut) return;
@@ -728,17 +729,20 @@ useEffect(() => {
       let freeSlots = [...allSlots]; // ✅ WICHTIG
 
       // 1️⃣ gebuchte Termine entfernen
-const { data } = await supabase
+const { data: blocked } = await supabase
   .from("blocked_slots")
-  .select("termin_iso")
-  .eq("therapist", form.wunschtherapeut);
+  .select("start_at")
+  .eq("therapist_name", form.wunschtherapeut);
 
-      if (data?.length) {
-        const bookedSet = new Set(data.map((r) => r.termin_iso));
-        freeSlots = freeSlots.filter(
-          (s) => !bookedSet.has(s.start.toISOString())
-        );
-      }
+if (blocked?.length) {
+  const blockedSet = new Set(
+    blocked.map((b) => new Date(b.start_at).toISOString())
+  );
+
+  freeSlots = allSlots.filter(
+    (s) => !blockedSet.has(s.start.toISOString())
+  );
+}
 
       // 2️⃣ FIX 4 – alten Termin entfernen
       if (blockedOldTerminISO) {
@@ -1549,7 +1553,7 @@ Eine Kostenübernahme kann möglich sein — individuell klären.`,
       <p><strong>Name:</strong> {form.vorname} {form.nachname}</p>
       <p><strong>E-Mail:</strong> {form.email}</p>
       <p><strong>Telefon:</strong> {form.telefon}</p>
-      <p><strong>Adresse:</strong> {form.adresse}</p>
+<p><strong>Adresse:</strong> {form.strasse_hausnr}, {form.plz_ort}</p>
       <p><strong>Geburtsdatum:</strong> {form.geburtsdatum}</p>
       <hr style={{ margin: "12px 0" }} />
       <p><strong>Anliegen:</strong> {form.anliegen}</p>
