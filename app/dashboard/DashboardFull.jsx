@@ -193,6 +193,36 @@ function currentQuarterKey() {
   const q = Math.floor(d.getMonth() / 3) + 1;
   return `Q${q} ${d.getFullYear()}`;
 }
+function renderAnliegen(anliegen) {
+  if (!anliegen) return "–";
+
+  // 1️⃣ String (z.B. Freitext)
+  if (typeof anliegen === "string") {
+    const t = anliegen.trim();
+    return t ? t : "–";
+  }
+
+  // 2️⃣ Array (z.B. ["Stress", "Angst"])
+  if (Array.isArray(anliegen)) {
+    return anliegen.length ? anliegen.join(", ") : "–";
+  }
+
+  // 3️⃣ Objekt aus Checkboxes
+  // z.B. { stress: true, angst: true, schlaf: false }
+  if (typeof anliegen === "object") {
+    const selected = Object.entries(anliegen)
+      .filter(([, v]) => v === true)
+      .map(([k]) =>
+        k
+          .replace(/_/g, " ")
+          .replace(/\b\w/g, (c) => c.toUpperCase())
+      );
+
+    return selected.length ? selected.join(", ") : "–";
+  }
+
+  return "–";
+}
 
 /* ================= EXPORT (CSV / PDF) ================= */
 
