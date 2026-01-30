@@ -86,33 +86,32 @@ export async function POST(req) {
     // -----------------------------------------
     // 3️⃣ Anfrage speichern
     // -----------------------------------------
-const payload = {
-  vorname: body.vorname || null,
-  nachname: body.nachname || null,
-  email: body.email || null,
-  telefon: body.telefon || null,          // ✅ FIX
+    const payload = {
+      vorname: body.vorname || null,
+      nachname: body.nachname || null,
+      email: body.email || null,
 
-  strasse_hausnr: body.strasse_hausnr || null, // ✅ FIX
-  plz_ort: body.plz_ort || null,
+      strasse_hausnr: body.adresse || null,
+      plz_ort: body.plz_ort || null,
 
-  geburtsdatum: body.geburtsdatum || null,
-  beschaeftigungsgrad: body.beschaeftigungsgrad || null,
+      geburtsdatum: body.geburtsdatum || null,
+      beschaeftigungsgrad: body.beschaeftigungsgrad || null,
 
-  leidensdruck: body.leidensdruck || null,
-  anliegen: body.anliegen || null,
-  verlauf: body.verlauf || null,
-  ziel: body.ziel || null,
+      leidensdruck: body.leidensdruck || null,
+      anliegen: anliegenText || null, // ✅ HIER DER ENTSCHEIDENDE FIX
+      verlauf: body.verlauf || null,
+      ziel: body.ziel || null,
 
-  wunschtherapeut: therapist,
-  bevorzugte_zeit: terminISO,
+      wunschtherapeut: therapist,
+      bevorzugte_zeit: terminISO,
 
-  check_suizid: Boolean(body.check_gesundheit),
-  check_datenschutz: Boolean(body.check_datenschutz),
-  check_online_setting: Boolean(body.check_online_setting),
+      check_suizid: Boolean(body.check_gesundheit),
+      check_datenschutz: Boolean(body.check_datenschutz),
+      check_online_setting: Boolean(body.check_online_setting),
 
-  status: "neu",
-  match_state: "pending",
-};
+      status: "neu",
+      match_state: "pending",
+    };
 
     const { data: inserted, error: insertError } = await supabase
       .from("anfragen")
