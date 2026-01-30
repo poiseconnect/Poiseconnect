@@ -1364,7 +1364,7 @@ const billingByClient = useMemo(() => {
     setNewSessions([{ date: "", duration: 60 }]);
   }}
 >
-  Schließen
+  🔍 Details
 </button>
 
 
