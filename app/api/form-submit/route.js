@@ -42,16 +42,10 @@ export async function POST(req) {
     // -----------------------------------------
     // 1️⃣ Wunschtherapeut sauber ermitteln
     // -----------------------------------------
-    const therapist =
-      body.wunschtherapeut ||
-      body.therapist_from_url ||
-      null;
+    const therapist = body.wunschtherapeut || body.therapist_from_url || null;
 
     if (!therapist) {
-      return JSONResponse(
-        { error: "THERAPIST_MISSING" },
-        400
-      );
+      return JSONResponse({ error: "THERAPIST_MISSING" }, 400);
     }
 
     // -----------------------------------------
@@ -59,8 +53,7 @@ export async function POST(req) {
     // -----------------------------------------
     const terminISO = body.terminISO || null;
     const startAt = terminISO ? new Date(terminISO) : null;
-    const endAt =
-      startAt ? new Date(startAt.getTime() + 60 * 60000) : null;
+    const endAt = startAt ? new Date(startAt.getTime() + 60 * 60000) : null;
 
     // -----------------------------------------
     // 🧠 ANLIEGEN: CHECKBOXEN + FREITEXT (🔥 FIX)
@@ -76,11 +69,9 @@ export async function POST(req) {
     }
 
     // Freitext
-    if (body.anliegen && body.anliegen.trim()) {
+    if (body.anliegen && String(body.anliegen).trim()) {
       anliegenText +=
-        (anliegenText ? "\n" : "") +
-        "Freitext:\n" +
-        body.anliegen.trim();
+        (anliegenText ? "\n" : "") + "Freitext:\n" + String(body.anliegen).trim();
     }
 
     // -----------------------------------------
@@ -91,14 +82,18 @@ export async function POST(req) {
       nachname: body.nachname || null,
       email: body.email || null,
 
-      strasse_hausnr: body.adresse || null,
+      // ✅ FIX: Telefon wirklich speichern (sonst bleibt 0/leer)
+      telefon: body.telefon ? String(body.telefon).trim() : null,
+
+      // ✅ FIX: Adresse-Felder richtig mappen (nicht body.adresse)
+      strasse_hausnr: body.strasse_hausnr || null,
       plz_ort: body.plz_ort || null,
 
       geburtsdatum: body.geburtsdatum || null,
       beschaeftigungsgrad: body.beschaeftigungsgrad || null,
 
       leidensdruck: body.leidensdruck || null,
-      anliegen: anliegenText || null, // ✅ HIER DER ENTSCHEIDENDE FIX
+      anliegen: anliegenText || null,
       verlauf: body.verlauf || null,
       ziel: body.ziel || null,
 
@@ -131,15 +126,13 @@ export async function POST(req) {
     // 4️⃣ SLOT BLOCKIEREN (blocked_slots)
     // -----------------------------------------
     if (startAt && endAt) {
-      const { error: blockError } = await supabase
-        .from("blocked_slots")
-        .insert({
-          anfrage_id: inserted.id,
-          therapist_name: therapist,
-          start_at: startAt.toISOString(),
-          end_at: endAt.toISOString(),
-          reason: "client_submit",
-        });
+      const { error: blockError } = await supabase.from("blocked_slots").insert({
+        anfrage_id: inserted.id,
+        therapist_name: therapist,
+        start_at: startAt.toISOString(),
+        end_at: endAt.toISOString(),
+        reason: "client_submit",
+      });
 
       if (blockError) {
         console.error("❌ SLOT BLOCK ERROR:", blockError);
@@ -151,9 +144,7 @@ export async function POST(req) {
     // 5️⃣ Emails (wie gehabt)
     // -----------------------------------------
     const resendKey = process.env.RESEND_API_KEY;
-    const baseUrl =
-      process.env.NEXT_PUBLIC_SITE_URL ||
-      "https://poiseconnect.vercel.app";
+    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://poiseconnect.vercel.app";
 
     if (resendKey) {
       const sendMail = (to, subject, html) =>
@@ -194,6 +185,7 @@ export async function POST(req) {
           <h2>Neue Anfrage</h2>
           <p><strong>Name:</strong> ${clientName}</p>
           <p><strong>Email:</strong> ${body.email}</p>
+          <p><strong>Telefon:</strong> ${body.telefon || "—"}</p>
           <p><strong>Anliegen:</strong><br/>${anliegenText || "—"}</p>
           <p><strong>Therapeut:</strong> ${therapist}</p>
           <p><strong>Termin:</strong> ${terminISO || "—"}</p>
@@ -209,9 +201,6 @@ export async function POST(req) {
     return JSONResponse({ ok: true });
   } catch (err) {
     console.error("❌ SERVER ERROR:", err);
-    return JSONResponse(
-      { error: "SERVER_ERROR", detail: String(err) },
-      500
-    );
+    return JSONResponse({ error: "SERVER_ERROR", detail: String(err) }, 500);
   }
 }
