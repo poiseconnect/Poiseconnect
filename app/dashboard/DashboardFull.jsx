@@ -1761,9 +1761,16 @@ setRequests((prev) =>
   <hr />
 
   <p>
-    <strong>Anliegen:</strong><br />
-    {detailsModal.anliegen || "–"}
+  <strong>Anliegen (Auswahl):</strong><br />
+  {renderAnliegen(detailsModal.anliegen)}
+</p>
+
+{detailsModal.ziel && (
+  <p style={{ marginTop: 8 }}>
+    <strong>Zusätzliche Beschreibung:</strong><br />
+    {detailsModal.ziel}
   </p>
+)}
 
   <p>
     <strong>Leidensdruck:</strong>{" "}
