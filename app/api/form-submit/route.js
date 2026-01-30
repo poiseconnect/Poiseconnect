@@ -63,6 +63,27 @@ export async function POST(req) {
       startAt ? new Date(startAt.getTime() + 60 * 60000) : null;
 
     // -----------------------------------------
+    // 🧠 ANLIEGEN: CHECKBOXEN + FREITEXT (🔥 FIX)
+    // -----------------------------------------
+    let anliegenText = "";
+
+    // Checkboxen (Step 0)
+    if (Array.isArray(body.themen) && body.themen.length > 0) {
+      anliegenText += "Ausgewählte Themen:\n";
+      body.themen.forEach((t) => {
+        anliegenText += `• ${t}\n`;
+      });
+    }
+
+    // Freitext
+    if (body.anliegen && body.anliegen.trim()) {
+      anliegenText +=
+        (anliegenText ? "\n" : "") +
+        "Freitext:\n" +
+        body.anliegen.trim();
+    }
+
+    // -----------------------------------------
     // 3️⃣ Anfrage speichern
     // -----------------------------------------
     const payload = {
@@ -77,7 +98,7 @@ export async function POST(req) {
       beschaeftigungsgrad: body.beschaeftigungsgrad || null,
 
       leidensdruck: body.leidensdruck || null,
-      anliegen: body.anliegen || null,
+      anliegen: anliegenText || null, // ✅ HIER DER ENTSCHEIDENDE FIX
       verlauf: body.verlauf || null,
       ziel: body.ziel || null,
 
@@ -122,7 +143,7 @@ export async function POST(req) {
 
       if (blockError) {
         console.error("❌ SLOT BLOCK ERROR:", blockError);
-        // ❗ bewusst kein Abbruch – Anfrage bleibt gültig
+        // ❗ absichtlich kein Abbruch
       }
     }
 
@@ -173,7 +194,7 @@ export async function POST(req) {
           <h2>Neue Anfrage</h2>
           <p><strong>Name:</strong> ${clientName}</p>
           <p><strong>Email:</strong> ${body.email}</p>
-          <p><strong>Anliegen:</strong> ${body.anliegen}</p>
+          <p><strong>Anliegen:</strong><br/>${anliegenText || "—"}</p>
           <p><strong>Therapeut:</strong> ${therapist}</p>
           <p><strong>Termin:</strong> ${terminISO || "—"}</p>
           <br/>
