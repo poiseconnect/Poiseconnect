@@ -1844,6 +1844,67 @@ setRequests((prev) =>
       {normalizeStatus(detailsModal.status || detailsModal._status) ===
         "active" && (
         <div style={{ marginTop: 12 }}>
+          {/* ================= STUNDENSATZ ================= */}
+<div style={{ marginBottom: 16 }}>
+  <h4>Stundensatz</h4>
+
+  <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+    <input
+      type="number"
+      placeholder="z.B. 120"
+      value={editTarif}
+      onChange={(e) => setEditTarif(e.target.value)}
+      style={{ width: 120 }}
+    />
+
+    <span>€ / Sitzung</span>
+
+    <button
+      type="button"
+      onClick={async () => {
+        if (!editTarif || Number(editTarif) <= 0) {
+          alert("Bitte gültigen Stundensatz eingeben");
+          return;
+        }
+
+        const res = await fetch("/api/update-tarif", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            anfrageId: detailsModal.id,
+            tarif: editTarif,
+          }),
+        });
+
+        if (!res.ok) {
+          const t = await res.text();
+          console.error("UPDATE TARIF FAILED:", t);
+          alert("Fehler beim Speichern des Stundensatzes");
+          return;
+        }
+
+        // ✅ sofort im UI aktualisieren
+        setRequests((prev) =>
+          prev.map((x) =>
+            x.id === detailsModal.id
+              ? { ...x, honorar_klient: Number(editTarif) }
+              : x
+          )
+        );
+
+        alert("💶 Stundensatz gespeichert");
+      }}
+    >
+      💾 Speichern
+    </button>
+  </div>
+
+  {detailsModal.honorar_klient && (
+    <div style={{ fontSize: 12, color: "#666", marginTop: 4 }}>
+      Aktuell gespeichert: {detailsModal.honorar_klient} €
+    </div>
+  )}
+</div>
           <hr />
 
           <p>
