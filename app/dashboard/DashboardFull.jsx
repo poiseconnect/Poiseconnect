@@ -1615,48 +1615,91 @@ setRequests((prev) =>
 
 
               {/* AKTIV */}
-              {r._status === "active" && (
-                <div style={{ marginTop: 8, display: "flex", gap: 8, flexWrap: "wrap" }}>
-                  <button
-                    onClick={() =>
-                      fetch("/api/finish-coaching", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ anfrageId: r.id }),
-                      }).then(() => location.reload())
-                    }
-                  >
-                    🔴 Coaching beenden
-                  </button>
+{r._status === "active" && (
+  <div style={{ marginTop: 8, display: "flex", gap: 8, flexWrap: "wrap" }}>
+    
+    {/* 🔴 COACHING BEENDET */}
+    <button
+      onClick={async () => {
+        const res = await fetch("/api/finish-coaching", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ anfrageId: r.id }),
+        });
 
-                  <button
-                    onClick={() => {
-                      setReassignModal(r);
-                      setNewTherapist("");
-                    }}
-                  >
-                    🔁 Therapeut wechseln
-                  </button>
-                </div>
-              )}
+        if (!res.ok) {
+          const t = await res.text();
+          console.error("FINISH FAILED:", t);
+          alert("❌ Coaching konnte nicht beendet werden:\n" + t);
+          return;
+        }
+
+        // ✅ sofort in UI verschieben
+        setRequests((prev) =>
+          prev.map((x) =>
+            x.id === r.id
+              ? { ...x, _status: "beendet", status: "beendet" }
+              : x
+          )
+        );
+
+        alert("✅ Coaching beendet & Feedback-Mail gesendet");
+      }}
+    >
+      🔴 Coaching beenden
+    </button>
+
+    {/* 👥 THERAPEUT WECHSELN → ADMIN */}
+    <button
+      onClick={async () => {
+        await updateRequestStatus({
+          requestId: r.id,
+          status: "admin_weiterleiten",
+        });
+
+        setRequests((prev) =>
+          prev.map((x) =>
+            x.id === r.id
+              ? {
+                  ...x,
+                  _status: "admin_pruefen",
+                  status: "admin_weiterleiten",
+                  admin_therapeuten: [],
+                }
+              : x
+          )
+        );
+
+        alert("🛂 An Admin übergeben");
+      }}
+    >
+      👥 Therapeut wechseln
+    </button>
+
+  </div>
+)}
 
               {/* BEENDET */}
               {r._status === "beendet" && (
                 <div style={{ marginTop: 8 }}>
-                  <button
-                    onClick={() =>
-                      fetch("/api/update-status", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({
-                          anfrageId: r.id,
-                          status: "active",
-                        }),
-                      }).then(() => location.reload())
-                    }
-                  >
-                    🔄 Coaching wieder aktivieren
-                  </button>
+<button
+  onClick={async () => {
+    await updateRequestStatus({
+      requestId: r.id,
+      status: "active",
+    });
+
+    setRequests((prev) =>
+      prev.map((x) =>
+        x.id === r.id
+          ? { ...x, _status: "active", status: "active" }
+          : x
+      )
+    );
+  }}
+>
+  🔄 Coaching wieder aktivieren
+</button>
                 </div>
               )}
 
