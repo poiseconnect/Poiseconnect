@@ -1756,9 +1756,9 @@ setRequests((prev) =>
      {/* ================= FORMULARDATEN ================= */}
 <section>
   {/* Kontaktdaten – NUR nach Terminbestätigung sichtbar */}
-  {["termin_bestaetigt", "active", "beendet"].includes(
-    normalizeStatus(detailsModal.status || detailsModal._status)
-  ) && (
+ {["termin_bestaetigt", "active", "beendet", "termin_neu"].includes(
+  normalizeStatus(detailsModal.status || detailsModal._status)
+) && (
     <>
       <p>
         <strong>E-Mail:</strong>{" "}
