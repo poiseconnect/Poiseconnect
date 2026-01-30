@@ -2047,7 +2047,7 @@ body: JSON.stringify({
     setDetailsModal(r);
   }}
 >
-  🔍 Details
+  Schließen
 </button>
 
             </div>
