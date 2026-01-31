@@ -351,6 +351,18 @@ export default function DashboardFull() {
   const [bestandVorname, setBestandVorname] = useState("");
   const [bestandNachname, setBestandNachname] = useState("");
   const [bestandTherapeut, setBestandTherapeut] = useState("");
+  const handleLogout = async () => {
+  const { error } = await supabase.auth.signOut();
+
+  if (error) {
+    console.error("Logout fehlgeschlagen:", error);
+    alert("Logout fehlgeschlagen");
+    return;
+  }
+
+  // 🔥 WICHTIG: kompletter Reload, sonst bleibt alte Session
+  window.location.href = "/";
+};
 
  
   // ================= ABRECHNUNG FILTER =================
@@ -781,10 +793,18 @@ const billingByClient = useMemo(() => {
 >
   Eingeloggt als: <strong>{user?.email || "–"}</strong>
 </div>
-      <button
+   <button
   onClick={async () => {
-    await supabase.auth.signOut();
-    location.reload();
+    const { error } = await supabase.auth.signOut();
+
+    if (error) {
+      console.error("Logout fehlgeschlagen:", error);
+      alert("Logout fehlgeschlagen");
+      return;
+    }
+
+    // 🔥 wichtig: kompletter Reload + Session reset
+    window.location.href = "/";
   }}
   style={{
     marginBottom: 16,
