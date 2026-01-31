@@ -2037,62 +2037,105 @@ setRequests((prev) =>
 
 
 
+{/* ================= NEUE SITZUNGEN EINTRAGEN ================= */}
+<h4 style={{ marginTop: 16 }}>Weitere Sitzungen eintragen</h4>
 
-<h4 style={{ marginTop: 16 }}>Neue Sitzung eintragen</h4>
-
-<div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
-  <input
-    type="datetime-local"
-    value={newSessions[0]?.date || ""}
-    onChange={(e) =>
-      setNewSessions([{ date: e.target.value, duration: 60 }])
-    }
-  />
-
-  <select
-    value={newSessions[0]?.duration || 60}
-    onChange={(e) =>
-      setNewSessions([{ date: newSessions[0]?.date, duration: Number(e.target.value) }])
-    }
+{newSessions.map((s, i) => (
+  <div
+    key={i}
+    style={{
+      display: "flex",
+      gap: 8,
+      alignItems: "center",
+      marginBottom: 8,
+    }}
   >
-    <option value={50}>50 Min</option>
-    <option value={60}>60 Min</option>
-    <option value={75}>75 Min</option>
-  </select>
+    <input
+      type="datetime-local"
+      value={s.date || ""}
+      onChange={(e) => {
+        const copy = [...newSessions];
+        copy[i] = { ...copy[i], date: e.target.value };
+        setNewSessions(copy);
+      }}
+    />
 
+    <select
+      value={s.duration || 60}
+      onChange={(e) => {
+        const copy = [...newSessions];
+        copy[i] = {
+          ...copy[i],
+          duration: Number(e.target.value),
+        };
+        setNewSessions(copy);
+      }}
+    >
+      <option value={50}>50 Min</option>
+      <option value={60}>60 Min</option>
+      <option value={75}>75 Min</option>
+    </select>
+
+    <button
+      type="button"
+      onClick={() =>
+        setNewSessions((prev) => prev.filter((_, idx) => idx !== i))
+      }
+    >
+      ❌
+    </button>
+  </div>
+))}
+
+<button
+  type="button"
+  onClick={() =>
+    setNewSessions((prev) => [
+      ...prev,
+      { date: "", duration: 60 },
+    ])
+  }
+>
+  ➕ Weitere Sitzung hinzufügen
+</button>
+
+<div style={{ marginTop: 12 }}>
   <button
     type="button"
     onClick={async () => {
-      if (!newSessions[0]?.date) {
-        alert("Bitte Datum wählen");
+      const valid = newSessions.filter((s) => s.date);
+
+      if (!valid.length) {
+        alert("Bitte mindestens eine Sitzung mit Datum eintragen");
         return;
       }
 
       const res = await fetch("/api/add-sessions-batch", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-body: JSON.stringify({
-  anfrageId: detailsModal.id,
-  therapist: user.email,
-  sessions: [
-    {
-      date: newSessions[0].date,
-      duration: newSessions[0].duration,
-      price: Number(editTarif),
-    },
-  ],
-}),
+        body: JSON.stringify({
+          anfrageId: detailsModal.id,
+          therapist: user.email,
+          sessions: valid.map((s) => ({
+            date: s.date,
+            duration: s.duration,
+            price: Number(editTarif),
+          })),
+        }),
       });
 
       if (!res.ok) {
-        alert("Fehler beim Speichern");
+        const t = await res.text();
+        console.error("ADD SESSIONS FAILED:", t);
+        alert("Fehler beim Speichern der Sitzungen");
         return;
       }
 
+      alert("✅ Sitzungen gespeichert");
       location.reload();
     }}
   >
-    💾 Sitzung speichern
+    💾 Sitzungen speichern
   </button>
 </div>
 
