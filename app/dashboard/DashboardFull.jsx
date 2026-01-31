@@ -331,6 +331,9 @@ async function deleteForever(r) {
 export default function DashboardFull() {
   const [user, setUser] = useState(null);
   const [requests, setRequests] = useState([]);
+    const [access, setAccess] = useState("loading"); 
+  // "loading" | "granted" | "denied"
+  const [role, setRole] = useState(null);
   const [sessionsByRequest, setSessionsByRequest] = useState({});
   const [billingSessions, setBillingSessions] = useState([]);
   const [filter, setFilter] = useState("unbearbeitet");
@@ -402,7 +405,7 @@ useEffect(() => {
     setUser(data?.user || null);
   });
 }, []);
-  // 🔐 ZUGRIFFSKONTROLLE (VARIANTE B)
+  // 🔐 ZUGRIFFSKONTROLLE (STABIL – KEIN REDIRECT)
 useEffect(() => {
   if (!user?.email) return;
 
@@ -413,15 +416,13 @@ useEffect(() => {
     .single()
     .then(({ data, error }) => {
       if (error || !data || data.active !== true) {
-        alert("Kein Zugriff auf das Dashboard");
-        supabase.auth.signOut().then(() => {
-          window.location.href = "/login";
-        });
+        console.warn("❌ Zugriff verweigert:", error, data);
+        setAccess("denied");
         return;
       }
 
-      // optional: Role speichern
-      console.log("🔑 Rolle:", data.role);
+      setRole(data.role);
+      setAccess("granted");
     });
 }, [user]);
 
