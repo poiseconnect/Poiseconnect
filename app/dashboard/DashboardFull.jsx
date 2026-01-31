@@ -533,33 +533,27 @@ useEffect(() => {
 /* =========================================================
    LOAD BILLING SESSIONS (IMMER ALLE – FILTER NUR IM FRONTEND)
 ========================================================= */
-
-const [billingSessions, setBillingSessions] = useState([]);
 useEffect(() => {
-  if (!user) return;
+  if (!user?.email) return;
 
-  supabase
-    .from("sessions")
-    .select(
-      `
-        id,
-        date,
-        price,
-        therapist,
-        anfrage_id,
-        anfragen (
-          vorname,
-          nachname,
-          status
-        )
-      `
-    )
-    .then(({ data, error }) => {
-      if (error) {
-        console.error("SESSION LOAD ERROR", error);
-        return;
+  const isAdmin = user.email === "hallo@mypoise.de";
+
+  const endpoint = isAdmin
+    ? "/api/admin/billing-sessions"
+    : "/api/therapist/billing-sessions";
+
+  fetch(endpoint)
+    .then((r) => r.json())
+    .then((res) => {
+      if (Array.isArray(res?.data)) {
+        setBillingSessions(res.data);
+      } else {
+        setBillingSessions([]);
       }
-      setBillingSessions(Array.isArray(data) ? data : []);
+    })
+    .catch((err) => {
+      console.error("BILLING LOAD FAILED", err);
+      setBillingSessions([]);
     });
 }, [user]);
 
@@ -795,18 +789,19 @@ const billingByClient = useMemo(() => {
         <button onClick={() => setFilter("beendet")}>Beendet</button>
         <button onClick={() => setFilter("alle")}>Alle</button>
 
-<select
-  value={therapistFilter}
-  onChange={(e) => setTherapistFilter(e.target.value)}
->
-  <option value="alle">Alle Teammitglieder</option>
-  {teamData.map((t) => (
- <option key={t.email} value={t.name}>
-      {t.name}
-    </option>
-  ))}
-</select>
-
+{user?.email === "hallo@mypoise.de" && (
+  <select
+    value={therapistFilter}
+    onChange={(e) => setTherapistFilter(e.target.value)}
+  >
+    <option value="alle">Alle Teammitglieder</option>
+    {teamData.map((t) => (
+      <option key={t.email} value={t.name}>
+        {t.name}
+      </option>
+    ))}
+  </select>
+)}
 
         <input
           placeholder="🔍 Klient:in suchen…"
@@ -872,6 +867,21 @@ const billingByClient = useMemo(() => {
 {/* ================= ABRECHNUNG ================= */}
 {filter === "abrechnung" && (
   <>
+    <div style={{ marginBottom: 10 }}>
+      <h2 style={{ margin: 0 }}>
+        {user?.email === "hallo@mypoise.de"
+          ? "Gesamtabrechnung (Admin)"
+          : "Meine Abrechnung"}
+      </h2>
+
+      <div style={{ fontSize: 12, color: "#666" }}>
+        {user?.email === "hallo@mypoise.de"
+          ? "Du siehst alle Therapeut:innen."
+          : "Du siehst nur deine eigenen Sitzungen."}
+      </div>
+    </div>
+
+ 
     {/* FILTERBAR */}
     <div
       style={{
