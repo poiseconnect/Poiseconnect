@@ -8,9 +8,11 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
-export async function POST(req) {
+export async function POST(request) {
   try {
-    const { anfrageId, therapist, sessions } = await req.json();
+    // 🔴 WICHTIG: request.json(), NICHT req.json()
+    const body = await request.json();
+    const { anfrageId, therapist, sessions } = body || {};
 
     if (!anfrageId || !therapist || !Array.isArray(sessions)) {
       return NextResponse.json(
@@ -20,8 +22,8 @@ export async function POST(req) {
     }
 
     const cleanSessions = sessions
-      .filter(s => s.date)
-      .map(s => ({
+      .filter((s) => s?.date)
+      .map((s) => ({
         anfrage_id: anfrageId,
         therapist,
         date: new Date(s.date).toISOString(),
