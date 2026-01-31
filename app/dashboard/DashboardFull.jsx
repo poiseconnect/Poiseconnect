@@ -494,9 +494,25 @@ return {
 
 
   /* ---------- LOAD SESSIONS ---------- */
-  useEffect(() => {
-    supabase.from("sessions").select("*").then(({ data }) => {
+useEffect(() => {
+  supabase
+    .from("sessions")
+    .select(`
+      id,
+      date,
+      duration_min,
+      price,
+      therapist,
+      anfrage_id
+    `)
+    .then(({ data, error }) => {
+      if (error) {
+        console.error("SESSION LOAD ERROR", error);
+        return;
+      }
+
       const grouped = {};
+
       (data || []).forEach((s) => {
         const key = String(s.anfrage_id);
         if (!grouped[key]) grouped[key] = [];
@@ -504,12 +520,14 @@ return {
       });
 
       Object.keys(grouped).forEach((k) => {
-        grouped[k].sort((a, b) => new Date(a.date) - new Date(b.date));
+        grouped[k].sort(
+          (a, b) => new Date(a.date) - new Date(b.date)
+        );
       });
 
       setSessionsByRequest(grouped);
     });
-  }, []);
+}, []);
 
   /* =========================================================
    LOAD BILLING SESSIONS
