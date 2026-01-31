@@ -11,7 +11,9 @@ const supabase = createClient(
 export async function POST(req) {
   try {
     const body = await req.json();
-    const { anfrageId, tarif } = body || {};
+
+    const anfrageId = body?.anfrageId;
+    const tarif = body?.tarif;
 
     if (!anfrageId) {
       return NextResponse.json(
@@ -20,9 +22,7 @@ export async function POST(req) {
       );
     }
 
-    const parsedTarif = Number(tarif);
-
-    if (!Number.isFinite(parsedTarif) || parsedTarif <= 0) {
+    if (tarif === undefined || tarif === null || isNaN(Number(tarif))) {
       return NextResponse.json(
         { error: "INVALID_TARIF" },
         { status: 400 }
@@ -31,13 +31,13 @@ export async function POST(req) {
 
     const { error } = await supabase
       .from("anfragen")
-      .update({ honorar_klient: parsedTarif })
+      .update({ honorar_klient: Number(tarif) })
       .eq("id", anfrageId);
 
     if (error) {
-      console.error("UPDATE TARIF ERROR", error);
+      console.error("SUPABASE UPDATE ERROR", error);
       return NextResponse.json(
-        { error: error.message },
+        { error: "DB_UPDATE_FAILED", detail: error.message },
         { status: 500 }
       );
     }
