@@ -492,24 +492,14 @@ return {
 }, []);
 
 
-
-/* ---------- LOAD SESSIONS (AUTH-SAFE) ---------- */
+/* ---------- LOAD SESSIONS (ADMIN API – STABIL) ---------- */
 useEffect(() => {
-  if (!user) return; // 🔥 DAS ist der Fix
-
   let mounted = true;
 
-  supabase
-    .from("sessions")
-    .select("*")
-    .then(({ data, error }) => {
+  fetch("/api/admin/sessions")
+    .then((res) => res.json())
+    .then(({ data }) => {
       if (!mounted) return;
-
-      if (error) {
-        console.error("❌ SESSION LOAD ERROR:", error);
-        setSessionsByRequest({});
-        return;
-      }
 
       const grouped = {};
       (data || []).forEach((s) => {
@@ -525,12 +515,16 @@ useEffect(() => {
       });
 
       setSessionsByRequest(grouped);
+    })
+    .catch((err) => {
+      console.error("ADMIN SESSION LOAD FAILED", err);
+      setSessionsByRequest({});
     });
 
   return () => {
     mounted = false;
   };
-}, [user]); // 🔥 WICHTIG
+}, []);
   /* =========================================================
    LOAD BILLING SESSIONS
    Quelle für ALLE Abrechnungen
