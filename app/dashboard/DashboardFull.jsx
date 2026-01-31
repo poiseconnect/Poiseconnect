@@ -2145,12 +2145,7 @@ setRequests((prev) =>
             <hr />
 
             <div style={{ display: "flex", justifyContent: "flex-end" }}>
-              <button
-  onClick={() => {
-    console.log("DETAILS OPEN:", r); // 🔍 Debug
-    setDetailsModal(r);
-  }}
->
+             <button type="button" onClick={() => setDetailsModal(null)}>
   Schließen
 </button>
 
