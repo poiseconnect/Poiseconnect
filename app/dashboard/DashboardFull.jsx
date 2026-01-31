@@ -2115,7 +2115,7 @@ setRequests((prev) =>
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           anfrageId: detailsModal.id,
-          therapist: user.email,
+       therapist: user?.email || detailsModal?.wunschtherapeut
           sessions: valid.map((s) => ({
             date: s.date,
             duration: s.duration,
