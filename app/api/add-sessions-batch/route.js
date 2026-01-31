@@ -1,61 +1,60 @@
-import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
-
 export const dynamic = "force-dynamic";
+
+import { createClient } from "@supabase/supabase-js";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
-export async function POST(request) {
+function json(data, status = 200) {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: { "Content-Type": "application/json" },
+  });
+}
+
+export async function POST(req) {
   try {
-    // 🔴 WICHTIG: request.json(), NICHT req.json()
-    const body = await request.json();
+    const body = await req.json();
     const { anfrageId, therapist, sessions } = body || {};
 
     if (!anfrageId || !therapist || !Array.isArray(sessions)) {
-      return NextResponse.json(
-        { error: "INVALID_INPUT" },
-        { status: 400 }
-      );
+      return json({ error: "INVALID_INPUT" }, 400);
     }
 
-    const cleanSessions = sessions
+    const clean = sessions
       .filter((s) => s?.date)
       .map((s) => ({
         anfrage_id: anfrageId,
         therapist,
         date: new Date(s.date).toISOString(),
-        duration_min: Number(s.duration),
-        price: Number(s.price),
+        duration_min: Number(s.duration) || 60,
+        price: Number(s.price) || 0,
       }));
 
-    if (!cleanSessions.length) {
-      return NextResponse.json(
-        { error: "NO_VALID_SESSIONS" },
-        { status: 400 }
-      );
+    if (!clean.length) {
+      return json({ error: "NO_VALID_SESSIONS" }, 400);
     }
 
     const { error } = await supabase
       .from("sessions")
-      .insert(cleanSessions);
+      .insert(clean);
 
     if (error) {
-      console.error("ADD SESSIONS ERROR", error);
-      return NextResponse.json(
-        { error: error.message },
-        { status: 500 }
+      console.error("❌ ADD SESSIONS ERROR:", error);
+      return json(
+        { error: "DB_INSERT_FAILED", detail: error.message },
+        500
       );
     }
 
-    return NextResponse.json({ ok: true });
+    return json({ ok: true });
   } catch (err) {
-    console.error("ADD SESSIONS SERVER ERROR", err);
-    return NextResponse.json(
+    console.error("🔥 ADD SESSIONS SERVER ERROR:", err);
+    return json(
       { error: "SERVER_ERROR", detail: String(err) },
-      { status: 500 }
+      500
     );
   }
 }
