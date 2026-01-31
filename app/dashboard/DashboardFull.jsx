@@ -493,7 +493,6 @@ return {
 
 
 
-  /* ---------- LOAD SESSIONS ---------- */
 /* ---------- LOAD SESSIONS (STABIL) ---------- */
 useEffect(() => {
   let mounted = true;
@@ -524,9 +523,11 @@ useEffect(() => {
         );
       });
 
-      setSessionsByRequest(grouped);
+      // ✅ DAS ist der entscheidende Fix
+      setSessionsByRequest({ ...grouped });
     });
 
+  // ✅ Cleanup MUSS hier stehen
   return () => {
     mounted = false;
   };
