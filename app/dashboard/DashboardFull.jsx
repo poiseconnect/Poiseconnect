@@ -536,7 +536,8 @@ useEffect(() => {
    LOAD BILLING SESSIONS (IMMER ALLE – FILTER NUR IM FRONTEND)
 ========================================================= */
 useEffect(() => {
-  if (!user?.email) return;
+  if (!user) return;
+if (!user.email) return;
 
   const isAdmin = user.email === "hallo@mypoise.de";
 
