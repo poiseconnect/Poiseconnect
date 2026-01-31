@@ -1376,7 +1376,7 @@ const billingByClient = useMemo(() => {
   onClick={() => {
     setDetailsModal({
       ...r,
-      _status: r._status, // ✅ EXPLIZIT MITGEBEN
+     _status: "active",
     });
     setEditTarif(r.honorar_klient || "");
     setNewSessions([{ date: "", duration: 60 }]);
@@ -1859,8 +1859,9 @@ setRequests((prev) =>
 
 
       {/* ================= AKTIV-BEREICH ================= */}
-      {normalizeStatus(detailsModal.status || detailsModal._status) ===
-        "active" && (
+{["active", "beendet", "termin_bestaetigt"].includes(
+  normalizeStatus(detailsModal.status || detailsModal._status)
+) && (
         <div style={{ marginTop: 12 }}>
           {/* ================= STUNDENSATZ ================= */}
 <div style={{ marginBottom: 16 }}>
