@@ -751,7 +751,39 @@ const billingByClient = useMemo(() => {
 }, [filteredBillingSessions, invoiceSettings.default_vat_rate]);
 
 
+if (!user) {
+  return <div style={{ padding: 40 }}>Lade Benutzer…</div>;
+}
 
+if (access === "loading") {
+  return <div style={{ padding: 40 }}>Prüfe Zugriff…</div>;
+}
+
+if (access === "denied") {
+  return (
+    <div style={{ padding: 40, textAlign: "center" }}>
+      <h2>Kein Zugriff auf das Dashboard</h2>
+
+      <p style={{ marginTop: 12 }}>
+        Dein Account ist nicht freigeschaltet.
+      </p>
+
+      <p style={{ fontSize: 12, color: "#666", marginTop: 8 }}>
+        Eingeloggt als: {user.email}
+      </p>
+
+      <button
+        style={{ marginTop: 20 }}
+        onClick={async () => {
+          await supabase.auth.signOut();
+          window.location.href = "/";
+        }}
+      >
+        Logout
+      </button>
+    </div>
+  );
+}
 
   return (
     <div style={{ padding: 24, maxWidth: 1100, margin: "0 auto" }}>
