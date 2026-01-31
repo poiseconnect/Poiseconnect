@@ -495,34 +495,14 @@ return {
 
   /* ---------- LOAD SESSIONS ---------- */
 useEffect(() => {
-  supabase
-    .from("sessions")
-    .select(`
-      id,
-      date,
-      duration_min,
-      price,
-      therapist,
-      anfrage_id
-    `)
-    .then(({ data, error }) => {
-      if (error) {
-        console.error("SESSION LOAD ERROR", error);
-        return;
-      }
-
+  fetch("/api/admin/sessions")
+    .then((r) => r.json())
+    .then(({ data }) => {
       const grouped = {};
-
       (data || []).forEach((s) => {
         const key = String(s.anfrage_id);
         if (!grouped[key]) grouped[key] = [];
         grouped[key].push(s);
-      });
-
-      Object.keys(grouped).forEach((k) => {
-        grouped[k].sort(
-          (a, b) => new Date(a.date) - new Date(b.date)
-        );
       });
 
       setSessionsByRequest(grouped);
