@@ -2109,30 +2109,31 @@ if (!res.ok) {
         alert("Bitte mindestens eine Sitzung mit Datum eintragen");
         return;
       }
+const res = await fetch("/api/add-sessions-batch", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    anfrageId: detailsModal.id,
+    therapist:
+      user?.email ??
+      detailsModal?.wunschtherapeut ??
+      "system",
+    sessions: valid.map((s) => ({
+      date: s.date,
+      duration: s.duration,
+      price: Number(editTarif),
+    })),
+  }),
+});
 
-      const res = await fetch("/api/add-sessions-batch", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          anfrageId: detailsModal.id,
-      therapist:
-  user?.email ??
-  detailsModal?.wunschtherapeut ??
-  "system",
-          sessions: valid.map((s) => ({
-            date: s.date,
-            duration: s.duration,
-            price: Number(editTarif),
-          })),
-        }),
-      });
+if (!res.ok) {
+  const text = await res.text();
+  console.error("ADD SESSIONS FAILED:", text);
+  alert("❌ Sitzung konnte nicht gespeichert werden");
+  return;
+}
 
-      if (!res.ok) {
-        const t = await res.text();
-        console.error("ADD SESSIONS FAILED:", t);
-        alert("Fehler beim Speichern der Sitzungen");
-        return;
-      }
+const data = await res.json();
 
       alert("✅ Sitzungen gespeichert");
       location.reload();
