@@ -772,6 +772,22 @@ const billingByClient = useMemo(() => {
 )}
 
       <h1>Poise Dashboard</h1>
+      <button
+  onClick={async () => {
+    await supabase.auth.signOut();
+    location.reload();
+  }}
+  style={{
+    marginBottom: 16,
+    padding: "6px 12px",
+    borderRadius: 8,
+    border: "1px solid #ccc",
+    background: "#f7f7f7",
+    cursor: "pointer",
+  }}
+>
+  🔒 Logout
+</button>
 
       {/* FILTER */}
       <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
