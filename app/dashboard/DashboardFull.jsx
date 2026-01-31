@@ -1876,12 +1876,12 @@ setRequests((prev) =>
           }),
         });
 
-        if (!res.ok) {
-          const t = await res.text();
-          console.error("UPDATE TARIF FAILED:", t);
-          alert("Fehler beim Speichern des Stundensatzes");
-          return;
-        }
+if (!res.ok) {
+  const text = await res.text();
+  console.error("UPDATE TARIF FAILED:", text || "(no response body)");
+  alert("❌ Stundensatz konnte nicht gespeichert werden");
+  return;
+}
 
         // ✅ sofort im UI aktualisieren
         setRequests((prev) =>
@@ -2115,7 +2115,10 @@ setRequests((prev) =>
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           anfrageId: detailsModal.id,
-       therapist: user?.email || detailsModal?.wunschtherapeut,
+      therapist:
+  user?.email ??
+  detailsModal?.wunschtherapeut ??
+  "system",
           sessions: valid.map((s) => ({
             date: s.date,
             duration: s.duration,
