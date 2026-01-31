@@ -1226,15 +1226,15 @@ const billingByClient = useMemo(() => {
               : null;
 
           return (
-            <article
-              key={r.id}
-              style={{
-                border: "1px solid #ddd",
-                borderRadius: 12,
-                padding: 16,
-                marginBottom: 16,
-              }}
-            >
+          <article
+  key={`${r.id}-${(sessionsByRequest[String(r.id)] || []).length}`}
+  style={{
+    border: "1px solid #ddd",
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+  }}
+>
               <strong>
                 {safeText(r.vorname, "")} {safeText(r.nachname, "")}
               </strong>
