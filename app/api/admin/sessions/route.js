@@ -1,7 +1,6 @@
-import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
-export const dynamic = "force-dynamic"; // ⬅️ DAS IST DER ENTSCHEIDENDE FIX
+export const dynamic = "force-dynamic";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -9,17 +8,28 @@ const supabase = createClient(
 );
 
 export async function GET() {
-  const { data, error } = await supabase
-    .from("sessions")
-    .select("*");
+  try {
+    const { data, error } = await supabase
+      .from("sessions")
+      .select("*")
+      .order("date", { ascending: true });
 
-  if (error) {
-    console.error("ADMIN SESSION LOAD ERROR", error);
-    return NextResponse.json(
-      { error: error.message },
+    if (error) {
+      console.error("ADMIN SESSIONS ERROR", error);
+      return new Response(
+        JSON.stringify({ error: error.message }),
+        { status: 500 }
+      );
+    }
+
+    return new Response(
+      JSON.stringify({ data }),
+      { headers: { "Content-Type": "application/json" } }
+    );
+  } catch (err) {
+    return new Response(
+      JSON.stringify({ error: String(err) }),
       { status: 500 }
     );
   }
-
-  return NextResponse.json({ data });
 }
