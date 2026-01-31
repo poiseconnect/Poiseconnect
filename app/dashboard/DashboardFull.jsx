@@ -772,6 +772,15 @@ const billingByClient = useMemo(() => {
 )}
 
       <h1>Poise Dashboard</h1>
+      <div
+  style={{
+    fontSize: 12,
+    color: "#666",
+    marginBottom: 12,
+  }}
+>
+  Eingeloggt als: <strong>{user?.email || "–"}</strong>
+</div>
       <button
   onClick={async () => {
     await supabase.auth.signOut();
