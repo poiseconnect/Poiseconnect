@@ -10,18 +10,28 @@ const supabase = createClient(
 
 export async function POST(req) {
   try {
-    const { anfrageId, tarif } = await req.json();
+    const body = await req.json();
+    const { anfrageId, tarif } = body || {};
 
     if (!anfrageId) {
       return NextResponse.json(
-        { error: "Missing anfrageId" },
+        { error: "MISSING_ANFRAGE_ID" },
+        { status: 400 }
+      );
+    }
+
+    const parsedTarif = Number(tarif);
+
+    if (!Number.isFinite(parsedTarif) || parsedTarif <= 0) {
+      return NextResponse.json(
+        { error: "INVALID_TARIF" },
         { status: 400 }
       );
     }
 
     const { error } = await supabase
       .from("anfragen")
-      .update({ honorar_klient: Number(tarif) })
+      .update({ honorar_klient: parsedTarif })
       .eq("id", anfrageId);
 
     if (error) {
