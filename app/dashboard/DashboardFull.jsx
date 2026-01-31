@@ -402,6 +402,28 @@ useEffect(() => {
     setUser(data?.user || null);
   });
 }, []);
+  // 🔐 ZUGRIFFSKONTROLLE (VARIANTE B)
+useEffect(() => {
+  if (!user?.email) return;
+
+  supabase
+    .from("team_members")
+    .select("role, active")
+    .eq("email", user.email)
+    .single()
+    .then(({ data, error }) => {
+      if (error || !data || data.active !== true) {
+        alert("Kein Zugriff auf das Dashboard");
+        supabase.auth.signOut().then(() => {
+          window.location.href = "/login";
+        });
+        return;
+      }
+
+      // optional: Role speichern
+      console.log("🔑 Rolle:", data.role);
+    });
+}, [user]);
 
 
  useEffect(() => {
