@@ -560,7 +560,7 @@ useEffect(() => {
 }, [user]);
 
 
-  
+
 const sessionsSafe = useMemo(() => {
   return Array.isArray(billingSessions) ? billingSessions : [];
 }, [billingSessions]);
