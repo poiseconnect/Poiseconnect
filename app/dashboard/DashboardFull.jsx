@@ -493,8 +493,10 @@ return {
 
 
 
-/* ---------- LOAD SESSIONS (STABIL) ---------- */
+/* ---------- LOAD SESSIONS (AUTH-SAFE) ---------- */
 useEffect(() => {
+  if (!user) return; // 🔥 DAS ist der Fix
+
   let mounted = true;
 
   supabase
@@ -516,23 +518,19 @@ useEffect(() => {
         grouped[key].push(s);
       });
 
-      // 🔥 Sortieren (wichtig für Anzeige!)
       Object.keys(grouped).forEach((k) => {
         grouped[k].sort(
           (a, b) => new Date(a.date) - new Date(b.date)
         );
       });
 
-      // ✅ DAS ist der entscheidende Fix
-      setSessionsByRequest({ ...grouped });
+      setSessionsByRequest(grouped);
     });
 
-  // ✅ Cleanup MUSS hier stehen
   return () => {
     mounted = false;
   };
-}, []);
-
+}, [user]); // 🔥 WICHTIG
   /* =========================================================
    LOAD BILLING SESSIONS
    Quelle für ALLE Abrechnungen
