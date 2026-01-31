@@ -332,7 +332,9 @@ export default function DashboardFull() {
   const [user, setUser] = useState(null);
   const [requests, setRequests] = useState([]);
   const [sessionsByRequest, setSessionsByRequest] = useState({});
+  const [billingSessions, setBillingSessions] = useState([]);
   const [filter, setFilter] = useState("unbearbeitet");
+  
 
   const [therapistFilter, setTherapistFilter] = useState("alle");
   const [search, setSearch] = useState("");
