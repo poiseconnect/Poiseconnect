@@ -494,10 +494,22 @@ return {
 
 
   /* ---------- LOAD SESSIONS ---------- */
+/* ---------- LOAD SESSIONS (STABIL) ---------- */
 useEffect(() => {
-  fetch("/api/admin/sessions")
-    .then((r) => r.json())
-    .then(({ data }) => {
+  let mounted = true;
+
+  supabase
+    .from("sessions")
+    .select("*")
+    .then(({ data, error }) => {
+      if (!mounted) return;
+
+      if (error) {
+        console.error("❌ SESSION LOAD ERROR:", error);
+        setSessionsByRequest({});
+        return;
+      }
+
       const grouped = {};
       (data || []).forEach((s) => {
         const key = String(s.anfrage_id);
@@ -505,8 +517,19 @@ useEffect(() => {
         grouped[key].push(s);
       });
 
+      // 🔥 Sortieren (wichtig für Anzeige!)
+      Object.keys(grouped).forEach((k) => {
+        grouped[k].sort(
+          (a, b) => new Date(a.date) - new Date(b.date)
+        );
+      });
+
       setSessionsByRequest(grouped);
     });
+
+  return () => {
+    mounted = false;
+  };
 }, []);
 
   /* =========================================================
