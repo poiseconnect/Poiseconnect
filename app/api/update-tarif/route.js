@@ -22,7 +22,9 @@ export async function POST(req) {
       );
     }
 
-    if (tarif === undefined || tarif === null || isNaN(Number(tarif))) {
+    const numericTarif = Number(tarif);
+
+    if (!Number.isFinite(numericTarif)) {
       return NextResponse.json(
         { error: "INVALID_TARIF" },
         { status: 400 }
@@ -31,20 +33,20 @@ export async function POST(req) {
 
     const { error } = await supabase
       .from("anfragen")
-      .update({ honorar_klient: Number(tarif) })
+      .update({ honorar_klient: numericTarif })
       .eq("id", anfrageId);
 
     if (error) {
-      console.error("SUPABASE UPDATE ERROR", error);
+      console.error("❌ UPDATE TARIF DB ERROR", error);
       return NextResponse.json(
-        { error: "DB_UPDATE_FAILED", detail: error.message },
+        { error: error.message },
         { status: 500 }
       );
     }
 
     return NextResponse.json({ ok: true });
   } catch (err) {
-    console.error("UPDATE TARIF SERVER ERROR", err);
+    console.error("❌ UPDATE TARIF SERVER ERROR", err);
     return NextResponse.json(
       { error: "SERVER_ERROR", detail: String(err) },
       { status: 500 }
