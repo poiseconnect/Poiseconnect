@@ -1,7 +1,7 @@
 export const teamData = [
 
 {
-  id: "37ced2b8-88fc-40b9-bd67-2f191a8c6879"
+  id: "37ced2b8-88fc-40b9-bd67-2f191a8c6879",
   name: "Ann",
   role: "Coach, Heilpraktikerin für Psychotherapie, Hypnose Coach",
   qualificationLevel: 5,
@@ -47,7 +47,7 @@ scores: {
 },
 
 {
-  id: "37ced2b8-88fc-40b9-bd67-2f191a8c6879"
+  id: "37ced2b8-88fc-40b9-bd67-2f191a8c6879",
   name: "Anna",
   role: "Psychologin, Psychotherapeutin",
   qualificationLevel: 1,
@@ -88,7 +88,7 @@ scores: {
 },
 
 {
-  id: "c447f910-eb92-4f62-97fa-595c32b479c1"
+  id: "c447f910-eb92-4f62-97fa-595c32b479c1",
   name: "Anja",
   role: "Psychologin, Psychotherapeutin in Ausbildung",
   qualificationLevel: 3,
