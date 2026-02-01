@@ -458,45 +458,59 @@ useEffect(() => {
 }, [user, filter]);
 
 
-/* ---------- LOAD REQUESTS (ROLE AWARE – FINAL) ---------- */
 useEffect(() => {
   if (!user?.email) return;
-  if (!role) return;
+  if (!role) return; // wartet bis role geladen ist
 
-  console.log("🚀 LOAD REQUESTS ROLE AWARE", role, user.email);
+  console.log("🚀 LOAD REQUESTS EFFECT START", { email: user.email, role });
 
-  let query = supabase
-    .from("anfragen")
-    .select(`
-      id,
-      created_at,
-      vorname,
-      nachname,
-      email,
-      telefon,
-      strasse_hausnr,
-      plz_ort,
-      geburtsdatum,
-      beschaeftigungsgrad,
-      anliegen,
-      leidensdruck,
-      verlauf,
-      ziel,
-      diagnose,
-      status,
-      bevorzugte_zeit,
-      wunschtherapeut,
-      honorar_klient,
-      admin_therapeuten
-    `)
-    .order("created_at", { ascending: false });
+  (async () => {
+    let query = supabase
+      .from("anfragen")
+      .select(`
+        id,
+        created_at,
+        vorname,
+        nachname,
+        email,
+        telefon,
+        strasse_hausnr,
+        plz_ort,
+        geburtsdatum,
+        beschaeftigungsgrad,
+        anliegen,
+        leidensdruck,
+        verlauf,
+        ziel,
+        diagnose,
+        status,
+        bevorzugte_zeit,
+        wunschtherapeut,
+        honorar_klient,
+        admin_therapeuten,
+        assigned_therapist_id
+      `)
+      .order("created_at", { ascending: false });
 
-  // 🔐 THERAPEUT DARF NUR SEINE EIGENEN ANFRAGEN SEHEN
-  if (role === "therapist") {
-    query = query.eq("wunschtherapeut", user.email);
-  }
+    // ✅ Therapeuten sehen nur eigene Anfragen
+    if (role === "therapist") {
+      const { data: me, error: meErr } = await supabase
+        .from("team_members")
+        .select("user_id")
+        .eq("email", user.email)
+        .single();
 
-  query.then(({ data, error }) => {
+      if (meErr || !me?.user_id) {
+        console.error("❌ team_members lookup failed:", meErr);
+        setRequests([]);
+        return;
+      }
+
+      query = query.eq("assigned_therapist_id", me.user_id);
+    }
+
+    const { data, error } = await query;
+
     console.log("📦 SUPABASE anfragen DATA:", data);
     console.log("❌ SUPABASE anfragen ERROR:", error);
 
@@ -515,10 +529,7 @@ useEffect(() => {
         if (typeof adminTher === "string") {
           adminTher = adminTher.trim() ? [adminTher] : [];
         }
-
-        if (!Array.isArray(adminTher)) {
-          adminTher = [];
-        }
+        if (!Array.isArray(adminTher)) adminTher = [];
 
         return {
           ...r,
@@ -527,9 +538,8 @@ useEffect(() => {
         };
       })
     );
-  });
+  })();
 }, [user, role]);
-
 
 /* ---------- LOAD SESSIONS (ADMIN API – STABIL) ---------- */
 useEffect(() => {
