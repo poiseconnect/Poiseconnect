@@ -815,7 +815,13 @@ const slotsByMonth = useMemo(() => {
   // -------------------------------------
   // Formular absenden
   // -------------------------------------
+  
 const send = async () => {
+  // 🔒 Sicherheitscheck: Therapeut:in MUSS gewählt sein
+if (!assignedTherapistId) {
+  alert("Bitte wähle eine Therapeutin oder einen Therapeuten aus.");
+  return;
+}
   try {
     const res = await fetch("/api/form-submit", {
       method: "POST",
