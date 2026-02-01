@@ -458,10 +458,14 @@ useEffect(() => {
 }, [user, filter]);
 
 
+/* ---------- LOAD REQUESTS (ROLE AWARE – FINAL) ---------- */
 useEffect(() => {
-  console.log("🚀 LOAD REQUESTS EFFECT START");
+  if (!user?.email) return;
+  if (!role) return;
 
-  supabase
+  console.log("🚀 LOAD REQUESTS ROLE AWARE", role, user.email);
+
+  let query = supabase
     .from("anfragen")
     .select(`
       id,
@@ -485,48 +489,46 @@ useEffect(() => {
       honorar_klient,
       admin_therapeuten
     `)
-    .order("created_at", { ascending: false })
-    .then(({ data, error }) => {
-      console.log("📦 SUPABASE anfragen DATA:", data);
-      console.log("❌ SUPABASE anfragen ERROR:", error);
+    .order("created_at", { ascending: false });
 
-      if (error) {
-        console.error("🔥 Fehler beim Laden der Anfragen:", error);
-        setRequests([]);
-        return;
-      }
+  // 🔐 THERAPEUT DARF NUR SEINE EIGENEN ANFRAGEN SEHEN
+  if (role === "therapist") {
+    query = query.eq("wunschtherapeut", user.email);
+  }
 
-  setRequests(
-  (data || []).map((r) => {
-    const normalized = normalizeStatus(r.status);
+  query.then(({ data, error }) => {
+    console.log("📦 SUPABASE anfragen DATA:", data);
+    console.log("❌ SUPABASE anfragen ERROR:", error);
 
-    if (!normalized) {
-      console.warn("⚠️ EMPTY STATUS", r.id, r.status);
+    if (error) {
+      console.error("🔥 Fehler beim Laden der Anfragen:", error);
+      setRequests([]);
+      return;
     }
 
-let adminTher = r.admin_therapeuten;
+    setRequests(
+      (data || []).map((r) => {
+        const normalized = normalizeStatus(r.status);
 
-// 🔥 WICHTIG: String → leeres Array (kein JSON!)
-if (typeof adminTher === "string") {
-  adminTher = adminTher.trim() ? [adminTher] : [];
-}
+        let adminTher = r.admin_therapeuten;
 
-// 🔥 null / sonst was → leeres Array
-if (!Array.isArray(adminTher)) {
-  adminTher = [];
-}
+        if (typeof adminTher === "string") {
+          adminTher = adminTher.trim() ? [adminTher] : [];
+        }
 
-return {
-  ...r,
-  admin_therapeuten: adminTher,
-  _status: normalized || "neu",
-};
-  })
-);
+        if (!Array.isArray(adminTher)) {
+          adminTher = [];
+        }
 
-    });
-}, []);
-
+        return {
+          ...r,
+          admin_therapeuten: adminTher,
+          _status: normalized || "neu",
+        };
+      })
+    );
+  });
+}, [user, role]);
 
 
 /* ---------- LOAD SESSIONS (ADMIN API – STABIL) ---------- */
