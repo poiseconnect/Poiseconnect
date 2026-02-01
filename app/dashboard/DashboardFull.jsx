@@ -458,7 +458,6 @@ useEffect(() => {
 }, [user, filter]);
 
 
- /* ---------- LOAD REQUESTS ---------- */
 useEffect(() => {
   console.log("🚀 LOAD REQUESTS EFFECT START");
 
@@ -527,6 +526,7 @@ return {
 
     });
 }, []);
+
 
 
 /* ---------- LOAD SESSIONS (ADMIN API – STABIL) ---------- */
