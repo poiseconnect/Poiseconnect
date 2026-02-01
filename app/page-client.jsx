@@ -292,6 +292,8 @@ const anfrageId =
   const totalSteps = 12;
 
   // Formular-Daten
+  // 🔑 NEU: ausgewählte Therapeut:innen-ID (DB)
+const [assignedTherapistId, setAssignedTherapistId] = useState(null);
   const [form, setForm] = useState({
 admin_therapeuten: [],
   themen: [],
@@ -818,10 +820,15 @@ const send = async () => {
     const res = await fetch("/api/form-submit", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        ...form,
-        therapist_from_url: form.wunschtherapeut,
-      }),
+body: JSON.stringify({
+  ...form,
+
+  // 🔑 ENTSCHEIDEND
+  assigned_therapist_id: assignedTherapistId,
+
+  // optional für Anzeige / Mail
+  therapist_from_url: form.wunschtherapeut,
+}),
     }); // ✅ DAS war der fehlende Abschluss
 
     let json = null;
@@ -1350,13 +1357,15 @@ if (!res.ok) {
           Schwerpunkte zu deinem Anliegen passen.
         </p>
 
-        <TeamCarousel
-          members={step8Members}
-          onSelect={(name) => {
-            setForm({ ...form, wunschtherapeut: name });
-            next();
-          }}
-        />
+<TeamCarousel
+  members={step8Members}
+  onSelect={(member) => {
+    // member = ganzes Objekt aus teamData
+    setAssignedTherapistId(member.id); // 🔑 DIE UUID
+    setForm({ ...form, wunschtherapeut: member.name }); // Anzeige
+    next();
+  }}
+/>
 
         <div className="footer-buttons">
           <button onClick={back}>Zurück</button>
