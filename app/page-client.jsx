@@ -698,16 +698,23 @@ useEffect(() => {
       const result = [];
 
 for (const therapist of teamData) {
-  // 🔑 ABSOLUT KRITISCH
-  if (!therapist.id || !therapist.ics) {
-    console.warn("⛔ übersprungen:", therapist.name, therapist.id, therapist.ics);
+  // ✅ aktive nur (optional, aber empfehlenswert)
+  if (therapist.status && therapist.status !== "frei") {
+    console.warn("⛔ übersprungen (status):", therapist.name, therapist.status);
     continue;
   }
 
-  const slots = await loadIcsSlots(therapist.ics);
+  // ✅ MUSS: id + ics vorhanden
+  if (!therapist.id || !therapist.ics) {
+    console.warn("⛔ übersprungen:", therapist?.name, therapist?.id, therapist?.ics);
+    continue;
+  }
+
+  const slots = await loadIcsSlots(therapist.ics, 21); // ✅ 21 Tage Fenster
+  console.log("📅 Slots für", therapist.name, therapist.id, "=", slots.length);
 
   if (slots.length > 0) {
-    result.push(therapist.id); // 🔑 UUID
+    result.push(therapist.id);
   }
 }
 
