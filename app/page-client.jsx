@@ -160,17 +160,21 @@ const formatTime = (d) =>
 // ICS PARSER
 // ----------------------
 function parseICSDate(line) {
-  const m = line.match(/DT(?:START|END)(?:;TZID=[^:]+)?:([0-9T]+)/i);
+const m = line.match(/DT(?:START|END)(?:;TZID=[^:]+)?:([0-9T]+)(Z?)/i);
   if (!m) return null;
 
-  const raw = m[1];
-  return new Date(
-    Number(raw.slice(0, 4)),
-    Number(raw.slice(4, 6)) - 1,
-    Number(raw.slice(6, 8)),
-    Number(raw.slice(9, 11)) || 0,
-    Number(raw.slice(11, 13)) || 0
-  );
+const raw = m[1];
+const isUTC = m[2] === "Z";
+
+const date = new Date(
+  Number(raw.slice(0, 4)),
+  Number(raw.slice(4, 6)) - 1,
+  Number(raw.slice(6, 8)),
+  Number(raw.slice(9, 11)) || 0,
+  Number(raw.slice(11, 13)) || 0
+);
+
+return isUTC ? new Date(date.getTime() + date.getTimezoneOffset() * 60000) : date;
 }
 
 // ----------------------
@@ -189,8 +193,8 @@ async function loadIcsSlots(icsUrl, daysAhead = null) {
   const slots = [];
 
   for (const ev of events) {
-    const startLine = ev.split(/\r?\n/).find((l) => l.startsWith("DTSTART"));
-    const endLine = ev.split(/\r?\n/).find((l) => l.startsWith("DTEND"));
+const startLine = ev.split(/\r?\n/).find((l) => l.includes("DTSTART"));
+const endLine = ev.split(/\r?\n/).find((l) => l.includes("DTEND"));
     if (!startLine || !endLine) continue;
 
     const start = parseICSDate(startLine);
