@@ -942,7 +942,7 @@ scores: {
   preis_std: null,
   preis_ermaessigt: null,
   status: "inaktiv",
-  ics: null,
+  ics: "https://calendar.google.com/calendar/ical/db443a1af4e04dfa8a1a1dee40d50b7d273b761ca4cf1ed19615759fd9871c24%40group.calendar.google.com/public/basic.ics",
   scores: {
     partnerschaft_beziehung: 5,
     beruf_ziele_orientierung: 0,
@@ -971,8 +971,8 @@ scores: {
   keywords: [],
   preis_std: null,
   preis_ermaessigt: null,
-  status: "inaktiv",
-  ics: null,
+  status: "frei",
+  ics: "https://calendar.google.com/calendar/ical/4dbd40b318e4ef7c265d28ac328a52649a0022eb6cf9979ae10162d3c0fdcb63%40group.calendar.google.com/public/basic.ics",
 scores: {
   partnerschaft_beziehung: 5,
   beruf_ziele_orientierung: 0,
@@ -1001,8 +1001,8 @@ scores: {
   keywords: [],
   preis_std: null,
   preis_ermaessigt: null,
-  status: "inaktiv",
-  ics: null,
+   status: "frei",
+  ics: "https://calendar.google.com/calendar/ical/fb1bf38a76bb815324618d7f9c9638e8df87705c53711e7441ce17f69b46f771%40group.calendar.google.com/public/basic.ics",
 scores: {
   partnerschaft_beziehung: 0,
   beruf_ziele_orientierung: 0,
