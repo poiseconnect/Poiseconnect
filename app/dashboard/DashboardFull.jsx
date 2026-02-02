@@ -331,9 +331,10 @@ async function deleteForever(r) {
 export default function DashboardFull() {
   const [user, setUser] = useState(null);
   const [requests, setRequests] = useState([]);
-    const [access, setAccess] = useState("loading"); 
-  // "loading" | "granted" | "denied"
-  const [role, setRole] = useState(null);
+const [role, setRole] = useState(null); // "admin" | "therapist"
+  const isAdmin = role === "admin";
+const [myUserId, setMyUserId] = useState(null);
+const [access, setAccess] = useState("loading");
   const [sessionsByRequest, setSessionsByRequest] = useState({});
   const [billingSessions, setBillingSessions] = useState([]);
   const [filter, setFilter] = useState("unbearbeitet");
@@ -400,31 +401,32 @@ const [invoiceLoading, setInvoiceLoading] = useState(false);
 
   /* ---------- LOAD USER ---------- */
 useEffect(() => {
-  supabase.auth.getUser().then(({ data, error }) => {
-    console.log("AUTH getUser:", data, error);
-    setUser(data?.user || null);
-  });
+  async function loadAuthAndRole() {
+    const { data } = await supabase.auth.getUser();
+    if (!data?.user) return;
+
+    setUser(data.user);
+    setMyUserId(data.user.id);
+
+    const { data: member, error } = await supabase
+      .from("team_members")
+      .select("role, active")
+      .eq("user_id", data.user.id)
+      .single();
+
+    if (error || !member || member.active !== true) {
+      console.warn("❌ Zugriff verweigert", error);
+      setAccess("denied");
+      return;
+    }
+
+    setRole(member.role); // "admin" oder "therapist"
+    setAccess("granted");
+  }
+
+  loadAuthAndRole();
 }, []);
-  // 🔐 ZUGRIFFSKONTROLLE (STABIL – KEIN REDIRECT)
-useEffect(() => {
-  if (!user?.email) return;
 
-  supabase
-    .from("team_members")
-    .select("role, active")
-    .eq("email", user.email)
-    .single()
-    .then(({ data, error }) => {
-      if (error || !data || data.active !== true) {
-        console.warn("❌ Zugriff verweigert:", error, data);
-        setAccess("denied");
-        return;
-      }
-
-      setRole(data.role);
-      setAccess("granted");
-    });
-}, [user]);
 
 
  useEffect(() => {
@@ -492,22 +494,10 @@ useEffect(() => {
       `)
       .order("created_at", { ascending: false });
 
-    // ✅ Therapeuten sehen nur eigene Anfragen
-    if (role === "therapist") {
-      const { data: me, error: meErr } = await supabase
-        .from("team_members")
-        .select("user_id")
-        .eq("email", user.email)
-        .single();
-
-      if (meErr || !me?.user_id) {
-        console.error("❌ team_members lookup failed:", meErr);
-        setRequests([]);
-        return;
-      }
-
-      query = query.eq("assigned_therapist_id", me.user_id);
-    }
+// ✅ Therapeuten sehen NUR ihre eigenen Anfragen
+if (role === "therapist") {
+  query = query.eq("assigned_therapist_id", myUserId);
+}
 
     const { data, error } = await query;
 
@@ -585,8 +575,8 @@ useEffect(() => {
 useEffect(() => {
   if (!user) return;
 if (!user.email) return;
-
-  const isAdmin = user.email === "hallo@mypoise.de";
+  
+const isAdmin = role === "admin";
 
   const endpoint = isAdmin
     ? "/api/admin/billing-sessions"
@@ -904,7 +894,7 @@ if (access === "denied") {
         <button onClick={() => setFilter("beendet")}>Beendet</button>
         <button onClick={() => setFilter("alle")}>Alle</button>
 
-{user?.email === "hallo@mypoise.de" && (
+{isAdmin && (
   <select
     value={therapistFilter}
     onChange={(e) => setTherapistFilter(e.target.value)}
@@ -984,15 +974,15 @@ if (access === "denied") {
   <>
     <div style={{ marginBottom: 10 }}>
       <h2 style={{ margin: 0 }}>
-        {user?.email === "hallo@mypoise.de"
+        {isAdmin ? "Gesamtabrechnung (Admin)" : "Meine Abrechnung"}
           ? "Gesamtabrechnung (Admin)"
           : "Meine Abrechnung"}
       </h2>
 
       <div style={{ fontSize: 12, color: "#666" }}>
-        {user?.email === "hallo@mypoise.de"
-          ? "Du siehst alle Therapeut:innen."
-          : "Du siehst nur deine eigenen Sitzungen."}
+{isAdmin
+  ? "Du siehst alle Therapeut:innen."
+  : "Du siehst nur deine eigenen Sitzungen."}
       </div>
     </div>
 
