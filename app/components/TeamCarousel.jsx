@@ -131,7 +131,7 @@ export default function TeamCarousel({ members, onSelect }) {
                 )}
 
                 <button
-                  onClick={() => onSelect(m.name)}
+                  onClick={() => onSelect(m)}
                   style={{
                     background: "#D7A6A0",
                     color: "#fff",
