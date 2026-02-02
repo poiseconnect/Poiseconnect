@@ -1,43 +1,60 @@
-// ⬇️ DAS IST DER ENTSCHEIDENDE SCHALTER
-export const runtime = "nodejs";
-
 import { NextResponse } from "next/server";
 
+export const dynamic = "force-dynamic";
+
 export async function GET(req) {
-  const { searchParams } = new URL(req.url);
-  const url = searchParams.get("url");
-
-  if (!url) {
-    return new NextResponse("Missing url", { status: 400 });
-  }
-
   try {
-    const res = await fetch(url, {
-      method: "GET",
+    const url = new URL(req.url);
+    const icsUrl = url.searchParams.get("url");
+
+    if (!icsUrl) {
+      return NextResponse.json(
+        { error: "Missing URL" },
+        { status: 400 }
+      );
+    }
+
+    const res = await fetch(icsUrl, {
+      cache: "no-store",
       headers: {
-        "User-Agent":
-          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-        Accept: "text/calendar,text/plain,*/*",
+        // 🔴 WICHTIG: Google blockt ohne Browser-Header
+        "User-Agent": "Mozilla/5.0 (PoiseConnect)",
+        "Accept": "text/calendar,text/plain,*/*",
       },
-      redirect: "follow",
     });
 
     if (!res.ok) {
-      console.error("ICS fetch failed:", res.status, res.statusText);
-      return new NextResponse("ICS fetch failed", { status: 502 });
+      const text = await res.text();
+      console.error("ICS FETCH FAILED", res.status, text);
+
+      return NextResponse.json(
+        {
+          error: "Error fetching ICS",
+          status: res.status,
+        },
+        { status: 500 }
+      );
     }
 
     const text = await res.text();
 
-    return new NextResponse(text, {
+    return new Response(text, {
       status: 200,
       headers: {
         "Content-Type": "text/calendar; charset=utf-8",
         "Cache-Control": "no-store",
       },
     });
+
   } catch (err) {
-    console.error("ICS proxy error:", err);
-    return new NextResponse("ICS proxy error", { status: 500 });
+    console.error("ICS API ERROR:", err);
+
+    return NextResponse.json(
+      {
+        error: "Internal Server Error",
+        details: String(err),
+      },
+      { status: 500 }
+    );
   }
 }
