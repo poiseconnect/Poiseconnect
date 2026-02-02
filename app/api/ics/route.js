@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
+export const runtime = "nodejs"; // 🔥 DAS WAR DER FEHLER
 
 export async function GET(req) {
   try {
@@ -16,23 +17,22 @@ export async function GET(req) {
 
     const res = await fetch(url, {
       headers: {
-        // 🔑 WICHTIG für Google Calendar
         "User-Agent": "Mozilla/5.0",
       },
       cache: "no-store",
     });
 
     if (!res.ok) {
+      console.error("ICS FETCH FAILED:", res.status, url);
       return NextResponse.json(
-        { error: "ICS fetch failed", status: res.status },
+        { error: "ICS fetch failed" },
         { status: 500 }
       );
     }
 
     const text = await res.text();
 
-    // 🔍 Debug – du wirst DAS sehen
-    console.log("ICS LENGTH:", text.length);
+    console.log("✅ ICS LOADED:", text.length);
 
     return new NextResponse(text, {
       status: 200,
@@ -41,7 +41,7 @@ export async function GET(req) {
       },
     });
   } catch (err) {
-    console.error("ICS API ERROR:", err);
+    console.error("❌ ICS API ERROR:", err);
     return NextResponse.json(
       { error: "ICS server error" },
       { status: 500 }
