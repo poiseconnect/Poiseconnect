@@ -1011,7 +1011,7 @@ scores: {
   preis_std: 180,
   preis_ermaessigt: 120,
   status: "frei",
-  ics: "https://calendar.google.com/calendar/embed?src=f388af50de7d7a07cc0e9418dcd34727ba22684ad8de3f73d032f32965c4c1d6%40group.calendar.google.com&ctz=Europe%2FVienna",
+  ics: "https://calendar.google.com/calendar/ical/f388af50de7d7a07cc0e9418dcd34727ba22684ad8de3f73d032f32965c4c1d6%40group.calendar.google.com/public/basic.ics",
   scores: {
     partnerschaft_beziehung: 4,
     beruf_ziele_orientierung: 4,
