@@ -792,8 +792,7 @@ useEffect(() => {
   return () => {
     isMounted = false;
   };
-}, [step, assignedTherapistId, blockedOldTerminISO]);]);
-
+}, [step, assignedTherapistId, blockedOldTerminISO]);
 
   // Slots nach Tagen gruppieren
   
