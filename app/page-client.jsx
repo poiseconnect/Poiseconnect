@@ -197,7 +197,9 @@ async function loadIcsSlots(icsUrl, daysAhead = null) {
 
   const text = await res.text();
 
-  const now = new Date();
+const now = new Date();
+now.setSeconds(0, 0); // Rundung für sichere Vergleiche
+  
   const until = daysAhead
     ? new Date(now.getTime() + daysAhead * 86400000)
     : null;
@@ -212,7 +214,10 @@ async function loadIcsSlots(icsUrl, daysAhead = null) {
 
     const start = parseICSDate(startLine);
     const end = parseICSDate(endLine);
-    if (!start || !end || end <= now) continue;
+    if (!start || !end) continue;
+
+// ❗ Google ICS → lokale Zeit, NICHT hart filtern
+if (end.getTime() < now.getTime() - 5 * 60 * 1000) continue;
     if (until && start > until) continue;
 
     let t = new Date(start);
