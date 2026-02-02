@@ -479,10 +479,13 @@ const step8Members = useMemo(() => {
       (m) => !form.excluded_therapeuten.includes(m.name)
     );
   }
-
+if (availableTherapists.length === 0) {
+  console.warn("⚠️ Keine Verfügbarkeiten geladen – kein Filter");
+  return base;
+}
   // ⏱ nur Therapeut:innen mit freien Terminen
   return base
-    .filter((m) => availableTherapists.includes(m.name))
+    .filter((m) => availableTherapists.includes(m.id))
     .sort((a, b) => (b._score ?? 0) - (a._score ?? 0));
 }, [
   matchedTeam,
@@ -692,7 +695,7 @@ useEffect(() => {
 
         const slots = await loadIcsSlots(therapist.ics); // ❗ OHNE 21
         if (slots.length > 0) {
-          result.push(therapist.name);
+          result.push(therapist.id);
         }
       }
 
