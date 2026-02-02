@@ -697,14 +697,19 @@ useEffect(() => {
     try {
       const result = [];
 
-      for (const therapist of teamData) {
-        if (!therapist.ics) continue;
+for (const therapist of teamData) {
+  // 🔑 ABSOLUT KRITISCH
+  if (!therapist.id || !therapist.ics) {
+    console.warn("⛔ übersprungen:", therapist.name, therapist.id, therapist.ics);
+    continue;
+  }
 
-        const slots = await loadIcsSlots(therapist.ics); // ❗ OHNE 21
-        if (slots.length > 0) {
-          result.push(therapist.id);
-        }
-      }
+  const slots = await loadIcsSlots(therapist.ics);
+
+  if (slots.length > 0) {
+    result.push(therapist.id); // 🔑 UUID
+  }
+}
 
       if (isMounted) {
         setAvailableTherapists(result);
