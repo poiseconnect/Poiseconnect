@@ -1,18 +1,17 @@
-// app/api/ics/route.js
+export const runtime = "nodejs";
+
 import { NextResponse } from "next/server";
 
-export const runtime = "nodejs"; // 🔴 WICHTIG: NICHT edge!
-
 export async function GET(req) {
-  const { searchParams } = new URL(req.url);
-  const url = searchParams.get("url");
-
-  if (!url) {
-    return new NextResponse("Missing url", { status: 400 });
-  }
-
   try {
-    const res = await fetch(url, {
+    const { searchParams } = new URL(req.url);
+    const icsUrl = searchParams.get("url");
+
+    if (!icsUrl) {
+      return new NextResponse("Missing url parameter", { status: 400 });
+    }
+
+    const res = await fetch(icsUrl, {
       headers: {
         "User-Agent": "Mozilla/5.0",
       },
@@ -21,7 +20,7 @@ export async function GET(req) {
 
     if (!res.ok) {
       return new NextResponse(
-        `ICS fetch failed (${res.status})`,
+        `ICS fetch failed: ${res.status}`,
         { status: 500 }
       );
     }
@@ -32,13 +31,10 @@ export async function GET(req) {
       status: 200,
       headers: {
         "Content-Type": "text/calendar; charset=utf-8",
-        "Cache-Control": "no-store",
       },
     });
   } catch (err) {
-    return new NextResponse(
-      "ICS proxy error: " + err.message,
-      { status: 500 }
-    );
+    console.error("ICS ERROR", err);
+    return new NextResponse("ICS proxy error", { status: 500 });
   }
 }
