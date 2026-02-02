@@ -182,15 +182,14 @@ function parseICSDate(line) {
 // ICS → Slots
 // ----------------------
 async function loadIcsSlots(icsUrl, daysAhead = null) {
-  const res = await fetch(`/api/ics?url=${encodeURIComponent(icsUrl)}`);
+  if (!icsUrl) return [];
 
-  // ✅ WICHTIG: bei Fehler wirklich abbrechen
+  const res = await fetch(icsUrl, {
+    cache: "no-store",
+  });
+
   if (!res.ok) {
-    let detail = "";
-    try {
-      detail = await res.text();
-    } catch {}
-    throw new Error(`ICS proxy failed (${res.status}): ${detail.slice(0, 200)}`);
+    throw new Error("Direct ICS fetch failed");
   }
 
   const text = await res.text();
@@ -201,35 +200,27 @@ async function loadIcsSlots(icsUrl, daysAhead = null) {
     : null;
 
   const events = text.split(/BEGIN:VEVENT/i).slice(1);
-  console.log("ICS EVENTS COUNT", events.length);
-
   const slots = [];
 
   for (const ev of events) {
-    const startLine = ev.split(/\r?\n/).find((l) => l.includes("DTSTART"));
-    const endLine = ev.split(/\r?\n/).find((l) => l.includes("DTEND"));
+    const startLine = ev.split(/\r?\n/).find((l) => l.startsWith("DTSTART"));
+    const endLine = ev.split(/\r?\n/).find((l) => l.startsWith("DTEND"));
     if (!startLine || !endLine) continue;
 
     const start = parseICSDate(startLine);
     const end = parseICSDate(endLine);
-    if (!start || !end) continue;
+    if (!start || !end || end <= now) continue;
     if (until && start > until) continue;
 
     let t = new Date(start);
     while (t < end) {
       const tEnd = new Date(t.getTime() + 60 * 60000);
-      if (tEnd > end) break;
+      if (tEnd > end || tEnd <= now) break;
 
       slots.push({ start: new Date(t) });
       t = new Date(t.getTime() + 60 * 60000);
     }
   }
-
-  console.log(
-    "CHECK 3 – SLOTS:",
-    slots.length,
-    slots.slice(0, 3).map((s) => s.start.toISOString())
-  );
 
   return slots.sort((a, b) => a.start - b.start);
 }
