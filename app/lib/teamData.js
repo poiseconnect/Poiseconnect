@@ -7,7 +7,7 @@ export const teamData = [
   qualificationLevel: 5,
   image: "https://mypoise.de/wp-content/uploads/2023/01/DSC_0007-copy-2-1300x1300.jpg",
   video: "https://youtu.be/rWhc4JvVmaw",
-  email: "sebastian.kickinger@icloud.com",
+  email: "ann.woeste@web.de",
   short: "Ich begleite Menschen, die innere Anspannung, Unsicherheit oder emotionale Überforderung erleben. Mein Ansatz ist ruhig, direkt und klar strukturiert, mit Fokus auf Selbstregulation und Stärkung der persönlichen Handlungsfähigkeit.",
   themes: {
     selbstwert: 3,
@@ -47,7 +47,7 @@ scores: {
 },
 
 {
-  id: "37ced2b8-88fc-40b9-bd67-2f191a8c6879",
+  id: "22be71f8-8b1d-4cb7-9434-8cd4f4bd03f4",
   name: "Anna",
   role: "Psychologin, Psychotherapeutin",
   qualificationLevel: 1,
@@ -997,4 +997,33 @@ scores: {
   trauer: 0,
 },
 },
-];
+{
+  id: "79db9444-4abd-49a3-ace1-e52fdaed8ad0",
+  name: "Test Therapeut",
+  role: "Psychologe (Test)",
+  qualificationLevel: 0,
+  image: "https://mypoise.de/wp-content/uploads/2026/02/Bildschirmfoto-2026-02-02-um-04.22.00.png",
+  video: null,
+  email: "sebastian.kickinger@icloud.com",
+  short: "Interner Test-Therapeut für Dashboard-Tests.",
+  themes: {},
+  keywords: [],
+  preis_std: 180,
+  preis_ermaessigt: 120,
+  status: "frei",
+  ics: "https://calendar.google.com/calendar/embed?src=f388af50de7d7a07cc0e9418dcd34727ba22684ad8de3f73d032f32965c4c1d6%40group.calendar.google.com&ctz=Europe%2FVienna",
+  scores: {
+    partnerschaft_beziehung: 0,
+    beruf_ziele_orientierung: 0,
+    stress: 0,
+    burnout: 0,
+    depressive_verstimmung: 0,
+    angst_panik: 0,
+    selbstwert_selbstliebe: 0,
+    emotionales_essen: 0,
+    krankheit_psychosomatik: 0,
+    angehoerige: 0,
+    sexualitaet: 0,
+    trauer: 0,
+  },
+},];
