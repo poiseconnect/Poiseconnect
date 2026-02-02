@@ -139,13 +139,13 @@ const payload = {
     // 4️⃣ SLOT BLOCKIEREN
     // -----------------------------------------
     if (startAt && endAt) {
-      await supabase.from("blocked_slots").insert({
-        anfrage_id: inserted.id,
-        therapist_name: therapist,
-        start_at: startAt.toISOString(),
-        end_at: endAt.toISOString(),
-        reason: "client_submit",
-      });
+await supabase.from("blocked_slots").insert({
+  anfrage_id: inserted.id,
+  therapist_id: assignedTherapistId, // 🔥 UUID
+  start_at: startAt.toISOString(),
+  end_at: endAt.toISOString(),
+  reason: "client_submit",
+});
     }
 
     return JSONResponse({ ok: true });
