@@ -439,20 +439,20 @@ const matchedTeam = useMemo(() => {
     .map((m) => {
       let score = 0;
 
-      // 1️⃣ Themen-Scores (aus Tabellen)
       form.themen.forEach((t) => {
         score += m.scores?.[t] ?? 0;
-
-        // 2️⃣ Ausbildungsbonus (aus role)
         const ausbildung = ROLE_TO_AUSBILDUNG(m.role);
         score += AUSBILDUNGS_BONUS?.[ausbildung]?.[t] ?? 0;
       });
 
-      // 3️⃣ Qualitätslevel (leichter Bonus)
       const q = m.qualificationLevel ?? 0;
       score += q * 0.5;
 
-      return { ...m, _score: score };
+      return {
+        ...m,
+        id: m.id ?? m.slug ?? m.name,
+        _score: score,
+      };
     })
     .sort((a, b) => b._score - a._score);
 }, [form.themen]);
@@ -697,7 +697,7 @@ useEffect(() => {
 // STEP 8 – Verfügbarkeit der Therapeut:innen laden
 // -------------------------------------
 // -------------------------------------
-// AVAILABILITY – EINMAL BEIM PAGE LOAD
+/ AVAILABILITY – EINMAL BEIM PAGE LOAD
 // -------------------------------------
 useEffect(() => {
   let isMounted = true;
@@ -737,6 +737,7 @@ for (const therapist of teamData) {
 
       if (isMounted) {
         setAvailableTherapists(result);
+        console.log("✅ availableTherapists IDs:", result);
       }
     } catch (e) {
       console.error("Availability error", e);
@@ -749,7 +750,7 @@ for (const therapist of teamData) {
   return () => {
     isMounted = false;
   };
-}, [teamData]);
+}, []); // läuft genau 1x beim Laden
 // STEP 10 – ICS + Supabase (blocked_slots)
 // -------------------------------------
 useEffect(() => {
