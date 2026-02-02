@@ -13,9 +13,14 @@ export async function GET(req) {
         { status: 400 }
       );
     }
-
-    const res = await fetch(icsUrl, { cache: "no-store" });
-
+const res = await fetch(icsUrl, {
+  cache: "no-store",
+  headers: {
+    "User-Agent": "Mozilla/5.0 (PoiseConnect ICS Loader)",
+    "Accept": "text/calendar,text/plain,*/*",
+  },
+  redirect: "follow",
+});
     if (!res.ok) {
       return NextResponse.json(
         { error: "Error fetching ICS", status: res.status },
