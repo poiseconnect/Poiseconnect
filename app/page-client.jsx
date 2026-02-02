@@ -462,12 +462,15 @@ const matchedTeam = useMemo(() => {
 
   // -------------------------------------
 // -------------------------------------
-// STEP 8 – FINALE LISTE (MATCH + VERFÜGBARKEIT)
-// -------------------------------------
 const step8Members = useMemo(() => {
+  // ⛔️ Solange Verfügbarkeiten noch laden → KEINE LISTE
+  if (loadingAvailability) {
+    return [];
+  }
+
   let base = matchedTeam;
 
-  // 🛂 ADMIN-WEITERLEITUNG → NUR AUSGEWÄHLTE THERAPEUT:INNEN
+  // 🛂 Admin-Filter (wie bisher)
   if (
     isAdminResume &&
     Array.isArray(form.admin_therapeuten) &&
@@ -487,7 +490,7 @@ const step8Members = useMemo(() => {
     });
   }
 
-  // 🚫 AUSGESCHLOSSENE THERAPEUT:INNEN ENTFERNEN
+  // 🚫 Excluded
   if (
     Array.isArray(form.excluded_therapeuten) &&
     form.excluded_therapeuten.length > 0
@@ -497,13 +500,14 @@ const step8Members = useMemo(() => {
     );
   }
 
-  // ⏱ nur Therapeut:innen mit freien Terminen
+  // ✅ NUR THERAPEUT:INNEN MIT VERFÜGBARKEIT
   return base
-  .filter((m) => m.id && availableTherapists.includes(m.id))
+    .filter((m) => m.id && availableTherapists.includes(m.id))
     .sort((a, b) => (b._score ?? 0) - (a._score ?? 0));
 }, [
   matchedTeam,
   availableTherapists,
+  loadingAvailability,
   form.admin_therapeuten,
   form.excluded_therapeuten,
   isAdminResume,
