@@ -758,7 +758,7 @@ useEffect(() => {
   return () => {
     isMounted = false;
   };
-}, []);
+}, [teamData]);
 // STEP 10 – ICS + Supabase (blocked_slots)
 // -------------------------------------
 useEffect(() => {
