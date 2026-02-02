@@ -1,68 +1,52 @@
-
-export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
-export async function GET(req) {
+export async function GET(request) {
   try {
-    const url = req.nextUrl.searchParams.get("url");
+    const { searchParams } = new URL(request.url);
+    const url = searchParams.get("url");
+
     if (!url) {
-      return Response.json({ error: "missing url" }, { status: 400 });
+      return new Response("Missing url", { status: 400 });
     }
 
-    let target;
-    try {
-      target = new URL(url);
-    } catch {
-      return Response.json({ error: "invalid url" }, { status: 400 });
+    const target = new URL(url);
+
+    // 🔒 Sicherheits-Check
+    if (
+      target.protocol !== "https:" ||
+      target.hostname !== "calendar.google.com"
+    ) {
+      return new Response("Forbidden", { status: 403 });
     }
 
-    // Sicherheits-Whitelist: nur Google Calendar ICS
-    if (target.protocol !== "https:") {
-      return Response.json({ error: "only https allowed" }, { status: 400 });
-    }
-    if (target.hostname !== "calendar.google.com") {
-      return Response.json({ error: "host not allowed" }, { status: 403 });
-    }
-
-    const upstream = await fetch(target.toString(), {
-      cache: "no-store",
+    const upstream = await fetch(target.href, {
       headers: {
-        "accept": "text/calendar,*/*",
-        // manche Upstreams reagieren ohne UA zickig
-        "user-agent": "Mozilla/5.0 (PoiseConnect ICS Proxy)",
+        "user-agent": "Mozilla/5.0",
+        accept: "text/calendar,*/*",
       },
+      cache: "no-store",
     });
 
-    const text = await upstream.text();
-
     if (!upstream.ok) {
-      return Response.json(
-        {
-          error: "upstream_failed",
-          upstream_status: upstream.status,
-          sample: text.slice(0, 300),
-        },
+      return new Response(
+        `Upstream failed: ${upstream.status}`,
         { status: 502 }
       );
     }
 
+    const text = await upstream.text();
+
     return new Response(text, {
-  status: 200,
-  headers: {
-    "content-type": "text/calendar; charset=utf-8",
-
-    // 🔑 CORS – DAS FEHLT DIR
-    "access-control-allow-origin": "*",
-    "access-control-allow-methods": "GET, OPTIONS",
-    "access-control-allow-headers": "Content-Type",
-
-    // optional
-    "cache-control": "no-store",
-  },
-});
-  } catch (e) {
-    return Response.json(
-      { error: "ics_proxy_failed", message: String(e?.message || e) },
+      status: 200,
+      headers: {
+        "content-type": "text/calendar; charset=utf-8",
+        "cache-control": "no-store",
+      },
+    });
+  } catch (err) {
+    return new Response(
+      "ICS proxy error: " + String(err),
       { status: 500 }
     );
   }
