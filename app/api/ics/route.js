@@ -1,7 +1,8 @@
+// app/api/ics/route.js
 import { NextResponse } from "next/server";
 
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-export const runtime = "nodejs"; // 🔥 DAS WAR DER FEHLER
 
 export async function GET(req) {
   try {
@@ -9,41 +10,64 @@ export async function GET(req) {
     const url = searchParams.get("url");
 
     if (!url) {
+      return NextResponse.json({ error: "missing_url" }, { status: 400 });
+    }
+
+    // Basic SSRF-Schutz: nur Google Calendar ICS erlauben
+    const u = new URL(url);
+    const host = u.hostname.toLowerCase();
+
+    const allowedHosts = new Set([
+      "calendar.google.com",
+      "www.google.com",
+    ]);
+
+    if (!allowedHosts.has(host)) {
       return NextResponse.json(
-        { error: "Missing ICS url" },
+        { error: "host_not_allowed", host },
         { status: 400 }
       );
     }
 
-    const res = await fetch(url, {
+    // Abrufen (mit brauchbaren Headers)
+    const upstream = await fetch(url, {
+      method: "GET",
+      redirect: "follow",
       headers: {
-        "User-Agent": "Mozilla/5.0",
+        Accept: "text/calendar,text/plain,*/*",
+        "User-Agent":
+          "Mozilla/5.0 (compatible; PoiseConnect/1.0; +https://poiseconnect.vercel.app)",
       },
-      cache: "no-store",
+      // next: { revalidate: 0 } // optional
     });
 
-    if (!res.ok) {
-      console.error("ICS FETCH FAILED:", res.status, url);
+    const text = await upstream.text();
+
+    if (!upstream.ok) {
+      // Wichtig: Fehler transparent zurückgeben (damit du ihn siehst)
       return NextResponse.json(
-        { error: "ICS fetch failed" },
-        { status: 500 }
+        {
+          error: "upstream_failed",
+          status: upstream.status,
+          statusText: upstream.statusText,
+          // kurz halten, damit Logs/Responses nicht explodieren
+          bodyPreview: text.slice(0, 300),
+        },
+        { status: 502 }
       );
     }
 
-    const text = await res.text();
-
-    console.log("✅ ICS LOADED:", text.length);
-
+    // ICS zurückgeben
     return new NextResponse(text, {
       status: 200,
       headers: {
         "Content-Type": "text/calendar; charset=utf-8",
+        "Cache-Control": "no-store",
       },
     });
   } catch (err) {
-    console.error("❌ ICS API ERROR:", err);
     return NextResponse.json(
-      { error: "ICS server error" },
+      { error: "ics_proxy_error", message: String(err?.message || err) },
       { status: 500 }
     );
   }
