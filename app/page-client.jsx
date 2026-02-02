@@ -697,7 +697,7 @@ useEffect(() => {
 // STEP 8 – Verfügbarkeit der Therapeut:innen laden
 // -------------------------------------
 // -------------------------------------
-/ AVAILABILITY – EINMAL BEIM PAGE LOAD
+// AVAILABILITY – EINMAL BEIM PAGE LOAD
 // -------------------------------------
 useEffect(() => {
   let isMounted = true;
