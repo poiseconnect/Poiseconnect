@@ -1,4 +1,3 @@
-// app/api/ics/route.js
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
