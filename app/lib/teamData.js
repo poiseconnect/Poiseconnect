@@ -973,16 +973,16 @@ scores: {
   id: "79db9444-4abd-49a3-ace1-e52fdaed8ad0",
   role: null,
   qualificationLevel: 0,
-  image: https://mypoise.de/wp-content/uploads/2026/02/Bildschirmfoto-2026-02-02-um-04.22.00.png,
+  image: "https://mypoise.de/wp-content/uploads/2026/02/Bildschirmfoto-2026-02-02-um-04.22.00.png,"
   video: null,
-  email: null,
+  email: "sebastian.kickinger@icloud.com",
   short: null,
   themes: {},
   keywords: [],
   preis_std: null,
   preis_ermaessigt: null,
   status: "inaktiv",
-  ics: https://calendar.google.com/calendar/embed?src=f388af50de7d7a07cc0e9418dcd34727ba22684ad8de3f73d032f32965c4c1d6%40group.calendar.google.com&ctz=Europe%2FVienna,
+  ics: "https://calendar.google.com/calendar/embed?src=f388af50de7d7a07cc0e9418dcd34727ba22684ad8de3f73d032f32965c4c1d6%40group.calendar.google.com&ctz=Europe%2FVienna,"
 scores: {
   partnerschaft_beziehung: 5,
   beruf_ziele_orientierung: 0,
