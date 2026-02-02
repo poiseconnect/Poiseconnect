@@ -205,7 +205,7 @@ const endLine = ev.split(/\r?\n/).find((l) => l.includes("DTEND"));
     let t = new Date(start);
     while (t < end) {
       const tEnd = new Date(t.getTime() + 60 * 60000);
-      if (tEnd > end || tEnd <= now) break;
+     if (tEnd > end) break;
 
       slots.push({ start: new Date(t) });
       t = new Date(t.getTime() + 60 * 60000);
