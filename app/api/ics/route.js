@@ -47,13 +47,19 @@ export async function GET(req) {
     }
 
     return new Response(text, {
-      status: 200,
-      headers: {
-        "content-type": "text/calendar; charset=utf-8",
-        // Vercel CDN caching (optional, aber gut)
-        "cache-control": "public, s-maxage=300, stale-while-revalidate=600",
-      },
-    });
+  status: 200,
+  headers: {
+    "content-type": "text/calendar; charset=utf-8",
+
+    // 🔑 CORS – DAS FEHLT DIR
+    "access-control-allow-origin": "*",
+    "access-control-allow-methods": "GET, OPTIONS",
+    "access-control-allow-headers": "Content-Type",
+
+    // optional
+    "cache-control": "no-store",
+  },
+});
   } catch (e) {
     return Response.json(
       { error: "ics_proxy_failed", message: String(e?.message || e) },
