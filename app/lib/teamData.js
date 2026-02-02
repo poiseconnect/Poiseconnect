@@ -2004,13 +2004,15 @@ scores: {
 },
 ];
   video: null,
+      role: therapist,
   email: "sebastian.kickinger@icloud.com",
+  image: "https://mypoise.de/wp-content/uploads/2026/02/Bildschirmfoto-2026-02-02-um-04.22.00.png",
   short: null,
   themes: {},
   keywords: [],
-  preis_std: null,
-  preis_ermaessigt: null,
-  status: "inaktiv",
+  preis_std: 180,
+  preis_ermaessigt: 120,
+  status: "frei",
   ics: "https://calendar.google.com/calendar/embed?src=f388af50de7d7a07cc0e9418dcd34727ba22684ad8de3f73d032f32965c4c1d6%40group.calendar.google.com&ctz=Europe%2FVienna,"
 scores: {
   partnerschaft_beziehung: 5,
