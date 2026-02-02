@@ -729,11 +729,10 @@ for (const therapist of teamData) {
 
 
 
-// -------------------------------------
 // STEP 10 – ICS + Supabase (blocked_slots)
 // -------------------------------------
 useEffect(() => {
-  if (step !== 10 || !form.wunschtherapeut) return;
+  if (step !== 10 || !assignedTherapistId) return;
 
   let isMounted = true;
 
@@ -743,7 +742,7 @@ useEffect(() => {
 
     try {
       const therapistObj = teamData.find(
-        (t) => t.name === form.wunschtherapeut
+        (t) => t.id === assignedTherapistId
       );
 
       if (!therapistObj?.ics) {
@@ -755,26 +754,23 @@ useEffect(() => {
       }
 
       const allSlots = await loadIcsSlots(therapistObj.ics);
+      let freeSlots = [...allSlots];
 
-      let freeSlots = [...allSlots]; // ✅ WICHTIG
+      const { data: blocked } = await supabase
+        .from("blocked_slots")
+        .select("start_at")
+        .eq("therapist_id", assignedTherapistId);
 
-      // 1️⃣ gebuchte Termine entfernen
-const { data: blocked } = await supabase
-  .from("blocked_slots")
-  .select("start_at")
-  .eq("therapist_name", form.wunschtherapeut);
+      if (blocked?.length) {
+        const blockedSet = new Set(
+          blocked.map((b) => new Date(b.start_at).toISOString())
+        );
 
-if (blocked?.length) {
-  const blockedSet = new Set(
-    blocked.map((b) => new Date(b.start_at).toISOString())
-  );
+        freeSlots = freeSlots.filter(
+          (s) => !blockedSet.has(s.start.toISOString())
+        );
+      }
 
-  freeSlots = allSlots.filter(
-    (s) => !blockedSet.has(s.start.toISOString())
-  );
-}
-
-      // 2️⃣ FIX 4 – alten Termin entfernen
       if (blockedOldTerminISO) {
         freeSlots = freeSlots.filter(
           (s) => s.start.toISOString() !== blockedOldTerminISO
@@ -796,7 +792,7 @@ if (blocked?.length) {
   return () => {
     isMounted = false;
   };
-}, [step, form.wunschtherapeut, blockedOldTerminISO]);
+}, [step, assignedTherapistId, blockedOldTerminISO]);]);
 
 
   // Slots nach Tagen gruppieren
