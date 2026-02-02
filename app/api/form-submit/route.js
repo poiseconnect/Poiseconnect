@@ -50,7 +50,14 @@ export async function POST(req) {
     if (!therapist) {
       return JSONResponse({ error: "THERAPIST_MISSING" }, 400);
     }
+const assignedTherapistId = body.assigned_therapist_id || null;
 
+if (!assignedTherapistId) {
+  return JSONResponse(
+    { error: "ASSIGNED_THERAPIST_ID_MISSING" },
+    400
+  );
+}
     // -----------------------------------------
     // 2️⃣ Termin
     // -----------------------------------------
@@ -81,33 +88,38 @@ export async function POST(req) {
     // -----------------------------------------
     // 3️⃣ DB PAYLOAD (🔥 HIER WAR DER FEHLER)
     // -----------------------------------------
-    const payload = {
-      vorname: body.vorname || null,
-      nachname: body.nachname || null,
-      email: body.email || null,
-      telefon: body.telefon || null,              // ✅ FIX
+const payload = {
+  vorname: body.vorname || null,
+  nachname: body.nachname || null,
+  email: body.email || null,
+  telefon: body.telefon || null,
 
-      strasse_hausnr: body.strasse_hausnr || null, // ✅ FIX
-      plz_ort: body.plz_ort || null,
+  strasse_hausnr: body.strasse_hausnr || null,
+  plz_ort: body.plz_ort || null,
 
-      geburtsdatum: body.geburtsdatum || null,
-      beschaeftigungsgrad: body.beschaeftigungsgrad || null,
+  geburtsdatum: body.geburtsdatum || null,
+  beschaeftigungsgrad: body.beschaeftigungsgrad || null,
 
-      leidensdruck: body.leidensdruck || null,
-      anliegen: anliegenText || null,              // ✅ FIX
-      verlauf: body.verlauf || null,
-      ziel: body.ziel || null,
+  leidensdruck: body.leidensdruck || null,
+  anliegen: anliegenText || null,
+  verlauf: body.verlauf || null,
+  ziel: body.ziel || null,
 
-      wunschtherapeut: therapist,
-      bevorzugte_zeit: terminISO,
+  // 👇 Anzeige
+  wunschtherapeut: therapist,
 
-      check_suizid: Boolean(body.check_gesundheit),
-      check_datenschutz: Boolean(body.check_datenschutz),
-      check_online_setting: Boolean(body.check_online_setting),
+  // 🔥 ENTSCHEIDEND FÜR DASHBOARD & RECHTE
+  assigned_therapist_id: assignedTherapistId,
 
-      status: "neu",
-      match_state: "pending",
-    };
+  bevorzugte_zeit: terminISO,
+
+  check_suizid: Boolean(body.check_gesundheit),
+  check_datenschutz: Boolean(body.check_datenschutz),
+  check_online_setting: Boolean(body.check_online_setting),
+
+  status: "neu",
+  match_state: "pending",
+};
 
     const { data: inserted, error } = await supabase
       .from("anfragen")
