@@ -160,21 +160,22 @@ const formatTime = (d) =>
 // ICS PARSER
 // ----------------------
 function parseICSDate(line) {
-const m = line.match(/DT(?:START|END)(?:;TZID=[^:]+)?:([0-9T]+)(Z?)/i);
-  if (!m) return null;
+  const match = line.match(/:(\d{8}T\d{6})Z?$/);
+  if (!match) return null;
 
-const raw = m[1];
-const isUTC = m[2] === "Z";
+  const raw = match[1];
 
-const date = new Date(
-  Number(raw.slice(0, 4)),
-  Number(raw.slice(4, 6)) - 1,
-  Number(raw.slice(6, 8)),
-  Number(raw.slice(9, 11)) || 0,
-  Number(raw.slice(11, 13)) || 0
-);
+  const iso =
+    raw.slice(0, 4) + "-" +
+    raw.slice(4, 6) + "-" +
+    raw.slice(6, 8) + "T" +
+    raw.slice(9, 11) + ":" +
+    raw.slice(11, 13) + ":" +
+    raw.slice(13, 15);
 
-return isUTC ? new Date(date.getTime() + date.getTimezoneOffset() * 60000) : date;
+  const d = new Date(iso);
+
+  return Number.isNaN(d.getTime()) ? null : d;
 }
 
 // ----------------------
