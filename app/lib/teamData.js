@@ -941,7 +941,7 @@ scores: {
   keywords: [],
   preis_std: null,
   preis_ermaessigt: null,
-  status: "inaktiv",
+  status: "frei",
   ics: "https://calendar.google.com/calendar/ical/db443a1af4e04dfa8a1a1dee40d50b7d273b761ca4cf1ed19615759fd9871c24%40group.calendar.google.com/public/basic.ics",
   scores: {
     partnerschaft_beziehung: 5,
