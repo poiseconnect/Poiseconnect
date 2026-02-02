@@ -1,3 +1,6 @@
+// ⬇️ DAS IST DER ENTSCHEIDENDE SCHALTER
+export const runtime = "nodejs";
+
 import { NextResponse } from "next/server";
 
 export async function GET(req) {
@@ -14,7 +17,7 @@ export async function GET(req) {
       headers: {
         "User-Agent":
           "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-        "Accept": "text/calendar,text/plain,*/*",
+        Accept: "text/calendar,text/plain,*/*",
       },
       redirect: "follow",
     });
