@@ -2006,7 +2006,7 @@ scores: {
   video: null,
       role: therapist,
   email: "sebastian.kickinger@icloud.com",
-  image: "https://mypoise.de/wp-content/uploads/2026/02/Bildschirmfoto-2026-02-02-um-04.22.00.png",
+image: "https://mypoise.de/wp-content/uploads/2026/02/Bildschirmfoto-2026-02-02-um-04.22.00.png",
   short: null,
   themes: {},
   keywords: [],
