@@ -183,6 +183,16 @@ function parseICSDate(line) {
 // ----------------------
 async function loadIcsSlots(icsUrl, daysAhead = null) {
   const res = await fetch(`/api/ics?url=${encodeURIComponent(icsUrl)}`);
+
+  // ✅ WICHTIG: bei Fehler wirklich abbrechen
+  if (!res.ok) {
+    let detail = "";
+    try {
+      detail = await res.text();
+    } catch {}
+    throw new Error(`ICS proxy failed (${res.status}): ${detail.slice(0, 200)}`);
+  }
+
   const text = await res.text();
 
   const now = new Date();
@@ -192,11 +202,12 @@ async function loadIcsSlots(icsUrl, daysAhead = null) {
 
   const events = text.split(/BEGIN:VEVENT/i).slice(1);
   console.log("ICS EVENTS COUNT", events.length);
+
   const slots = [];
 
   for (const ev of events) {
-const startLine = ev.split(/\r?\n/).find((l) => l.includes("DTSTART"));
-const endLine = ev.split(/\r?\n/).find((l) => l.includes("DTEND"));
+    const startLine = ev.split(/\r?\n/).find((l) => l.includes("DTSTART"));
+    const endLine = ev.split(/\r?\n/).find((l) => l.includes("DTEND"));
     if (!startLine || !endLine) continue;
 
     const start = parseICSDate(startLine);
@@ -207,21 +218,21 @@ const endLine = ev.split(/\r?\n/).find((l) => l.includes("DTEND"));
     let t = new Date(start);
     while (t < end) {
       const tEnd = new Date(t.getTime() + 60 * 60000);
-     if (tEnd > end) break;
+      if (tEnd > end) break;
 
       slots.push({ start: new Date(t) });
       t = new Date(t.getTime() + 60 * 60000);
     }
   }
-console.log(
-  "CHECK 3 – SLOTS:",
-  slots.length,
-  slots.slice(0, 3).map(s => s.start.toISOString())
-);
 
-return slots.sort((a, b) => a.start - b.start);
+  console.log(
+    "CHECK 3 – SLOTS:",
+    slots.length,
+    slots.slice(0, 3).map((s) => s.start.toISOString())
+  );
+
+  return slots.sort((a, b) => a.start - b.start);
 }
-
 
 // ----------------------
 // CHECK: Therapeut hat freie Slots?
