@@ -1,41 +1,64 @@
+// app/api/ics/route.js
+
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-import { NextResponse } from "next/server";
-
 export async function GET(req) {
   try {
-    const { searchParams } = new URL(req.url);
-    const icsUrl = searchParams.get("url");
-
-    if (!icsUrl) {
-      return new NextResponse("Missing url parameter", { status: 400 });
+    const url = req.nextUrl.searchParams.get("url");
+    if (!url) {
+      return Response.json({ error: "missing url" }, { status: 400 });
     }
 
-    const res = await fetch(icsUrl, {
-      headers: {
-        "User-Agent": "Mozilla/5.0",
-      },
+    let target;
+    try {
+      target = new URL(url);
+    } catch {
+      return Response.json({ error: "invalid url" }, { status: 400 });
+    }
+
+    // Sicherheits-Whitelist: nur Google Calendar ICS
+    if (target.protocol !== "https:") {
+      return Response.json({ error: "only https allowed" }, { status: 400 });
+    }
+    if (target.hostname !== "calendar.google.com") {
+      return Response.json({ error: "host not allowed" }, { status: 403 });
+    }
+
+    const upstream = await fetch(target.toString(), {
       cache: "no-store",
+      headers: {
+        "accept": "text/calendar,*/*",
+        // manche Upstreams reagieren ohne UA zickig
+        "user-agent": "Mozilla/5.0 (PoiseConnect ICS Proxy)",
+      },
     });
 
-    if (!res.ok) {
-      return new NextResponse(
-        `ICS fetch failed: ${res.status}`,
-        { status: 500 }
+    const text = await upstream.text();
+
+    if (!upstream.ok) {
+      return Response.json(
+        {
+          error: "upstream_failed",
+          upstream_status: upstream.status,
+          sample: text.slice(0, 300),
+        },
+        { status: 502 }
       );
     }
 
-    const text = await res.text();
-
-    return new NextResponse(text, {
+    return new Response(text, {
       status: 200,
       headers: {
-        "Content-Type": "text/calendar; charset=utf-8",
+        "content-type": "text/calendar; charset=utf-8",
+        // Vercel CDN caching (optional, aber gut)
+        "cache-control": "public, s-maxage=300, stale-while-revalidate=600",
       },
     });
-  } catch (err) {
-    console.error("ICS ERROR", err);
-    return new NextResponse("ICS proxy error", { status: 500 });
+  } catch (e) {
+    return Response.json(
+      { error: "ics_proxy_failed", message: String(e?.message || e) },
+      { status: 500 }
+    );
   }
 }
