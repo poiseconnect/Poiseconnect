@@ -1381,32 +1381,25 @@ if (!res.ok) {
       </>
     ) : (
       <>
-<h2>
-  {isAdminResume
-    ? "Diese Therapeut:innen wurden für dich ausgewählt"
-    : "Wer könnte gut zu dir passen?"}
-</h2>
-        {isAdminResume && (
-  <p style={{ opacity: 0.7, marginBottom: 24 }}>
-    Du kannst aus diesen ausgewählten Therapeut:innen frei wählen.
-  </p>
-)}
+        <h2>
+          {isAdminResume
+            ? "Diese Therapeut:innen wurden für dich ausgewählt"
+            : "Wer könnte gut zu dir passen?"}
+        </h2>
 
         <p style={{ marginBottom: 24 }}>
-          Vielleicht spricht dich sofort jemand an – oder wir orientieren uns
-          an deinem Thema. Die Reihenfolge zeigt, wie gut die jeweiligen
-          Schwerpunkte zu deinem Anliegen passen.
+          Es werden ausschließlich Therapeut:innen angezeigt,
+          die aktuell freie Termine haben.
         </p>
 
-<TeamCarousel
-  members={step8Members}
-  onSelect={(member) => {
-    // member = ganzes Objekt aus teamData
-    setAssignedTherapistId(member.id); // 🔑 DIE UUID
-    setForm({ ...form, wunschtherapeut: member.name }); // Anzeige
-    next();
-  }}
-/>
+        <TeamCarousel
+          members={step8Members}
+          onSelect={(member) => {
+            setAssignedTherapistId(member.id);
+            setForm({ ...form, wunschtherapeut: member.name });
+            next();
+          }}
+        />
 
         <div className="footer-buttons">
           <button onClick={back}>Zurück</button>
