@@ -496,13 +496,10 @@ const step8Members = useMemo(() => {
       (m) => !form.excluded_therapeuten.includes(m.name)
     );
   }
-if (availableTherapists.length === 0) {
-  console.warn("⚠️ Keine Verfügbarkeiten geladen – kein Filter");
-  return base;
-}
+
   // ⏱ nur Therapeut:innen mit freien Terminen
   return base
-    .filter((m) => availableTherapists.includes(m.id))
+  .filter((m) => m.id && availableTherapists.includes(m.id))
     .sort((a, b) => (b._score ?? 0) - (a._score ?? 0));
 }, [
   matchedTeam,
@@ -707,52 +704,32 @@ useEffect(() => {
     try {
       const result = [];
 
-      for (const therapist of teamData) {
-        // ✅ aktive nur
-        if (therapist.status && therapist.status !== "frei") {
-          console.warn(
-            "⛔ übersprungen (status):",
-            therapist.name,
-            therapist.status
-          );
-          continue;
-        }
+for (const therapist of teamData) {
+  // ✅ nur aktive
+  if (therapist.status && therapist.status !== "frei") {
+    console.warn("⛔ übersprungen (status):", therapist.name, therapist.status);
+    continue;
+  }
 
-        // ✅ MUSS: id + ics
-        if (!therapist.id || !therapist.ics) {
-          console.warn(
-            "⛔ übersprungen:",
-            therapist?.name,
-            therapist?.id,
-            therapist?.ics
-          );
-          continue;
-        }
+  // ✅ MUSS: id + ics
+  if (!therapist.id || !therapist.ics) {
+    console.warn("⛔ übersprungen (id/ics fehlt):", therapist.name, therapist.id, therapist.ics);
+    continue;
+  }
 
-        try {
-          const slots = await loadIcsSlots(therapist.ics, 21);
-          console.log(
-            "📅 Slots für",
-            therapist.name,
-            therapist.id,
-            "=",
-            slots.length
-          );
+  try {
+    const slots = await loadIcsSlots(therapist.ics, 21);
 
-          if (slots.length > 0) {
-            result.push(therapist.id);
-          }
-        } catch (err) {
-          console.error(
-            "❌ Availability failed for",
-            therapist.name,
-            therapist.id,
-            err
-          );
-          // ⬅️ WICHTIG: weiter mit dem nächsten Therapeuten
-          continue;
-        }
-      }
+    console.log("📅 Slots für", therapist.name, therapist.id, "=", slots.length);
+
+    if (slots.length > 0) {
+      result.push(therapist.id); // ✅ UUID merken
+    }
+  } catch (err) {
+    console.error("❌ Availability failed for", therapist.name, therapist.id, err);
+    // weiter
+  }
+}
 
       if (isMounted) {
         setAvailableTherapists(result);
