@@ -719,8 +719,8 @@ useEffect(() => {
     try {
       const result = [];
 
-for (const therapist of matchedTeam) {
-  // ✅ nur aktive
+for (const therapist of teamData) {  //
+  ✅ nur aktive
   if (therapist.status && therapist.status !== "frei") {
     console.warn("⛔ übersprungen (status):", therapist.name, therapist.status);
     continue;
