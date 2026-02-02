@@ -160,11 +160,11 @@ const formatTime = (d) =>
 // ICS PARSER
 // ----------------------
 function parseICSDate(line) {
+  if (!line) return null;
+
   // akzeptiert:
-  // DTSTART:20260305T100000Z
   // DTSTART:20260305T100000
   // DTSTART;TZID=Europe/Vienna:20260305T100000
-
   const match = line.match(/:(\d{8}T\d{6})/);
   if (!match) return null;
 
