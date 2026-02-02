@@ -199,7 +199,7 @@ const endLine = ev.split(/\r?\n/).find((l) => l.includes("DTEND"));
 
     const start = parseICSDate(startLine);
     const end = parseICSDate(endLine);
-    if (!start || !end || end <= now) continue;
+    if (!start || !end) continue;
     if (until && start > until) continue;
 
     let t = new Date(start);
