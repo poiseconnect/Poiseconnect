@@ -191,6 +191,7 @@ async function loadIcsSlots(icsUrl, daysAhead = null) {
     : null;
 
   const events = text.split(/BEGIN:VEVENT/i).slice(1);
+  console.log("ICS EVENTS COUNT", events.length);
   const slots = [];
 
   for (const ev of events) {
@@ -212,8 +213,13 @@ const endLine = ev.split(/\r?\n/).find((l) => l.includes("DTEND"));
       t = new Date(t.getTime() + 60 * 60000);
     }
   }
+console.log(
+  "CHECK 3 – SLOTS:",
+  slots.length,
+  slots.slice(0, 3).map(s => s.start.toISOString())
+);
 
-  return slots.sort((a, b) => a.start - b.start);
+return slots.sort((a, b) => a.start - b.start);
 }
 
 
