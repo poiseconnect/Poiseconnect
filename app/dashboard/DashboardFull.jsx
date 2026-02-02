@@ -973,11 +973,9 @@ if (access === "denied") {
 {filter === "abrechnung" && (
   <>
     <div style={{ marginBottom: 10 }}>
-      <h2 style={{ margin: 0 }}>
-        {isAdmin ? "Gesamtabrechnung (Admin)" : "Meine Abrechnung"}
-          ? "Gesamtabrechnung (Admin)"
-          : "Meine Abrechnung"}
-      </h2>
+<h2 style={{ margin: 0 }}>
+  {isAdmin ? "Gesamtabrechnung (Admin)" : "Meine Abrechnung"}
+</h2>
 
       <div style={{ fontSize: 12, color: "#666" }}>
 {isAdmin
