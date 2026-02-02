@@ -160,7 +160,12 @@ const formatTime = (d) =>
 // ICS PARSER
 // ----------------------
 function parseICSDate(line) {
-  const match = line.match(/:(\d{8}T\d{6})Z?$/);
+  // akzeptiert:
+  // DTSTART:20260305T100000Z
+  // DTSTART:20260305T100000
+  // DTSTART;TZID=Europe/Vienna:20260305T100000
+
+  const match = line.match(/:(\d{8}T\d{6})/);
   if (!match) return null;
 
   const raw = match[1];
@@ -174,7 +179,6 @@ function parseICSDate(line) {
     raw.slice(13, 15);
 
   const d = new Date(iso);
-
   return Number.isNaN(d.getTime()) ? null : d;
 }
 
