@@ -4,25 +4,25 @@ export const dynamic = "force-dynamic";
 
 export async function GET(req) {
   try {
-    const url = new URL(req.url);
-    const icsUrl = url.searchParams.get("url");
+    const { searchParams } = new URL(req.url);
+    const url = searchParams.get("url");
 
-    if (!icsUrl) {
-      return NextResponse.json({ error: "Missing URL" }, { status: 400 });
+    if (!url) {
+      return NextResponse.json(
+        { error: "Missing ICS url" },
+        { status: 400 }
+      );
     }
 
-    const res = await fetch(icsUrl, {
-      cache: "no-store",
+    const res = await fetch(url, {
       headers: {
-        // 🔥 DAS IST DER FIX
-        "User-Agent": "Mozilla/5.0 (PoiseConnect)",
-        "Accept": "text/calendar,text/plain,*/*",
+        // 🔑 WICHTIG für Google Calendar
+        "User-Agent": "Mozilla/5.0",
       },
+      cache: "no-store",
     });
 
     if (!res.ok) {
-      const txt = await res.text();
-      console.error("ICS FETCH FAILED:", res.status, txt);
       return NextResponse.json(
         { error: "ICS fetch failed", status: res.status },
         { status: 500 }
@@ -31,17 +31,19 @@ export async function GET(req) {
 
     const text = await res.text();
 
-    return new Response(text, {
+    // 🔍 Debug – du wirst DAS sehen
+    console.log("ICS LENGTH:", text.length);
+
+    return new NextResponse(text, {
       status: 200,
       headers: {
         "Content-Type": "text/calendar; charset=utf-8",
-        "Cache-Control": "no-store",
       },
     });
   } catch (err) {
     console.error("ICS API ERROR:", err);
     return NextResponse.json(
-      { error: "Internal Server Error", detail: String(err) },
+      { error: "ICS server error" },
       { status: 500 }
     );
   }
