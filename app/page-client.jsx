@@ -149,12 +149,14 @@ const formatDate = (d) =>
     month: "2-digit",
   });
 
+
 const formatTime = (d) =>
   d.toLocaleTimeString("de-AT", {
     hour: "2-digit",
     minute: "2-digit",
   });
-
+// ✅ Slot-Länge für Erstgespräch (30 Minuten)
+const SLOT_MINUTES = 30;
 // ----------------------
 // ----------------------
 // ICS PARSER
@@ -220,14 +222,23 @@ now.setSeconds(0, 0); // Rundung für sichere Vergleiche
 if (end.getTime() < now.getTime() - 5 * 60 * 1000) continue;
     if (until && start > until) continue;
 
-    let t = new Date(start);
-    while (t < end) {
-      const tEnd = new Date(t.getTime() + 60 * 60000);
-      if (tEnd > end || tEnd <= now) break;
+let t = new Date(start);
 
-      slots.push({ start: new Date(t) });
-      t = new Date(t.getTime() + 60 * 60000);
-    }
+while (t < end) {
+  const tEnd = new Date(t.getTime() + SLOT_MINUTES * 60000);
+
+  // Slot passt nicht mehr vollständig in das Event
+  if (tEnd > end) break;
+
+  // Slot liegt komplett in der Vergangenheit → überspringen
+  if (tEnd <= now) {
+    t = new Date(t.getTime() + SLOT_MINUTES * 60000);
+    continue;
+  }
+
+  slots.push({ start: new Date(t) });
+  t = new Date(t.getTime() + SLOT_MINUTES * 60000);
+}
   }
 
   return slots.sort((a, b) => a.start - b.start);
@@ -708,7 +719,7 @@ useEffect(() => {
     try {
       const result = [];
 
-for (const therapist of teamData) {
+for (const therapist of matchedTeam) {
   // ✅ nur aktive
   if (therapist.status && therapist.status !== "frei") {
     console.warn("⛔ übersprungen (status):", therapist.name, therapist.status);
@@ -716,7 +727,7 @@ for (const therapist of teamData) {
   }
 
   // ✅ MUSS: id + ics
-  if (!therapist.id || !therapist.ics) {
+ if (!therapist.id || !therapist.ics) {
     console.warn("⛔ übersprungen (id/ics fehlt):", therapist.name, therapist.id, therapist.ics);
     continue;
   }
@@ -750,7 +761,7 @@ for (const therapist of teamData) {
   return () => {
     isMounted = false;
   };
-}, []); // läuft genau 1x beim Laden
+}, [matchedTeam]);
 // STEP 10 – ICS + Supabase (blocked_slots)
 // -------------------------------------
 useEffect(() => {
