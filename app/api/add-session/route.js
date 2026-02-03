@@ -22,7 +22,8 @@ export async function POST(req) {
 
     const {
       anfrageId,
-      therapist,
+      therapist,        // Anzeigename (optional)
+      therapist_id,     // 🔥 UUID (ENTSCHEIDEND)
       date,
       duration,
       price,
@@ -30,7 +31,7 @@ export async function POST(req) {
 
     if (
       !anfrageId ||
-      !therapist ||
+      !therapist_id || // 🔥 FIX
       !date ||
       !duration ||
       price == null
@@ -65,12 +66,13 @@ export async function POST(req) {
     const commission = p * 0.3;
     const payout = p * 0.7;
 
-    // Sitzung speichern
+    // ✅ Sitzung speichern (UUID + Name)
     const { error } = await supabase
       .from("sessions")
       .insert({
         anfrage_id: anfrageId,
-        therapist,
+        therapist: therapist || null,   // legacy / Anzeige
+        therapist_id,                  // 🔥 FIX
         date: safeDate,
         duration_min: Number(duration),
         price: p,
