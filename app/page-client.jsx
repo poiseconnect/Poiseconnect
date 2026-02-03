@@ -1078,7 +1078,7 @@ if (!res.ok) {
       {/* STEP 2 – Verlauf */}
       {step === 2 && (
         <div className="step-container">
-          <h2>Wie lange leidest du schon?</h2>
+          <h2>Wie lange lbeschäftigt dich dein Anliegen schon?</h2>
           <textarea
             value={form.verlauf}
             onChange={(e) =>
