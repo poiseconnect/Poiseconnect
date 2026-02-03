@@ -2342,8 +2342,7 @@ const res = await fetch("/api/add-sessions-batch", {
   headers: { "Content-Type": "application/json" },
   body: JSON.stringify({
     anfrageId: detailsModal.id,
-therapist:
-  detailsModal?.wunschtherapeut ?? "system",
+    therapist_id: myTeamMemberId,
     sessions: valid.map((s) => ({
       date: s.date,
       duration: s.duration,
