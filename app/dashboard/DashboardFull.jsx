@@ -930,28 +930,6 @@ return (
   </button>
 
   <button
-    onClick={() => setFilter("admin_pruefen")}
-    style={{
-      background: filter === "admin_pruefen" ? "#6B5AED" : "#F1EFFF",
-      color: filter === "admin_pruefen" ? "#fff" : "#1E2A3A",
-      border: "1px solid #6B5AED",
-    }}
-  >
-    🛂 Admin – Weiterleitungen
-  </button>
-
-  <button
-    onClick={() => setFilter("abrechnung")}
-    style={{
-      background: filter === "abrechnung" ? "#D39E00" : "#FFF4D6",
-      color: filter === "abrechnung" ? "#fff" : "#1E2A3A",
-      border: "1px solid #D39E00",
-    }}
-  >
-    💶 Abrechnung
-  </button>
-
-  <button
     onClick={() => setFilter("aktiv")}
     style={{
       background: filter === "aktiv" ? "#1F8A5B" : "#E6F7F0",
@@ -963,14 +941,14 @@ return (
   </button>
 
   <button
-    onClick={() => setFilter("papierkorb")}
+    onClick={() => setFilter("admin_pruefen")}
     style={{
-      background: filter === "papierkorb" ? "#B83227" : "#FDEEEE",
-      color: filter === "papierkorb" ? "#fff" : "#1E2A3A",
-      border: "1px solid #B83227",
+      background: filter === "admin_pruefen" ? "#6B5AED" : "#F1EFFF",
+      color: filter === "admin_pruefen" ? "#fff" : "#1E2A3A",
+      border: "1px solid #6B5AED",
     }}
   >
-    Papierkorb
+    🛂 Admin – Weiterleitungen
   </button>
 
   <button
@@ -985,6 +963,28 @@ return (
   </button>
 
   <button
+    onClick={() => setFilter("papierkorb")}
+    style={{
+      background: filter === "papierkorb" ? "#B83227" : "#FDEEEE",
+      color: filter === "papierkorb" ? "#fff" : "#1E2A3A",
+      border: "1px solid #B83227",
+    }}
+  >
+    Papierkorb
+  </button>
+
+  <button
+    onClick={() => setFilter("abrechnung")}
+    style={{
+      background: filter === "abrechnung" ? "#D39E00" : "#FFF4D6",
+      color: filter === "abrechnung" ? "#fff" : "#1E2A3A",
+      border: "1px solid #D39E00",
+    }}
+  >
+    💶 Abrechnung
+  </button>
+
+  <button
     onClick={() => setFilter("alle")}
     style={{
       background: filter === "alle" ? "#2C3E50" : "#F4F6F8",
@@ -994,7 +994,6 @@ return (
   >
     Alle
   </button>
-
   {isAdmin && (
     <select
       value={therapistFilter}
