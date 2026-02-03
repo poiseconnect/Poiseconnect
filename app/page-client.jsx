@@ -188,10 +188,12 @@ function parseICSDate(line) {
 // ICS → Slots
 // ----------------------
 async function loadIcsSlots(icsUrl, daysAhead = null) {
-  const res = await fetch(
-    `/api/ics?url=${encodeURIComponent(icsUrl)}`,
-    { cache: "no-store" }
-  );
+const decodedUrl = decodeURIComponent(icsUrl);
+
+const res = await fetch(
+  `/api/ics?url=${encodeURIComponent(decodedUrl)}`,
+  { cache: "no-store" }
+);
 
   if (!res.ok) {
     throw new Error("ICS proxy failed (" + res.status + ")");
