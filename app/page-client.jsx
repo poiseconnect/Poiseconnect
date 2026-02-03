@@ -188,74 +188,84 @@ function parseICSDate(line) {
 // ICS → Slots
 // ----------------------
 async function loadIcsSlots(icsUrl, daysAhead = null) {
-const decodedUrl = decodeURIComponent(icsUrl);
+  const decodedUrl = decodeURIComponent(icsUrl);
 
-const res = await fetch(
-  `/api/ics?url=${encodeURIComponent(decodedUrl)}`,
-  { cache: "no-store" }
-);
+  const res = await fetch(
+    `/api/ics?url=${encodeURIComponent(decodedUrl)}`,
+    { cache: "no-store" }
+  );
 
   if (!res.ok) {
     throw new Error("ICS proxy failed (" + res.status + ")");
   }
 
   const text = await res.text();
-  console.log(
-  "🧪 ICS CLIENT CHECK",
-  icsUrl,
-  "length:",
-  text.length,
-  "has VEVENT:",
-  text.includes("BEGIN:VEVENT"),
-  "has TRANSPARENT:",
-  text.includes("TRANSP:TRANSPARENT")
-);
 
-const now = new Date();
-now.setSeconds(0, 0); // Rundung für sichere Vergleiche
-  
+  console.log(
+    "🧪 ICS CLIENT CHECK",
+    icsUrl,
+    "length:",
+    text.length,
+    "has VEVENT:",
+    text.includes("BEGIN:VEVENT"),
+    "has TRANSPARENT:",
+    text.includes("TRANSP:TRANSPARENT")
+  );
+
+  const now = new Date();
+  now.setSeconds(0, 0);
+
   const until = daysAhead
     ? new Date(now.getTime() + daysAhead * 86400000)
     : null;
 
   const events = text.split(/BEGIN:VEVENT/i).slice(1);
   const slots = [];
-const lines = ev.split(/\r?\n/);
 
-const startLine = lines.find((l) => l.startsWith("DTSTART"));
-const endLine = lines.find((l) => l.startsWith("DTEND"));
-const transpLine = lines.find((l) => l.startsWith("TRANSP"));
+  for (const ev of events) {
+    const lines = ev.split(/\r?\n/);
 
-if (!startLine || !endLine) continue;
+    const startLine = lines.find((l) => l.startsWith("DTSTART"));
+    const endLine = lines.find((l) => l.startsWith("DTEND"));
+    const transpLine = lines.find((l) => l.startsWith("TRANSP"));
 
-// ❗ TRANSPARENT = FREI
-const isTransparent = transpLine?.includes("TRANSPARENT");
+    if (!startLine || !endLine) {
+      continue;
+    }
 
     const start = parseICSDate(startLine);
     const end = parseICSDate(endLine);
-    if (!start || !end) continue;
 
-// ❗ Google ICS → lokale Zeit, NICHT hart filtern
-if (!isTransparent && end.getTime() < now.getTime() - 5 * 60 * 1000) continue;
-    if (until && start > until) continue;
+    if (!start || !end) {
+      continue;
+    }
 
-let t = new Date(start);
+    const isTransparent = transpLine?.includes("TRANSPARENT");
 
-while (t < end) {
-  const tEnd = new Date(t.getTime() + SLOT_MINUTES * 60000);
+    // Blockierende Termine in der Vergangenheit ignorieren
+    if (!isTransparent && end.getTime() < now.getTime() - 5 * 60 * 1000) {
+      continue;
+    }
 
-  // Slot passt nicht mehr vollständig in das Event
-  if (tEnd > end) break;
+    if (until && start > until) {
+      continue;
+    }
 
-  // Slot liegt komplett in der Vergangenheit → überspringen
-  if (tEnd <= now) {
-    t = new Date(t.getTime() + SLOT_MINUTES * 60000);
-    continue;
-  }
+    let t = new Date(start);
 
-  slots.push({ start: new Date(t) });
-  t = new Date(t.getTime() + SLOT_MINUTES * 60000);
-}
+    while (t < end) {
+      const tEnd = new Date(t.getTime() + SLOT_MINUTES * 60000);
+
+      if (tEnd > end) break;
+
+      if (tEnd <= now) {
+        t = new Date(t.getTime() + SLOT_MINUTES * 60000);
+        continue;
+      }
+
+      slots.push({ start: new Date(t) });
+      t = new Date(t.getTime() + SLOT_MINUTES * 60000);
+    }
   }
 
   return slots.sort((a, b) => a.start - b.start);
