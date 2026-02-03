@@ -3,9 +3,9 @@ export const dynamic = "force-dynamic";
 import { createClient } from "@supabase/supabase-js";
 import { Resend } from "resend";
 
-/* -----------------------------------------
-   🔧 Helpers
------------------------------------------ */
+// -----------------------------------------
+// 🔧 JSON Helper
+// -----------------------------------------
 function JSONResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
     status,
@@ -13,24 +13,24 @@ function JSONResponse(data, status = 200) {
   });
 }
 
-/* -----------------------------------------
-   🔧 Supabase (Service Role)
------------------------------------------ */
+// -----------------------------------------
+// 🔧 Supabase Client (Service Role)
+// -----------------------------------------
 function getSupabase() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
   if (!url || !key) {
-    console.error("❌ ENV fehlt");
+    console.error("❌ ENV fehlt", { url: !!url, key: !!key });
     return null;
   }
 
   return createClient(url, key);
 }
 
-/* -----------------------------------------
-   🚀 POST
------------------------------------------ */
+// -----------------------------------------
+// 🚀 POST: FORMULAR ABSENDEN
+// -----------------------------------------
 export async function POST(req) {
   try {
     const body = await req.json();
@@ -41,34 +41,37 @@ export async function POST(req) {
       return JSONResponse({ error: "SUPABASE_NOT_CONFIGURED" }, 500);
     }
 
-    /* -----------------------------------------
-       1️⃣ Therapeut
-    ----------------------------------------- */
-    const therapist =
+    // -----------------------------------------
+    // 1️⃣ Wunschtherapeut
+    // -----------------------------------------
+    const therapistName =
       body.wunschtherapeut ||
       body.therapist_from_url ||
       null;
 
-    const assignedTherapistId = body.assigned_therapist_id || null;
+    if (!therapistName) {
+      return JSONResponse({ error: "THERAPIST_MISSING" }, 400);
+    }
 
-    if (!therapist || !assignedTherapistId) {
+    const assignedTherapistId = body.assigned_therapist_id || null;
+    if (!assignedTherapistId) {
       return JSONResponse(
-        { error: "THERAPIST_MISSING" },
+        { error: "ASSIGNED_THERAPIST_ID_MISSING" },
         400
       );
     }
 
-    /* -----------------------------------------
-       2️⃣ Termin
-    ----------------------------------------- */
+    // -----------------------------------------
+    // 2️⃣ Termin
+    // -----------------------------------------
     const terminISO = body.terminISO || null;
     const startAt = terminISO ? new Date(terminISO) : null;
     const endAt =
-      startAt ? new Date(startAt.getTime() + 30 * 60000) : null;
+      startAt ? new Date(startAt.getTime() + 60 * 60000) : null;
 
-    /* -----------------------------------------
-       3️⃣ Anliegen Text
-    ----------------------------------------- */
+    // -----------------------------------------
+    // 🧠 ANLIEGEN: Checkboxen + Freitext
+    // -----------------------------------------
     let anliegenText = "";
 
     if (Array.isArray(body.themen) && body.themen.length > 0) {
@@ -78,16 +81,16 @@ export async function POST(req) {
       });
     }
 
-    if (body.anliegen?.trim()) {
+    if (body.anliegen && body.anliegen.trim()) {
       anliegenText +=
         (anliegenText ? "\n\n" : "") +
         "Freitext:\n" +
         body.anliegen.trim();
     }
 
-    /* -----------------------------------------
-       4️⃣ DB Payload
-    ----------------------------------------- */
+    // -----------------------------------------
+    // 3️⃣ DB PAYLOAD
+    // -----------------------------------------
     const payload = {
       vorname: body.vorname || null,
       nachname: body.nachname || null,
@@ -105,9 +108,8 @@ export async function POST(req) {
       verlauf: body.verlauf || null,
       ziel: body.ziel || null,
 
-      wunschtherapeut: therapist,
+      wunschtherapeut: therapistName,
       assigned_therapist_id: assignedTherapistId,
-
       bevorzugte_zeit: terminISO,
 
       check_suizid: Boolean(body.check_gesundheit),
@@ -126,12 +128,15 @@ export async function POST(req) {
 
     if (error) {
       console.error("❌ Insert Error:", error);
-      return JSONResponse({ error: "DB_INSERT_FAILED" }, 500);
+      return JSONResponse(
+        { error: "DB_INSERT_FAILED", detail: error.message },
+        500
+      );
     }
 
-    /* -----------------------------------------
-       5️⃣ SLOT BLOCKIEREN
-    ----------------------------------------- */
+    // -----------------------------------------
+    // 4️⃣ SLOT BLOCKIEREN
+    // -----------------------------------------
     if (startAt && endAt) {
       await supabase.from("blocked_slots").insert({
         anfrage_id: inserted.id,
@@ -142,32 +147,83 @@ export async function POST(req) {
       });
     }
 
-    /* -----------------------------------------
-       6️⃣ 📧 MAIL AN KLIENT:IN  (🔥 WAR WEG)
-    ----------------------------------------- */
+    // -----------------------------------------
+    // 📧 MAILS
+    // -----------------------------------------
+
+    const terminText = terminISO
+      ? new Date(terminISO).toLocaleString("de-AT")
+      : "noch offen";
+
+    // 📧 1) Klient:in
+    if (body.email) {
+      await resend.emails.send({
+        from: "Poise <noreply@mypoise.de>",
+        to: body.email,
+        subject: "Deine Anfrage bei Poise 🤍",
+        html: `
+          <p>Liebe:r ${body.vorname || ""},</p>
+
+          <p>vielen Dank für deine Anfrage bei <strong>Poise</strong>.</p>
+
+          <p>
+            Ausgewählte Therapeut:in:<br/>
+            <strong>${therapistName}</strong>
+          </p>
+
+          <p>
+            Erstgespräch:<br/>
+            <strong>${terminText}</strong>
+          </p>
+
+          <p>Wir melden uns zeitnah bei dir.</p>
+
+          <p>🤍<br/>Poise</p>
+        `,
+      });
+    }
+
+    // 📧 2) Therapeut:in
+    if (body.therapist_email) {
+      await resend.emails.send({
+        from: "Poise <noreply@mypoise.de>",
+        to: body.therapist_email,
+        subject: "Neue Anfrage bei Poise",
+        html: `
+          <p>Hallo,</p>
+
+          <p>es ist eine neue Anfrage eingegangen.</p>
+
+          <p>
+            Klient:in: <strong>${body.vorname} ${body.nachname}</strong><br/>
+            Termin: <strong>${terminText}</strong>
+          </p>
+
+          <p>
+            Bitte prüfe die Anfrage im Dashboard.
+          </p>
+
+          <p>– Poise</p>
+        `,
+      });
+    }
+
+    // 📧 3) Poise / Admin
     await resend.emails.send({
       from: "Poise <noreply@mypoise.de>",
-      to: body.email,
-      subject: "Deine Anfrage bei Poise 🤍",
+      to: "hallo@mypoise.de",
+      subject: "🆕 Neue Anfrage eingegangen",
       html: `
-        <p>Liebe:r ${body.vorname},</p>
-
-        <p>vielen Dank für deine Anfrage bei <strong>Poise</strong>.</p>
+        <p><strong>Neue Anfrage</strong></p>
 
         <p>
-          Du hast <strong>${therapist}</strong> ausgewählt.<br/>
-          Dein Erstgespräch findet am:
+          Klient:in: ${body.vorname} ${body.nachname}<br/>
+          E-Mail: ${body.email}<br/>
+          Therapeut:in: ${therapistName}<br/>
+          Termin: ${terminText}
         </p>
 
-        <p>
-          <strong>${new Date(terminISO).toLocaleString("de-AT")}</strong>
-        </p>
-
-        <p>
-          Wir melden uns bei dir, falls noch etwas offen ist.
-        </p>
-
-        <p>🤍<br/>Poise</p>
+        <p>Anfrage-ID: ${inserted.id}</p>
       `,
     });
 
