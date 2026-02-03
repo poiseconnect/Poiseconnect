@@ -239,30 +239,36 @@ async function loadIcsSlots(icsUrl, daysAhead = null) {
     continue;
   }
 
-  // ❗ Vergangene Termine rausfiltern
-  if (end.getTime() < now.getTime() - 5 * 60 * 1000) {
-    continue;
-  }
+  
 
   if (until && start > until) {
     continue;
   }
 
-  let t = new Date(start);
+// 🔑 Startzeit korrekt setzen
+let t = new Date(start);
 
-  while (t < end) {
-    const tEnd = new Date(t.getTime() + SLOT_MINUTES * 60000);
+// wenn der freie Block bereits läuft → auf "jetzt" vorrücken
+if (t < now) {
+  t = new Date(now);
+}
 
-    if (tEnd > end) break;
+// auf 30-Minuten-Raster runden
+t.setMinutes(Math.ceil(t.getMinutes() / SLOT_MINUTES) * SLOT_MINUTES, 0, 0);
 
-    if (tEnd <= now) {
-      t = new Date(t.getTime() + SLOT_MINUTES * 60000);
-      continue;
-    }
+while (true) {
+  const tEnd = new Date(t.getTime() + SLOT_MINUTES * 60000);
 
-    slots.push({ start: new Date(t) });
-    t = new Date(t.getTime() + SLOT_MINUTES * 60000);
-  }
+  // Slot passt nicht mehr vollständig in den freien Block
+  if (tEnd > end) break;
+
+  slots.push({
+    start: new Date(t),
+    end: new Date(tEnd),
+  });
+
+  t = tEnd;
+}
 }
 
   return slots.sort((a, b) => a.start - b.start);
