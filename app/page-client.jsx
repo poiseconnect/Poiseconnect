@@ -218,23 +218,22 @@ async function loadIcsSlots(icsUrl, daysAhead = null) {
     const endLine = lines.find((l) => l.startsWith("DTEND"));
 
     if (!startLine || !endLine) continue;
-
-    const start = parseICSDate(startLine);
+const start = parseICSDate(startLine);
 const end = parseICSDate(endLine);
 
-console.log("🧨 EVENT DEBUG", {
+if (!start || !end) {
+  continue;
+}
+
+if (start >= end) {
   console.warn("⛔ START >= END", {
-  rawStart: startLine,
-  rawEnd: endLine,
-  start,
-  end,
-  startTs: start?.getTime(),
-  endTs: end?.getTime(),
-  now: now.getTime(),
-});
-    if (!start || !end) continue;
-    if (end <= now) continue; // ✅ GENAU WIE ALT
-    if (until && start > until) continue;
+    rawStart: startLine,
+    rawEnd: endLine,
+    start,
+    end,
+  });
+  continue;
+}
 
     // 🔑 WICHTIG: Startpunkt nach vorne schieben
     let t = start < now ? new Date(now) : new Date(start);
