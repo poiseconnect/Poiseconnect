@@ -13,12 +13,15 @@ export async function GET(request) {
     const target = new URL(url);
 
     // 🔒 Sicherheits-Check
-    if (
-      target.protocol !== "https:" ||
-      target.hostname !== "calendar.google.com"
-    ) {
-      return new Response("Forbidden", { status: 403 });
-    }
+if (
+  target.protocol !== "https:" ||
+  !(
+    target.hostname === "calendar.google.com" ||
+    target.hostname.endsWith("googleusercontent.com")
+  )
+) {
+  return new Response("Forbidden", { status: 403 });
+}
 
     const upstream = await fetch(target.href, {
       headers: {
