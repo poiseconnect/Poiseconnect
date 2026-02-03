@@ -17,9 +17,19 @@ function json(data, status = 200) {
 export async function POST(req) {
   try {
     const body = await req.json();
-    const { anfrageId, therapist, sessions } = body || {};
+    const {
+      anfrageId,
+      therapist,        // 🔵 Name (für Anzeige, optional)
+      therapist_id,     // 🔥 UUID (ENTSCHEIDEND)
+      sessions,
+    } = body || {};
 
-    if (!anfrageId || !therapist || !Array.isArray(sessions)) {
+    // 🔒 harte Validierung
+    if (
+      !anfrageId ||
+      !therapist_id ||
+      !Array.isArray(sessions)
+    ) {
       return json({ error: "INVALID_INPUT" }, 400);
     }
 
@@ -27,7 +37,8 @@ export async function POST(req) {
       .filter((s) => s?.date)
       .map((s) => ({
         anfrage_id: anfrageId,
-        therapist,
+        therapist: therapist || null,     // optional / legacy
+        therapist_id,                     // 🔥 FIX
         date: new Date(s.date).toISOString(),
         duration_min: Number(s.duration) || 60,
         price: Number(s.price) || 0,
