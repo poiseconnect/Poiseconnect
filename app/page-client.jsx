@@ -201,17 +201,6 @@ async function loadIcsSlots(icsUrl, daysAhead = null) {
 
   const text = await res.text();
 
-  console.log(
-    "🧪 ICS CLIENT CHECK",
-    icsUrl,
-    "length:",
-    text.length,
-    "has VEVENT:",
-    text.includes("BEGIN:VEVENT"),
-    "has TRANSPARENT:",
-    text.includes("TRANSP:TRANSPARENT")
-  );
-
   const now = new Date();
   now.setSeconds(0, 0);
 
@@ -223,57 +212,35 @@ async function loadIcsSlots(icsUrl, daysAhead = null) {
   const slots = [];
 
   for (const ev of events) {
-  const lines = ev.split(/\r?\n/);
+    const lines = ev.split(/\r?\n/);
 
-  const startLine = lines.find((l) => l.startsWith("DTSTART"));
-  const endLine = lines.find((l) => l.startsWith("DTEND"));
+    const startLine = lines.find((l) => l.startsWith("DTSTART"));
+    const endLine = lines.find((l) => l.startsWith("DTEND"));
 
-  if (!startLine || !endLine) {
-    continue;
+    if (!startLine || !endLine) continue;
+
+    const start = parseICSDate(startLine);
+    const end = parseICSDate(endLine);
+
+    if (!start || !end) continue;
+    if (end <= now) continue; // ✅ GENAU WIE ALT
+    if (until && start > until) continue;
+
+    // 🔑 WICHTIG: Startpunkt nach vorne schieben
+    let t = start < now ? new Date(now) : new Date(start);
+
+    while (t < end) {
+      const tEnd = new Date(t.getTime() + SLOT_MINUTES * 60000);
+
+      if (tEnd > end) break;
+
+      slots.push({ start: new Date(t) });
+      t = new Date(t.getTime() + SLOT_MINUTES * 60000);
+    }
   }
-
-  const start = parseICSDate(startLine);
-  const end = parseICSDate(endLine);
-
-  if (!start || !end) {
-    continue;
-  }
-
-  
-
-  if (until && start > until) {
-    continue;
-  }
-
-// 🔑 Startzeit korrekt setzen
-let t = new Date(start);
-
-// wenn der freie Block bereits läuft → auf "jetzt" vorrücken
-if (t < now) {
-  t = new Date(now);
-}
-
-// auf 30-Minuten-Raster runden
-t.setMinutes(Math.ceil(t.getMinutes() / SLOT_MINUTES) * SLOT_MINUTES, 0, 0);
-
-while (true) {
-  const tEnd = new Date(t.getTime() + SLOT_MINUTES * 60000);
-
-  // Slot passt nicht mehr vollständig in den freien Block
-  if (tEnd > end) break;
-
-  slots.push({
-    start: new Date(t),
-    end: new Date(tEnd),
-  });
-
-  t = tEnd;
-}
-}
 
   return slots.sort((a, b) => a.start - b.start);
 }
-
 // ----------------------
 // CHECK: Therapeut hat freie Slots?
 // ----------------------
