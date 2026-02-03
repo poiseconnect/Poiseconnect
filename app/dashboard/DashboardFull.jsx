@@ -6,6 +6,38 @@ import { teamData } from "../lib/teamData";
 import jsPDF from "jspdf";
 import "jspdf-autotable";
 
+// ================= POISE DASHBOARD COLORS =================
+const POISE_COLORS = {
+  unbearbeitet: {
+    base: "#E6F0FF",
+    active: "#4C6EF5",
+  },
+  erstgespraech: {
+    base: "#E8FFF0",
+    active: "#2F9E44",
+  },
+  admin_pruefen: {
+    base: "#FFF4E6",
+    active: "#E8590C",
+  },
+  aktiv: {
+    base: "#F3F0FF",
+    active: "#7048E8",
+  },
+  abrechnung: {
+    base: "#F8F0FC",
+    active: "#9C36B5",
+  },
+  papierkorb: {
+    base: "#F1F3F5",
+    active: "#495057",
+  },
+  beendet: {
+    base: "#EDF2FF",
+    active: "#364FC7",
+  },
+};
+
 console.log("🔥 DashboardFull RENDERED");
 // ================= STATUS UPDATE (NEU, ZENTRAL) =================
 async function updateRequestStatus({
@@ -798,8 +830,19 @@ if (access === "denied") {
   );
 }
 
-  return (
-    <div style={{ padding: 24, maxWidth: 1100, margin: "0 auto" }}>
+return (
+  <div
+    style={{
+      padding: 24,
+      maxWidth: 1100,
+      margin: "0 auto",
+      minHeight: "100vh",
+      background:
+        role === "admin"
+          ? "linear-gradient(180deg,#F8F9FF 0%, #FFFFFF 60%)"
+          : "linear-gradient(180deg,#F7FFF9 0%, #FFFFFF 60%)",
+    }}
+  >
       {/* 🔥 HARD DEBUG – NIEMALS LÖSCHEN */}
 <div
   style={{
@@ -886,82 +929,153 @@ if (access === "denied") {
   🔒 Logout
 </button>
 
-      {/* FILTER */}
-      <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
-        <button onClick={() => setFilter("unbearbeitet")}>Unbearbeitet</button>
-        <button onClick={() => setFilter("erstgespraech")}>
-  🗓 Erstgespräch
-</button>
-        
-<button onClick={() => setFilter("admin_pruefen")}>
+{/* FILTER */}
+<div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
+  <button
+    onClick={() => setFilter("unbearbeitet")}
+    style={{
+      background: filter === "unbearbeitet" ? "#3F7DC0" : "#EAF2FB",
+      color: filter === "unbearbeitet" ? "#fff" : "#1E2A3A",
+      border: "1px solid #3F7DC0",
+    }}
+  >
+    Unbearbeitet
+  </button>
+
+  <button
+    onClick={() => setFilter("erstgespraech")}
+    style={{
+      background: filter === "erstgespraech" ? "#2E9E63" : "#E8FFF0",
+      color: filter === "erstgespraech" ? "#fff" : "#1E2A3A",
+      border: "1px solid #2E9E63",
+    }}
+  >
+    🗓 Erstgespräch
+  </button>
+
+  <button
+    onClick={() => setFilter("admin_pruefen")}
+    style={{
+      background: filter === "admin_pruefen" ? "#6B5AED" : "#F1EFFF",
+      color: filter === "admin_pruefen" ? "#fff" : "#1E2A3A",
+      border: "1px solid #6B5AED",
+    }}
+  >
     🛂 Admin – Weiterleitungen
   </button>
 
-
-        <button onClick={() => setFilter("abrechnung")}>💶 Abrechnung</button>
-
-        <button onClick={() => setFilter("aktiv")}>Aktiv</button>
-        <button onClick={() => setFilter("papierkorb")}>Papierkorb</button>
-        <button onClick={() => setFilter("beendet")}>Beendet</button>
-        <button onClick={() => setFilter("alle")}>Alle</button>
-
-{isAdmin && (
-  <select
-    value={therapistFilter}
-    onChange={(e) => setTherapistFilter(e.target.value)}
-  >
-    <option value="alle">Alle Teammitglieder</option>
-    {teamData.map((t) => (
-      <option key={t.email} value={t.name}>
-        {t.name}
-      </option>
-    ))}
-  </select>
-)}
-
-        <input
-          placeholder="🔍 Klient:in suchen…"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          style={{
-            padding: "6px 10px",
-            borderRadius: 8,
-            border: "1px solid #ccc",
-            minWidth: 220,
-          }}
-        />
-{filter !== "abrechnung" && sortedRequests.length === 0 && (
-  <div
+  <button
+    onClick={() => setFilter("abrechnung")}
     style={{
-      padding: 24,
-      textAlign: "center",
-      color: "#777",
-      border: "1px dashed #ccc",
-      borderRadius: 12,
-      marginBottom: 20,
+      background: filter === "abrechnung" ? "#D39E00" : "#FFF4D6",
+      color: filter === "abrechnung" ? "#fff" : "#1E2A3A",
+      border: "1px solid #D39E00",
     }}
   >
-    Keine Einträge für diesen Filter<br />
-    <small>Aktiver Filter: {filter}</small>
-  </div>
-)}
+    💶 Abrechnung
+  </button>
 
-        {filter !== "abrechnung" && (
-  <select
-    value={sort}
-    onChange={(e) => setSort(e.target.value)}
+  <button
+    onClick={() => setFilter("aktiv")}
+    style={{
+      background: filter === "aktiv" ? "#1F8A5B" : "#E6F7F0",
+      color: filter === "aktiv" ? "#fff" : "#1E2A3A",
+      border: "1px solid #1F8A5B",
+    }}
+  >
+    Aktiv
+  </button>
+
+  <button
+    onClick={() => setFilter("papierkorb")}
+    style={{
+      background: filter === "papierkorb" ? "#B83227" : "#FDEEEE",
+      color: filter === "papierkorb" ? "#fff" : "#1E2A3A",
+      border: "1px solid #B83227",
+    }}
+  >
+    Papierkorb
+  </button>
+
+  <button
+    onClick={() => setFilter("beendet")}
+    style={{
+      background: filter === "beendet" ? "#546E7A" : "#ECEFF1",
+      color: filter === "beendet" ? "#fff" : "#1E2A3A",
+      border: "1px solid #546E7A",
+    }}
+  >
+    Beendet
+  </button>
+
+  <button
+    onClick={() => setFilter("alle")}
+    style={{
+      background: filter === "alle" ? "#2C3E50" : "#F4F6F8",
+      color: filter === "alle" ? "#fff" : "#1E2A3A",
+      border: "1px solid #2C3E50",
+    }}
+  >
+    Alle
+  </button>
+
+  {isAdmin && (
+    <select
+      value={therapistFilter}
+      onChange={(e) => setTherapistFilter(e.target.value)}
+    >
+      <option value="alle">Alle Teammitglieder</option>
+      {teamData.map((t) => (
+        <option key={t.email} value={t.name}>
+          {t.name}
+        </option>
+      ))}
+    </select>
+  )}
+
+  <input
+    placeholder="🔍 Klient:in suchen…"
+    value={search}
+    onChange={(e) => setSearch(e.target.value)}
     style={{
       padding: "6px 10px",
       borderRadius: 8,
       border: "1px solid #ccc",
+      minWidth: 220,
     }}
-  >
-    <option value="last">Letzte Aktivität</option>
-    <option value="name">Name A–Z</option>
-  </select>
-)}
+  />
 
-      </div>
+  {filter !== "abrechnung" && sortedRequests.length === 0 && (
+    <div
+      style={{
+        padding: 24,
+        textAlign: "center",
+        color: "#777",
+        border: "1px dashed #ccc",
+        borderRadius: 12,
+        marginBottom: 20,
+      }}
+    >
+      Keine Einträge für diesen Filter<br />
+      <small>Aktiver Filter: {filter}</small>
+    </div>
+  )}
+
+  {filter !== "abrechnung" && (
+    <select
+      value={sort}
+      onChange={(e) => setSort(e.target.value)}
+      style={{
+        padding: "6px 10px",
+        borderRadius: 8,
+        border: "1px solid #ccc",
+      }}
+    >
+      <option value="last">Letzte Aktivität</option>
+      <option value="name">Name A–Z</option>
+    </select>
+  )}
+</div>
 
 {filter === "aktiv" && (
   <div style={{ marginBottom: 16 }}>
