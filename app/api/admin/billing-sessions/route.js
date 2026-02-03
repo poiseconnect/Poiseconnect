@@ -18,19 +18,24 @@ export async function GET() {
   try {
     const { data, error } = await supabase
       .from("sessions")
-      .select(`
-        id,
-        date,
-        duration_min,
-        price,
-        therapist,
-        anfrage_id,
-        anfragen (
-          vorname,
-          nachname,
-          status
-        )
-      `)
+.select(`
+  id,
+  date,
+  duration_min,
+  price,
+  therapist_id,
+  anfrage_id,
+  anfragen (
+    vorname,
+    nachname,
+    status
+  ),
+  team_members (
+    id,
+    name,
+    email
+  )
+`)
       .order("date", { ascending: false });
 
     if (error) {
