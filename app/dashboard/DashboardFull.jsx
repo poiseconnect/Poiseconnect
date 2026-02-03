@@ -334,6 +334,7 @@ export default function DashboardFull() {
 const [role, setRole] = useState(null); // "admin" | "therapist"
   const isAdmin = role === "admin";
 const [myUserId, setMyUserId] = useState(null);
+  const [myTeamMemberId, setMyTeamMemberId] = useState(null);
 const [access, setAccess] = useState("loading");
   const [sessionsByRequest, setSessionsByRequest] = useState({});
   const [billingSessions, setBillingSessions] = useState([]);
@@ -408,11 +409,15 @@ useEffect(() => {
     setUser(data.user);
     setMyUserId(data.user.id);
 
-    const { data: member, error } = await supabase
-      .from("team_members")
-      .select("role, active")
-      .eq("user_id", data.user.id)
-      .single();
+const { data: member, error } = await supabase
+  .from("team_members")
+  .select("id, role, active")
+  .eq("user_id", data.user.id)
+  .single();
+
+if (!error && member?.id) {
+  setMyTeamMemberId(member.id);
+}
 
     if (error || !member || member.active !== true) {
       console.warn("❌ Zugriff verweigert", error);
@@ -459,10 +464,12 @@ useEffect(() => {
   };
 }, [user, filter]);
 
+if (!user?.email) return;
+if (!role) return;
 
-useEffect(() => {
-  if (!user?.email) return;
-  if (!role) return; // wartet bis role geladen ist
+if (role === "therapist" && !myTeamMemberId) {
+  return; // ⛔ wartet bis team_members.id geladen ist
+}
 
   console.log("🚀 LOAD REQUESTS EFFECT START", { email: user.email, role });
 
@@ -495,8 +502,8 @@ useEffect(() => {
       .order("created_at", { ascending: false });
 
 // ✅ Therapeuten sehen NUR ihre eigenen Anfragen
-if (role === "therapist") {
-  query = query.eq("assigned_therapist_id", myUserId);
+if (role === "therapist" && myTeamMemberId) {
+  query = query.eq("assigned_therapist_id", myTeamMemberId);
 }
 
     const { data, error } = await query;
@@ -529,7 +536,7 @@ if (role === "therapist") {
       })
     );
   })();
-}, [user, role]);
+}, [user, role, myTeamMemberId]);
 
 /* ---------- LOAD SESSIONS (ADMIN API – STABIL) ---------- */
 useEffect(() => {
