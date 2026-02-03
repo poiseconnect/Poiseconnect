@@ -38,7 +38,6 @@ const POISE_COLORS = {
   },
 };
 
-console.log("🔥 DashboardFull RENDERED");
 // ================= STATUS UPDATE (NEU, ZENTRAL) =================
 async function updateRequestStatus({
   requestId,
@@ -843,30 +842,7 @@ return (
           : "linear-gradient(180deg,#F7FFF9 0%, #FFFFFF 60%)",
     }}
   >
-      {/* 🔥 HARD DEBUG – NIEMALS LÖSCHEN */}
-<div
-  style={{
-    background: "#000",
-    color: "#0f0",
-    padding: 12,
-    marginBottom: 16,
-    fontSize: 12,
-    borderRadius: 8,
-    fontFamily: "monospace",
-  }}
->
-  <div>DEBUG DASHBOARD</div>
-  <div>requests.length: {requests.length}</div>
-  <div>filter: {filter}</div>
-  <div>
-    statuses:
-    {requests.map((r) => r.status || "∅").join(" | ")}
-  </div>
-  <div>
-    normalized:
-    {requests.map((r) => r._status || "∅").join(" | ")}
-  </div>
-</div>
+     
 
       
       {/* ================= DEBUG OVERLAY (DEV ONLY) ================= */}
