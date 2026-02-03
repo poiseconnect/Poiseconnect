@@ -370,7 +370,7 @@ const [access, setAccess] = useState("loading");
   const [sessionsByRequest, setSessionsByRequest] = useState({});
   const [billingSessions, setBillingSessions] = useState([]);
   const [filter, setFilter] = useState("unbearbeitet");
-  const [therapistFilter, setTherapistFilter] = useState("alle");
+ 
   
 
   const [therapistFilter, setTherapistFilter] = useState("alle");
