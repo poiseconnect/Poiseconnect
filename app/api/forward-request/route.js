@@ -17,8 +17,8 @@ export async function POST(request) {
 
     console.log("FORWARD BODY:", body);
 
-const { requestId, client, vorname, excludedTherapist } = body || {};
-    
+    const { requestId, client, vorname, excludedTherapist } = body || {};
+
     if (!requestId || !client) {
       return new Response(
         JSON.stringify({ error: "missing_fields" }),
@@ -30,18 +30,19 @@ const { requestId, client, vorname, excludedTherapist } = body || {};
       process.env.NEXT_PUBLIC_SITE_URL ||
       "https://poiseconnect.vercel.app";
 
-    // 1) Anfrage zurücksetzen & weiterleiten
-const { error: updateError } = await supabase
-  .from("anfragen")
-  .update({
-    wunschtherapeut: null,
-    bevorzugte_zeit: null,
-    status: "papierkorb",
-    excluded_therapeuten: excludedTherapist
-      ? [excludedTherapist]
-      : [],
-  })
-  .eq("id", requestId);
+    // 1️⃣ Anfrage korrekt weiterleiten (NICHT Papierkorb!)
+    const { error: updateError } = await supabase
+      .from("anfragen")
+      .update({
+        status: "admin_weiterleiten",      // ✅ RICHTIG
+        wunschtherapeut: null,
+        bevorzugte_zeit: null,
+        assigned_therapist_id: null,       // ✅ WICHTIG
+        excluded_therapeuten: excludedTherapist
+          ? [excludedTherapist]
+          : [],
+      })
+      .eq("id", requestId);
 
     if (updateError) {
       console.error("FORWARD UPDATE ERROR:", updateError);
@@ -54,7 +55,7 @@ const { error: updateError } = await supabase
       );
     }
 
-    // 2) Mail an Klient
+    // 2️⃣ Mail an Klient:in
     const mailRes = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: {
@@ -68,7 +69,9 @@ const { error: updateError } = await supabase
         html: `
           <p>Hallo ${vorname || ""},</p>
 
-          <p>wir leiten deine Anfrage an eine passende Begleitung weiter.</p>
+          <p>
+            wir leiten deine Anfrage an eine passende Begleitung weiter.
+          </p>
 
           <p>
             <a href="${baseUrl}?resume=8&email=${encodeURIComponent(client)}"
