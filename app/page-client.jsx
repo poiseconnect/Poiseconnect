@@ -223,50 +223,47 @@ async function loadIcsSlots(icsUrl, daysAhead = null) {
   const slots = [];
 
   for (const ev of events) {
-    const lines = ev.split(/\r?\n/);
+  const lines = ev.split(/\r?\n/);
 
-    const startLine = lines.find((l) => l.startsWith("DTSTART"));
-    const endLine = lines.find((l) => l.startsWith("DTEND"));
-    const transpLine = lines.find((l) => l.startsWith("TRANSP"));
+  const startLine = lines.find((l) => l.startsWith("DTSTART"));
+  const endLine = lines.find((l) => l.startsWith("DTEND"));
 
-    if (!startLine || !endLine) {
-      continue;
-    }
-
-    const start = parseICSDate(startLine);
-    const end = parseICSDate(endLine);
-
-    if (!start || !end) {
-      continue;
-    }
-
-    const isTransparent = transpLine?.includes("TRANSPARENT");
-
-    // Blockierende Termine in der Vergangenheit ignorieren
-    if (!isTransparent && end.getTime() < now.getTime() - 5 * 60 * 1000) {
-      continue;
-    }
-
-    if (until && start > until) {
-      continue;
-    }
-
-    let t = new Date(start);
-
-    while (t < end) {
-      const tEnd = new Date(t.getTime() + SLOT_MINUTES * 60000);
-
-      if (tEnd > end) break;
-
-      if (tEnd <= now) {
-        t = new Date(t.getTime() + SLOT_MINUTES * 60000);
-        continue;
-      }
-
-      slots.push({ start: new Date(t) });
-      t = new Date(t.getTime() + SLOT_MINUTES * 60000);
-    }
+  if (!startLine || !endLine) {
+    continue;
   }
+
+  const start = parseICSDate(startLine);
+  const end = parseICSDate(endLine);
+
+  if (!start || !end) {
+    continue;
+  }
+
+  // ❗ Vergangene Termine rausfiltern
+  if (end.getTime() < now.getTime() - 5 * 60 * 1000) {
+    continue;
+  }
+
+  if (until && start > until) {
+    continue;
+  }
+
+  let t = new Date(start);
+
+  while (t < end) {
+    const tEnd = new Date(t.getTime() + SLOT_MINUTES * 60000);
+
+    if (tEnd > end) break;
+
+    if (tEnd <= now) {
+      t = new Date(t.getTime() + SLOT_MINUTES * 60000);
+      continue;
+    }
+
+    slots.push({ start: new Date(t) });
+    t = new Date(t.getTime() + SLOT_MINUTES * 60000);
+  }
+}
 
   return slots.sort((a, b) => a.start - b.start);
 }
