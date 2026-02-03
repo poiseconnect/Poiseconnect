@@ -23,23 +23,36 @@ export async function GET(req) {
       }
     );
 
+    // 1️⃣ Auth User
     const {
       data: { user },
       error: authError,
     } = await supabase.auth.getUser();
 
-    if (authError || !user?.email) {
+    if (authError || !user?.id) {
       return json({ error: "UNAUTHORIZED" }, 401);
     }
 
-    const { data, error } = await supabase
+    // 2️⃣ Team-Mitglied über user_id holen
+    const { data: member, error: memberError } = await supabase
+      .from("team_members")
+      .select("id, role")
+      .eq("user_id", user.id)
+      .single();
+
+    if (memberError || !member?.id) {
+      return json({ error: "NO_TEAM_MEMBER" }, 403);
+    }
+
+    // 3️⃣ Sessions laden
+    let query = supabase
       .from("sessions")
       .select(`
         id,
         date,
         duration_min,
         price,
-        therapist,
+        therapist_id,
         anfrage_id,
         anfragen (
           vorname,
@@ -47,17 +60,23 @@ export async function GET(req) {
           status
         )
       `)
-      .eq("therapist", user.email)
       .order("date", { ascending: false });
 
+    // ✅ NUR Therapeut:innen filtern
+    if (member.role === "therapist") {
+      query = query.eq("therapist_id", member.id);
+    }
+
+    const { data, error } = await query;
+
     if (error) {
-      console.error("THERAPIST BILLING ERROR:", error);
+      console.error("BILLING QUERY ERROR:", error);
       return json({ error: error.message }, 500);
     }
 
     return json({ data });
   } catch (err) {
-    console.error("THERAPIST BILLING SERVER ERROR:", err);
+    console.error("BILLING SERVER ERROR:", err);
     return json({ error: "SERVER_ERROR" }, 500);
   }
 }
