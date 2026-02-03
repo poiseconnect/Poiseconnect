@@ -464,14 +464,19 @@ if (!error && member?.id) {
   };
 }, [user, filter]);
 
-if (!user?.email) return;
-if (!role) return;
+useEffect(() => {
+  if (!user?.email) return;
+  if (!role) return;
 
-if (role === "therapist" && !myTeamMemberId) {
-  return; // ⛔ wartet bis team_members.id geladen ist
-}
+  if (role === "therapist" && !myTeamMemberId) {
+    return; // ⛔ warten bis team_members.id da ist
+  }
 
-  console.log("🚀 LOAD REQUESTS EFFECT START", { email: user.email, role });
+  console.log("🚀 LOAD REQUESTS EFFECT START", {
+    email: user.email,
+    role,
+    myTeamMemberId,
+  });
 
   (async () => {
     let query = supabase
@@ -501,10 +506,10 @@ if (role === "therapist" && !myTeamMemberId) {
       `)
       .order("created_at", { ascending: false });
 
-// ✅ Therapeuten sehen NUR ihre eigenen Anfragen
-if (role === "therapist" && myTeamMemberId) {
-  query = query.eq("assigned_therapist_id", myTeamMemberId);
-}
+    // ✅ Therapeuten sehen NUR ihre eigenen Anfragen
+    if (role === "therapist") {
+      query = query.eq("assigned_therapist_id", myTeamMemberId);
+    }
 
     const { data, error } = await query;
 
@@ -537,7 +542,6 @@ if (role === "therapist" && myTeamMemberId) {
     );
   })();
 }, [user, role, myTeamMemberId]);
-
 /* ---------- LOAD SESSIONS (ADMIN API – STABIL) ---------- */
 useEffect(() => {
   let mounted = true;
