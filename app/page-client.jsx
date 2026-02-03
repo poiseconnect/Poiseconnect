@@ -200,6 +200,16 @@ const res = await fetch(
   }
 
   const text = await res.text();
+  console.log(
+  "🧪 ICS CLIENT CHECK",
+  icsUrl,
+  "length:",
+  text.length,
+  "has VEVENT:",
+  text.includes("BEGIN:VEVENT"),
+  "has TRANSPARENT:",
+  text.includes("TRANSP:TRANSPARENT")
+);
 
 const now = new Date();
 now.setSeconds(0, 0); // Rundung für sichere Vergleiche
@@ -226,7 +236,7 @@ const isTransparent = transpLine?.includes("TRANSPARENT");
     if (!start || !end) continue;
 
 // ❗ Google ICS → lokale Zeit, NICHT hart filtern
-if (end.getTime() < now.getTime() - 5 * 60 * 1000) continue;
+if (!isTransparent && end.getTime() < now.getTime() - 5 * 60 * 1000) continue;
     if (until && start > until) continue;
 
 let t = new Date(start);
