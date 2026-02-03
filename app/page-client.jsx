@@ -1079,7 +1079,7 @@ color: "#000", // ✅ FIX: Text IMMER schwarz
       {/* STEP 2 – Verlauf */}
       {step === 2 && (
         <div className="step-container">
-          <h2>Wie lange lbeschäftigt dich dein Anliegen schon?</h2>
+          <h2>Wie lange beschäftigt dich dein Anliegen schon?</h2>
           <textarea
             value={form.verlauf}
             onChange={(e) =>
