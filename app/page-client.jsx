@@ -452,6 +452,7 @@ const matchedTeam = useMemo(() => {
 
       form.themen.forEach((t) => {
         score += m.scores?.[t] ?? 0;
+
         const ausbildung = ROLE_TO_AUSBILDUNG(m.role);
         score += AUSBILDUNGS_BONUS?.[ausbildung]?.[t] ?? 0;
       });
@@ -460,8 +461,7 @@ const matchedTeam = useMemo(() => {
       score += q * 0.5;
 
       return {
-        ...m,
-        id: m.id ?? m.slug ?? m.name,
+        ...m,          // ⬅️ ORIGINAL-ID BLEIBT UNVERÄNDERT
         _score: score,
       };
     })
@@ -512,9 +512,24 @@ const step8Members = useMemo(() => {
   }
 
   // ✅ NUR THERAPEUT:INNEN MIT VERFÜGBARKEIT
-  return base
-    .filter((m) => m.id && availableTherapists.includes(m.id))
-    .sort((a, b) => (b._score ?? 0) - (a._score ?? 0));
+const filtered = base.filter((m) => {
+  const ok = m.id && availableTherapists.includes(m.id);
+
+  console.log("🧪 STEP 8 CHECK:", {
+    name: m.name,
+    id: m.id,
+    inAvailable: availableTherapists.includes(m.id),
+  });
+
+  return ok;
+});
+
+console.log(
+  "🧪 STEP 8 FINAL MEMBERS:",
+  filtered.map((m) => m.name)
+);
+
+return filtered.sort((a, b) => (b._score ?? 0) - (a._score ?? 0));
 }, [
   matchedTeam,
   availableTherapists,
@@ -746,10 +761,16 @@ for (const therapist of teamData) {
   }
 }
 
-      if (isMounted) {
-        setAvailableTherapists(result);
-        console.log("✅ availableTherapists IDs:", result);
-      }
+if (isMounted) {
+  console.log("🧪 AVAILABILITY RESULT (raw):", result);
+
+  setAvailableTherapists(result);
+
+  console.log(
+    "🧪 AVAILABLE IDS SET:",
+    new Set(result)
+  );
+}
     } catch (e) {
       console.error("Availability error", e);
     } finally {
