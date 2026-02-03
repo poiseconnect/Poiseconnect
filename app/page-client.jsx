@@ -220,8 +220,17 @@ async function loadIcsSlots(icsUrl, daysAhead = null) {
     if (!startLine || !endLine) continue;
 
     const start = parseICSDate(startLine);
-    const end = parseICSDate(endLine);
+const end = parseICSDate(endLine);
 
+console.log("🧨 EVENT DEBUG", {
+  rawStart: startLine,
+  rawEnd: endLine,
+  start,
+  end,
+  startTs: start?.getTime(),
+  endTs: end?.getTime(),
+  now: now.getTime(),
+});
     if (!start || !end) continue;
     if (end <= now) continue; // ✅ GENAU WIE ALT
     if (until && start > until) continue;
