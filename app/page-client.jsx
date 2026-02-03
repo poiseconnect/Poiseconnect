@@ -223,6 +223,7 @@ async function loadIcsSlots(icsUrl, daysAhead = null) {
 const end = parseICSDate(endLine);
 
 console.log("🧨 EVENT DEBUG", {
+  console.warn("⛔ START >= END", {
   rawStart: startLine,
   rawEnd: endLine,
   start,
