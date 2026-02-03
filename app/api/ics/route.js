@@ -38,15 +38,24 @@ if (
       );
     }
 
-    const text = await upstream.text();
+const text = await upstream.text();
 
-    return new Response(text, {
-      status: 200,
-      headers: {
-        "content-type": "text/calendar; charset=utf-8",
-        "cache-control": "no-store",
-      },
-    });
+console.log(
+  "✅ ICS FETCH OK",
+  target.href,
+  "LENGTH:",
+  text.length,
+  "HAS VEVENT:",
+  text.includes("BEGIN:VEVENT")
+);
+
+return new Response(text, {
+  status: 200,
+  headers: {
+    "content-type": "text/calendar; charset=utf-8",
+    "cache-control": "no-store",
+  },
+});
   } catch (err) {
     return new Response(
       "ICS proxy error: " + String(err),
