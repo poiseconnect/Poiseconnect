@@ -370,6 +370,7 @@ const [access, setAccess] = useState("loading");
   const [sessionsByRequest, setSessionsByRequest] = useState({});
   const [billingSessions, setBillingSessions] = useState([]);
   const [filter, setFilter] = useState("unbearbeitet");
+  const [therapistFilter, setTherapistFilter] = useState("alle");
   
 
   const [therapistFilter, setTherapistFilter] = useState("alle");
@@ -718,10 +719,12 @@ const filteredBillingSessions = useMemo(() => {
     if (!s?.date) return false;
 
     // 👤 Therapeut:innen-Filter (NUR HIER!)
-    if (therapistFilter !== "alle" && s.therapist !== therapistFilter) {
-      return false;
-    }
-
+ if (
+  therapistFilter !== "alle" &&
+  s.therapist_id !== therapistFilter
+) {
+  return false;
+}
     const d = new Date(s.date);
 
     if (billingMode === "jahr") {
@@ -1001,9 +1004,9 @@ return (
     >
       <option value="alle">Alle Teammitglieder</option>
       {teamData.map((t) => (
-        <option key={t.email} value={t.name}>
-          {t.name}
-        </option>
+<option key={t.id} value={t.id}>
+  {t.name}
+</option>
       ))}
     </select>
   )}
