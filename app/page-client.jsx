@@ -1012,7 +1012,8 @@ if (!res.ok) {
               border: active
                 ? "2px solid #A27C77"
                 : "1px solid #ddd",
-              background: active ? "#F3E9E7" : "#fff",
+             background: active ? "#F3E9E7" : "#fff",
+color: "#000", // ✅ FIX: Text IMMER schwarz
             }}
           >
             <strong>{t.label}</strong>
