@@ -210,11 +210,16 @@ now.setSeconds(0, 0); // Rundung für sichere Vergleiche
 
   const events = text.split(/BEGIN:VEVENT/i).slice(1);
   const slots = [];
+const lines = ev.split(/\r?\n/);
 
-  for (const ev of events) {
-    const startLine = ev.split(/\r?\n/).find((l) => l.startsWith("DTSTART"));
-    const endLine = ev.split(/\r?\n/).find((l) => l.startsWith("DTEND"));
-    if (!startLine || !endLine) continue;
+const startLine = lines.find((l) => l.startsWith("DTSTART"));
+const endLine = lines.find((l) => l.startsWith("DTEND"));
+const transpLine = lines.find((l) => l.startsWith("TRANSP"));
+
+if (!startLine || !endLine) continue;
+
+// ❗ TRANSPARENT = FREI
+const isTransparent = transpLine?.includes("TRANSPARENT");
 
     const start = parseICSDate(startLine);
     const end = parseICSDate(endLine);
