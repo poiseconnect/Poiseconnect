@@ -140,6 +140,12 @@ erstgespraech: ["termin_bestaetigt"],
 
 const UNBEARBEITET = ["neu", "termin_neu"];
 
+// ================= CALENDAR MODE HELPER =================
+function getCalendarModeByTherapistId(id) {
+  const t = teamData.find((x) => x.id === id);
+  return t?.calendar_mode || "ics"; // fallback = alter flow
+}
+
 
 /* ================= MODAL ================= */
 
@@ -1446,6 +1452,12 @@ return (
 {filter !== "abrechnung" &&
   therapistFilteredRequests.map((r) => {
           const sessionList = sessionsByRequest[String(r.id)] || [];
+    const therapistId =
+  r.assigned_therapist_id ||
+  sessionList?.[0]?.therapist_id;
+
+const calendarMode =
+  getCalendarModeByTherapistId(therapistId);
           const lastSessionDate = sessionList.length
             ? sessionList[sessionList.length - 1]?.date
             : null;
@@ -1607,32 +1619,34 @@ return (
       flexWrap: "wrap",
     }}
   >
-    {/* ✅ TERMIN BESTÄTIGEN */}
-    <div style={{ maxWidth: 240 }}>
-<button
-  onClick={async () => {
-    await updateRequestStatus({
-  requestId: r.id,
-  status: "termin_bestaetigt",
-  client: r.email,
-  vorname: r.vorname,
-});
+{/* ✅ TERMIN BESTÄTIGEN (nur ICS) */}
+{calendarMode === "ics" && (
+  <div style={{ maxWidth: 240 }}>
+    <button
+      onClick={async () => {
+        await updateRequestStatus({
+          requestId: r.id,
+          status: "termin_bestaetigt",
+          client: r.email,
+          vorname: r.vorname,
+        });
 
-setRequests((prev) =>
-  prev.map((x) =>
-    x.id === r.id
-      ? { ...x, _status: "termin_bestaetigt" }
-      : x
-  )
-);
-  }}
->
-  ✅ Termin bestätigen
-</button>
-      <div style={{ fontSize: 12, opacity: 0.7, marginTop: 4 }}>
-        Anliegen passt zu mir – ich führe das Erstgespräch
-      </div>
+        setRequests((prev) =>
+          prev.map((x) =>
+            x.id === r.id
+              ? { ...x, _status: "termin_bestaetigt" }
+              : x
+          )
+        );
+      }}
+    >
+      ✅ Termin bestätigen
+    </button>
+    <div style={{ fontSize: 12, opacity: 0.7, marginTop: 4 }}>
+      Anliegen passt zu mir – ich führe das Erstgespräch
     </div>
+  </div>
+)}
 
     {/* ❌ KEIN MATCH POISE */}
     <div style={{ maxWidth: 240 }}>
@@ -1659,7 +1673,7 @@ setRequests((prev) =>
       </div>
     </div>
 
-{/* 🔁 NEUER TERMIN */}
+{/* 🔁 TERMIN / VORSCHLAG */}
 <div style={{ maxWidth: 240 }}>
   <button
     onClick={async () => {
@@ -1668,11 +1682,16 @@ setRequests((prev) =>
         sessionsByRequest[String(r.id)]?.[0]?.therapist;
 
       if (!therapistName) {
-        alert("❌ Keine Therapeut:in für diese Anfrage gefunden");
+        alert("❌ Keine Therapeut:in gefunden");
         return;
       }
 
-      const res = await fetch("/api/new-appointment", {
+      const endpoint =
+        calendarMode === "ics"
+          ? "/api/new-appointment"
+          : "/api/send-proposals";
+
+      const res = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -1680,25 +1699,30 @@ setRequests((prev) =>
           client: r.email,
           vorname: r.vorname,
           therapistName,
-          oldSlot: r.bevorzugte_zeit,
         }),
       });
 
       if (!res.ok) {
-        const t = await res.text();
-        console.error("NEW APPOINTMENT FAILED:", t);
-        alert("Fehler beim Senden der E-Mail");
+        alert("Fehler beim Senden");
         return;
       }
 
-      alert("📧 Mail für neue Terminauswahl gesendet");
+      alert(
+        calendarMode === "ics"
+          ? "📧 Mail zur Terminauswahl gesendet"
+          : "📧 Terminvorschläge angefragt"
+      );
     }}
   >
-    🔁 Neuer Termin
+    {calendarMode === "ics"
+      ? "🔁 Neuer Termin"
+      : "📩 Terminvorschläge senden"}
   </button>
 
   <div style={{ fontSize: 12, opacity: 0.7, marginTop: 4 }}>
-    Termin passt nicht – Klient:in wählt neu
+    {calendarMode === "ics"
+      ? "Termin passt nicht – Klient:in wählt neu"
+      : "Therapeut schlägt Zeiten vor"}
   </div>
 </div>
 
