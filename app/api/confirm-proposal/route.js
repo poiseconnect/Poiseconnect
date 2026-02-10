@@ -22,7 +22,9 @@ export async function POST(req) {
       return json({ error: "missing_data" }, 400);
     }
 
+    // ------------------------------------------------
     // Proposal holen
+    // ------------------------------------------------
     const { data: proposal, error: pError } = await supabase
       .from("proposals")
       .select("*")
@@ -36,13 +38,15 @@ export async function POST(req) {
     const start = new Date(proposal.date);
     const end = new Date(start.getTime() + 60 * 60000);
 
+    // ------------------------------------------------
     // Anfrage updaten
+    // ------------------------------------------------
     const { error: updateError } = await supabase
       .from("anfragen")
       .update({
         bevorzugte_zeit: proposal.date,
         assigned_therapist_id: proposal.therapist_id,
-        status: "erstgespraech",
+        status: "termin_bestaetigt", // 🔥 wichtig fürs Dashboard
       })
       .eq("id", requestId);
 
@@ -50,7 +54,9 @@ export async function POST(req) {
       return json({ error: updateError.message }, 500);
     }
 
+    // ------------------------------------------------
     // Slot blockieren
+    // ------------------------------------------------
     await supabase.from("blocked_slots").insert({
       anfrage_id: requestId,
       therapist_id: proposal.therapist_id,
@@ -59,11 +65,22 @@ export async function POST(req) {
       reason: "proposal_confirmed",
     });
 
-    // Alle anderen schließen
+    // ------------------------------------------------
+    // ALLE anderen Vorschläge schließen
+    // ------------------------------------------------
     await supabase
       .from("proposals")
       .update({ status: "closed" })
-      .eq("anfrage_id", requestId);
+      .eq("anfrage_id", requestId)
+      .neq("id", proposalId);
+
+    // ------------------------------------------------
+    // Gewählten markieren
+    // ------------------------------------------------
+    await supabase
+      .from("proposals")
+      .update({ status: "confirmed" })
+      .eq("id", proposalId);
 
     return json({ ok: true });
   } catch (e) {
