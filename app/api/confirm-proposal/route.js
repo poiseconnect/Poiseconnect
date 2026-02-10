@@ -1,66 +1,54 @@
+import { createClient } from "@supabase/supabase-js";
+
 export const dynamic = "force-dynamic";
 
-"use client";
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY
+);
 
-import { useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+function json(data, status = 200) {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: { "Content-Type": "application/json" },
+  });
+}
 
-export default function ConfirmProposalPage() {
-  const searchParams = useSearchParams();
+export async function POST(req) {
+  try {
+    const { proposed_at } = await req.json();
 
-  const requestId = searchParams.get("requestId");
-  const token = searchParams.get("token");
+    const { data: proposal } = await supabase
+      .from("appointment_proposals")
+      .select("*")
+      .eq("proposed_at", proposed_at)
+      .single();
 
-  const [loading, setLoading] = useState(false);
-  const [done, setDone] = useState(false);
-  const [error, setError] = useState(null);
+    if (!proposal) return json({ error: "NOT_FOUND" }, 404);
 
-  async function confirm(date) {
-    try {
-      setLoading(true);
+    // Session erzeugen
+    await supabase.from("sessions").insert({
+      anfrage_id: proposal.request_id,
+      therapist_id: proposal.therapist_id,
+      date: proposal.proposed_at,
+      duration_min: 60,
+    });
 
-      const res = await fetch("/api/proposals/confirm", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          requestId,
-          token,
-          date,
-        }),
-      });
+    // Status ändern
+    await supabase
+      .from("anfragen")
+      .update({ status: "termin_bestaetigt" })
+      .eq("id", proposal.request_id);
 
-      if (!res.ok) {
-        const t = await res.text();
-        throw new Error(t || "Fehler");
-      }
+    // Proposal schließen
+    await supabase
+      .from("appointment_proposals")
+      .update({ status: "accepted" })
+      .eq("id", proposal.id);
 
-      setDone(true);
-    } catch (e) {
-      console.error(e);
-      setError("Bestätigung fehlgeschlagen");
-    } finally {
-      setLoading(false);
-    }
+    return json({ ok: true });
+  } catch (err) {
+    console.error(err);
+    return json({ error: "SERVER_ERROR" }, 500);
   }
-
-  if (done) {
-    return (
-      <div style={{ padding: 40 }}>
-        <h2>✅ Termin bestätigt</h2>
-        <p>Danke! Der/die Therapeut:in wurde informiert.</p>
-      </div>
-    );
-  }
-
-  return (
-    <div style={{ padding: 40 }}>
-      <h2>Termin auswählen</h2>
-
-      {error && <p style={{ color: "red" }}>{error}</p>}
-
-      <p>Wähle einen vorgeschlagenen Termin aus deiner Mail.</p>
-
-      {loading && <p>Sende Bestätigung…</p>}
-    </div>
-  );
 }
