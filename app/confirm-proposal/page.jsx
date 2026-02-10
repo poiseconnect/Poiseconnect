@@ -1,11 +1,12 @@
 "use client";
 
 export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
+import { Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { useState } from "react";
 
-export default function ConfirmProposalPage() {
+function Inner() {
   const searchParams = useSearchParams();
   const requestId = searchParams.get("requestId");
 
@@ -32,10 +33,15 @@ export default function ConfirmProposalPage() {
   return (
     <div style={{ padding: 40 }}>
       <h2>Termin bestätigen</h2>
-
-      <button onClick={confirm}>
-        ✅ Bestätigen
-      </button>
+      <button onClick={confirm}>✅ Bestätigen</button>
     </div>
+  );
+}
+
+export default function ConfirmProposalPage() {
+  return (
+    <Suspense fallback={<div style={{ padding: 40 }}>Lade…</div>}>
+      <Inner />
+    </Suspense>
   );
 }
