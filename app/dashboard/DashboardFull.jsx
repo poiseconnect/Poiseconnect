@@ -387,6 +387,14 @@ const [access, setAccess] = useState("loading");
   const [editTarif, setEditTarif] = useState("");
   const [newSessions, setNewSessions] = useState([{ date: "", duration: 60 }]);
 
+  // ================= PROPOSALS =================
+const [proposalModal, setProposalModal] = useState(null);
+const [proposalDates, setProposalDates] = useState([
+  { date: "" },
+  { date: "" },
+  { date: "" },
+]);
+
   const [reassignModal, setReassignModal] = useState(null);
   const [newTherapist, setNewTherapist] = useState("");
 
@@ -1686,32 +1694,27 @@ const calendarMode =
         return;
       }
 
-      const endpoint =
-        calendarMode === "ics"
-          ? "/api/new-appointment"
-          : "/api/send-proposals";
+if (calendarMode === "ics") {
+  const res = await fetch("/api/new-appointment", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      requestId: r.id,
+      client: r.email,
+      vorname: r.vorname,
+    }),
+  });
 
-      const res = await fetch(endpoint, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          requestId: r.id,
-          client: r.email,
-          vorname: r.vorname,
-          therapistName,
-        }),
-      });
+  if (!res.ok) {
+    alert("Fehler beim Senden");
+    return;
+  }
 
-      if (!res.ok) {
-        alert("Fehler beim Senden");
-        return;
-      }
+  alert("📧 Mail zur Terminauswahl gesendet");
+} else {
+  setProposalModal(r); // 🔥 HIER ÖFFNET SICH DAS FENSTER
+}
 
-      alert(
-        calendarMode === "ics"
-          ? "📧 Mail zur Terminauswahl gesendet"
-          : "📧 Terminvorschläge angefragt"
-      );
     }}
   >
     {calendarMode === "ics"
@@ -2449,7 +2452,7 @@ const data = await res.json();
         </Modal>
       )}
 
-      {/* BESTANDSKLIENT:IN */}
+            {/* BESTANDSKLIENT:IN */}
       {createBestandOpen && (
         <Modal onClose={() => setCreateBestandOpen(false)}>
           <h3>🧩 Bestandsklient:in anlegen</h3>
@@ -2475,12 +2478,11 @@ const data = await res.json();
             style={{ width: "100%", marginBottom: 12 }}
           >
             <option value="">Bitte wählen…</option>
-{teamData.map((t) => (
-  <option key={t.name} value={t.name}>
-    {t.name}
-  </option>
-))}
-
+            {teamData.map((t) => (
+              <option key={t.name} value={t.name}>
+                {t.name}
+              </option>
+            ))}
           </select>
 
           <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
@@ -2520,8 +2522,64 @@ const data = await res.json();
           </div>
         </Modal>
       )}
+
+      {/* ================= PROPOSAL MODAL ================= */}
+      {proposalModal && (
+        <Modal onClose={() => setProposalModal(null)}>
+          <h3>📩 Terminvorschläge senden</h3>
+
+          <p>
+            Klient: <strong>{proposalModal.vorname}</strong>
+          </p>
+
+          {proposalDates.map((p, i) => (
+            <div key={i} style={{ marginBottom: 8 }}>
+              <input
+                type="datetime-local"
+                value={p.date}
+                onChange={(e) => {
+                  const copy = [...proposalDates];
+                  copy[i].date = e.target.value;
+                  setProposalDates(copy);
+                }}
+              />
+            </div>
+          ))}
+
+          <div style={{ marginTop: 12 }}>
+            <button
+              onClick={async () => {
+                const valid = proposalDates.filter((d) => d.date);
+
+                if (!valid.length) {
+                  alert("Bitte mindestens einen Termin eingeben");
+                  return;
+                }
+
+                const res = await fetch("/api/proposals/create", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    requestId: proposalModal.id,
+                    therapist_id: myTeamMemberId,
+                    proposals: valid,
+                  }),
+                });
+
+                if (!res.ok) {
+                  alert("Fehler beim Speichern");
+                  return;
+                }
+
+                alert("✅ Vorschläge gespeichert");
+                setProposalModal(null);
+              }}
+            >
+              💾 Speichern
+            </button>
+          </div>
+        </Modal>
+      )}
     </div>
   );
-
-
 }
