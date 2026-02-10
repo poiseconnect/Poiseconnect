@@ -1,6 +1,6 @@
-export const dynamic = "force-dynamic";
-
 "use client";
+
+export const dynamic = "force-dynamic";
 
 import { useSearchParams } from "next/navigation";
 import { useState } from "react";
@@ -15,10 +15,7 @@ export default function ConfirmProposalPage() {
     await fetch("/api/confirm-proposal", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        requestId,
-        date: new Date().toISOString(),
-      }),
+      body: JSON.stringify({ requestId }),
     });
 
     setDone(true);
