@@ -4,7 +4,7 @@ export const teamData = [
   id: "37ced2b8-88fc-40b9-bd67-2f191a8c6879",
   name: "Ann",
   role: "Coach, Heilpraktikerin für Psychotherapie, Hypnose Coach",
-  calendar_mode = "ics" | "proposal",
+  calendar_mode = "proposal",
   qualificationLevel: 5,
   image: "https://mypoise.de/wp-content/uploads/2023/01/DSC_0007-copy-2-1300x1300.jpg",
   video: "https://youtu.be/rWhc4JvVmaw",
@@ -50,7 +50,7 @@ scores: {
 {
   id: "22be71f8-8b1d-4cb7-9434-8cd4f4bd03f4",
   name: "Anna",
-  calendar_mode = "ics" | "proposal",
+  calendar_mode = "proposal",
   role: "Psychologin, Psychotherapeutin",
   qualificationLevel: 1,
   image: "https://mypoise.de/wp-content/uploads/2023/06/Anna-Moser-scaled-e1739306168495-1300x1300.jpg",
@@ -92,7 +92,7 @@ scores: {
 {
   id: "c447f910-eb92-4f62-97fa-595c32b479c1",
   name: "Anja",
-  calendar_mode = "ics" | "proposal",
+  calendar_mode = "proposal",
   role: "Psychologin, Psychotherapeutin in Ausbildung",
   qualificationLevel: 3,
   image: "https://mypoise.de/wp-content/uploads/2022/11/Vorstellungsfoto-1300x1300.jpg",
@@ -175,7 +175,7 @@ scores: {
 {
     id: "e2921aee-2d2b-43dc-9644-ddb2b7ff6f69",
   name: "Carolin",
-  calendar_mode = "ics" | "proposal",
+  calendar_mode = "proposal",
   role: "Psychologin, Systemischer Coach",
   qualificationLevel: 4,
   image: "https://mypoise.de/wp-content/uploads/2023/09/163_Portrait-Juni2023__pp-1300x1300.jpg",
@@ -220,7 +220,7 @@ scores: {
 {
     id: "e747b777-7e8a-43a9-a244-a67f59cf4227",
   name: "Caroline",
-  calendar_mode = "ics" | "proposal",
+  calendar_mode = "proposal",
   role: "Ärztin (Gynäkologie), Psychotherapeutin",
   qualificationLevel: 1,
   image: "https://mypoise.de/wp-content/uploads/2023/12/IMG_7279-700x700.jpg",
@@ -265,7 +265,7 @@ scores: {
 {
     id: "94e1f527-b80e-42b5-9bbd-a52342f1c216",
   name: "Elena",
-  calendar_mode = "ics" | "proposal",
+  calendar_mode = "proposal",
   role: "Psychologin, Coach",
   qualificationLevel: 4,
   image: "https://mypoise.de/wp-content/uploads/2025/02/Image-scaled-e1740223110391.jpeg",
@@ -308,7 +308,7 @@ scores: {
 {
     id: "04722d1b-e321-4322-8276-3595f070ee4c",
   name: "Franziska",
-  calendar_mode = "ics" | "proposal",
+  calendar_mode = "proposal",
   role: "Psychologin, Psychotherapeutin in Ausbildung, Psychoonkologin",
   qualificationLevel: 3,
   image: "https://mypoise.de/wp-content/uploads/2022/12/1654680310653.jpg",
@@ -350,7 +350,7 @@ scores: {
 {
     id: "64699791-6203-416e-bab9-6abe043ac454",
   name: "Gerhard",
-  calendar_mode = "ics" | "proposal",
+  calendar_mode = "proposal",
   role: "Coach, systemischer Berater, Mediator",
   qualificationLevel: 6,
   image: "https://mypoise.de/wp-content/uploads/2025/04/Frontfoto-1024x1024.jpg",
@@ -394,7 +394,7 @@ scores: {
 {
     id: "a17d2f7d-64e4-4e3d-be42-e26755c62eb3",
   name: "Gesine",
-  calendar_mode = "ics" | "proposal",
+  calendar_mode = "proposal",
   role: "Psychologin, Psychotherapeutin",
   qualificationLevel: 2,
   image: "https://mypoise.de/wp-content/uploads/2025/08/Bildschirmfoto-2025-08-04-um-14.55.22.png",
@@ -523,7 +523,7 @@ scores: {
 {
     id: "7d82df90-9508-4179-ab48-758f341b49c7",
   name: "Judith",
-  calendar_mode = "ics" | "proposal",
+  calendar_mode = "proposal",
   role: "Klinische Psychologin",
   qualificationLevel: 2,
   image: "https://mypoise.de/wp-content/uploads/2022/11/Judith_Gross-1300x1300.jpg",
@@ -581,7 +581,7 @@ scores: {
 {
     id: "f7edf9da-8fda-4682-b464-250fd84db0cf",
   name: "Julius",
-  calendar_mode = "ics" | "proposal",
+  calendar_mode = "proposal",
   role: "Psychologe, Coach",
   qualificationLevel: 4,
   image: "https://mypoise.de/wp-content/uploads/2023/09/Poise_bild-1300x1300.jpg",
@@ -631,7 +631,7 @@ scores: {
 {
     id: "bb7bce0f7-45be-427e-bca4-73386dbdc690",
   name: "Kristin",
-  calendar_mode = "ics" | "proposal",
+  calendar_mode = "ics" 
   role: "Coach, Heilpraktikerin für Psychotherapie, Trauerbegleiterin",
   qualificationLevel: 5,
   image: "https://mypoise.de/wp-content/uploads/2024/01/202411_CG_LiliKristin_276-1300x1300.jpg",
@@ -672,7 +672,7 @@ scores: {
 {
     id: "efa57a23-9498-4c84-8ce2-28e6b65e3c16",
   name: "Kristin-Sofie",
-  calendar_mode = "ics" | "proposal",
+  calendar_mode = "proposal",
   role: "Psychologin, Psychotherapeutin",
   qualificationLevel: 1,
   image: "https://mypoise.de/wp-content/uploads/2024/07/DSCF6979-1300x1300.jpg",
@@ -724,7 +724,7 @@ scores: {
 {
     id: "4cc4ef80-0e59-4a1b-8e50-6964fea86e18",
   name: "Magdalena",
-  calendar_mode = "ics" | "proposal",
+  calendar_mode = "proposal",
   role: "Klinische Psychologin, Kinder- und Jugendpsychologin",
   qualificationLevel: 2,
   image: "https://mypoise.de/wp-content/uploads/2023/01/Magdalena-e1672744279356-700x700.jpg",
@@ -770,7 +770,7 @@ scores: {
 {
     id: "5cdad0d4-7859-4487-b6b0-72fc07897060",
   name: "Marleen",
-  calendar_mode = "ics" | "proposal",
+  calendar_mode = "proposal",
   role: "Ärztin, Psychotherapeutin",
   qualificationLevel: 1,
   image: "https://mypoise.de/wp-content/uploads/2022/11/Foto-Homepage-1300x1300.jpg",
@@ -816,7 +816,7 @@ scores: {
 {
     id: "cf0f05ee-d1a2-44cd-9dfa-468f0578db40",
   name: "Marisa",
-  calendar_mode = "ics" | "proposal",
+  calendar_mode = "proposal",
   role: "Psychologin, Psychotherapeutin",
   qualificationLevel: 1,
   image: "https://mypoise.de/wp-content/uploads/2022/12/IMG_9908-e1669989498337-700x700.jpeg",
@@ -862,7 +862,7 @@ scores: {
 {
     id: "b314c5c6a-df29-4703-961c-8ea9bf01f7ba",
   name: "Sophie",
-  calendar_mode = "ics" | "proposal",
+  calendar_mode = "proposal",
   role: "Psychologin, Heilpraktikerin für Psychotherapie",
   qualificationLevel: 3,
   image: "https://mypoise.de/wp-content/uploads/2022/11/Foto-sophie-crop-1-e1668080175188.png",
@@ -906,7 +906,7 @@ scores: {
 {
     id: "bbbd26c7-3b69-4afc-b730-9390ab8fcb7b",
   name: "Yanina",
-  calendar_mode = "ics" | "proposal",
+  calendar_mode = "proposal",
   role: "Psychologin, Psychotherapeutin",
   qualificationLevel: 1,
   image: "https://mypoise.de/wp-content/uploads/2024/11/IMG_7943-scaled-e1732804924432-1022x1024.jpg",
@@ -952,7 +952,7 @@ scores: {
   {
       id: "50a3650b-658d-4907-8091-2acf7662e40f",
   name: "Livia",
-    calendar_mode = "ics" | "proposal",
+    calendar_mode = "proposal",
   role: null,
   qualificationLevel: 0,
   image: null,
@@ -983,7 +983,7 @@ scores: {
 {
     id: "22b71ea3-9a49-42e9-bee1-f7d4f47b186c",
   name: "Linda",
-  calendar_mode = "ics" | "proposal",
+  calendar_mode = "proposal",
   role: null,
   qualificationLevel: 0,
   image: null,
@@ -1014,7 +1014,7 @@ scores: {
 {
     id: "48ead819-0493-4fa0-a258-93d572266b30",
   name: "Vivienne",
-  calendar_mode = "ics" | "proposal",
+  calendar_mode = "proposal",
   role: null,
   qualificationLevel: 0,
   image: null,
@@ -1045,7 +1045,7 @@ scores: {
 {
   id: "79db9444-4abd-49a3-ace1-e52fdaed8ad0",
   name: "Test Therapeut",
-  calendar_mode = "ics" | "proposal",
+  calendar_mode = "ics"
   role: "Psychologe (Test)",
   qualificationLevel: 0,
   image: "https://mypoise.de/wp-content/uploads/2026/02/Bildschirmfoto-2026-02-02-um-04.22.00.png",
