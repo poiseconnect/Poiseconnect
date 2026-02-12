@@ -68,6 +68,9 @@ export async function POST(req) {
     const startAt = terminISO ? new Date(terminISO) : null;
     const endAt =
       startAt ? new Date(startAt.getTime() + 60 * 60000) : null;
+    
+    // 🔥 NEU – Textwunsch für Proposal Kalender
+const terminwunsch_text = body.terminwunsch_text || null;
 
     // -----------------------------------------
     // 🧠 ANLIEGEN: Checkboxen + Freitext
@@ -111,6 +114,7 @@ export async function POST(req) {
       wunschtherapeut: therapistName,
       assigned_therapist_id: assignedTherapistId,
       bevorzugte_zeit: terminISO,
+      terminwunsch_text,
 
       check_suizid: Boolean(body.check_gesundheit),
       check_datenschutz: Boolean(body.check_datenschutz),
