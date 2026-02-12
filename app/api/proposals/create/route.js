@@ -17,37 +17,42 @@ function json(data, status = 200) {
 export async function POST(req) {
   try {
     const body = await req.json();
-    console.log("📥 BODY:", body);
+    const { requestId, therapist_id, proposals } = body || {};
 
-    const { requestId, therapist_id, proposals } = body;
-
-    if (!requestId || !therapist_id || !proposals?.length) {
-      return json({ error: "missing_data", body }, 400);
+    if (!requestId || !therapist_id || !Array.isArray(proposals)) {
+      return json({ error: "missing_data" }, 400);
     }
 
-    const rows = proposals.map((p) => ({
-      anfrage_id: requestId,
-      therapist_id,
-      date: p.date,
-      status: "open",
-    }));
+    // nur gültige Dates übernehmen
+    const rows = proposals
+      .map((p) => ({ date: p?.date }))
+      .filter((p) => typeof p.date === "string" && p.date.trim().length > 0)
+      .map((p) => ({
+        anfrage_id: requestId,
+        therapist_id,
+        date: p.date, // <- ohne status
+      }));
 
-    console.log("📤 INSERT:", rows);
+    if (!rows.length) {
+      return json({ error: "no_valid_proposals" }, 400);
+    }
 
-    const { error, data } = await supabase
-.from("appointment_proposals")
+    // Optional: alte Vorschläge dieses Requests löschen (damit es sauber bleibt)
+    await supabase
+      .from("appointment_proposals")
+      .delete()
+      .eq("anfrage_id", requestId);
+
+    const { data, error } = await supabase
+      .from("appointment_proposals")
       .insert(rows)
-      .select();
+      .select("id, date");
 
-    if (error) {
-      console.error("❌ INSERT ERROR:", error);
-      return json({ error: error.message, details: error }, 500);
-    }
+    if (error) return json({ error: error.message }, 500);
 
-    console.log("✅ SUCCESS:", data);
-    return json({ ok: true });
+    return json({ ok: true, data });
   } catch (e) {
-    console.error("🔥 SERVER CRASH:", e);
-    return json({ error: e.message }, 500);
+    console.error("PROPOSALS CREATE ERROR:", e);
+    return json({ error: "server_error" }, 500);
   }
 }
