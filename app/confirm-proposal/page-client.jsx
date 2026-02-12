@@ -58,8 +58,25 @@ export default function ConfirmProposalPage() {
   if (done) {
     return (
       <div style={{ padding: 40 }}>
-        <h2>✅ Termin bestätigt</h2>
-        <p>Wir freuen uns auf dich 🤍</p>
+<h2>✅ Danke für deine Terminauswahl!</h2>
+
+<p style={{ marginTop: 12 }}>
+Dein Terminwunsch wurde erfolgreich übermittelt.
+</p>
+
+<p style={{ marginTop: 8 }}>
+Dein:e Therapeut:in sendet dir den persönlichen Link für den Videocall
+rechtzeitig per E-Mail zu.
+</p>
+
+<p style={{ marginTop: 8 }}>
+Sollte der Termin inzwischen nicht mehr verfügbar sein,
+bekommst du automatisch neue Terminvorschläge.
+</p>
+
+<p style={{ marginTop: 18, fontWeight: 500 }}>
+Wir freuen uns auf dich 🤍
+</p>
       </div>
     );
   }
