@@ -23,18 +23,16 @@ export async function POST(req) {
     }
 
     const { data, error } = await supabase
-      .from("proposals")
+      .from("appointment_proposals")
       .select("id, date")
       .eq("anfrage_id", requestId)
-      .eq("status", "open")
       .order("date", { ascending: true });
 
-    if (error) {
-      return json({ error: error.message }, 500);
-    }
+    if (error) return json({ error: error.message }, 500);
 
-    return json(data);
+    return json(data || []);
   } catch (e) {
+    console.error("PROPOSALS LIST ERROR:", e);
     return json({ error: "server_error" }, 500);
   }
 }
