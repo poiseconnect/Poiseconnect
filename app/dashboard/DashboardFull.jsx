@@ -1891,7 +1891,8 @@ if (calendarMode === "ics") {
       : "Therapeut schlägt neue Zeiten vor"}
   </div>
 </div>
-
+  </div>
+)}
               {/* AKTIV */}
 {r._status === "active" && (
   <div style={{ marginTop: 8, display: "flex", gap: 8, flexWrap: "wrap" }}>
