@@ -18,9 +18,7 @@ export async function POST(req) {
   try {
     const { requestId } = await req.json();
 
-    if (!requestId) {
-      return json({ error: "missing_requestId" }, 400);
-    }
+    if (!requestId) return json({ error: "missing_requestId" }, 400);
 
     const { data, error } = await supabase
       .from("appointment_proposals")
@@ -32,7 +30,7 @@ export async function POST(req) {
 
     return json(data || []);
   } catch (e) {
-    console.error("PROPOSALS LIST ERROR:", e);
+    console.error("LIST ERROR:", e);
     return json({ error: "server_error" }, 500);
   }
 }
