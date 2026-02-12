@@ -16,25 +16,38 @@ function json(data, status = 200) {
 
 export async function POST(req) {
   try {
-    const { requestId } = await req.json();
+    const body = await req.json();
+    console.log("📥 BODY:", body);
 
-    if (!requestId) {
-      return json({ error: "missing_requestId" }, 400);
+    const { requestId, therapist_id, proposals } = body;
+
+    if (!requestId || !therapist_id || !proposals?.length) {
+      return json({ error: "missing_data", body }, 400);
     }
 
-    const { data, error } = await supabase
+    const rows = proposals.map((p) => ({
+      anfrage_id: requestId,
+      therapist_id,
+      date: p.date,
+      status: "open",
+    }));
+
+    console.log("📤 INSERT:", rows);
+
+    const { error, data } = await supabase
       .from("proposals")
-      .select("id, date")
-      .eq("anfrage_id", requestId)
-      .eq("status", "open")
-      .order("date", { ascending: true });
+      .insert(rows)
+      .select();
 
     if (error) {
-      return json({ error: error.message }, 500);
+      console.error("❌ INSERT ERROR:", error);
+      return json({ error: error.message, details: error }, 500);
     }
 
-    return json(data);
+    console.log("✅ SUCCESS:", data);
+    return json({ ok: true });
   } catch (e) {
-    return json({ error: "server_error" }, 500);
+    console.error("🔥 SERVER CRASH:", e);
+    return json({ error: e.message }, 500);
   }
 }
