@@ -1855,6 +1855,7 @@ if (calendarMode === "ics") {
         Anliegen passt grundsätzlich nicht zu Poise
       </div>
     </div>
+    )}
 {/* 🔁 NEUER TERMIN */}
 {r._status === "termin_bestaetigt" && (
   <div style={{ maxWidth: 220 }}>
