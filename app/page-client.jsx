@@ -909,6 +909,8 @@ body: JSON.stringify({
 
   // optional für Anzeige / Mail
   therapist_from_url: form.wunschtherapeut,
+// 🔥🔥🔥 DAS IST DER FIX
+  terminwunsch_text: form.preferred_times || null,
 }),
     }); // ✅ DAS war der fehlende Abschluss
 
