@@ -632,6 +632,7 @@ scores: {
     id: "bb7bce0f7-45be-427e-bca4-73386dbdc690",
   name: "Kristin",
   calendar_mode: "ics",
+  email: "kristin@hitrauer.de",
   role: "Coach, Heilpraktikerin für Psychotherapie, Trauerbegleiterin",
   qualificationLevel: 5,
   image: "https://mypoise.de/wp-content/uploads/2024/01/202411_CG_LiliKristin_276-1300x1300.jpg",
