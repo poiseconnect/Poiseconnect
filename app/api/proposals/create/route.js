@@ -35,7 +35,7 @@ export async function POST(req) {
     console.log("📤 INSERT:", rows);
 
     const { error, data } = await supabase
-      .from("proposals")
+.from("appointment_proposals")
       .insert(rows)
       .select();
 
