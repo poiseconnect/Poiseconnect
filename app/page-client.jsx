@@ -1701,7 +1701,20 @@ Eine Kostenübernahme kann möglich sein — individuell klären.`,
       <p><strong>Beschäftigungsgrad:</strong> {form.beschaeftigungsgrad}</p>
       <hr style={{ margin: "12px 0" }} />
       <p><strong>Wunschtherapeut:in:</strong> {form.wunschtherapeut || "—"}</p>
-      <p><strong>Erstgespräch-Termin:</strong> {form.terminDisplay || "—"}</p>
+      {/* Termin / Wunschzeiten */}
+{calendarMode === "ics" && (
+  <p>
+    <strong>Erstgespräch-Termin:</strong>{" "}
+    {form.terminDisplay || "—"}
+  </p>
+)}
+
+{calendarMode === "proposal" && (
+  <p>
+    <strong>Gewünschte Zeiten:</strong><br />
+    {form.preferred_times || "—"}
+  </p>
+)}
     </div>
 
     <div className="footer-buttons" style={{ marginTop: 16 }}>
