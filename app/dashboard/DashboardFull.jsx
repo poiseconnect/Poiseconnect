@@ -1855,46 +1855,42 @@ if (calendarMode === "ics") {
         Anliegen passt grundsätzlich nicht zu Poise
       </div>
     </div>
-    )}
 {/* 🔁 NEUER TERMIN */}
-{r._status === "termin_bestaetigt" && (
-  <div style={{ maxWidth: 220 }}>
-    <button
-      onClick={async () => {
+<div style={{ maxWidth: 220 }}>
+  <button
+    onClick={async () => {
+      if (calendarMode === "ics") {
+        const res = await fetch("/api/new-appointment", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            requestId: r.id,
+            client: r.email,
+            vorname: r.vorname,
+          }),
+        });
 
-        if (calendarMode === "ics") {
-          const res = await fetch("/api/new-appointment", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              requestId: r.id,
-              client: r.email,
-              vorname: r.vorname,
-            }),
-          });
-
-          if (!res.ok) {
-            alert("Fehler beim Senden");
-            return;
-          }
-
-          alert("📧 Neue Terminauswahl gesendet");
+        if (!res.ok) {
+          alert("Fehler beim Senden");
           return;
         }
 
-        setProposalModal(r);
-      }}
-    >
-      🔁 Neuer Termin
-    </button>
+        alert("📧 Neue Terminauswahl gesendet");
+        return;
+      }
 
-    <div style={{ fontSize: 12, opacity: 0.7, marginTop: 4 }}>
-      {calendarMode === "ics"
-        ? "Klient:in wählt neuen Termin"
-        : "Therapeut schlägt neue Zeiten vor"}
-    </div>
+      setProposalModal(r);
+    }}
+  >
+    🔁 Neuer Termin
+  </button>
+
+  <div style={{ fontSize: 12, opacity: 0.7, marginTop: 4 }}>
+    {calendarMode === "ics"
+      ? "Klient:in wählt neuen Termin"
+      : "Therapeut schlägt neue Zeiten vor"}
   </div>
-)}
+</div>
 
               {/* AKTIV */}
 {r._status === "active" && (
