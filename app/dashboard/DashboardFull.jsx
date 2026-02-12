@@ -2101,6 +2101,12 @@ if (calendarMode === "ics") {
       {safeDateString(detailsModal.bevorzugte_zeit)}
     </p>
   )}
+  {detailsModal.preferred_times && (
+  <p>
+    <strong>Wunschzeiten des Klienten:</strong><br />
+    {detailsModal.preferred_times}
+  </p>
+)}
 </section>
 
 
