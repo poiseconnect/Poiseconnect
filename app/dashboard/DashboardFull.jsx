@@ -1855,49 +1855,49 @@ if (calendarMode === "ics") {
         Anliegen passt grundsätzlich nicht zu Poise
       </div>
     </div>
+{/* 🔁 NEUER TERMIN */}
+<div style={{ maxWidth: 220 }}>
+  <button
+    onClick={async () => {
 
-    {/* 🔁 NEUER TERMIN */}
-    <div style={{ maxWidth: 220 }}>
-<button
-  onClick={async () => {
-    await updateRequestStatus({
-      requestId: r.id,
-      status: "neuer_termin",
-      client: r.email,
-      vorname: r.vorname,
-    });
-    setRequests((prev) =>
-      prev.filter((x) => x.id !== r.id)
-    );
-  }}
->
-  🔁 Neuer Termin
-</button>
-      <div style={{ fontSize: 12, opacity: 0.7, marginTop: 4 }}>
-        Termin leider nicht verfügbar
-      </div>
-    </div>
+      // =============================
+      // ICS → neue Auswahlmail
+      // =============================
+      if (calendarMode === "ics") {
+        const res = await fetch("/api/new-appointment", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            requestId: r.id,
+            client: r.email,
+            vorname: r.vorname,
+          }),
+        });
 
-    {/* 👥 ANLIEGEN PASST NICHT ZU MIR */}
-    <div style={{ maxWidth: 240 }}>
-     <button
-  onClick={async () => {
-    await updateRequestStatus({
-      requestId: r.id,
-      status: "admin_weiterleiten",
-    });
-    setRequests((prev) =>
-      prev.filter((x) => x.id !== r.id)
-    );
-  }}
->
-  👥 Anliegen passt nicht zu mir
-</button>
-      <div style={{ fontSize: 12, opacity: 0.7, marginTop: 4 }}>
-        Admin entscheidet über Weiterleitung
-      </div>
-    </div>
+        if (!res.ok) {
+          alert("Fehler beim Senden");
+          return;
+        }
+
+        alert("📧 Neue Terminauswahl gesendet");
+        return;
+      }
+
+      // =============================
+      // PROPOSAL → Modal öffnen
+      // =============================
+      setProposalModal(r);
+    }}
+  >
+    🔁 Neuer Termin
+  </button>
+
+  <div style={{ fontSize: 12, opacity: 0.7, marginTop: 4 }}>
+    {calendarMode === "ics"
+      ? "Klient:in wählt neuen Termin"
+      : "Therapeut schlägt neue Zeiten vor"}
   </div>
+</div>
 )}
 
 
