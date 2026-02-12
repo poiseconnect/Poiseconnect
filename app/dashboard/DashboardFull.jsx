@@ -1856,50 +1856,44 @@ if (calendarMode === "ics") {
       </div>
     </div>
 {/* 🔁 NEUER TERMIN */}
-<div style={{ maxWidth: 220 }}>
-  <button
-    onClick={async () => {
+{r._status === "termin_bestaetigt" && (
+  <div style={{ maxWidth: 220 }}>
+    <button
+      onClick={async () => {
 
-      // =============================
-      // ICS → neue Auswahlmail
-      // =============================
-      if (calendarMode === "ics") {
-        const res = await fetch("/api/new-appointment", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            requestId: r.id,
-            client: r.email,
-            vorname: r.vorname,
-          }),
-        });
+        if (calendarMode === "ics") {
+          const res = await fetch("/api/new-appointment", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              requestId: r.id,
+              client: r.email,
+              vorname: r.vorname,
+            }),
+          });
 
-        if (!res.ok) {
-          alert("Fehler beim Senden");
+          if (!res.ok) {
+            alert("Fehler beim Senden");
+            return;
+          }
+
+          alert("📧 Neue Terminauswahl gesendet");
           return;
         }
 
-        alert("📧 Neue Terminauswahl gesendet");
-        return;
-      }
+        setProposalModal(r);
+      }}
+    >
+      🔁 Neuer Termin
+    </button>
 
-      // =============================
-      // PROPOSAL → Modal öffnen
-      // =============================
-      setProposalModal(r);
-    }}
-  >
-    🔁 Neuer Termin
-  </button>
-
-  <div style={{ fontSize: 12, opacity: 0.7, marginTop: 4 }}>
-    {calendarMode === "ics"
-      ? "Klient:in wählt neuen Termin"
-      : "Therapeut schlägt neue Zeiten vor"}
+    <div style={{ fontSize: 12, opacity: 0.7, marginTop: 4 }}>
+      {calendarMode === "ics"
+        ? "Klient:in wählt neuen Termin"
+        : "Therapeut schlägt neue Zeiten vor"}
+    </div>
   </div>
-</div>
 )}
-
 
               {/* AKTIV */}
 {r._status === "active" && (
