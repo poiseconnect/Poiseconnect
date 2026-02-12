@@ -548,6 +548,7 @@ useEffect(() => {
         wunschtherapeut,
         honorar_klient,
         admin_therapeuten,
+        terminwunsch_text,
         assigned_therapist_id
       `)
       .order("created_at", { ascending: false });
@@ -1521,6 +1522,20 @@ const calendarMode =
                 )}
 
               <p>{typeof r.anliegen === "string" ? r.anliegen : "–"}</p>
+            {/* 🕒 Terminwunsch des Klienten */}
+{calendarMode === "proposal" && r.terminwunsch_text && (
+  <div
+    style={{
+      marginTop: 6,
+      padding: "6px 8px",
+      background: "#FFF4E6",
+      borderRadius: 8,
+      fontSize: 13,
+    }}
+  >
+    🕒 Wunschzeit: {r.terminwunsch_text}
+  </div>
+)}
               {r._status === "admin_pruefen" && (
   <div
     style={{
