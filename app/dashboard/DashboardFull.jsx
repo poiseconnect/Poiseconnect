@@ -1627,8 +1627,8 @@ const calendarMode =
       flexWrap: "wrap",
     }}
   >
-{/* ✅ TERMIN BESTÄTIGEN (nur ICS) */}
-{calendarMode === "ics" && (
+{/* ✅ TERMIN BESTÄTIGEN */}
+{r.bevorzugte_zeit && (
   <div style={{ maxWidth: 240 }}>
     <button
       onClick={async () => {
