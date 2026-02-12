@@ -26,7 +26,7 @@ export async function POST(req) {
     // Proposal holen
     // ------------------------------------------------
     const { data: proposal, error: pError } = await supabase
-      .from("proposals")
+      .from("appointment_proposals")   // ✅ richtige Tabelle
       .select("*")
       .eq("id", proposalId)
       .single();
@@ -39,14 +39,14 @@ export async function POST(req) {
     const end = new Date(start.getTime() + 60 * 60000);
 
     // ------------------------------------------------
-    // Anfrage updaten
+    // Anfrage updaten → wandert ins Erstgespräch
     // ------------------------------------------------
     const { error: updateError } = await supabase
       .from("anfragen")
       .update({
         bevorzugte_zeit: proposal.date,
         assigned_therapist_id: proposal.therapist_id,
-        status: "termin_bestaetigt", // 🔥 wichtig fürs Dashboard
+        status: "erstgespraech",   // 🔥 dein gewünschter Zielstatus
       })
       .eq("id", requestId);
 
@@ -57,30 +57,27 @@ export async function POST(req) {
     // ------------------------------------------------
     // Slot blockieren
     // ------------------------------------------------
-    await supabase.from("blocked_slots").insert({
-      anfrage_id: requestId,
-      therapist_id: proposal.therapist_id,
-      start_at: start.toISOString(),
-      end_at: end.toISOString(),
-      reason: "proposal_confirmed",
-    });
+    const { error: blockError } = await supabase
+      .from("blocked_slots")
+      .insert({
+        anfrage_id: requestId,
+        therapist_id: proposal.therapist_id,
+        start_at: start.toISOString(),
+        end_at: end.toISOString(),
+        reason: "proposal_confirmed",
+      });
+
+    if (blockError) {
+      return json({ error: blockError.message }, 500);
+    }
 
     // ------------------------------------------------
-    // ALLE anderen Vorschläge schließen
+    // Alle Vorschläge löschen
     // ------------------------------------------------
     await supabase
-      .from("proposals")
-      .update({ status: "closed" })
-      .eq("anfrage_id", requestId)
-      .neq("id", proposalId);
-
-    // ------------------------------------------------
-    // Gewählten markieren
-    // ------------------------------------------------
-    await supabase
-      .from("proposals")
-      .update({ status: "confirmed" })
-      .eq("id", proposalId);
+      .from("appointment_proposals")
+      .delete()
+      .eq("anfrage_id", requestId);
 
     return json({ ok: true });
   } catch (e) {
