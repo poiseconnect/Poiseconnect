@@ -545,9 +545,11 @@ useEffect(() => {
         diagnose,
         status,
         bevorzugte_zeit,
+        preferred_times,
         wunschtherapeut,
         honorar_klient,
         admin_therapeuten,
+        
         terminwunsch_text,
         assigned_therapist_id
       `)
