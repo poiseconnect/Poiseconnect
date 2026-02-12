@@ -114,7 +114,7 @@ const terminwunsch_text = body.terminwunsch_text || null;
       wunschtherapeut: therapistName,
       assigned_therapist_id: assignedTherapistId,
       bevorzugte_zeit: terminISO,
-      terminwunsch_text,
+     terminwunsch_text: body.terminwunsch_text || null,
 
       check_suizid: Boolean(body.check_gesundheit),
       check_datenschutz: Boolean(body.check_datenschutz),
