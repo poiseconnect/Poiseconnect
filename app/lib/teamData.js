@@ -355,6 +355,7 @@ scores: {
   qualificationLevel: 6,
   image: "https://mypoise.de/wp-content/uploads/2025/04/Frontfoto-1024x1024.jpg",
   video: "https://youtu.be/sEhRwOirFZ0",
+  email: "kicseb@yahoo.de",
   short:
     "Ich arbeite mit Menschen in inneren und zwischenmenschlichen Konflikten und unterstütze dabei, Klarheit und handlungsfähige Perspektiven zu entwickeln.",
   themes: {
