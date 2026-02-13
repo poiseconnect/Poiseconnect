@@ -989,7 +989,7 @@ scores: {
   qualificationLevel: 0,
   image: "https://mypoise.de/wp-content/uploads/2025/11/Buchcover-scaled.jpg",
   video: null,
-  email: "kicseb@yahoo.de",
+  email: "hallo@lindaleinweber.com",
   short: "Interner Test-Therapeut für Dashboard-Tests.",
   themes: {},
   keywords: [],
