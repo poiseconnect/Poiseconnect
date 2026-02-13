@@ -467,6 +467,41 @@ const { data: member, error } = await supabase
   .select("id, role, active")
   .eq("user_id", data.user.id)
   .single();
+    // ============================================
+// AUTO LINK USER → TEAM MEMBER VIA EMAIL
+// ============================================
+if (!member) {
+  console.log("🔗 Versuche Auto-Link via Email");
+
+  const { data: byMail } = await supabase
+    .from("team_members")
+    .select("id")
+    .eq("email", data.user.email)
+    .single();
+
+  if (byMail?.id) {
+    console.log("✅ Linke user_id mit team member", byMail.id);
+
+    await supabase
+      .from("team_members")
+      .update({ user_id: data.user.id })
+      .eq("id", byMail.id);
+
+    // erneut laden
+    const { data: linkedMember } = await supabase
+      .from("team_members")
+      .select("id, role, active")
+      .eq("user_id", data.user.id)
+      .single();
+
+    if (linkedMember) {
+      setMyTeamMemberId(linkedMember.id);
+      setRole(linkedMember.role);
+      setAccess("granted");
+      return;
+    }
+  }
+}
 
 if (!error && member?.id) {
   setMyTeamMemberId(member.id);
