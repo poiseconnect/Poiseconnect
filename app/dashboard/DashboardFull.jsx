@@ -450,10 +450,17 @@ const [invoiceLoading, setInvoiceLoading] = useState(false);
 useEffect(() => {
   async function loadAuthAndRole() {
     const { data } = await supabase.auth.getUser();
+    
     if (!data?.user) return;
 
     setUser(data.user);
     setMyUserId(data.user.id);
+    // ================= AUTO LINK USER =================
+await supabase
+  .from("team_members")
+  .update({ user_id: data.user.id })
+  .eq("email", data.user.email)
+  .is("user_id", null);
 
 const { data: member, error } = await supabase
   .from("team_members")
