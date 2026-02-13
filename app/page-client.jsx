@@ -332,7 +332,12 @@ const anfrageId =
   // Formular-Daten
   // 🔑 NEU: ausgewählte Therapeut:innen-ID (DB)
 const [assignedTherapistId, setAssignedTherapistId] = useState(null);
-  const [calendarMode, setCalendarMode] = useState("ics");
+  const calendarMode = useMemo(() => {
+  if (!assignedTherapistId) return "ics";
+
+  const t = teamData.find((x) => x.id === assignedTherapistId);
+  return t?.calendar_mode || "ics";
+}, [assignedTherapistId]);
   const [form, setForm] = useState({
 admin_therapeuten: [],
   themen: [],
@@ -1439,9 +1444,6 @@ color: "#000", // ✅ FIX: Text IMMER schwarz
           members={step8Members}
          onSelect={(member) => {
   setAssignedTherapistId(member.id);
-
-  const info = teamData.find((t) => t.id === member.id);
-  setCalendarMode(info?.calendar_mode || "ics");
 
   setForm({ ...form, wunschtherapeut: member.name });
   next();
