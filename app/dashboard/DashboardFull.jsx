@@ -1730,20 +1730,6 @@ if (calendarMode === "ics") {
   setProposalModal(r); // 🔥 HIER ÖFFNET SICH DAS FENSTER
 }
 
-    }}
-  >
-    {calendarMode === "ics"
-      ? "🔁 Neuer Termin"
-      : "📩 Terminvorschläge senden"}
-  </button>
-
-  <div style={{ fontSize: 12, opacity: 0.7, marginTop: 4 }}>
-    {calendarMode === "ics"
-      ? "Termin passt nicht – Klient:in wählt neu"
-      : "Therapeut schlägt Zeiten vor"}
-  </div>
-</div>
-
 {/* ⏸ KEINE KAPAZITÄTEN */}
 <div style={{ maxWidth: 240 }}>
   <button
