@@ -1880,37 +1880,31 @@ if (calendarMode === "ics") {
 <div style={{ maxWidth: 220 }}>
   <button
     onClick={async () => {
-if (calendarMode === "ics") {
-  const therapistName =
-    r.wunschtherapeut ||
-    sessionsByRequest[String(r.id)]?.[0]?.therapist;
+      if (calendarMode === "ics") {
+        const therapistName =
+          r.wunschtherapeut ||
+          sessionsByRequest[String(r.id)]?.[0]?.therapist;
 
-  const res = await fetch("/api/new-appointment", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      requestId: r.id,
-      client: r.email,
-      vorname: r.vorname,
-      therapistName,
-      oldSlot: r.bevorzugte_zeit,
-    }),
-  });
+        if (!therapistName) {
+          alert("❌ Keine Therapeut:in gefunden");
+          return;
+        }
 
-  if (!res.ok) {
-    const t = await res.text();
-    console.error("NEW APPOINTMENT FAILED:", t);
-    alert("Fehler beim Senden");
-    return;
-  }
-
-  alert("📧 Neue Terminauswahl gesendet");
-  return;
-}
+        const res = await fetch("/api/new-appointment", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            requestId: r.id,
+            client: r.email,
+            vorname: r.vorname,
+            therapistName,
+            oldSlot: r.bevorzugte_zeit,
           }),
         });
 
         if (!res.ok) {
+          const t = await res.text();
+          console.error("NEW APPOINTMENT FAILED:", t);
           alert("Fehler beim Senden");
           return;
         }
@@ -1919,6 +1913,7 @@ if (calendarMode === "ics") {
         return;
       }
 
+      // proposal mode
       setProposalModal(r);
     }}
   >
