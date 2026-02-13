@@ -1874,27 +1874,27 @@ if (calendarMode === "ics") {
 <div style={{ maxWidth: 220 }}>
   <button
     onClick={async () => {
-      if (calendarMode === "ics") {
-        const res = await fetch("/api/new-appointment", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-body: JSON.stringify({
-  requestId: r.id,
-  client: r.email,
-  vorname: r.vorname,
-  therapistName: r.wunschtherapeut,
-  oldSlot: r.bevorzugte_zeit,
-}),
-        });
+if (calendarMode === "ics") {
+  const res = await fetch("/api/new-appointment", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      requestId: r.id,
+      client: r.email,
+      vorname: r.vorname,
+      therapistName: r.wunschtherapeut,
+      oldSlot: r.bevorzugte_zeit,
+    }),
+  });
 
-        if (!res.ok) {
-          alert("Fehler beim Senden");
-          return;
-        }
+  if (!res.ok) {
+    alert("Fehler beim Senden");
+    return;
+  }
 
-        alert("📧 Neue Terminauswahl gesendet");
-        return;
-      }
+  alert("📧 Neue Terminauswahl gesendet");
+  return;
+}
 
       setProposalModal(r);
     }}
