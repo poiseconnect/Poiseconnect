@@ -1878,11 +1878,13 @@ if (calendarMode === "ics") {
         const res = await fetch("/api/new-appointment", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            requestId: r.id,
-            client: r.email,
-            vorname: r.vorname,
-          }),
+body: JSON.stringify({
+  requestId: r.id,
+  client: r.email,
+  vorname: r.vorname,
+  therapistName: r.wunschtherapeut,
+  oldSlot: r.bevorzugte_zeit,
+}),
         });
 
         if (!res.ok) {
@@ -1897,7 +1899,13 @@ if (calendarMode === "ics") {
       setProposalModal(r);
     }}
   >
-    🔁 Neuer Termin
+    body: JSON.stringify({
+  requestId: r.id,
+  client: r.email,
+  vorname: r.vorname,
+  therapistName: r.wunschtherapeut,
+  oldSlot: r.bevorzugte_zeit,
+}),
   </button>
 
   <div style={{ fontSize: 12, opacity: 0.7, marginTop: 4 }}>
