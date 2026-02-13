@@ -1730,6 +1730,20 @@ if (calendarMode === "ics") {
   setProposalModal(r); // 🔥 HIER ÖFFNET SICH DAS FENSTER
 }
 
+    }}
+  >
+    {calendarMode === "ics"
+      ? "🔁 Neuer Termin"
+      : "📩 Terminvorschläge senden"}
+  </button>
+
+  <div style={{ fontSize: 12, opacity: 0.7, marginTop: 4 }}>
+    {calendarMode === "ics"
+      ? "Termin passt nicht – Klient:in wählt neu"
+      : "Therapeut schlägt Zeiten vor"}
+  </div>
+</div>
+
 {/* ⏸ KEINE KAPAZITÄTEN */}
 <div style={{ maxWidth: 240 }}>
   <button
@@ -1860,38 +1874,30 @@ if (calendarMode === "ics") {
 <div style={{ maxWidth: 220 }}>
   <button
     onClick={async () => {
-if (calendarMode === "ics") {
-  const res = await fetch("/api/new-appointment", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      requestId: r.id,
-      client: r.email,
-      vorname: r.vorname,
-      therapistName: r.wunschtherapeut,
-      oldSlot: r.bevorzugte_zeit,
-    }),
-  });
+      if (calendarMode === "ics") {
+        const res = await fetch("/api/new-appointment", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            requestId: r.id,
+            client: r.email,
+            vorname: r.vorname,
+          }),
+        });
 
-  if (!res.ok) {
-    alert("Fehler beim Senden");
-    return;
-  }
+        if (!res.ok) {
+          alert("Fehler beim Senden");
+          return;
+        }
 
-  alert("📧 Neue Terminauswahl gesendet");
-  return;
-}
+        alert("📧 Neue Terminauswahl gesendet");
+        return;
+      }
 
       setProposalModal(r);
     }}
   >
-    body: JSON.stringify({
-  requestId: r.id,
-  client: r.email,
-  vorname: r.vorname,
-  therapistName: r.wunschtherapeut,
-  oldSlot: r.bevorzugte_zeit,
-}),
+    🔁 Neuer Termin
   </button>
 
   <div style={{ fontSize: 12, opacity: 0.7, marginTop: 4 }}>
