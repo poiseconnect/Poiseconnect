@@ -34,6 +34,8 @@ function getSupabase() {
 export async function POST(req) {
   try {
     const body = await req.json();
+    // 🔁 wenn aus Admin-Weiterleitung
+const requestId = body.rid || body.anfrageId || null;
     const supabase = getSupabase();
     const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -124,11 +126,54 @@ const terminwunsch_text = body.terminwunsch_text || null;
       match_state: "pending",
     };
 
-    const { data: inserted, error } = await supabase
-      .from("anfragen")
-      .insert(payload)
-      .select("id")
-      .single();
+let finalRequestId = null;
+
+if (requestId) {
+  // =====================================
+  // 🔁 ADMIN RESUME → UPDATE
+  // =====================================
+  console.log("🔁 UPDATE bestehende Anfrage:", requestId);
+
+  const { error } = await supabase
+    .from("anfragen")
+    .update({
+      ...payload,
+
+      // 🔥 DAMIT VERSCHWINDET ES AUS ADMIN
+      status: "neu",
+      admin_therapeuten: [],
+    })
+    .eq("id", requestId);
+
+  if (error) {
+    console.error("❌ UPDATE ERROR:", error);
+    return JSONResponse({ error: "DB_UPDATE_FAILED" }, 500);
+  }
+
+  finalRequestId = requestId;
+
+} else {
+  // =====================================
+  // 🆕 NEUE ANFRAGE → INSERT
+  // =====================================
+  console.log("🆕 INSERT neue Anfrage");
+
+  const { data: inserted, error } = await supabase
+    .from("anfragen")
+    .insert(payload)
+    .select("id")
+    .single();
+
+  if (error) {
+    console.error("❌ INSERT ERROR:", error);
+    return JSONResponse(
+      { error: "DB_INSERT_FAILED", detail: error.message },
+      500
+    );
+  }
+
+  finalRequestId = inserted.id;
+}
 
     if (error) {
       console.error("❌ Insert Error:", error);
@@ -143,7 +188,7 @@ const terminwunsch_text = body.terminwunsch_text || null;
     // -----------------------------------------
     if (startAt && endAt) {
       await supabase.from("blocked_slots").insert({
-        anfrage_id: inserted.id,
+anfrage_id: finalRequestId,
         therapist_id: assignedTherapistId,
         start_at: startAt.toISOString(),
         end_at: endAt.toISOString(),
@@ -227,7 +272,7 @@ const terminwunsch_text = body.terminwunsch_text || null;
           Termin: ${terminText}
         </p>
 
-        <p>Anfrage-ID: ${inserted.id}</p>
+        <p>Anfrage-ID: ${finalRequestId}</p>
       `,
     });
 
