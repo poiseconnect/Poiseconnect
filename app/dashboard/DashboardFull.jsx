@@ -830,7 +830,8 @@ const billingByClient = useMemo(() => {
         klient:
           `${s.anfragen?.vorname || ""} ${s.anfragen?.nachname || ""}`.trim() ||
           "Unbekannt",
-        therapist: s.therapist,
+        therapist:
+  teamData.find(t => t.id === s.therapist_id)?.name || "–",
         sessions: 0,
         umsatz: 0,
         provision: 0,
