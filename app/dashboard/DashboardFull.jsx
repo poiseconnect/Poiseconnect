@@ -1498,6 +1498,7 @@ return (
     </tbody>
   </table>
 )}
+  </div>
     </section>
   </>
 )}
