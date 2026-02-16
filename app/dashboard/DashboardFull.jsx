@@ -673,29 +673,42 @@ useEffect(() => {
    LOAD BILLING SESSIONS (IMMER ALLE – FILTER NUR IM FRONTEND)
 ========================================================= */
 useEffect(() => {
-  if (!user) return;
-if (!user.email) return;
-  
-const isAdmin = role === "admin";
+  if (!user?.email) return;
+  if (!role) return; // ⛔ warten bis Rolle bekannt
 
-  const endpoint = isAdmin
-    ? "/api/admin/billing-sessions"
-    : "/api/therapist/billing-sessions";
+  // Therapeut: warten bis team_member_id da
+  if (role === "therapist" && !myTeamMemberId) return;
 
-  fetch(endpoint)
-    .then((r) => r.json())
-    .then((res) => {
-      if (Array.isArray(res?.data)) {
-        setBillingSessions(res.data);
-      } else {
+  const endpoint =
+    role === "admin"
+      ? "/api/admin/billing-sessions"
+      : "/api/therapist/billing-sessions";
+
+  console.log("📡 Lade Billing von:", endpoint);
+
+  (async () => {
+    try {
+      const r = await fetch(endpoint, {
+        credentials: "include", // 🔥 wichtig für cookies
+      });
+
+      const res = await r.json();
+
+      if (!r.ok) {
+        console.error("❌ BILLING API ERROR:", res);
         setBillingSessions([]);
+        return;
       }
-    })
-    .catch((err) => {
-      console.error("BILLING LOAD FAILED", err);
+
+      console.log("✅ BILLING DATEN:", res?.data?.length);
+
+      setBillingSessions(Array.isArray(res?.data) ? res.data : []);
+    } catch (err) {
+      console.error("🔥 BILLING LOAD FAILED:", err);
       setBillingSessions([]);
-    });
-}, [user]);
+    }
+  })();
+}, [user, role, myTeamMemberId]); // ✅ SUPER WICHTIG
 
 
 
