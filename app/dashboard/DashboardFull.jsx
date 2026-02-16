@@ -830,7 +830,7 @@ const billingByClient = useMemo(() => {
         klient:
           `${s.anfragen?.vorname || ""} ${s.anfragen?.nachname || ""}`.trim() ||
           "Unbekannt",
-        therapist:
+        therapist: s.therapist_id,
   teamData.find(t => t.id === s.therapist_id)?.name || "–",
         sessions: 0,
         umsatz: 0,
@@ -1458,45 +1458,46 @@ return (
     </button>
   </div>
 
-  {/* TABELLE */}
-  {billingByClient.length === 0 ? (
-    <div style={{ color: "#777" }}>
-      – Keine Abrechnungsdaten für diesen Zeitraum
-    </div>
-  ) : (
-    <table
-      style={{
-        width: "100%",
-        borderCollapse: "collapse",
-        fontSize: 14,
-      }}
-    >
-      <thead>
-        <tr>
-          <th align="left">Klient</th>
-          <th>Sitzungen</th>
-          <th align="right">Umsatz €</th>
-          <th align="right">Provision €</th>
-         
-        </tr>
-      </thead>
-      <tbody>
-        {billingByClient.map((r, i) => (
+{/* TABELLE */}
+{billingByClient.length === 0 ? (
+  <div style={{ color: "#777" }}>
+    – Keine Abrechnungsdaten für diesen Zeitraum
+  </div>
+) : (
+  <table
+    style={{
+      width: "100%",
+      borderCollapse: "collapse",
+      fontSize: 14,
+    }}
+  >
+    <thead>
+      <tr>
+        <th align="left">Klient</th>
+        <th align="left">Therapeut</th>
+        <th>Sitzungen</th>
+        <th align="right">Umsatz €</th>
+        <th align="right">Provision €</th>
+      </tr>
+    </thead>
+
+    <tbody>
+      {billingByClient.map((r, i) => {
+        const therapistName =
+          teamData.find((t) => t.id === r.therapist_id)?.name || "–";
+
+        return (
           <tr key={i}>
             <td>{r.klient}</td>
+            <td>{therapistName}</td>
             <td align="center">{r.sessions}</td>
             <td align="right">{r.umsatz.toFixed(2)}</td>
             <td align="right">{r.provision.toFixed(2)}</td>
-        
           </tr>
-        ))}
-      </tbody>
-    </table>
-  )}
-</div>
-
-    </section>
-  </>
+        );
+      })}
+    </tbody>
+  </table>
 )}
 
 
