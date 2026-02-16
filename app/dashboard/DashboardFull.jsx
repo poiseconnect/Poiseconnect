@@ -776,9 +776,9 @@ const filteredBillingSessions = useMemo(() => {
     if (!s?.date) return false;
 
     // 👤 Therapeut:innen-Filter (NUR HIER!)
- if (
+if (
   therapistFilter !== "alle" &&
-  s.therapist_id !== therapistFilter
+  String(s.therapist_id) !== String(therapistFilter)
 ) {
   return false;
 }
