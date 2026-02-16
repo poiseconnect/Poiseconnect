@@ -826,16 +826,16 @@ const billingByClient = useMemo(() => {
     if (!s?.anfrage_id) return;
 
     if (!map[s.anfrage_id]) {
-      map[s.anfrage_id] = {
-        klient:
-          `${s.anfragen?.vorname || ""} ${s.anfragen?.nachname || ""}`.trim() ||
-          "Unbekannt",
-        therapist: s.therapist_id,
+map[s.anfrage_id] = {
+  klient:
+    `${s.anfragen?.vorname || ""} ${s.anfragen?.nachname || ""}`.trim() ||
+    "Unbekannt",
+  therapist: s.therapist_id,
   teamData.find(t => t.id === s.therapist_id)?.name || "–",
-        sessions: 0,
-        umsatz: 0,
-        provision: 0,
-      };
+  sessions: 0,
+  umsatz: 0,
+  provision: 0,
+};
     }
 
     map[s.anfrage_id].sessions += 1;
