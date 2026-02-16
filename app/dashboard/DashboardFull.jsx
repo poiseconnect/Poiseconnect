@@ -1498,7 +1498,9 @@ return (
     </tbody>
   </table>
 )}
-
+    </section>
+  </>
+)}
 
       {/* KARTEN */}
 {filter !== "abrechnung" &&
