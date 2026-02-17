@@ -25,30 +25,40 @@ function getServiceClient() {
 
 export async function GET(req) {
   try {
-    const auth = getAnonClient();
     const svc = getServiceClient();
 
-    // ✅ Token aus Authorization Header
-    const authHeader = req.headers.get("authorization") || "";
-    const token = authHeader.startsWith("Bearer ")
-      ? authHeader.slice(7)
-      : null;
+    // 🔥 TOKEN AUS HEADER HOLEN
+    const authHeader = req.headers.get("authorization");
 
-    if (!token) {
-      return json({ error: "UNAUTHORIZED_NO_TOKEN" }, 401);
+    if (!authHeader) {
+      return json({ error: "NO_AUTH_HEADER" }, 401);
     }
 
-    // ✅ User aus Token holen
+    const token = authHeader.replace("Bearer ", "");
+
+    // 🔥 User über Token authentifizieren
+    const authClient = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+      {
+        global: {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        },
+      }
+    );
+
     const {
       data: { user },
       error: authError,
-    } = await auth.auth.getUser(token);
+    } = await authClient.auth.getUser();
 
     if (authError || !user?.id) {
       return json({ error: "UNAUTHORIZED" }, 401);
     }
 
-    // ✅ Team Member holen (Service Role)
+    // 🔥 Team Member laden (Service Role)
     const { data: member, error: memberError } = await svc
       .from("team_members")
       .select("id, role, active")
@@ -63,11 +73,10 @@ export async function GET(req) {
       return json({ error: "NOT_ACTIVE" }, 403);
     }
 
-    // ✅ Sessions laden
+    // 🔥 Sessions Query
     let query = svc
       .from("sessions")
-      .select(
-        `
+      .select(`
         id,
         date,
         duration_min,
@@ -79,11 +88,10 @@ export async function GET(req) {
           nachname,
           status
         )
-      `
-      )
+      `)
       .order("date", { ascending: false });
 
-    // ✅ Therapeut: nur eigene Sessions
+    // 🔒 Nur eigene Sessions wenn Therapeut
     if (member.role === "therapist") {
       query = query.eq("therapist_id", member.id);
     }
