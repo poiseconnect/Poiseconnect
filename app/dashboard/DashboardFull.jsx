@@ -794,15 +794,15 @@ const filteredBillingSessions = useMemo(() => {
   return sessionsSafe.filter((s) => {
     if (!s?.date) return false;
 
-    // 👑 NUR ADMIN darf nach Therapeut filtern
+    const d = new Date(s.date); // ✅ DAS HAT GEFEHLT
+
+    // 👤 Therapeut:innen-Filter
     if (
-      role === "admin" &&
       therapistFilter !== "alle" &&
       String(s.therapist_id) !== String(therapistFilter)
     ) {
       return false;
     }
-
 
     if (billingMode === "jahr") {
       return d.getFullYear() === billingYear;
@@ -834,7 +834,6 @@ const filteredBillingSessions = useMemo(() => {
   billingMonth,
   billingQuarter,
   billingDate,
-  isAdmin,
 ]);
 
 
