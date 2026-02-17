@@ -788,17 +788,14 @@ const filteredBillingSessions = useMemo(() => {
   return sessionsSafe.filter((s) => {
     if (!s?.date) return false;
 
-    const d = new Date(s.date);
-
-    // ✅ NUR ADMIN darf nach Therapeut filtern
- // 👤 Admin darf nach Therapeut filtern
-if (role === "admin") {
-  if (
-    therapistFilter !== "alle" &&
-    String(s.therapist_id) !== String(therapistFilter)
-  ) {
-    return false;
-  }
+    // 👑 NUR ADMIN darf nach Therapeut filtern
+    if (
+      role === "admin" &&
+      therapistFilter !== "alle" &&
+      String(s.therapist_id) !== String(therapistFilter)
+    ) {
+      return false;
+    }
 
     }
 
