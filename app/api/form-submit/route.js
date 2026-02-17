@@ -34,8 +34,8 @@ function getSupabase() {
 export async function POST(req) {
   try {
     const body = await req.json();
-    // 🔁 wenn aus Admin-Weiterleitung
-const requestId = body.rid || body.anfrageId || null;
+    const requestId = body.rid || body.anfrageId || null;
+
     const supabase = getSupabase();
     const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -56,6 +56,7 @@ const requestId = body.rid || body.anfrageId || null;
     }
 
     const assignedTherapistId = body.assigned_therapist_id || null;
+
     if (!assignedTherapistId) {
       return JSONResponse(
         { error: "ASSIGNED_THERAPIST_ID_MISSING" },
@@ -70,12 +71,11 @@ const requestId = body.rid || body.anfrageId || null;
     const startAt = terminISO ? new Date(terminISO) : null;
     const endAt =
       startAt ? new Date(startAt.getTime() + 60 * 60000) : null;
-    
-    // 🔥 NEU – Textwunsch für Proposal Kalender
-const terminwunsch_text = body.terminwunsch_text || null;
+
+    const terminwunsch_text = body.terminwunsch_text || null;
 
     // -----------------------------------------
-    // 🧠 ANLIEGEN: Checkboxen + Freitext
+    // 🧠 Anliegen
     // -----------------------------------------
     let anliegenText = "";
 
@@ -94,194 +94,109 @@ const terminwunsch_text = body.terminwunsch_text || null;
     }
 
     // -----------------------------------------
-    // 3️⃣ DB PAYLOAD
+    // 3️⃣ DB Payload
     // -----------------------------------------
     const payload = {
       vorname: body.vorname || null,
       nachname: body.nachname || null,
       email: body.email || null,
       telefon: body.telefon || null,
-
       strasse_hausnr: body.strasse_hausnr || null,
       plz_ort: body.plz_ort || null,
-
       geburtsdatum: body.geburtsdatum || null,
       beschaeftigungsgrad: body.beschaeftigungsgrad || null,
-
       leidensdruck: body.leidensdruck || null,
       anliegen: anliegenText || null,
       verlauf: body.verlauf || null,
       ziel: body.ziel || null,
-
       wunschtherapeut: therapistName,
       assigned_therapist_id: assignedTherapistId,
       bevorzugte_zeit: terminISO,
-     terminwunsch_text: body.terminwunsch_text || null,
-
+      terminwunsch_text,
       check_suizid: Boolean(body.check_gesundheit),
       check_datenschutz: Boolean(body.check_datenschutz),
       check_online_setting: Boolean(body.check_online_setting),
-
       status: "neu",
       match_state: "pending",
     };
 
-let finalRequestId = null;
+    let finalRequestId = null;
 
-if (requestId) {
-  // =====================================
-  // 🔁 ADMIN RESUME → UPDATE
-  // =====================================
-  console.log("🔁 UPDATE bestehende Anfrage:", requestId);
+    // =====================================
+    // 🔁 ADMIN RESUME → UPDATE
+    // =====================================
+    if (requestId) {
+      console.log("🔁 UPDATE bestehende Anfrage:", requestId);
 
-  const { error } = await supabase
-    .from("anfragen")
-    .update({
-      ...payload,
+      const { error: updateError } = await supabase
+        .from("anfragen")
+        .update({
+          ...payload,
+          status: "neu",
+          admin_therapeuten: [],
+        })
+        .eq("id", requestId);
 
-      // 🔥 DAMIT VERSCHWINDET ES AUS ADMIN
-      status: "neu",
-      admin_therapeuten: [],
-    })
-    .eq("id", requestId);
+      if (updateError) {
+        console.error("❌ UPDATE ERROR:", updateError);
+        return JSONResponse(
+          { error: "DB_UPDATE_FAILED", detail: updateError.message },
+          500
+        );
+      }
 
-  if (error) {
-    console.error("❌ UPDATE ERROR:", error);
-    return JSONResponse({ error: "DB_UPDATE_FAILED" }, 500);
-  }
+      finalRequestId = requestId;
+    } else {
+      // =====================================
+      // 🆕 NEUE ANFRAGE → INSERT
+      // =====================================
+      console.log("🆕 INSERT neue Anfrage");
 
-  finalRequestId = requestId;
+      const {
+        data: inserted,
+        error: insertError,
+      } = await supabase
+        .from("anfragen")
+        .insert(payload)
+        .select("id")
+        .single();
 
-} else {
-  // =====================================
-  // 🆕 NEUE ANFRAGE → INSERT
-  // =====================================
-  console.log("🆕 INSERT neue Anfrage");
+      if (insertError) {
+        console.error("❌ INSERT ERROR:", insertError);
+        return JSONResponse(
+          { error: "DB_INSERT_FAILED", detail: insertError.message },
+          500
+        );
+      }
 
-  const { data: inserted, error } = await supabase
-    .from("anfragen")
-    .insert(payload)
-    .select("id")
-    .single();
-
-  if (error) {
-    console.error("❌ INSERT ERROR:", error);
-    return JSONResponse(
-      { error: "DB_INSERT_FAILED", detail: error.message },
-      500
-    );
-  }
-
-  finalRequestId = inserted.id;
-}
-
-    if (error) {
-      console.error("❌ Insert Error:", error);
-      return JSONResponse(
-        { error: "DB_INSERT_FAILED", detail: error.message },
-        500
-      );
+      finalRequestId = inserted.id;
     }
 
     // -----------------------------------------
     // 4️⃣ SLOT BLOCKIEREN
     // -----------------------------------------
     if (startAt && endAt) {
-      await supabase.from("blocked_slots").insert({
-anfrage_id: finalRequestId,
-        therapist_id: assignedTherapistId,
-        start_at: startAt.toISOString(),
-        end_at: endAt.toISOString(),
-        reason: "client_submit",
-      });
+      const { error: slotError } = await supabase
+        .from("blocked_slots")
+        .insert({
+          anfrage_id: finalRequestId,
+          therapist_id: assignedTherapistId,
+          start_at: startAt.toISOString(),
+          end_at: endAt.toISOString(),
+          reason: "client_submit",
+        });
+
+      if (slotError) {
+        console.error("❌ SLOT ERROR:", slotError);
+      }
     }
 
     // -----------------------------------------
     // 📧 MAILS
     // -----------------------------------------
-
     const terminText = terminISO
       ? new Date(terminISO).toLocaleString("de-AT")
       : "noch offen";
 
-    // 📧 1) Klient:in
-    if (body.email) {
-      await resend.emails.send({
-        from: "Poise <noreply@mypoise.de>",
-        to: body.email,
-        subject: "Deine Anfrage bei Poise 🤍",
-        html: `
-          <p>Liebe:r ${body.vorname || ""},</p>
-
-          <p>vielen Dank für deine Anfrage bei <strong>Poise</strong>.</p>
-
-          <p>
-            Ausgewählte Therapeut:in:<br/>
-            <strong>${therapistName}</strong>
-          </p>
-
-          <p>
-            Erstgespräch:<br/>
-            <strong>${terminText}</strong>
-          </p>
-
-          <p>Wir melden uns zeitnah bei dir.</p>
-
-          <p>🤍<br/>Poise</p>
-        `,
-      });
-    }
-
-    // 📧 2) Therapeut:in
-    if (body.therapist_email) {
-      await resend.emails.send({
-        from: "Poise <noreply@mypoise.de>",
-        to: body.therapist_email,
-        subject: "Neue Anfrage bei Poise",
-        html: `
-          <p>Hallo,</p>
-
-          <p>es ist eine neue Anfrage eingegangen.</p>
-
-          <p>
-            Klient:in: <strong>${body.vorname} ${body.nachname}</strong><br/>
-            Termin: <strong>${terminText}</strong>
-          </p>
-
-          <p>
-            Bitte prüfe die Anfrage im Dashboard.
-          </p>
-
-          <p>– Poise</p>
-        `,
-      });
-    }
-
-    // 📧 3) Poise / Admin
-    await resend.emails.send({
-      from: "Poise <noreply@mypoise.de>",
-      to: "hallo@mypoise.de",
-      subject: "🆕 Neue Anfrage eingegangen",
-      html: `
-        <p><strong>Neue Anfrage</strong></p>
-
-        <p>
-          Klient:in: ${body.vorname} ${body.nachname}<br/>
-          E-Mail: ${body.email}<br/>
-          Therapeut:in: ${therapistName}<br/>
-          Termin: ${terminText}
-        </p>
-
-        <p>Anfrage-ID: ${finalRequestId}</p>
-      `,
-    });
-
-    return JSONResponse({ ok: true });
-  } catch (err) {
-    console.error("❌ SERVER ERROR:", err);
-    return JSONResponse(
-      { error: "SERVER_ERROR", detail: String(err) },
-      500
-    );
-  }
-}
+    // Klient
+   
