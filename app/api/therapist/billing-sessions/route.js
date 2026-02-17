@@ -1,6 +1,5 @@
 export const dynamic = "force-dynamic";
 
-import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
 import { createClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
 
@@ -13,37 +12,52 @@ function json(data, status = 200) {
 
 export async function GET() {
   try {
-    // ✅ AUTH CLIENT (korrekt mit Cookies)
-    const supabaseAuth = createRouteHandlerClient({ cookies });
+    // ✅ AUTH CLIENT MIT NEXT COOKIES
+    const auth = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+      {
+        global: {
+          headers: {
+            Authorization: `Bearer ${
+              cookies().get("sb-access-token")?.value || ""
+            }`,
+          },
+        },
+      }
+    );
 
     const {
       data: { user },
       error: authError,
-    } = await supabaseAuth.auth.getUser();
+    } = await auth.auth.getUser();
 
-    if (authError || !user) {
+    if (authError || !user?.id) {
       return json({ error: "UNAUTHORIZED" }, 401);
     }
 
-    // ✅ SERVICE ROLE CLIENT (für DB)
-    const supabaseAdmin = createClient(
+    // ✅ SERVICE ROLE CLIENT
+    const svc = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL,
       process.env.SUPABASE_SERVICE_ROLE_KEY
     );
 
-    // Team Member laden
-    const { data: member } = await supabaseAdmin
+    const { data: member, error: memberError } = await svc
       .from("team_members")
       .select("id, role, active")
       .eq("user_id", user.id)
       .single();
 
-    if (!member || !member.active) {
+    if (memberError || !member?.id) {
       return json({ error: "NO_TEAM_MEMBER" }, 403);
     }
 
-    // Sessions nur für diesen Therapeuten
-    const { data, error } = await supabaseAdmin
+    if (!member.active) {
+      return json({ error: "NOT_ACTIVE" }, 403);
+    }
+
+    // ✅ NUR EIGENE SESSIONS
+    const { data, error } = await svc
       .from("sessions")
       .select(`
         id,
