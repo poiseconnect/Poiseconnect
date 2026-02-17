@@ -791,10 +791,15 @@ const filteredBillingSessions = useMemo(() => {
     const d = new Date(s.date);
 
     // ✅ NUR ADMIN darf nach Therapeut filtern
-    if (isAdmin && therapistFilter !== "alle") {
-      if (String(s.therapist_id) !== String(therapistFilter)) {
-        return false;
-      }
+ // 👤 Admin darf nach Therapeut filtern
+if (role === "admin") {
+  if (
+    therapistFilter !== "alle" &&
+    String(s.therapist_id) !== String(therapistFilter)
+  ) {
+    return false;
+  }
+
     }
 
     if (billingMode === "jahr") {
