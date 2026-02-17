@@ -797,7 +797,6 @@ const filteredBillingSessions = useMemo(() => {
       return false;
     }
 
-    }
 
     if (billingMode === "jahr") {
       return d.getFullYear() === billingYear;
