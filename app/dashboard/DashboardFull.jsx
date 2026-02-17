@@ -788,14 +788,14 @@ const filteredBillingSessions = useMemo(() => {
   return sessionsSafe.filter((s) => {
     if (!s?.date) return false;
 
-    // 👤 Therapeut:innen-Filter (NUR HIER!)
-if (
-  therapistFilter !== "alle" &&
-  String(s.therapist_id) !== String(therapistFilter)
-) {
-  return false;
-}
     const d = new Date(s.date);
+
+    // ✅ NUR ADMIN darf nach Therapeut filtern
+    if (isAdmin && therapistFilter !== "alle") {
+      if (String(s.therapist_id) !== String(therapistFilter)) {
+        return false;
+      }
+    }
 
     if (billingMode === "jahr") {
       return d.getFullYear() === billingYear;
@@ -827,6 +827,7 @@ if (
   billingMonth,
   billingQuarter,
   billingDate,
+  isAdmin,
 ]);
 
 
