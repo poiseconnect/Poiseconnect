@@ -688,9 +688,15 @@ useEffect(() => {
 
   (async () => {
     try {
-      const r = await fetch(endpoint, {
-        credentials: "include", // 🔥 wichtig für cookies
-      });
+const {
+  data: { session },
+} = await supabase.auth.getSession();
+
+const r = await fetch(endpoint, {
+  headers: {
+    Authorization: `Bearer ${session?.access_token}`,
+  },
+});
 
       const res = await r.json();
 
