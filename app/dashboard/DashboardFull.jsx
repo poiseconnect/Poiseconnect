@@ -430,12 +430,14 @@ const [billingQuarter, setBillingQuarter] = useState(
 
 const [billingDate, setBillingDate] = useState(""); // YYYY-MM-DD
 
-  const [invoiceSettings, setInvoiceSettings] = useState({
+const [invoiceSettings, setInvoiceSettings] = useState({
   company_name: "",
   address: "",
   iban: "",
   bic: "",
   logo_url: "",
+  tax_number: "",        // 🔥 NEU
+  vat_number: "",        // 🔥 UID Nummer
   default_vat_country: "AT",
   default_vat_rate: 0,
 });
@@ -1351,7 +1353,32 @@ return (
                 }
               />
             </div>
+<div>
+  <label>Steuernummer</label>
+  <input
+    value={invoiceSettings.tax_number}
+    onChange={(e) =>
+      setInvoiceSettings({
+        ...invoiceSettings,
+        tax_number: e.target.value,
+      })
+    }
+  />
+</div>
 
+<div>
+  <label>UID Nummer</label>
+  <input
+    placeholder="z.B. ATU12345678"
+    value={invoiceSettings.vat_number}
+    onChange={(e) =>
+      setInvoiceSettings({
+        ...invoiceSettings,
+        vat_number: e.target.value,
+      })
+    }
+  />
+</div>
             <div>
               <label>BIC</label>
               <input
