@@ -304,6 +304,88 @@ function exportBillingPDF(rows, invoiceSettings, periodLabel = "") {
 
   const doc = new jsPDF();
   const pageWidth = doc.internal.pageSize.getWidth();
+  function exportSingleClientPDF(clientRow, sessions, invoiceSettings) {
+  const doc = new jsPDF();
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const today = new Date();
+
+  const therapistName = invoiceSettings.company_name || "";
+  const therapistAddress = invoiceSettings.address || "";
+
+  const clientName = clientRow.klient;
+
+  // ================= HEADER LINKS =================
+  doc.setFontSize(10);
+  doc.text(`${therapistName} – ${therapistAddress}`, 14, 15);
+
+  doc.setFontSize(11);
+  doc.text("Rechnung an:", 14, 30);
+  doc.text(clientName, 14, 36);
+
+  // ================= RECHNUNGSDATEN RECHTS =================
+  doc.setFontSize(11);
+  doc.text("Rechnung", pageWidth - 60, 30);
+
+  doc.setFontSize(10);
+  doc.text(
+    `Rechnungsdatum: ${today.toLocaleDateString("de-AT")}`,
+    pageWidth - 60,
+    36
+  );
+
+  // ================= ANREDE =================
+  doc.setFontSize(12);
+  doc.text(`Sehr geehrte/r ${clientName},`, 14, 55);
+
+  doc.setFontSize(11);
+  doc.text(
+    "Für unsere Unterstützung stellen wir wie vereinbart in Rechnung:",
+    14,
+    65
+  );
+
+  // ================= TABELLE =================
+  const vatRate = Number(invoiceSettings.default_vat_rate || 0);
+
+  const body = sessions.map((s, i) => {
+    const price = Number(s.price || 0);
+    return [
+      i + 1,
+      new Date(s.date).toLocaleDateString("de-AT"),
+      `${price.toFixed(2)} €`,
+    ];
+  });
+
+  doc.autoTable({
+    startY: 75,
+    head: [["Pos.", "Sitzung", "Einzelpreis"]],
+    body,
+  });
+
+  const finalY = doc.lastAutoTable.finalY + 10;
+
+  const totalNet = sessions.reduce(
+    (sum, s) => sum + Number(s.price || 0),
+    0
+  );
+
+  const vatAmount = vatRate > 0 ? totalNet * (vatRate / 100) : 0;
+  const totalGross = totalNet + vatAmount;
+
+  doc.text(`Gesamt netto: ${totalNet.toFixed(2)} €`, pageWidth - 80, finalY);
+  doc.text(
+    `zzgl. Umsatzsteuer ${vatRate}%: ${vatAmount.toFixed(2)} €`,
+    pageWidth - 80,
+    finalY + 6
+  );
+  doc.text(
+    `Gesamtbetrag brutto: ${totalGross.toFixed(2)} €`,
+    pageWidth - 80,
+    finalY + 12
+  );
+
+  doc.save(`Rechnung_${clientName}_${today.toISOString().slice(0, 10)}.pdf`);
+}
 
   // ==============================
   // HEADER
@@ -378,7 +460,9 @@ function exportBillingPDF(rows, invoiceSettings, periodLabel = "") {
   const finalY = doc.lastAutoTable.finalY + 10;
 
   const totalNet = rows.reduce((sum, r) => sum + r.umsatz, 0);
-  const vatRate = Number(invoiceSettings.default_vat_rate || 0);
+const vatRate = clientRow.invoice_with_vat
+  ? Number(invoiceSettings.default_vat_rate || 0)
+  : 0;
   const vatAmount = vatRate > 0 ? totalNet * (vatRate / 100) : 0;
   const totalGross = totalNet + vatAmount;
 
@@ -1619,7 +1703,28 @@ return (
 <button
   onClick={() =>
     exportBillingPDF(
-      visibleBillingRows,
+<button
+  onClick={() => {
+    if (selectedClientId === "alle") {
+      alert("Bitte zuerst einen Klienten auswählen");
+      return;
+    }
+
+    const clientRow = visibleBillingRows[0];
+    const clientSessions = filteredBillingSessions.filter(
+      (s) => String(s.anfrage_id) === String(selectedClientId)
+    );
+
+    exportSingleClientPDF(
+      clientRow,
+      clientSessions,
+      invoiceSettings
+    );
+  }}
+  disabled={!visibleBillingRows.length}
+>
+  🧾 PDF exportieren
+</button>ngRows,
       invoiceSettings,
       `${billingMode} ${billingYear}`
     )
@@ -2451,6 +2556,33 @@ if (!res.ok) {
     >
       💾 Speichern
     </button>
+<div style={{ marginTop: 12 }}>
+  <label>
+    <input
+      type="checkbox"
+      checked={detailsModal.invoice_with_vat ?? true}
+      onChange={async (e) => {
+        const value = e.target.checked;
+
+        await fetch("/api/update-invoice-setting", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            anfrageId: detailsModal.id,
+            invoice_with_vat: value,
+          }),
+        });
+
+        setDetailsModal({
+          ...detailsModal,
+          invoice_with_vat: value,
+        });
+      }}
+    />
+    Rechnung inkl. Umsatzsteuer
+  </label>
+</div>
+    
   </div>
 
   {detailsModal.honorar_klient && (
