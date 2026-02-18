@@ -1700,31 +1700,29 @@ return (
     >
       📄 CSV exportieren
     </button>
-<button
-  onClick={() =>
-    exportBillingPDF(
-<button
-  onClick={() => {
-    if (selectedClientId === "alle") {
-      alert("Bitte zuerst einen Klienten auswählen");
-      return;
-    }
 
-    const clientRow = visibleBillingRows[0];
-    const clientSessions = filteredBillingSessions.filter(
-      (s) => String(s.anfrage_id) === String(selectedClientId)
-    );
+    <button
+      onClick={() => {
+        if (selectedClientId === "alle") {
+          alert("Bitte zuerst einen Klienten auswählen");
+          return;
+        }
 
-    exportSingleClientPDF(
-      clientRow,
-      clientSessions,
-      invoiceSettings
-    );
-  }}
-  disabled={!visibleBillingRows.length}
->
-  🧾 PDF exportieren
-</button>
+        const clientRow = visibleBillingRows[0];
+        const clientSessions = filteredBillingSessions.filter(
+          (s) => String(s.anfrage_id) === String(selectedClientId)
+        );
+
+        exportSingleClientPDF(
+          clientRow,
+          clientSessions,
+          invoiceSettings
+        );
+      }}
+      disabled={!visibleBillingRows.length}
+    >
+      🧾 PDF exportieren
+    </button>
 
     <button
       disabled={!invoiceSettings.sevdesk_token}
@@ -1755,7 +1753,8 @@ return (
       📤 sevDesk Export
     </button>
   </div>
-{/* CLIENT AUSWAHL */}
+
+  {/* CLIENT AUSWAHL */}
 <div style={{ marginBottom: 12 }}>
   <strong>Klient:in:</strong>{" "}
   <select
