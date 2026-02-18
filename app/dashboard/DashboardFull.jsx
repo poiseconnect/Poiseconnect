@@ -728,15 +728,21 @@ const sessionsSafe = useMemo(() => {
    GEFILTERTE ANFRAGEN (KARTEN / LISTEN)
 ========================================================= */
 const filteredRequests = useMemo(() => {
-  console.log("🔍 FILTER:", filter);
-  console.log("📦 REQUESTS RAW:", requests);
-
   const allowedStatuses = STATUS_FILTER_MAP[filter] || [];
 
-  return requests.filter((r) =>
-    allowedStatuses.includes(r._status)
-  );
-}, [requests, filter]);
+  return requests.filter((r) => {
+    const statusMatch = allowedStatuses.includes(r._status);
+
+    if (!statusMatch) return false;
+
+    if (!search.trim()) return true;
+
+    const fullName =
+      `${r.vorname || ""} ${r.nachname || ""}`.toLowerCase();
+
+    return fullName.includes(search.toLowerCase());
+  });
+}, [requests, filter, search]);
 
 
 
