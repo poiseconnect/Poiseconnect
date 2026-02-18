@@ -732,15 +732,30 @@ const filteredRequests = useMemo(() => {
 
   return requests.filter((r) => {
     const statusMatch = allowedStatuses.includes(r._status);
-
     if (!statusMatch) return false;
 
     if (!search.trim()) return true;
 
+    const query = search.toLowerCase();
+
     const fullName =
       `${r.vorname || ""} ${r.nachname || ""}`.toLowerCase();
 
-    return fullName.includes(search.toLowerCase());
+    const email = (r.email || "").toLowerCase();
+    const telefon = (r.telefon || "").toLowerCase();
+    const anliegen =
+      typeof r.anliegen === "string"
+        ? r.anliegen.toLowerCase()
+        : "";
+    const therapist = (r.wunschtherapeut || "").toLowerCase();
+
+    return (
+      fullName.includes(query) ||
+      email.includes(query) ||
+      telefon.includes(query) ||
+      anliegen.includes(query) ||
+      therapist.includes(query)
+    );
   });
 }, [requests, filter, search]);
 
