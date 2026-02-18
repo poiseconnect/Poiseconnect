@@ -9,29 +9,23 @@ function json(data, status = 200) {
   });
 }
 
-function getServiceClient() {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.SUPABASE_SERVICE_ROLE_KEY
-  );
-}
-
 export async function GET(req) {
   try {
-    const svc = getServiceClient();
+    const supabaseAdmin = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL,
+      process.env.SUPABASE_SERVICE_ROLE_KEY
+    );
 
-    // 🔐 1️⃣ Bearer Token lesen
-    const authHeader = req.headers.get("authorization") || "";
-    const token = authHeader.startsWith("Bearer ")
-      ? authHeader.slice(7)
-      : null;
+    const authHeader = req.headers.get("authorization");
 
-    if (!token) {
+    if (!authHeader?.startsWith("Bearer ")) {
       return json({ error: "NO_TOKEN" }, 401);
     }
 
-    // 🔐 2️⃣ User via Anon Client prüfen
-    const anon = createClient(
+    const token = authHeader.replace("Bearer ", "");
+
+    // ✅ USER AUS TOKEN HOLEN (STABIL)
+    const supabaseAnon = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
     );
@@ -39,20 +33,20 @@ export async function GET(req) {
     const {
       data: { user },
       error: authError,
-    } = await anon.auth.getUser(token);
+    } = await supabaseAnon.auth.getUser(token);
 
-    if (authError || !user?.id) {
-      return json({ error: "UNAUTHORIZED" }, 401);
+    if (authError || !user) {
+      return json({ error: "INVALID_USER" }, 401);
     }
 
-    // 🔎 3️⃣ Team Member holen
-    const { data: member, error: memberError } = await svc
+    // ✅ TEAM MEMBER LADEN
+    const { data: member, error: memberError } = await supabaseAdmin
       .from("team_members")
       .select("id, role, active")
       .eq("user_id", user.id)
       .single();
 
-    if (memberError || !member?.id) {
+    if (memberError || !member) {
       return json({ error: "NO_TEAM_MEMBER" }, 403);
     }
 
@@ -64,8 +58,8 @@ export async function GET(req) {
       return json({ error: "NOT_ACTIVE" }, 403);
     }
 
-    // 📊 4️⃣ Nur eigene Sessions laden
-    const { data, error } = await svc
+    // ✅ NUR EIGENE SESSIONS
+    const { data, error } = await supabaseAdmin
       .from("sessions")
       .select(`
         id,
