@@ -9,13 +9,6 @@ function json(data, status = 200) {
   });
 }
 
-function getAnonClient() {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-  );
-}
-
 function getServiceClient() {
   return createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -27,38 +20,32 @@ export async function GET(req) {
   try {
     const svc = getServiceClient();
 
-    // 🔥 TOKEN AUS HEADER HOLEN
-    const authHeader = req.headers.get("authorization");
+    // 🔐 1️⃣ Bearer Token lesen
+    const authHeader = req.headers.get("authorization") || "";
+    const token = authHeader.startsWith("Bearer ")
+      ? authHeader.slice(7)
+      : null;
 
-    if (!authHeader) {
-      return json({ error: "NO_AUTH_HEADER" }, 401);
+    if (!token) {
+      return json({ error: "NO_TOKEN" }, 401);
     }
 
-    const token = authHeader.replace("Bearer ", "");
-
-    // 🔥 User über Token authentifizieren
-    const authClient = createClient(
+    // 🔐 2️⃣ User via Anon Client prüfen
+    const anon = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-      {
-        global: {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        },
-      }
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
     );
 
     const {
       data: { user },
       error: authError,
-    } = await authClient.auth.getUser();
+    } = await anon.auth.getUser(token);
 
     if (authError || !user?.id) {
       return json({ error: "UNAUTHORIZED" }, 401);
     }
 
-    // 🔥 Team Member laden (Service Role)
+    // 🔎 3️⃣ Team Member holen
     const { data: member, error: memberError } = await svc
       .from("team_members")
       .select("id, role, active")
@@ -69,12 +56,16 @@ export async function GET(req) {
       return json({ error: "NO_TEAM_MEMBER" }, 403);
     }
 
-    if (member.active !== true) {
+    if (member.role !== "therapist") {
+      return json({ error: "NOT_THERAPIST" }, 403);
+    }
+
+    if (!member.active) {
       return json({ error: "NOT_ACTIVE" }, 403);
     }
 
-    // 🔥 Sessions Query
-    let query = svc
+    // 📊 4️⃣ Nur eigene Sessions laden
+    const { data, error } = await svc
       .from("sessions")
       .select(`
         id,
@@ -89,23 +80,17 @@ export async function GET(req) {
           status
         )
       `)
+      .eq("therapist_id", member.id)
       .order("date", { ascending: false });
 
-    // 🔒 Nur eigene Sessions wenn Therapeut
-    if (member.role === "therapist") {
-      query = query.eq("therapist_id", member.id);
-    }
-
-    const { data, error } = await query;
-
     if (error) {
-      console.error("BILLING QUERY ERROR:", error);
       return json({ error: error.message }, 500);
     }
 
     return json({ data: data || [] });
+
   } catch (err) {
-    console.error("THERAPIST BILLING SERVER ERROR:", err);
+    console.error("THERAPIST BILLING ERROR:", err);
     return json({ error: "SERVER_ERROR", detail: String(err) }, 500);
   }
 }
