@@ -441,7 +441,6 @@ function exportBillingPDF(rows, invoiceSettings, periodLabel = "") {
 
   doc.save(`Rechnung_${today.toISOString().slice(0, 10)}.pdf`);
 }
-}
 // ================= PAPIERKORB ACTIONS =================
 
 async function restoreFromTrash(r) {
