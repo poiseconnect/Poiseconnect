@@ -1617,13 +1617,18 @@ return (
     >
       📄 CSV exportieren
     </button>
-
-    <button
-      onClick={() => exportBillingPDF(billingByClient)}
-      disabled={!billingByClient.length}
-    >
-      🧾 PDF exportieren
-    </button>
+<button
+  onClick={() =>
+    exportBillingPDF(
+      visibleBillingRows,
+      invoiceSettings,
+      `${billingMode} ${billingYear}`
+    )
+  }
+  disabled={!visibleBillingRows.length}
+>
+  🧾 PDF exportieren
+</button>
 
     <button
       disabled={!invoiceSettings.sevdesk_token}
