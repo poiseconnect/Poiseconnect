@@ -375,6 +375,7 @@ const [myUserId, setMyUserId] = useState(null);
 const [access, setAccess] = useState("loading");
   const [sessionsByRequest, setSessionsByRequest] = useState({});
   const [billingSessions, setBillingSessions] = useState([]);
+  const [selectedClientId, setSelectedClientId] = useState("alle");
   const [filter, setFilter] = useState("unbearbeitet");
  
   
@@ -845,17 +846,18 @@ const billingByClient = useMemo(() => {
   (filteredBillingSessions || []).forEach((s) => {
     if (!s?.anfrage_id) return;
 
-    if (!map[s.anfrage_id]) {
-map[s.anfrage_id] = {
-  klient:
-    `${s.anfragen?.vorname || ""} ${s.anfragen?.nachname || ""}`.trim() ||
-    "Unbekannt",
-  therapist_id: s.therapist_id,
-  sessions: 0,
-  umsatz: 0,
-  provision: 0,
-};
-    }
+if (!map[s.anfrage_id]) {
+  map[s.anfrage_id] = {
+    anfrage_id: s.anfrage_id, // 🔥 WICHTIG
+    klient:
+      `${s.anfragen?.vorname || ""} ${s.anfragen?.nachname || ""}`.trim() ||
+      "Unbekannt",
+    therapist_id: s.therapist_id,
+    sessions: 0,
+    umsatz: 0,
+    provision: 0,
+  };
+}
 
     map[s.anfrage_id].sessions += 1;
 
@@ -873,7 +875,16 @@ map[s.anfrage_id] = {
 
   return Object.values(map);
 }, [filteredBillingSessions, invoiceSettings.default_vat_rate]);
+// ================= CLIENT FILTER FÜR ABRECHNUNG =================
+const visibleBillingRows = useMemo(() => {
+  if (selectedClientId === "alle") {
+    return billingByClient;
+  }
 
+  return billingByClient.filter(
+    (row) => String(row.anfrage_id) === String(selectedClientId)
+  );
+}, [billingByClient, selectedClientId]);
 
 if (!user) {
   return <div style={{ padding: 40 }}>Lade Benutzer…</div>;
@@ -1476,9 +1487,24 @@ return (
       📤 sevDesk Export
     </button>
   </div>
+{/* CLIENT AUSWAHL */}
+<div style={{ marginBottom: 12 }}>
+  <strong>Klient:in:</strong>{" "}
+  <select
+    value={selectedClientId}
+    onChange={(e) => setSelectedClientId(e.target.value)}
+  >
+    <option value="alle">Alle</option>
 
+    {billingByClient.map((c) => (
+      <option key={c.anfrage_id} value={c.anfrage_id}>
+        {c.klient}
+      </option>
+    ))}
+  </select>
+</div>
 {/* TABELLE */}
-{billingByClient.length === 0 ? (
+{visibleBillingRows.length === 0 ? (
   <div style={{ color: "#777" }}>
     – Keine Abrechnungsdaten für diesen Zeitraum
   </div>
@@ -1501,8 +1527,8 @@ return (
     </thead>
 
     <tbody>
-      {billingByClient.map((r, i) => {
-        const therapistName =
+{visibleBillingRows.map((r, i) => {
+  const therapistName =
           teamData.find((t) => t.id === r.therapist_id)?.name || "–";
 
         return (
