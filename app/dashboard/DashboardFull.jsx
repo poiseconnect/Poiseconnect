@@ -1724,14 +1724,6 @@ return (
   disabled={!visibleBillingRows.length}
 >
   🧾 PDF exportieren
-</button>ngRows,
-      invoiceSettings,
-      `${billingMode} ${billingYear}`
-    )
-  }
-  disabled={!visibleBillingRows.length}
->
-  🧾 PDF exportieren
 </button>
 
     <button
