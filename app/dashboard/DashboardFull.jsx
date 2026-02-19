@@ -459,9 +459,7 @@ function exportBillingPDF(rows, invoiceSettings, periodLabel = "") {
   const finalY = doc.lastAutoTable.finalY + 10;
 
   const totalNet = rows.reduce((sum, r) => sum + r.umsatz, 0);
-const vatRate = clientRow.invoice_with_vat
-  ? Number(invoiceSettings.default_vat_rate || 0)
-  : 0;
+const vatRate = Number(invoiceSettings.default_vat_rate || 0);
   const vatAmount = vatRate > 0 ? totalNet * (vatRate / 100) : 0;
   const totalGross = totalNet + vatAmount;
 
