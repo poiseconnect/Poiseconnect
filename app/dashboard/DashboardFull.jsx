@@ -1007,15 +1007,20 @@ const billingByClient = useMemo(() => {
 
 if (!map[s.anfrage_id]) {
   map[s.anfrage_id] = {
-    anfrage_id: s.anfrage_id, // 🔥 WICHTIG
-    klient:
-      `${s.anfragen?.vorname || ""} ${s.anfragen?.nachname || ""}`.trim() ||
-      "Unbekannt",
-    therapist_id: s.therapist_id,
-    sessions: 0,
-    umsatz: 0,
-    provision: 0,
-  };
+  anfrage_id: s.anfrage_id,
+  klient:
+    `${s.anfragen?.vorname || ""} ${s.anfragen?.nachname || ""}`.trim() ||
+    "Unbekannt",
+
+  strasse_hausnr: s.anfragen?.strasse_hausnr || "",
+  plz_ort: s.anfragen?.plz_ort || "",
+  email: s.anfragen?.email || "",
+
+  therapist_id: s.therapist_id,
+  sessions: 0,
+  umsatz: 0,
+  provision: 0,
+};
 }
 
     map[s.anfrage_id].sessions += 1;
