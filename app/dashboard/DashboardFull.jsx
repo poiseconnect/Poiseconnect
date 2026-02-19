@@ -314,7 +314,16 @@ function exportSingleClientPDF(clientRow, sessions, invoiceSettings) {
   // ================= HEADER =================
 
   doc.setFontSize(9);
-  doc.text(`${therapistName} · ${therapistAddress}`, 14, 12);
+doc.text(therapistName || "", 14, 15);
+doc.text(therapistAddress || "", 14, 20);
+
+if (invoiceSettings.vat_number) {
+  doc.text(`UID: ${invoiceSettings.vat_number}`, 14, 25);
+}
+
+if (invoiceSettings.tax_number) {
+  doc.text(`Steuernr: ${invoiceSettings.tax_number}`, 14, 30);
+}
 
   // LOGO (optional)
   if (invoiceSettings.logo_url) {
@@ -332,8 +341,19 @@ function exportSingleClientPDF(clientRow, sessions, invoiceSettings) {
 
   // Empfänger
   doc.setFontSize(11);
-  doc.text("Rechnung an:", 14, 30);
-  doc.text(clientName, 14, 36);
+doc.text("Rechnung an:", 14, 30);
+
+doc.text(clientRow.klient || "", 14, 36);
+doc.text(clientRow.strasse_hausnr || "", 14, 42);
+doc.text(clientRow.plz_ort || "", 14, 48);
+
+if (clientRow.email) {
+  doc.text(clientRow.email, 14, 54);
+}
+
+if (clientRow.steuer_nr) {
+  doc.text(`Steuernr: ${clientRow.steuer_nr}`, 14, 60);
+}
 
   // Rechnungsinfo rechts
   doc.setFontSize(11);
