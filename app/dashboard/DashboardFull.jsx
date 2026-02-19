@@ -298,23 +298,17 @@ function exportBillingCSV(rows) {
   a.click();
   URL.revokeObjectURL(url);
 }
+function exportSingleClientPDF(clientRow, sessions, invoiceSettings) {
+  if (!clientRow || !sessions?.length) return;
 
-function exportBillingPDF(rows, invoiceSettings, periodLabel = "") {
-  if (!rows || !rows.length) return;
-
-  const doc = new jsPDF();
-  const pageWidth = doc.internal.pageSize.getWidth();
-  function exportSingleClientPDF(clientRow, sessions, invoiceSettings) {
   const doc = new jsPDF();
   const pageWidth = doc.internal.pageSize.getWidth();
   const today = new Date();
 
   const therapistName = invoiceSettings.company_name || "";
   const therapistAddress = invoiceSettings.address || "";
-
   const clientName = clientRow.klient;
 
-  // ================= HEADER LINKS =================
   doc.setFontSize(10);
   doc.text(`${therapistName} – ${therapistAddress}`, 14, 15);
 
@@ -322,7 +316,6 @@ function exportBillingPDF(rows, invoiceSettings, periodLabel = "") {
   doc.text("Rechnung an:", 14, 30);
   doc.text(clientName, 14, 36);
 
-  // ================= RECHNUNGSDATEN RECHTS =================
   doc.setFontSize(11);
   doc.text("Rechnung", pageWidth - 60, 30);
 
@@ -333,7 +326,6 @@ function exportBillingPDF(rows, invoiceSettings, periodLabel = "") {
     36
   );
 
-  // ================= ANREDE =================
   doc.setFontSize(12);
   doc.text(`Sehr geehrte/r ${clientName},`, 14, 55);
 
@@ -344,7 +336,6 @@ function exportBillingPDF(rows, invoiceSettings, periodLabel = "") {
     65
   );
 
-  // ================= TABELLE =================
   const vatRate = Number(invoiceSettings.default_vat_rate || 0);
 
   const body = sessions.map((s, i) => {
@@ -384,8 +375,16 @@ function exportBillingPDF(rows, invoiceSettings, periodLabel = "") {
     finalY + 12
   );
 
-  doc.save(`Rechnung_${clientName}_${today.toISOString().slice(0, 10)}.pdf`);
+  doc.save(
+    `Rechnung_${clientName}_${today.toISOString().slice(0, 10)}.pdf`
+  );
 }
+function exportBillingPDF(rows, invoiceSettings, periodLabel = "") {
+  if (!rows || !rows.length) return;
+
+  const doc = new jsPDF();
+  const pageWidth = doc.internal.pageSize.getWidth();
+  
 
   // ==============================
   // HEADER
