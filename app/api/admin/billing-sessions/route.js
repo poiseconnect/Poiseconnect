@@ -25,11 +25,14 @@ export async function GET() {
   price,
   therapist_id,
   anfrage_id,
-  anfragen (
-    vorname,
-    nachname,
-    status
-  ),
+anfragen (
+  vorname,
+  nachname,
+  email,
+  strasse_hausnr,
+  plz_ort,
+  status
+),
   team_members (
     id,
     name,
