@@ -305,56 +305,15 @@ function exportSingleClientPDF(clientRow, sessions, invoiceSettings) {
   const pageWidth = doc.internal.pageSize.getWidth();
   const today = new Date();
 
+  const marginLeft = 20;
+  const rightCol = pageWidth - 70;
+
   const therapistName = invoiceSettings.company_name || "";
   const therapistAddress = invoiceSettings.address || "";
-  const clientName = clientRow.klient;
-
-  doc.setFontSize(10);
-  doc.text(`${therapistName} – ${therapistAddress}`, 14, 15);
-
-  doc.setFontSize(11);
-  doc.text("Rechnung an:", 14, 30);
-  doc.text(clientName, 14, 36);
-
-  doc.setFontSize(11);
-  doc.text("Rechnung", pageWidth - 60, 30);
-
-  doc.setFontSize(10);
-  doc.text(
-    `Rechnungsdatum: ${today.toLocaleDateString("de-AT")}`,
-    pageWidth - 60,
-    36
-  );
-
-  doc.setFontSize(12);
-  doc.text(`Sehr geehrte/r ${clientName},`, 14, 55);
-
-  doc.setFontSize(11);
-  doc.text(
-    "Für unsere Unterstützung stellen wir wie vereinbart in Rechnung:",
-    14,
-    65
-  );
+  const clientName = clientRow.klient || "";
+  const invoiceNumber = `RE-${Date.now().toString().slice(-4)}`;
 
   const vatRate = Number(invoiceSettings.default_vat_rate || 0);
-
-  const body = sessions.map((s, i) => {
-    const price = Number(s.price || 0);
-    return [
-      i + 1,
-      new Date(s.date).toLocaleDateString("de-AT"),
-      `${price.toFixed(2)} €`,
-    ];
-  });
-
-  doc.autoTable({
-    startY: 75,
-    head: [["Pos.", "Sitzung", "Einzelpreis"]],
-    body,
-  });
-
-  const finalY = doc.lastAutoTable.finalY + 10;
-
   const totalNet = sessions.reduce(
     (sum, s) => sum + Number(s.price || 0),
     0
@@ -363,166 +322,144 @@ function exportSingleClientPDF(clientRow, sessions, invoiceSettings) {
   const vatAmount = vatRate > 0 ? totalNet * (vatRate / 100) : 0;
   const totalGross = totalNet + vatAmount;
 
-  doc.text(`Gesamt netto: ${totalNet.toFixed(2)} €`, pageWidth - 80, finalY);
-  doc.text(
-    `zzgl. Umsatzsteuer ${vatRate}%: ${vatAmount.toFixed(2)} €`,
-    pageWidth - 80,
-    finalY + 6
-  );
-  doc.text(
-    `Gesamtbetrag brutto: ${totalGross.toFixed(2)} €`,
-    pageWidth - 80,
-    finalY + 12
-  );
+  // ================= HEADER LINKS =================
+  doc.setFontSize(9);
+  doc.text(`${therapistName} – ${therapistAddress}`, marginLeft, 20);
 
-  doc.save(
-    `Rechnung_${clientName}_${today.toISOString().slice(0, 10)}.pdf`
-  );
-}
-function exportBillingPDF(rows, invoiceSettings, periodLabel = "") {
-  if (!rows || !rows.length) return;
-
-  const doc = new jsPDF();
-  const pageWidth = doc.internal.pageSize.getWidth();
-  
-
-  // ==============================
-  // HEADER
-  // ==============================
-  doc.setFontSize(10);
-  doc.text(
-    `${invoiceSettings.company_name || ""} – ${invoiceSettings.address || ""}`,
-    14,
-    15
-  );
-
-  // LOGO (falls vorhanden)
-  if (invoiceSettings.logo_url) {
-    try {
-      doc.addImage(invoiceSettings.logo_url, "PNG", pageWidth - 50, 10, 30, 20);
-    } catch (e) {
-      console.warn("Logo konnte nicht geladen werden");
-    }
-  }
-
-  // ==============================
-  // EMPFÄNGER (Demo – später dynamisch)
-  // ==============================
+  // ================= RECHNUNG AN =================
   doc.setFontSize(11);
-  doc.text("Rechnung an:", 14, 30);
-  doc.text("Klient:in siehe Tabelle", 14, 36);
-
-  // ==============================
-  // RECHNUNGSDATEN RECHTS
-  // ==============================
-  doc.setFontSize(11);
-  doc.text("Rechnung", pageWidth - 60, 30);
-
-  const today = new Date();
+  doc.text("Rechnung an:", marginLeft, 40);
   doc.setFontSize(10);
-  doc.text(`Rechnungsdatum: ${today.toLocaleDateString("de-AT")}`, pageWidth - 60, 36);
-  doc.text(`Leistungszeitraum: ${periodLabel}`, pageWidth - 60, 42);
+ doc.text(clientName, marginLeft, 48);
+doc.text(clientRow.strasse_hausnr || "", marginLeft, 55);
+doc.text(clientRow.plz_ort || "", marginLeft, 62);
 
-  // ==============================
-  // TITEL
-  // ==============================
+  // ================= RECHNUNGSDATEN RECHTS =================
+  doc.setFontSize(10);
+  doc.text("Rechnungs-Nr.", rightCol, 40);
+  doc.text(invoiceNumber, rightCol + 35, 40);
+
+  doc.text("Rechnungsdatum", rightCol, 48);
+  doc.text(today.toLocaleDateString("de-AT"), rightCol + 35, 48);
+
+  // ================= TITEL =================
   doc.setFontSize(16);
-  doc.text("Rechnung", 14, 55);
+  doc.text(`Rechnung Nr. ${invoiceNumber}`, marginLeft, 70);
 
+  // ================= ANREDE =================
   doc.setFontSize(11);
+  doc.text(`Sehr geehrte/r ${clientName},`, marginLeft, 85);
+
   doc.text(
     "Für unsere Unterstützung stellen wir wie vereinbart in Rechnung:",
-    14,
-    63
+    marginLeft,
+    95
   );
 
-  // ==============================
-  // TABELLE
-  // ==============================
-  const body = rows.map((r) => [
-    r.klient,
-    r.sessions,
-    `${r.umsatz.toFixed(2)} €`,
-  ]);
-
-  doc.autoTable({
-    startY: 70,
-    head: [["Klient", "Sitzungen", "Gesamt €"]],
-    body,
-    styles: { fontSize: 10 },
-    headStyles: { fillColor: [240, 240, 240] },
+  // ================= TABELLE =================
+  const body = sessions.map((s, i) => {
+    const price = Number(s.price || 0);
+    return [
+      i + 1,
+      "Psychologische Online Beratung",
+      "1",
+      `${price.toFixed(2)} €`,
+      `${price.toFixed(2)} €`,
+    ];
   });
 
-  // ==============================
-  // SUMMEN
-  // ==============================
+  doc.autoTable({
+    startY: 105,
+    head: [["Pos.", "Beschreibung", "Menge", "Einzelpreis", "Gesamtpreis"]],
+    body,
+    styles: { fontSize: 10 },
+    headStyles: { fillColor: [230, 230, 230] },
+  });
+
   const finalY = doc.lastAutoTable.finalY + 10;
 
-  const totalNet = rows.reduce((sum, r) => sum + r.umsatz, 0);
-const vatRate = clientRow.invoice_with_vat
-  ? Number(invoiceSettings.default_vat_rate || 0)
-  : 0;
-  const vatAmount = vatRate > 0 ? totalNet * (vatRate / 100) : 0;
-  const totalGross = totalNet + vatAmount;
+  // ================= SUMMENBLOCK =================
+  doc.setFontSize(11);
 
-  doc.text(`Gesamt netto: ${totalNet.toFixed(2)} €`, pageWidth - 80, finalY);
   doc.text(
-    `zzgl. Umsatzsteuer ${vatRate}%: ${vatAmount.toFixed(2)} €`,
-    pageWidth - 80,
-    finalY + 6
+    `Gesamtbetrag netto`,
+    rightCol,
+    finalY
   );
   doc.text(
-    `Gesamtbetrag brutto: ${totalGross.toFixed(2)} €`,
-    pageWidth - 80,
-    finalY + 12
+    `${totalNet.toFixed(2)} EUR`,
+    rightCol + 40,
+    finalY
   );
 
-  // ==============================
-  // ZAHLUNGSHINWEIS
-  // ==============================
+  doc.text(
+    `zzgl. Umsatzsteuer ${vatRate}%`,
+    rightCol,
+    finalY + 8
+  );
+  doc.text(
+    `${vatAmount.toFixed(2)} EUR`,
+    rightCol + 40,
+    finalY + 8
+  );
+
+  doc.setFontSize(12);
+  doc.text(
+    `Gesamtbetrag brutto`,
+    rightCol,
+    finalY + 18
+  );
+  doc.text(
+    `${totalGross.toFixed(2)} EUR`,
+    rightCol + 40,
+    finalY + 18
+  );
+
+  // ================= ZAHLUNGSHINWEIS =================
   doc.setFontSize(10);
   doc.text(
-    "Zahlungsbedingung: Zahlung innerhalb von 14 Tagen ohne Abzüge.",
-    14,
-    finalY + 25
-  );
-
-  // ==============================
-  // FOOTER
-  // ==============================
-  doc.setFontSize(9);
-
-  doc.text(
-    `${invoiceSettings.company_name || ""}`,
-    14,
-    280
+    "Zahlungsbedingungen: Zahlung innerhalb von 14 Tagen ohne Abzüge.",
+    marginLeft,
+    finalY + 35
   );
 
   doc.text(
-    `IBAN: ${invoiceSettings.iban || "-"}`,
-    14,
-    285
+    "Bitte überweisen Sie den Rechnungsbetrag unter Angabe der Rechnungsnummer.",
+    marginLeft,
+    finalY + 43
   );
 
   doc.text(
-    `BIC: ${invoiceSettings.bic || "-"}`,
-    14,
-    290
+    "Ich danke für Ihr Vertrauen.",
+    marginLeft,
+    finalY + 55
   );
+
+  doc.text(
+    therapistName,
+    marginLeft,
+    finalY + 65
+  );
+
+  // ================= FOOTER =================
+  doc.setFontSize(8);
+
+  doc.text(therapistName, marginLeft, 280);
+  doc.text(`IBAN: ${invoiceSettings.iban || "-"}`, marginLeft, 285);
+  doc.text(`BIC: ${invoiceSettings.bic || "-"}`, marginLeft, 290);
 
   doc.text(
     `Steuernummer: ${invoiceSettings.tax_number || "-"}`,
-    pageWidth - 90,
+    rightCol,
     285
   );
-
   doc.text(
     `UID: ${invoiceSettings.vat_number || "-"}`,
-    pageWidth - 90,
+    rightCol,
     290
   );
 
-  doc.save(`Rechnung_${today.toISOString().slice(0, 10)}.pdf`);
+  doc.save(`Rechnung_${clientName}_${today.toISOString().slice(0, 10)}.pdf`);
 }
 // ================= PAPIERKORB ACTIONS =================
 
@@ -1072,15 +1009,20 @@ const billingByClient = useMemo(() => {
 
 if (!map[s.anfrage_id]) {
   map[s.anfrage_id] = {
-    anfrage_id: s.anfrage_id, // 🔥 WICHTIG
-    klient:
-      `${s.anfragen?.vorname || ""} ${s.anfragen?.nachname || ""}`.trim() ||
-      "Unbekannt",
-    therapist_id: s.therapist_id,
-    sessions: 0,
-    umsatz: 0,
-    provision: 0,
-  };
+  anfrage_id: s.anfrage_id,
+  klient:
+    `${s.anfragen?.vorname || ""} ${s.anfragen?.nachname || ""}`.trim() ||
+    "Unbekannt",
+
+  strasse_hausnr: s.anfragen?.strasse_hausnr || "",
+  plz_ort: s.anfragen?.plz_ort || "",
+  email: s.anfragen?.email || "",
+
+  therapist_id: s.therapist_id,
+  sessions: 0,
+  umsatz: 0,
+  provision: 0,
+};
 }
 
     map[s.anfrage_id].sessions += 1;
