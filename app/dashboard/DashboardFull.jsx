@@ -330,7 +330,9 @@ function exportSingleClientPDF(clientRow, sessions, invoiceSettings) {
   doc.setFontSize(11);
   doc.text("Rechnung an:", marginLeft, 40);
   doc.setFontSize(10);
-  doc.text(clientName, marginLeft, 48);
+ doc.text(clientName, marginLeft, 48);
+doc.text(clientRow.strasse_hausnr || "", marginLeft, 55);
+doc.text(clientRow.plz_ort || "", marginLeft, 62);
 
   // ================= RECHNUNGSDATEN RECHTS =================
   doc.setFontSize(10);
