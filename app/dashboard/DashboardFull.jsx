@@ -384,11 +384,9 @@ function exportBillingPDF(rows, invoiceSettings, periodLabel = "") {
 
   const doc = new jsPDF();
   const pageWidth = doc.internal.pageSize.getWidth();
-  
+  const today = new Date();
 
-  // ==============================
   // HEADER
-  // ==============================
   doc.setFontSize(10);
   doc.text(
     `${invoiceSettings.company_name || ""} – ${invoiceSettings.address || ""}`,
@@ -396,73 +394,48 @@ function exportBillingPDF(rows, invoiceSettings, periodLabel = "") {
     15
   );
 
-  // LOGO (falls vorhanden)
+  // LOGO
   if (invoiceSettings.logo_url) {
     try {
       doc.addImage(invoiceSettings.logo_url, "PNG", pageWidth - 50, 10, 30, 20);
-    } catch (e) {
-      console.warn("Logo konnte nicht geladen werden");
-    }
+    } catch (e) {}
   }
 
-  // ==============================
-  // EMPFÄNGER (Demo – später dynamisch)
-  // ==============================
+  // EMPFÄNGER
   doc.setFontSize(11);
   doc.text("Rechnung an:", 14, 30);
   doc.text("Klient:in siehe Tabelle", 14, 36);
 
-  // ==============================
-  // RECHNUNGSDATEN RECHTS
-  // ==============================
-  doc.setFontSize(11);
+  // RECHNUNG INFO
   doc.text("Rechnung", pageWidth - 60, 30);
-
-  const today = new Date();
   doc.setFontSize(10);
-  doc.text(`Rechnungsdatum: ${today.toLocaleDateString("de-AT")}`, pageWidth - 60, 36);
+  doc.text(
+    `Rechnungsdatum: ${today.toLocaleDateString("de-AT")}`,
+    pageWidth - 60,
+    36
+  );
+
   doc.text(`Leistungszeitraum: ${periodLabel}`, pageWidth - 60, 42);
 
-  // ==============================
-  // TITEL
-  // ==============================
   doc.setFontSize(16);
   doc.text("Rechnung", 14, 55);
 
-  doc.setFontSize(11);
-  doc.text(
-    "Für unsere Unterstützung stellen wir wie vereinbart in Rechnung:",
-    14,
-    63
-  );
-
-  // ==============================
-  // TABELLE
-  // ==============================
-  const body = rows.map((r) => [
-    r.klient,
-    r.sessions,
-    `${r.umsatz.toFixed(2)} €`,
-  ]);
-
+  // TABLE
   doc.autoTable({
     startY: 70,
     head: [["Klient", "Sitzungen", "Gesamt €"]],
-    body,
-    styles: { fontSize: 10 },
-    headStyles: { fillColor: [240, 240, 240] },
+    body: rows.map((r) => [
+      r.klient,
+      r.sessions,
+      `${r.umsatz.toFixed(2)} €`,
+    ]),
   });
 
-  // ==============================
-  // SUMMEN
-  // ==============================
   const finalY = doc.lastAutoTable.finalY + 10;
 
   const totalNet = rows.reduce((sum, r) => sum + r.umsatz, 0);
-const vatRate = clientRow.invoice_with_vat
-  ? Number(invoiceSettings.default_vat_rate || 0)
-  : 0;
-  const vatAmount = vatRate > 0 ? totalNet * (vatRate / 100) : 0;
+  const vatRate = Number(invoiceSettings.default_vat_rate || 0);
+  const vatAmount = totalNet * (vatRate / 100);
   const totalGross = totalNet + vatAmount;
 
   doc.text(`Gesamt netto: ${totalNet.toFixed(2)} €`, pageWidth - 80, finalY);
@@ -477,50 +450,11 @@ const vatRate = clientRow.invoice_with_vat
     finalY + 12
   );
 
-  // ==============================
-  // ZAHLUNGSHINWEIS
-  // ==============================
-  doc.setFontSize(10);
-  doc.text(
-    "Zahlungsbedingung: Zahlung innerhalb von 14 Tagen ohne Abzüge.",
-    14,
-    finalY + 25
-  );
-
-  // ==============================
   // FOOTER
-  // ==============================
   doc.setFontSize(9);
-
-  doc.text(
-    `${invoiceSettings.company_name || ""}`,
-    14,
-    280
-  );
-
-  doc.text(
-    `IBAN: ${invoiceSettings.iban || "-"}`,
-    14,
-    285
-  );
-
-  doc.text(
-    `BIC: ${invoiceSettings.bic || "-"}`,
-    14,
-    290
-  );
-
-  doc.text(
-    `Steuernummer: ${invoiceSettings.tax_number || "-"}`,
-    pageWidth - 90,
-    285
-  );
-
-  doc.text(
-    `UID: ${invoiceSettings.vat_number || "-"}`,
-    pageWidth - 90,
-    290
-  );
+  doc.text(`${invoiceSettings.company_name || ""}`, 14, 280);
+  doc.text(`IBAN: ${invoiceSettings.iban || "-"}`, 14, 285);
+  doc.text(`BIC: ${invoiceSettings.bic || "-"}`, 14, 290);
 
   doc.save(`Rechnung_${today.toISOString().slice(0, 10)}.pdf`);
 }
