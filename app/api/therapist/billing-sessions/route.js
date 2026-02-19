@@ -68,15 +68,11 @@ export async function GET(req) {
         price,
         therapist_id,
         anfrage_id,
-anfragen (
-  vorname,
-  nachname,
-  email,
-  strasse_hausnr,
-  plz_ort,
-  steuer_nr,
-  status
-)
+        anfragen (
+          vorname,
+          nachname,
+          status
+        )
       `)
       .eq("therapist_id", member.id)
       .order("date", { ascending: false });
