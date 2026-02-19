@@ -74,7 +74,7 @@ export async function GET(req) {
           status
         )
       `)
-      .eq("therapist_id", member.id)
+.or(`therapist_id.eq.${member.id},therapist_id.eq.${user.id}`)
       .order("date", { ascending: false });
 
     if (error) {
