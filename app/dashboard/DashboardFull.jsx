@@ -1066,13 +1066,23 @@ const billingByClient = useMemo(() => {
 
   (filteredBillingSessions || []).forEach((s) => {
     if (!s?.anfrage_id) return;
-
 if (!map[s.anfrage_id]) {
+  const a = s.anfragen || {};
+
   map[s.anfrage_id] = {
-    anfrage_id: s.anfrage_id, // 🔥 WICHTIG
+    anfrage_id: s.anfrage_id,
+
     klient:
-      `${s.anfragen?.vorname || ""} ${s.anfragen?.nachname || ""}`.trim() ||
-      "Unbekannt",
+      `${a.vorname || ""} ${a.nachname || ""}`.trim() || "Unbekannt",
+
+    // 🔥 CLIENT DATEN (NEU)
+    vorname: a.vorname || "",
+    nachname: a.nachname || "",
+    email: a.email || "",
+    strasse_hausnr: a.strasse_hausnr || "",
+    plz_ort: a.plz_ort || "",
+    steuer_nr: a.steuer_nr || "",
+
     therapist_id: s.therapist_id,
     sessions: 0,
     umsatz: 0,
