@@ -30,9 +30,7 @@ export async function POST(req) {
           therapist_id,
           ...settings,
         },
-        {
-          onConflict: "therapist_id",
-        }
+        { onConflict: "therapist_id" }
       );
 
     if (error) {
