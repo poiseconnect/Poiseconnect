@@ -50,76 +50,54 @@ export default function RechnungPage({ params }) {
   if (loading) return <div style={{ padding: 40 }}>Lade Rechnung…</div>;
   if (!client) return <div>Keine Daten</div>;
 
-  const total = sessions.reduce(
+  const vatRate = Number(settings.default_vat_rate || 0);
+
+  const totalNet = sessions.reduce(
     (sum, s) => sum + Number(s.price || 0),
     0
   );
 
+  const vatAmount = vatRate > 0 ? totalNet * (vatRate / 100) : 0;
+  const totalGross = totalNet + vatAmount;
+
   return (
     <div style={{ padding: 40, display: "flex", gap: 40 }}>
-      {/* ================= EDIT ================= */}
-      <div style={{ flex: 1 }}>
-        <h2>Rechnungsdaten bearbeiten</h2>
-
-        <label>Firma</label>
-        <input
-          value={settings.company_name || ""}
-          onChange={(e) =>
-            setSettings({ ...settings, company_name: e.target.value })
-          }
-        />
-
-        <label>Adresse</label>
-        <textarea
-          value={settings.address || ""}
-          onChange={(e) =>
-            setSettings({ ...settings, address: e.target.value })
-          }
-        />
-
-        <label>USt %</label>
-        <input
-          type="number"
-          value={settings.default_vat_rate || 0}
-          onChange={(e) =>
-            setSettings({
-              ...settings,
-              default_vat_rate: Number(e.target.value),
-            })
-          }
-        />
-
-        <button
-          style={{ marginTop: 20 }}
-          onClick={() => generatePDF()}
-        >
-          PDF generieren
-        </button>
-      </div>
-
+      
       {/* ================= VORSCHAU ================= */}
       <div
         style={{
           flex: 1,
           border: "1px solid #ddd",
-          padding: 20,
-          borderRadius: 10,
+          padding: 30,
+          borderRadius: 12,
           background: "#fff",
         }}
       >
-        <h2>Rechnung Vorschau</h2>
+        <h2>Rechnung</h2>
 
-        <p><strong>{settings.company_name}</strong></p>
-        <p>{settings.address}</p>
+        {/* THERAPEUT */}
+        <div style={{ marginBottom: 20 }}>
+          <strong>{settings.company_name}</strong><br />
+          {settings.address}<br />
+          {settings.vat_number && <>UID: {settings.vat_number}<br /></>}
+          {settings.tax_number && <>Steuernr: {settings.tax_number}<br /></>}
+        </div>
 
         <hr />
 
-        <p>
+        {/* KLIENT */}
+        <div style={{ marginTop: 20 }}>
           <strong>Rechnung an:</strong><br />
-          {client.vorname} {client.nachname}
-        </p>
+          {client.vorname} {client.nachname}<br />
+          {client.strasse_hausnr}<br />
+          {client.plz_ort}<br />
+          {client.email && <>{client.email}<br /></>}
+          {client.steuer_nr && <>Steuernr: {client.steuer_nr}</>}
+        </div>
 
-        <table width="100%" style={{ marginTop: 20 }}>
+        <hr style={{ margin: "30px 0" }} />
+
+        <table width="100%">
           <thead>
             <tr>
               <th align="left">Datum</th>
@@ -129,42 +107,105 @@ export default function RechnungPage({ params }) {
           <tbody>
             {sessions.map((s) => (
               <tr key={s.id}>
-                <td>{new Date(s.date).toLocaleDateString()}</td>
-                <td align="right">{Number(s.price).toFixed(2)}</td>
+                <td>
+                  {new Date(s.date).toLocaleDateString("de-AT")}
+                </td>
+                <td align="right">
+                  {Number(s.price).toFixed(2)}
+                </td>
               </tr>
             ))}
           </tbody>
         </table>
 
-        <hr />
+        <hr style={{ margin: "30px 0" }} />
 
-        <h3 style={{ textAlign: "right" }}>
-          Gesamt: {total.toFixed(2)} €
-        </h3>
+        <div style={{ textAlign: "right" }}>
+          <div>Netto: {totalNet.toFixed(2)} €</div>
+          {vatRate > 0 && (
+            <div>
+              USt {vatRate}%: {vatAmount.toFixed(2)} €
+            </div>
+          )}
+          <strong>
+            Gesamt: {totalGross.toFixed(2)} €
+          </strong>
+        </div>
+
+        <div style={{ marginTop: 40, fontSize: 12 }}>
+          IBAN: {settings.iban}<br />
+          BIC: {settings.bic}
+        </div>
+
+        <button
+          style={{ marginTop: 30 }}
+          onClick={() =>
+            generatePDF(
+              client,
+              sessions,
+              settings,
+              vatRate
+            )
+          }
+        >
+          PDF generieren
+        </button>
       </div>
     </div>
   );
+}
 
-  function generatePDF() {
-    const doc = new jsPDF();
-    doc.text(settings.company_name || "", 10, 10);
-    doc.text(settings.address || "", 10, 16);
+function generatePDF(client, sessions, settings, vatRate) {
+  const doc = new jsPDF();
 
+  doc.setFontSize(10);
+  doc.text(settings.company_name || "", 14, 15);
+  doc.text(settings.address || "", 14, 20);
+
+  doc.text(
+    `Rechnung an ${client.vorname} ${client.nachname}`,
+    14,
+    40
+  );
+
+  const totalNet = sessions.reduce(
+    (sum, s) => sum + Number(s.price || 0),
+    0
+  );
+
+  const vatAmount =
+    vatRate > 0 ? totalNet * (vatRate / 100) : 0;
+
+  const totalGross = totalNet + vatAmount;
+
+  doc.autoTable({
+    startY: 50,
+    head: [["Datum", "Preis"]],
+    body: sessions.map((s) => [
+      new Date(s.date).toLocaleDateString("de-AT"),
+      Number(s.price).toFixed(2),
+    ]),
+  });
+
+  const finalY = doc.lastAutoTable.finalY + 10;
+
+  doc.text(`Netto: ${totalNet.toFixed(2)} €`, 140, finalY);
+
+  if (vatRate > 0) {
     doc.text(
-      `Rechnung an ${client.vorname} ${client.nachname}`,
-      10,
-      30
+      `USt ${vatRate}%: ${vatAmount.toFixed(2)} €`,
+      140,
+      finalY + 6
     );
-
-    doc.autoTable({
-      startY: 40,
-      head: [["Datum", "Preis"]],
-      body: sessions.map((s) => [
-        new Date(s.date).toLocaleDateString(),
-        Number(s.price).toFixed(2),
-      ]),
-    });
-
-    doc.save("rechnung.pdf");
   }
+
+  doc.text(
+    `Gesamt: ${totalGross.toFixed(2)} €`,
+    140,
+    finalY + 12
+  );
+
+  doc.save(
+    `Rechnung_${client.vorname}_${client.nachname}.pdf`
+  );
 }
