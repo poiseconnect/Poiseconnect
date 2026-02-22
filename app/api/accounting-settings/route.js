@@ -1,55 +1,49 @@
 import { createClient } from "@supabase/supabase-js";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-);
-
 export async function POST(req) {
-  const body = await req.json();
-  const {
-    therapist_email,
-    sevdesk_token,
-    ust_pflichtig,
-    ust_satz,
-    uid_nummer,
-  } = body;
+  try {
+    const body = await req.json();
+    const { therapist_id, ...settings } = body;
 
-  const { error } = await supabase
-    .from("accounting_settings")
-    .upsert(
-      {
-        therapist_email,
-        sevdesk_token,
-        ust_pflichtig,
-        ust_satz,
-        uid_nummer,
-      },
-      { onConflict: "therapist_email" }
+    if (!therapist_id) {
+      return new Response(
+        JSON.stringify({ error: "THERAPIST_ID_REQUIRED" }),
+        { status: 400 }
+      );
+    }
+
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL,
+      process.env.SUPABASE_SERVICE_ROLE_KEY
     );
 
-  if (error) {
-    return Response.json({ error: error.message }, { status: 500 });
+    const { error } = await supabase
+      .from("therapist_invoice_settings")
+      .upsert(
+        {
+          therapist_id,
+          ...settings,
+        },
+        {
+          onConflict: "therapist_id",
+        }
+      );
+
+    if (error) {
+      return new Response(
+        JSON.stringify({ error: error.message }),
+        { status: 500 }
+      );
+    }
+
+    return new Response(
+      JSON.stringify({ success: true }),
+      { status: 200 }
+    );
+  } catch (err) {
+    return new Response(
+      JSON.stringify({ error: "SERVER_ERROR" }),
+      { status: 500 }
+    );
   }
-
-  return Response.json({ success: true });
-}
-
-export async function GET(req) {
-  const email = req.headers.get("x-user-email");
-  if (!email) {
-    return Response.json({ error: "Missing email" }, { status: 400 });
-  }
-
-  const { data, error } = await supabase
-    .from("accounting_settings")
-    .select("*")
-    .eq("therapist_email", email)
-    .single();
-
-  if (error && error.code !== "PGRST116") {
-    return Response.json({ error: error.message }, { status: 500 });
-  }
-
-  return Response.json({ settings: data || null });
 }
