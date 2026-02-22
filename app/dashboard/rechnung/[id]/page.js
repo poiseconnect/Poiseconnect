@@ -20,22 +20,22 @@ export default function RechnungPage({ params }) {
   async function loadData() {
     setLoading(true);
 
-    // 1️⃣ Anfrage laden
+    // ✅ Anfrage laden
     const { data: anfrage } = await supabase
       .from("anfragen")
       .select("*")
       .eq("id", id)
       .single();
 
-    // 2️⃣ Sessions laden
+    // ✅ Sessions laden (UUID korrekt behandeln!)
     const { data: sess } = await supabase
       .from("sessions")
       .select("*")
-      .eq("anfrage_id", Number(id));
+      .eq("anfrage_id", id);
 
     const sessionsSafe = sess || [];
 
-    // 3️⃣ Therapist ID aus Sessions holen
+    // ✅ Therapist ID korrekt ermitteln
     const therapistId = sessionsSafe?.[0]?.therapist_id;
 
     let invoiceSettings = {};
@@ -61,14 +61,16 @@ export default function RechnungPage({ params }) {
 
   const vatRate = Number(settings?.default_vat_rate || 0);
 
-  // 🔥 Preise in DB sind BRUTTO
+  // Preise sind BRUTTO gespeichert
   const totalBrutto = sessions.reduce(
     (sum, s) => sum + Number(s.price || 0),
     0
   );
 
   const totalNet =
-    vatRate > 0 ? totalBrutto / (1 + vatRate / 100) : totalBrutto;
+    vatRate > 0
+      ? totalBrutto / (1 + vatRate / 100)
+      : totalBrutto;
 
   const vatAmount = totalBrutto - totalNet;
 
