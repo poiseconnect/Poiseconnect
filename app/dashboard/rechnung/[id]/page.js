@@ -5,157 +5,166 @@ import { supabase } from "../../../lib/supabase";
 import jsPDF from "jspdf";
 import "jspdf-autotable";
 
-export default function InvoicePage({ params }) {
+export default function RechnungPage({ params }) {
   const { id } = params;
 
   const [client, setClient] = useState(null);
   const [sessions, setSessions] = useState([]);
-  const [invoiceSettings, setInvoiceSettings] = useState(null);
+  const [settings, setSettings] = useState(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    async function load() {
-      const { data: anfrage } = await supabase
-        .from("anfragen")
-        .select("*")
-        .eq("id", id)
-        .single();
+    loadData();
+  }, []);
 
-      const { data: sess } = await supabase
-        .from("sessions")
-        .select("*")
-        .eq("anfrage_id", id)
-        .order("date", { ascending: true });
+  async function loadData() {
+    const { data: anfrage } = await supabase
+      .from("anfragen")
+      .select("*")
+      .eq("id", id)
+      .single();
 
-      const { data: userData } = await supabase.auth.getUser();
+    const { data: sess } = await supabase
+      .from("sessions")
+      .select("*")
+      .eq("anfrage_id", id);
 
-      const res = await fetch("/api/invoice-settings", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ user_email: userData.user.email }),
-      });
+    const { data: userData } = await supabase.auth.getUser();
 
-      const settingsData = await res.json();
+    const res = await fetch("/api/invoice-settings", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        user_email: userData.user.email,
+      }),
+    });
 
-      setClient(anfrage);
-      setSessions(sess || []);
-      setInvoiceSettings(settingsData.settings);
-    }
+    const invoice = await res.json();
 
-    load();
-  }, [id]);
+    setClient(anfrage);
+    setSessions(sess || []);
+    setSettings(invoice.settings || {});
+    setLoading(false);
+  }
 
-  if (!client || !invoiceSettings)
-    return <div style={{ padding: 40 }}>Lade Rechnung…</div>;
+  if (loading) return <div style={{ padding: 40 }}>Lade Rechnung…</div>;
+  if (!client) return <div>Keine Daten</div>;
 
-  const vatRate = Number(invoiceSettings.default_vat_rate || 0);
-
-  const totalNet = sessions.reduce(
+  const total = sessions.reduce(
     (sum, s) => sum + Number(s.price || 0),
     0
   );
 
-  const vatAmount = vatRate > 0 ? totalNet * (vatRate / 100) : 0;
-  const totalGross = totalNet + vatAmount;
+  return (
+    <div style={{ padding: 40, display: "flex", gap: 40 }}>
+      {/* ================= EDIT ================= */}
+      <div style={{ flex: 1 }}>
+        <h2>Rechnungsdaten bearbeiten</h2>
+
+        <label>Firma</label>
+        <input
+          value={settings.company_name || ""}
+          onChange={(e) =>
+            setSettings({ ...settings, company_name: e.target.value })
+          }
+        />
+
+        <label>Adresse</label>
+        <textarea
+          value={settings.address || ""}
+          onChange={(e) =>
+            setSettings({ ...settings, address: e.target.value })
+          }
+        />
+
+        <label>USt %</label>
+        <input
+          type="number"
+          value={settings.default_vat_rate || 0}
+          onChange={(e) =>
+            setSettings({
+              ...settings,
+              default_vat_rate: Number(e.target.value),
+            })
+          }
+        />
+
+        <button
+          style={{ marginTop: 20 }}
+          onClick={() => generatePDF()}
+        >
+          PDF generieren
+        </button>
+      </div>
+
+      {/* ================= VORSCHAU ================= */}
+      <div
+        style={{
+          flex: 1,
+          border: "1px solid #ddd",
+          padding: 20,
+          borderRadius: 10,
+          background: "#fff",
+        }}
+      >
+        <h2>Rechnung Vorschau</h2>
+
+        <p><strong>{settings.company_name}</strong></p>
+        <p>{settings.address}</p>
+
+        <hr />
+
+        <p>
+          <strong>Rechnung an:</strong><br />
+          {client.vorname} {client.nachname}
+        </p>
+
+        <table width="100%" style={{ marginTop: 20 }}>
+          <thead>
+            <tr>
+              <th align="left">Datum</th>
+              <th align="right">Preis €</th>
+            </tr>
+          </thead>
+          <tbody>
+            {sessions.map((s) => (
+              <tr key={s.id}>
+                <td>{new Date(s.date).toLocaleDateString()}</td>
+                <td align="right">{Number(s.price).toFixed(2)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+
+        <hr />
+
+        <h3 style={{ textAlign: "right" }}>
+          Gesamt: {total.toFixed(2)} €
+        </h3>
+      </div>
+    </div>
+  );
 
   function generatePDF() {
     const doc = new jsPDF();
-    const today = new Date();
+    doc.text(settings.company_name || "", 10, 10);
+    doc.text(settings.address || "", 10, 16);
 
-    doc.setFontSize(10);
-    doc.text(invoiceSettings.company_name || "", 14, 15);
-    doc.text(invoiceSettings.address || "", 14, 20);
-
-    doc.setFontSize(11);
-    doc.text("Rechnung an:", 14, 35);
-    doc.text(`${client.vorname} ${client.nachname}`, 14, 41);
-    doc.text(client.strasse_hausnr || "", 14, 47);
-    doc.text(client.plz_ort || "", 14, 53);
-    doc.text(client.email || "", 14, 59);
-
-    doc.text("Rechnung", 150, 35);
     doc.text(
-      `Datum: ${today.toLocaleDateString("de-AT")}`,
-      150,
-      41
+      `Rechnung an ${client.vorname} ${client.nachname}`,
+      10,
+      30
     );
 
     doc.autoTable({
-      startY: 70,
-      head: [["Datum", "Preis €"]],
+      startY: 40,
+      head: [["Datum", "Preis"]],
       body: sessions.map((s) => [
-        new Date(s.date).toLocaleDateString("de-AT"),
-        Number(s.price || 0).toFixed(2),
+        new Date(s.date).toLocaleDateString(),
+        Number(s.price).toFixed(2),
       ]),
     });
 
-    const finalY = doc.lastAutoTable.finalY + 10;
-
-    doc.text(`Netto: ${totalNet.toFixed(2)} €`, 140, finalY);
-    doc.text(
-      `USt ${vatRate}%: ${vatAmount.toFixed(2)} €`,
-      140,
-      finalY + 6
-    );
-    doc.text(
-      `Brutto: ${totalGross.toFixed(2)} €`,
-      140,
-      finalY + 12
-    );
-
-    doc.save(
-      `Rechnung_${client.vorname}_${client.nachname}.pdf`
-    );
+    doc.save("rechnung.pdf");
   }
-
-  return (
-    <div style={{ padding: 40, maxWidth: 800, margin: "0 auto" }}>
-      <h2>Rechnung</h2>
-
-      <h3>Klient</h3>
-      <input
-        value={client.vorname || ""}
-        onChange={(e) =>
-          setClient({ ...client, vorname: e.target.value })
-        }
-      />
-      <input
-        value={client.nachname || ""}
-        onChange={(e) =>
-          setClient({ ...client, nachname: e.target.value })
-        }
-      />
-      <input
-        value={client.strasse_hausnr || ""}
-        onChange={(e) =>
-          setClient({
-            ...client,
-            strasse_hausnr: e.target.value,
-          })
-        }
-      />
-      <input
-        value={client.plz_ort || ""}
-        onChange={(e) =>
-          setClient({ ...client, plz_ort: e.target.value })
-        }
-      />
-
-      <h3>Sitzungen</h3>
-      {sessions.map((s, i) => (
-        <div key={i}>
-          {new Date(s.date).toLocaleDateString("de-AT")} –{" "}
-          {Number(s.price || 0).toFixed(2)} €
-        </div>
-      ))}
-
-      <h3>Summe</h3>
-      <div>Netto: {totalNet.toFixed(2)} €</div>
-      <div>USt: {vatAmount.toFixed(2)} €</div>
-      <div>Brutto: {totalGross.toFixed(2)} €</div>
-
-      <button onClick={generatePDF} style={{ marginTop: 20 }}>
-        📄 PDF generieren
-      </button>
-    </div>
-  );
 }
