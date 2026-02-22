@@ -1848,6 +1848,11 @@ return (
   </table>
 )}
 
+</div>  {/* ABRECHNUNG EXPORT & ÜBERSICHT */}
+</section>
+</>
+)}
+
       {/* KARTEN */}
 {filter !== "abrechnung" &&
   therapistFilteredRequests.map((r) => {
