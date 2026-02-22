@@ -755,7 +755,7 @@ if (!error && member?.id) {
     const res = await fetch("/api/invoice-settings", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ user_email: user.email }),
+body: JSON.stringify({ therapist_id: myTeamMemberId }),
     });
 
     if (res.ok) {
