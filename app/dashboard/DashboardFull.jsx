@@ -1681,14 +1681,14 @@ return (
             <button
               type="button"
               onClick={async () => {
-                const res = await fetch("/api/accounting-settings", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                 body: JSON.stringify({
-  therapist_id: myTeamMemberId,
-  ...invoiceSettings,
-}),
-                });
+const res = await fetch("/api/accounting-settings", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    therapist_id: myTeamMemberId,
+    ...invoiceSettings,
+  }),
+});
 
                 if (!res.ok) {
                   alert("Fehler beim Speichern der Rechnungsdaten");
