@@ -7,6 +7,7 @@ import "jspdf-autotable";
 
 export default function RechnungPage({ params }) {
   const { id } = params;
+  console.log("RECHNUNG ID:", id);
 
   const [client, setClient] = useState(null);
   const [sessions, setSessions] = useState([]);
@@ -37,11 +38,13 @@ export default function RechnungPage({ params }) {
       .select("*")
       .eq("anfrage_id", id)
       .order("date", { ascending: true });
+    console.log("RAW SESSIONS FROM DB:", sess);
 
     const sessionsSafe = Array.isArray(sess) ? sess : [];
 
     // 3) therapist_id aus Sessions holen
     const therapistId = sessionsSafe?.[0]?.therapist_id || null;
+    console.log("THERAPIST ID FOUND:", therapistId);
 
     // 4) invoice settings holen
     let invoiceSettings = {};
