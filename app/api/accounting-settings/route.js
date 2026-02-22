@@ -2,20 +2,18 @@ export const dynamic = "force-dynamic";
 
 import { createClient } from "@supabase/supabase-js";
 
-function json(data, status = 200) {
-  return new Response(JSON.stringify(data), {
-    status,
-    headers: { "Content-Type": "application/json" },
-  });
-}
-
 export async function POST(req) {
   try {
     const body = await req.json();
+    console.log("BODY RECEIVED:", body);
+
     const { therapist_id, ...settings } = body;
 
     if (!therapist_id) {
-      return json({ error: "THERAPIST_ID_MISSING" }, 400);
+      return new Response(
+        JSON.stringify({ error: "THERAPIST_ID_MISSING", body }),
+        { status: 400 }
+      );
     }
 
     const supabase = createClient(
@@ -23,7 +21,7 @@ export async function POST(req) {
       process.env.SUPABASE_SERVICE_ROLE_KEY
     );
 
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from("therapist_invoice_settings")
       .upsert(
         {
@@ -31,20 +29,32 @@ export async function POST(req) {
           ...settings,
         },
         { onConflict: "therapist_id" }
-      );
+      )
+      .select()
+      .single();
 
     if (error) {
-      return json(
-        { error: "SUPABASE_ERROR", detail: error.message },
-        400
+      return new Response(
+        JSON.stringify({
+          error: "SUPABASE_ERROR",
+          detail: error.message,
+          hint: error.hint,
+        }),
+        { status: 400 }
       );
     }
 
-    return json({ ok: true });
+    return new Response(JSON.stringify({ ok: true, data }), {
+      status: 200,
+    });
+
   } catch (err) {
-    return json(
-      { error: "SERVER_ERROR", detail: String(err) },
-      500
+    return new Response(
+      JSON.stringify({
+        error: "SERVER_ERROR",
+        detail: String(err),
+      }),
+      { status: 500 }
     );
   }
 }
