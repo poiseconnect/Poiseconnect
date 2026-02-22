@@ -1684,10 +1684,10 @@ return (
 const res = await fetch("/api/accounting-settings", {
   method: "POST",
   headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({
-    therapist_id: myTeamMemberId,
-    ...invoiceSettings,
-  }),
+body: JSON.stringify({
+  ...invoiceSettings,
+  therapist_id: myTeamMemberId,
+}),
 });
 
                 if (!res.ok) {
