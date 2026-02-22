@@ -1816,12 +1816,13 @@ return (
         <th>Sitzungen</th>
         <th align="right">Umsatz €</th>
         <th align="right">Provision €</th>
+        <th></th>
       </tr>
     </thead>
 
     <tbody>
-{visibleBillingRows.map((r, i) => {
-  const therapistName =
+      {visibleBillingRows.map((r, i) => {
+        const therapistName =
           teamData.find((t) => t.id === r.therapist_id)?.name || "–";
 
         return (
@@ -1831,15 +1832,20 @@ return (
             <td align="center">{r.sessions}</td>
             <td align="right">{r.umsatz.toFixed(2)}</td>
             <td align="right">{r.provision.toFixed(2)}</td>
+            <td align="right">
+              <button
+                onClick={() => {
+                  window.location.href = `/dashboard/rechnung/${r.anfrage_id}`;
+                }}
+              >
+                🧾 Rechnung öffnen
+              </button>
+            </td>
           </tr>
         );
       })}
     </tbody>
   </table>
-)}
-  </div>
-    </section>
-  </>
 )}
 
       {/* KARTEN */}
