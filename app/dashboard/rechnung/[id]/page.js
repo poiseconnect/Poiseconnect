@@ -18,86 +18,97 @@ export default function RechnungPage({ params }) {
   }, []);
 
   async function loadData() {
+    setLoading(true);
+
+    // 1️⃣ Anfrage laden
     const { data: anfrage } = await supabase
       .from("anfragen")
       .select("*")
       .eq("id", id)
       .single();
 
+    // 2️⃣ Sessions laden
     const { data: sess } = await supabase
       .from("sessions")
       .select("*")
-      .eq("anfrage_id", id);
+      .eq("anfrage_id", Number(id));
 
-    const { data: userData } = await supabase.auth.getUser();
+    const sessionsSafe = sess || [];
 
-    const res = await fetch("/api/invoice-settings", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        user_email: userData.user.email,
-      }),
-    });
+    // 3️⃣ Therapist ID aus Sessions holen
+    const therapistId = sessionsSafe?.[0]?.therapist_id;
 
-    const invoice = await res.json();
+    let invoiceSettings = {};
+
+    if (therapistId) {
+      const { data: invoice } = await supabase
+        .from("therapist_invoice_settings")
+        .select("*")
+        .eq("therapist_id", therapistId)
+        .single();
+
+      invoiceSettings = invoice || {};
+    }
 
     setClient(anfrage);
-    setSessions(sess || []);
-    setSettings(invoice.settings || {});
+    setSessions(sessionsSafe);
+    setSettings(invoiceSettings);
     setLoading(false);
   }
 
   if (loading) return <div style={{ padding: 40 }}>Lade Rechnung…</div>;
-  if (!client) return <div>Keine Daten</div>;
+  if (!client) return <div style={{ padding: 40 }}>Keine Daten</div>;
 
-  const vatRate = Number(settings.default_vat_rate || 0);
+  const vatRate = Number(settings?.default_vat_rate || 0);
 
-  const totalNet = sessions.reduce(
+  // 🔥 Preise in DB sind BRUTTO
+  const totalBrutto = sessions.reduce(
     (sum, s) => sum + Number(s.price || 0),
     0
   );
 
-  const vatAmount = vatRate > 0 ? totalNet * (vatRate / 100) : 0;
-  const totalGross = totalNet + vatAmount;
+  const totalNet =
+    vatRate > 0 ? totalBrutto / (1 + vatRate / 100) : totalBrutto;
+
+  const vatAmount = totalBrutto - totalNet;
 
   return (
-    <div style={{ padding: 40, display: "flex", gap: 40 }}>
-      
-      {/* ================= VORSCHAU ================= */}
+    <div style={{ padding: 40, display: "flex", justifyContent: "center" }}>
       <div
         style={{
-          flex: 1,
+          width: 800,
           border: "1px solid #ddd",
-          padding: 30,
+          padding: 40,
           borderRadius: 12,
           background: "#fff",
         }}
       >
-        <h2>Rechnung</h2>
+        <h2 style={{ marginBottom: 30 }}>Rechnung</h2>
 
-        {/* THERAPEUT */}
-        <div style={{ marginBottom: 20 }}>
-          <strong>{settings.company_name}</strong><br />
-          {settings.address}<br />
-          {settings.vat_number && <>UID: {settings.vat_number}<br /></>}
-          {settings.tax_number && <>Steuernr: {settings.tax_number}<br /></>}
+        {/* ================= THERAPEUT ================= */}
+        <div style={{ marginBottom: 30 }}>
+          <strong>{settings?.company_name || "—"}</strong><br />
+          {settings?.address || "—"}<br />
+          {settings?.vat_number && <>UID: {settings.vat_number}<br /></>}
+          {settings?.tax_number && <>Steuernr: {settings.tax_number}<br /></>}
         </div>
 
         <hr />
 
-        {/* KLIENT */}
-        <div style={{ marginTop: 20 }}>
+        {/* ================= KLIENT ================= */}
+        <div style={{ marginTop: 30 }}>
           <strong>Rechnung an:</strong><br />
           {client.vorname} {client.nachname}<br />
-          {client.strasse_hausnr}<br />
-          {client.plz_ort}<br />
+          {client.strasse_hausnr || ""}<br />
+          {client.plz_ort || ""}<br />
           {client.email && <>{client.email}<br /></>}
           {client.steuer_nr && <>Steuernr: {client.steuer_nr}</>}
         </div>
 
-        <hr style={{ margin: "30px 0" }} />
+        <hr style={{ margin: "40px 0" }} />
 
-        <table width="100%">
+        {/* ================= TABELLE ================= */}
+        <table width="100%" style={{ marginBottom: 30 }}>
           <thead>
             <tr>
               <th align="left">Datum</th>
@@ -118,9 +129,10 @@ export default function RechnungPage({ params }) {
           </tbody>
         </table>
 
-        <hr style={{ margin: "30px 0" }} />
+        <hr />
 
-        <div style={{ textAlign: "right" }}>
+        {/* ================= SUMMEN ================= */}
+        <div style={{ textAlign: "right", marginTop: 20 }}>
           <div>Netto: {totalNet.toFixed(2)} €</div>
           {vatRate > 0 && (
             <div>
@@ -128,17 +140,18 @@ export default function RechnungPage({ params }) {
             </div>
           )}
           <strong>
-            Gesamt: {totalGross.toFixed(2)} €
+            Gesamt: {totalBrutto.toFixed(2)} €
           </strong>
         </div>
 
-        <div style={{ marginTop: 40, fontSize: 12 }}>
-          IBAN: {settings.iban}<br />
-          BIC: {settings.bic}
+        {/* ================= ZAHLUNGSINFOS ================= */}
+        <div style={{ marginTop: 50, fontSize: 14 }}>
+          IBAN: {settings?.iban || "—"}<br />
+          BIC: {settings?.bic || "—"}
         </div>
 
         <button
-          style={{ marginTop: 30 }}
+          style={{ marginTop: 40 }}
           onClick={() =>
             generatePDF(
               client,
@@ -157,51 +170,53 @@ export default function RechnungPage({ params }) {
 
 function generatePDF(client, sessions, settings, vatRate) {
   const doc = new jsPDF();
+  const pageWidth = doc.internal.pageSize.getWidth();
 
   doc.setFontSize(10);
-  doc.text(settings.company_name || "", 14, 15);
-  doc.text(settings.address || "", 14, 20);
+  doc.text(settings?.company_name || "", 14, 15);
+  doc.text(settings?.address || "", 14, 20);
 
+  doc.setFontSize(12);
   doc.text(
     `Rechnung an ${client.vorname} ${client.nachname}`,
     14,
     40
   );
 
-  const totalNet = sessions.reduce(
+  const totalBrutto = sessions.reduce(
     (sum, s) => sum + Number(s.price || 0),
     0
   );
 
-  const vatAmount =
-    vatRate > 0 ? totalNet * (vatRate / 100) : 0;
+  const totalNet =
+    vatRate > 0 ? totalBrutto / (1 + vatRate / 100) : totalBrutto;
 
-  const totalGross = totalNet + vatAmount;
+  const vatAmount = totalBrutto - totalNet;
 
   doc.autoTable({
     startY: 50,
     head: [["Datum", "Preis"]],
     body: sessions.map((s) => [
       new Date(s.date).toLocaleDateString("de-AT"),
-      Number(s.price).toFixed(2),
+      Number(s.price).toFixed(2) + " €",
     ]),
   });
 
   const finalY = doc.lastAutoTable.finalY + 10;
 
-  doc.text(`Netto: ${totalNet.toFixed(2)} €`, 140, finalY);
+  doc.text(`Netto: ${totalNet.toFixed(2)} €`, pageWidth - 70, finalY);
 
   if (vatRate > 0) {
     doc.text(
       `USt ${vatRate}%: ${vatAmount.toFixed(2)} €`,
-      140,
+      pageWidth - 70,
       finalY + 6
     );
   }
 
   doc.text(
-    `Gesamt: ${totalGross.toFixed(2)} €`,
-    140,
+    `Gesamt: ${totalBrutto.toFixed(2)} €`,
+    pageWidth - 70,
     finalY + 12
   );
 
