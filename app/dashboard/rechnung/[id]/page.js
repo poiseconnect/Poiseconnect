@@ -5,70 +5,51 @@ import { supabase } from "../../../lib/supabase";
 import jsPDF from "jspdf";
 import "jspdf-autotable";
 
-/**
- * RechnungPage
- * - Datenquelle Sessions: /api/therapist/billing-sessions (so wie Abrechnungstab)
- * - Klient: aus anfragen
- * - Therapeut Settings: therapist_invoice_settings (read-only hier)
- * - Editierbar: Rechnungsmeta + Klientdaten + Texte + Leistungsbeschreibung + Leistungszeitraum + optional Kundennummer
- * - Nicht editierbar: Therapeutendaten (kommen aus Settings)
- * - Speichern: /api/invoices/save (Payload inkl. line_items)
- * - PDF Export: jsPDF + autotable
- */
-
 export default function RechnungPage({ params }) {
-  const { id } = params; // anfrage_id
+  const { id } = params;
 
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [pdfBusy, setPdfBusy] = useState(false);
 
-  const [client, setClient] = useState(null);
+  // DB Daten
+  const [anfrage, setAnfrage] = useState(null);
   const [sessions, setSessions] = useState([]);
   const [settings, setSettings] = useState(null);
 
-  // gespeicherte invoice id (falls API es liefert)
-  const [invoiceId, setInvoiceId] = useState(null);
-
-  // ========= Editierbare Felder (Vorlage) =========
+  // Invoice Header Felder (editierbar)
   const [invoiceNumber, setInvoiceNumber] = useState("");
-  const [invoiceDate, setInvoiceDate] = useState(""); // YYYY-MM-DD
-  const [serviceFrom, setServiceFrom] = useState(""); // YYYY-MM-DD
-  const [serviceTo, setServiceTo] = useState(""); // YYYY-MM-DD
+  const [invoiceDate, setInvoiceDate] = useState("");
+  const [servicePeriod, setServicePeriod] = useState("");
+  const [customerNumber, setCustomerNumber] = useState(""); // optional (wie Vorlage)
+  const [contactPerson, setContactPerson] = useState(""); // optional (wie Vorlage)
 
-  const [customerNumber, setCustomerNumber] = useState(""); // "Ihre Kundennummer"
-  const [contactPerson, setContactPerson] = useState(""); // "Ihr Ansprechpartner"
+  // Client Felder (editierbar)
+  const [clientName, setClientName] = useState("");
+  const [clientStreet, setClientStreet] = useState("");
+  const [clientZipCity, setClientZipCity] = useState("");
+  const [clientCountry, setClientCountry] = useState(""); // optional
+  const [clientEmail, setClientEmail] = useState("");
 
-  // Klient editierbar (für Rechnung!)
-  const [billToName, setBillToName] = useState("");
-  const [billToStreet, setBillToStreet] = useState("");
-  const [billToZipCity, setBillToZipCity] = useState("");
-  const [billToCountry, setBillToCountry] = useState("");
-  const [billToEmail, setBillToEmail] = useState("");
-
-  // Textblock wie Vorlage
-  const [salutationLine1, setSalutationLine1] = useState("Sehr geehrte Damen und Herren,");
-  const [salutationLine2, setSalutationLine2] = useState(""); // optional zweite Zeile, z.B. "liebe Sonja,"
-  const [introText, setIntroText] = useState("Für unsere Unterstützung stellen wir wie vereinbart in Rechnung:");
+  // Textbausteine (editierbar)
+  const [salutation, setSalutation] = useState("Sehr geehrte Damen und Herren,");
+  const [introText, setIntroText] = useState(
+    "Für unsere Unterstützung stellen wir wie vereinbart in Rechnung:"
+  );
   const [paymentTerms, setPaymentTerms] = useState(
     "Zahlungsbedingungen: Zahlung innerhalb von 14 Tagen ab Rechnungseingang ohne Abzüge."
   );
   const [closingText, setClosingText] = useState(
-    "Bitte überweise den Rechnungsbetrag unter Angabe der Rechnungsnummer auf das unten angegebene Konto."
+    "Ich danke dir für dein Vertrauen und freue mich, dass ich dich mit Poise begleiten durfte.\n\nLiebe Grüße"
   );
-  const [signatureLine, setSignatureLine] = useState(""); // z.B. "Sebastian Kickinger Poise by Linda Leinweber GmbH"
 
-  // Leistung (Vorlage: 1 Zeile mit Menge = Sitzungen)
-  const [serviceTitle, setServiceTitle] = useState("Psychologische Online Beratung");
-  const [serviceSubTitle, setServiceSubTitle] = useState(""); // optional z.B. Therapeut:in / Thema
-  const [unitLabel, setUnitLabel] = useState("Stk"); // Menge-Einheit
-  const [overrideUnitPrice, setOverrideUnitPrice] = useState(""); // optional überschreiben
-  const [datesTextOverride, setDatesTextOverride] = useState(""); // optional überschreiben
+  // Positionsdaten (editierbar je Session)
+  const [descriptions, setDescriptions] = useState({}); // { [sessionId]: string }
+  const [quantities, setQuantities] = useState({}); // { [sessionId]: number }
+  const [unitPrices, setUnitPrices] = useState({}); // { [sessionId]: number } (default = s.price)
 
-  // VAT handling
-  const vatRate = useMemo(() => Number(settings?.default_vat_rate || 0), [settings]);
+  // Speichern
+  const [saving, setSaving] = useState(false);
+  const [savedInvoiceId, setSavedInvoiceId] = useState(null);
 
-  // ======= Load =======
   useEffect(() => {
     loadData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -78,227 +59,177 @@ export default function RechnungPage({ params }) {
     setLoading(true);
 
     // 1) Anfrage laden
-    const { data: anfrage, error: anfrageErr } = await supabase
+    const { data: a, error: anfrageErr } = await supabase
       .from("anfragen")
       .select("*")
       .eq("id", id)
       .single();
 
     if (anfrageErr) {
-      console.error("ANFRAGE LOAD ERROR:", anfrageErr);
-      setClient(null);
-      setSessions([]);
-      setSettings(null);
+      console.error("ANFRAGE ERROR:", anfrageErr);
       setLoading(false);
       return;
     }
 
-    setClient(anfrage);
+    setAnfrage(a);
 
-    // 2) Sessions über Billing API (genau wie Abrechnungstab)
+    // 2) Sessions über Billing-API (stabile Quelle)
     const {
       data: { session },
       error: sessAuthErr,
     } = await supabase.auth.getSession();
 
-    if (sessAuthErr) {
-      console.error("AUTH SESSION ERROR:", sessAuthErr);
-    }
+    if (sessAuthErr) console.warn("SESSION AUTH WARN:", sessAuthErr);
 
-    let invoiceSessions = [];
-    try {
-      const r = await fetch("/api/therapist/billing-sessions", {
-        headers: { Authorization: `Bearer ${session?.access_token}` },
-      });
+    const res = await fetch("/api/therapist/billing-sessions", {
+      headers: {
+        Authorization: `Bearer ${session?.access_token}`,
+      },
+    });
 
-      const json = await r.json();
-      const allSessions = Array.isArray(json?.data) ? json.data : [];
+    const billingData = await res.json();
+    const allSessions = billingData?.data || [];
 
-      invoiceSessions = allSessions.filter((s) => String(s.anfrage_id) === String(id));
-    } catch (e) {
-      console.error("BILLING API ERROR:", e);
-      invoiceSessions = [];
-    }
+    const invoiceSessions = allSessions.filter(
+      (s) => String(s.anfrage_id) === String(id)
+    );
 
     setSessions(invoiceSessions);
 
-    // 3) therapist_id bestimmen (assigned_therapist_id ODER aus sessions)
-    const therapistId = anfrage?.assigned_therapist_id || invoiceSessions?.[0]?.therapist_id || null;
+    // 3) TherapistId bestimmen
+    const therapistId = a?.assigned_therapist_id || invoiceSessions?.[0]?.therapist_id;
 
-    // 4) Settings laden
+    // 4) Invoice Settings laden (Therapeut) – NICHT editierbar
     if (therapistId) {
-      const { data: invoiceSettings, error: invErr } = await supabase
+      const { data: invSet, error: invErr } = await supabase
         .from("therapist_invoice_settings")
         .select("*")
         .eq("therapist_id", therapistId)
         .single();
 
-      if (invErr) {
-        console.error("INVOICE SETTINGS LOAD ERROR:", invErr);
-      }
-
-      setSettings(invoiceSettings || { therapist_id: therapistId });
+      if (invErr) console.error("INVOICE SETTINGS ERROR:", invErr);
+      setSettings(invSet || null);
     } else {
       setSettings(null);
     }
 
-    // 5) Defaults setzen (nur wenn noch leer)
-    const today = new Date();
-    const yyyy = today.getFullYear();
-    const mm = String(today.getMonth() + 1).padStart(2, "0");
-    const dd = String(today.getDate()).padStart(2, "0");
-    const todayISO = `${yyyy}-${mm}-${dd}`;
+    // 5) Defaults setzen (editierbar)
+    const now = new Date();
+    setInvoiceNumber((prev) => prev || "RE-" + Date.now().toString().slice(-5));
+    setInvoiceDate((prev) => prev || now.toISOString().slice(0, 10));
 
-    // Service period automatisch aus Sessions
-    const sortedDates = [...invoiceSessions]
-      .filter((s) => s?.date)
-      .sort((a, b) => new Date(a.date) - new Date(b.date))
-      .map((s) => new Date(s.date));
+    // Leistungszeitraum: min–max Datum aus Sessions, sonst heute
+    const period = buildServicePeriod(invoiceSessions);
+    setServicePeriod((prev) => prev || period);
 
-    const fromISO =
-      sortedDates.length > 0
-        ? toISODate(sortedDates[0])
-        : todayISO;
+    // Client defaults aus Anfrage
+    setClientName((prev) => prev || `${a?.vorname || ""} ${a?.nachname || ""}`.trim());
+    setClientStreet((prev) => prev || (a?.strasse_hausnr || ""));
+    setClientZipCity((prev) => prev || (a?.plz_ort || ""));
+    setClientEmail((prev) => prev || (a?.email || ""));
+    setClientCountry((prev) => prev || "");
 
-    const toISO =
-      sortedDates.length > 0
-        ? toISODate(sortedDates[sortedDates.length - 1])
-        : todayISO;
+    // 6) Positionsfelder initialisieren (beschreibungen/qty/unit)
+    setDescriptions((prev) => {
+      const next = { ...prev };
+      for (const s of invoiceSessions) {
+        if (!next[s.id]) {
+          // Vorlage-Style: “Psychologische Online Beratung …” (editierbar)
+          next[s.id] = "Psychologische Beratung";
+        }
+      }
+      return next;
+    });
 
-    setInvoiceNumber((prev) => prev || `RE-${String(Date.now()).slice(-4)}`);
-    setInvoiceDate((prev) => prev || todayISO);
-    setServiceFrom((prev) => prev || fromISO);
-    setServiceTo((prev) => prev || toISO);
+    setQuantities((prev) => {
+      const next = { ...prev };
+      for (const s of invoiceSessions) {
+        if (typeof next[s.id] !== "number") next[s.id] = 1;
+      }
+      return next;
+    });
 
-    // Klientdaten (editierbar)
-    const fullName = `${anfrage?.vorname || ""} ${anfrage?.nachname || ""}`.trim();
-    setBillToName((prev) => prev || fullName || "—");
-    setBillToStreet((prev) => prev || (anfrage?.strasse_hausnr || ""));
-    setBillToZipCity((prev) => prev || (anfrage?.plz_ort || ""));
-    setBillToCountry((prev) => prev || (anfrage?.land || "")); // falls es kein land gibt -> leer
-    setBillToEmail((prev) => prev || (anfrage?.email || ""));
+    setUnitPrices((prev) => {
+      const next = { ...prev };
+      for (const s of invoiceSessions) {
+        if (typeof next[s.id] !== "number") next[s.id] = Number(s.price || 0);
+      }
+      return next;
+    });
 
-    // Ansprechpartner Default (kannst du überschreiben)
-    setContactPerson((prev) => prev || (invoiceSettingsGuessContact(anfrage) || ""));
-    // Kundennummer Default (kannst du überschreiben)
-    setCustomerNumber((prev) => prev || (anfrage?.kunden_nr || ""));
-
-    // Service title/subtitle default
-    setServiceSubTitle((prev) => prev || "");
-
-    // Unterschrift Default
-    setSignatureLine((prev) => prev || "");
+    // optional: Ansprechpartner default (wie Vorlage)
+    setContactPerson((prev) => prev || "");
 
     setLoading(false);
   }
 
-  // ======= Derived =======
-  const qty = sessions.length;
-
-  const unitPrice = useMemo(() => {
-    // Default: wenn alle gleich → diesen Preis, sonst Durchschnitt (editierbar via override)
-    if (!sessions.length) return 0;
-
-    const prices = sessions.map((s) => Number(s.price || 0)).filter((n) => Number.isFinite(n));
-    const unique = [...new Set(prices.map((p) => p.toFixed(2)))];
-
-    if (overrideUnitPrice !== "" && Number.isFinite(Number(overrideUnitPrice))) {
-      return Number(overrideUnitPrice);
-    }
-
-    if (unique.length === 1) return Number(prices[0] || 0);
-
-    const sum = prices.reduce((a, b) => a + b, 0);
-    const avg = sum / Math.max(1, prices.length);
-    return avg;
-  }, [sessions, overrideUnitPrice]);
-
-  const grossTotal = useMemo(() => {
-    // Wir behandeln Sessions-Preise als BRUTTO (wie du es vorher wolltest).
-    const sum = sessions.reduce((acc, s) => acc + Number(s.price || 0), 0);
-    return round2(sum);
-  }, [sessions]);
-
-  const netTotal = useMemo(() => {
-    if (vatRate > 0) return round2(grossTotal / (1 + vatRate / 100));
-    return round2(grossTotal);
-  }, [grossTotal, vatRate]);
-
-  const vatAmount = useMemo(() => round2(grossTotal - netTotal), [grossTotal, netTotal]);
-
-  const datesText = useMemo(() => {
-    if (datesTextOverride?.trim()) return datesTextOverride.trim();
-    if (!sessions.length) return "";
-
-    const dates = sessions
-      .filter((s) => s?.date)
-      .map((s) => new Date(s.date))
-      .filter((d) => !Number.isNaN(d.getTime()))
-      .sort((a, b) => a - b)
-      .map((d) => d.toLocaleDateString("de-AT"));
-
-    // wie Vorlage: "Termine 6.12./12.12./18.12." -> wir machen "Termine: 06.12.2026 / 12.12.2026 ..."
-    return dates.length ? `Termine: ${dates.join(" / ")}` : "";
-  }, [sessions, datesTextOverride]);
+  const vatRate = useMemo(() => Number(settings?.default_vat_rate || 0), [settings]);
 
   const lineItems = useMemo(() => {
-    // Vorlage-Style: 1 Position = qty Sitzungen, unitPrice, total = grossTotal
-    return [
-      {
-        pos: 1,
-        title: serviceTitle,
-        subtitle: serviceSubTitle,
-        dates: datesText,
+    return (sessions || []).map((s) => {
+      const qty = Number(quantities[s.id] ?? 1);
+      const unit = Number(unitPrices[s.id] ?? Number(s.price || 0));
+      const total = qty * unit;
+      return {
+        id: s.id,
+        date: s.date,
+        description: descriptions[s.id] ?? "",
         qty,
-        unitLabel,
-        unitPrice: round2(unitPrice),
-        total: round2(grossTotal),
-      },
-    ];
-  }, [serviceTitle, serviceSubTitle, datesText, qty, unitLabel, unitPrice, grossTotal]);
+        unit,
+        total,
+      };
+    });
+  }, [sessions, descriptions, quantities, unitPrices]);
 
-  // ======= Actions =======
+  const totals = useMemo(() => {
+    const net = lineItems.reduce((sum, li) => sum + Number(li.total || 0), 0);
+    const vat = vatRate > 0 ? net * (vatRate / 100) : 0;
+    const gross = net + vat;
+    return { net, vat, gross };
+  }, [lineItems, vatRate]);
+
   async function saveInvoice() {
-    if (!settings?.therapist_id) {
-      alert("Therapeut:in nicht gefunden – bitte prüfen ob assigned_therapist_id gesetzt ist.");
-      return;
-    }
-
-    setSaving(true);
     try {
+      setSaving(true);
+
       const payload = {
-        id: invoiceId || null, // optional, falls upsert
-        anfrage_id: String(id),
-        therapist_id: String(settings.therapist_id),
+        id: savedInvoiceId || null,
+        anfrage_id: id,
+        therapist_id: settings?.therapist_id,
 
         invoice_number: invoiceNumber,
         invoice_date: invoiceDate,
-        service_from: serviceFrom,
-        service_to: serviceTo,
+        service_period: servicePeriod,
 
         customer_number: customerNumber,
         contact_person: contactPerson,
 
-        client_name: billToName,
-        client_street: billToStreet,
-        client_city: billToZipCity,
-        client_country: billToCountry,
-        client_email: billToEmail,
+        client_name: clientName,
+        client_street: clientStreet,
+        client_city: clientZipCity,
+        client_country: clientCountry,
+        client_email: clientEmail,
 
-        salutation_line1: salutationLine1,
-        salutation_line2: salutationLine2,
+        salutation,
         intro_text: introText,
         payment_terms: paymentTerms,
         closing_text: closingText,
-        signature_line: signatureLine,
 
         vat_rate: vatRate,
-        total_net: netTotal,
-        vat_amount: vatAmount,
-        total_gross: grossTotal,
+        total_net: totals.net,
+        vat_amount: totals.vat,
+        total_gross: totals.gross,
 
-        line_items: lineItems,
-        session_ids: sessions.map((s) => s.id).filter(Boolean),
+        // Wichtig: Positionen mitspeichern
+        line_items: lineItems.map((li, idx) => ({
+          pos: idx + 1,
+          session_id: li.id,
+          date: li.date,
+          description: li.description,
+          qty: li.qty,
+          unit_price: li.unit,
+          total: li.total,
+        })),
       };
 
       const res = await fetch("/api/invoices/save", {
@@ -307,28 +238,554 @@ export default function RechnungPage({ params }) {
         body: JSON.stringify(payload),
       });
 
-      const result = await res.json().catch(() => ({}));
+      const result = await res.json();
 
       if (!res.ok) {
-        console.error("INVOICE SAVE ERROR:", result);
-        alert("Fehler beim Speichern (siehe Console).");
+        console.error("SAVE INVOICE ERROR:", result);
+        alert("Fehler beim Speichern");
         return;
       }
 
-      if (result?.data?.id) setInvoiceId(result.data.id);
-      alert("✅ Rechnung gespeichert");
+      if (result?.data?.id) setSavedInvoiceId(result.data.id);
+
+      alert("Rechnung gespeichert");
     } finally {
       setSaving(false);
     }
   }
 
-  async function exportPDF() {
-    setPdfBusy(true);
+  function exportPDF() {
     try {
       const doc = new jsPDF("p", "mm", "a4");
-      const pageWidth = doc.internal.pageSize.getWidth();
-      const marginX = 15;
+      buildPdf({
+        doc,
+        settings,
+        invoiceNumber,
+        invoiceDate,
+        servicePeriod,
+        customerNumber,
+        contactPerson,
+        clientName,
+        clientStreet,
+        clientZipCity,
+        clientCountry,
+        clientEmail,
+        salutation,
+        introText,
+        paymentTerms,
+        closingText,
+        vatRate,
+        lineItems,
+        totals,
+      });
 
-      // Logo (optional) - wenn logo_url existiert und als DataURL funktioniert
-      // (Wenn es eine normale URL ist, muss man es vorher als base64 laden. Wir lassen es optional weg.)
-      // doc.add
+      const safeName = (clientName || "Klient").replaceAll(" ", "_");
+      doc.save(`Rechnung_${invoiceNumber}_${safeName}.pdf`);
+    } catch (e) {
+      console.error("PDF ERROR:", e);
+      alert("PDF konnte nicht erstellt werden (siehe Console).");
+    }
+  }
+
+  if (loading) return <div style={{ padding: 40 }}>Lade…</div>;
+  if (!anfrage) return <div style={{ padding: 40 }}>Keine Anfrage gefunden</div>;
+  if (!settings) return <div style={{ padding: 40 }}>Keine Rechnungsdaten (Therapeut) gefunden</div>;
+
+  // Styles (Vorlagen-Look)
+  const pageBg = { background: "#f0f0f0", minHeight: "100vh", padding: "50px 0" };
+  const paper = {
+    background: "#fff",
+    width: 900,
+    margin: "0 auto",
+    padding: "70px 70px 55px 70px",
+    fontFamily: "Helvetica, Arial, sans-serif",
+    color: "#111",
+    boxShadow: "0 1px 10px rgba(0,0,0,0.08)",
+  };
+
+  const small = { fontSize: 11, color: "#444", lineHeight: 1.35 };
+  const hTitle = { fontSize: 26, fontWeight: 600, margin: 0 };
+  const muted = { color: "#666" };
+
+  const inputBase = {
+    border: "none",
+    borderBottom: "1px solid #ddd",
+    padding: "2px 4px",
+    fontSize: 12,
+    width: "auto",
+    outline: "none",
+  };
+
+  const rightMetaLabel = { fontSize: 10, color: "#666", width: 130 };
+  const rightMetaValue = { fontSize: 10, color: "#111" };
+
+  return (
+    <div style={pageBg}>
+      {/* TOP ACTIONS */}
+      <div style={{ width: 900, margin: "0 auto 18px auto", display: "flex", justifyContent: "flex-end", gap: 10 }}>
+        <button
+          onClick={saveInvoice}
+          disabled={saving}
+          style={{
+            background: "#111",
+            color: "#fff",
+            border: "none",
+            padding: "10px 16px",
+            cursor: "pointer",
+            fontSize: 13,
+            borderRadius: 6,
+            opacity: saving ? 0.7 : 1,
+          }}
+        >
+          {saving ? "Speichere…" : "Rechnung speichern"}
+        </button>
+
+        <button
+          onClick={exportPDF}
+          style={{
+            background: "#fff",
+            color: "#111",
+            border: "1px solid #111",
+            padding: "10px 16px",
+            cursor: "pointer",
+            fontSize: 13,
+            borderRadius: 6,
+          }}
+        >
+          PDF exportieren
+        </button>
+      </div>
+
+      {/* PAPER */}
+      <div style={paper}>
+        {/* HEADER TOP LINE (klein) */}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+          <div style={{ ...small, maxWidth: 520 }}>
+            <div style={{ fontWeight: 700 }}>{settings.company_name}</div>
+            <div style={{ whiteSpace: "pre-line" }}>{settings.address}</div>
+          </div>
+
+          {/* Logo optional */}
+          <div style={{ width: 120, textAlign: "right" }}>
+            {settings.logo_url ? (
+              // Hinweis: direktes <img> ist ok für UI; PDF lädt kein remote image automatisch.
+              <img src={settings.logo_url} alt="Logo" style={{ maxWidth: 90, maxHeight: 60, objectFit: "contain" }} />
+            ) : null}
+          </div>
+        </div>
+
+        {/* RECIPIENT + META */}
+        <div style={{ display: "flex", justifyContent: "space-between", marginTop: 30 }}>
+          {/* Recipient */}
+          <div style={{ ...small }}>
+            <div style={{ fontWeight: 700, marginBottom: 4 }}>Rechnung an</div>
+
+            <div>
+              <input style={{ ...inputBase, width: 360 }} value={clientName} onChange={(e) => setClientName(e.target.value)} />
+            </div>
+            <div>
+              <input style={{ ...inputBase, width: 360 }} value={clientStreet} onChange={(e) => setClientStreet(e.target.value)} />
+            </div>
+            <div>
+              <input style={{ ...inputBase, width: 360 }} value={clientZipCity} onChange={(e) => setClientZipCity(e.target.value)} />
+            </div>
+            <div>
+              <input style={{ ...inputBase, width: 360 }} value={clientCountry} onChange={(e) => setClientCountry(e.target.value)} placeholder="Land (optional)" />
+            </div>
+
+            <div style={{ marginTop: 8 }}>
+              <input style={{ ...inputBase, width: 360 }} value={clientEmail} onChange={(e) => setClientEmail(e.target.value)} />
+            </div>
+          </div>
+
+          {/* Right meta like Vorlage */}
+          <div style={{ width: 300 }}>
+            <div style={{ textAlign: "right", marginBottom: 8 }}>
+              <div style={hTitle}>Rechnung</div>
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "140px 1fr", gap: "6px 10px" }}>
+              <div style={rightMetaLabel}>Rechnungs-Nr.</div>
+              <div style={rightMetaValue}>
+                <input style={{ ...inputBase, width: 140, textAlign: "right" }} value={invoiceNumber} onChange={(e) => setInvoiceNumber(e.target.value)} />
+              </div>
+
+              <div style={rightMetaLabel}>Rechnungsdatum</div>
+              <div style={rightMetaValue}>
+                <input style={{ ...inputBase, width: 140, textAlign: "right" }} type="date" value={invoiceDate} onChange={(e) => setInvoiceDate(e.target.value)} />
+              </div>
+
+              <div style={rightMetaLabel}>Leistungszeitraum</div>
+              <div style={rightMetaValue}>
+                <input style={{ ...inputBase, width: 140, textAlign: "right" }} value={servicePeriod} onChange={(e) => setServicePeriod(e.target.value)} />
+              </div>
+
+              <div style={rightMetaLabel}>Kundennummer</div>
+              <div style={rightMetaValue}>
+                <input style={{ ...inputBase, width: 140, textAlign: "right" }} value={customerNumber} onChange={(e) => setCustomerNumber(e.target.value)} placeholder="optional" />
+              </div>
+
+              <div style={rightMetaLabel}>Ansprechpartner</div>
+              <div style={rightMetaValue}>
+                <input style={{ ...inputBase, width: 140, textAlign: "right" }} value={contactPerson} onChange={(e) => setContactPerson(e.target.value)} placeholder="optional" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* TITLE LINE like "Rechnung Nr. ..." */}
+        <div style={{ marginTop: 26 }}>
+          <div style={{ fontSize: 14, fontWeight: 700 }}>
+            Rechnung Nr. {invoiceNumber}
+          </div>
+        </div>
+
+        {/* TEXTS */}
+        <div style={{ marginTop: 18, ...small }}>
+          <div>
+            <input
+              style={{ ...inputBase, width: "100%" }}
+              value={salutation}
+              onChange={(e) => setSalutation(e.target.value)}
+            />
+          </div>
+
+          <div style={{ marginTop: 10 }}>
+            <textarea
+              value={introText}
+              onChange={(e) => setIntroText(e.target.value)}
+              style={{
+                width: "100%",
+                border: "1px solid #eee",
+                padding: 10,
+                fontSize: 12,
+                minHeight: 60,
+                resize: "vertical",
+              }}
+            />
+          </div>
+        </div>
+
+        {/* TABLE (Sessions) */}
+        <div style={{ marginTop: 18 }}>
+          <table width="100%" style={{ borderCollapse: "collapse", fontSize: 12 }}>
+            <thead>
+              <tr style={{ borderBottom: "1px solid #ddd" }}>
+                <th align="left" style={{ padding: "8px 6px" }}>Pos.</th>
+                <th align="left" style={{ padding: "8px 6px" }}>Beschreibung</th>
+                <th align="right" style={{ padding: "8px 6px" }}>Menge</th>
+                <th align="right" style={{ padding: "8px 6px" }}>Einzelpreis</th>
+                <th align="right" style={{ padding: "8px 6px" }}>Gesamtpreis</th>
+              </tr>
+            </thead>
+            <tbody>
+              {lineItems.map((li, idx) => (
+                <tr key={li.id} style={{ borderBottom: "1px solid #f0f0f0" }}>
+                  <td style={{ padding: "10px 6px", verticalAlign: "top" }}>{idx + 1}.</td>
+
+                  <td style={{ padding: "10px 6px" }}>
+                    <input
+                      value={li.description}
+                      onChange={(e) =>
+                        setDescriptions((prev) => ({ ...prev, [li.id]: e.target.value }))
+                      }
+                      style={{ border: "none", borderBottom: "1px solid #eee", width: "100%", fontSize: 12, outline: "none" }}
+                    />
+                    <div style={{ marginTop: 4, fontSize: 10, color: "#666" }}>
+                      Termin: {li.date ? new Date(li.date).toLocaleDateString("de-AT") : "—"}
+                    </div>
+                  </td>
+
+                  <td style={{ padding: "10px 6px" }} align="right">
+                    <input
+                      type="number"
+                      min="0"
+                      step="1"
+                      value={li.qty}
+                      onChange={(e) =>
+                        setQuantities((prev) => ({ ...prev, [li.id]: Number(e.target.value || 0) }))
+                      }
+                      style={{ ...inputBase, width: 60, textAlign: "right" }}
+                    />
+                  </td>
+
+                  <td style={{ padding: "10px 6px" }} align="right">
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={li.unit}
+                      onChange={(e) =>
+                        setUnitPrices((prev) => ({ ...prev, [li.id]: Number(e.target.value || 0) }))
+                      }
+                      style={{ ...inputBase, width: 90, textAlign: "right" }}
+                    />{" "}
+                    EUR
+                  </td>
+
+                  <td style={{ padding: "10px 6px" }} align="right">
+                    {li.total.toFixed(2)} EUR
+                  </td>
+                </tr>
+              ))}
+
+              {/* Summary Rows like Vorlage */}
+              <tr>
+                <td colSpan={4} style={{ padding: "10px 6px", textAlign: "right", fontWeight: 600, background: "#fafafa" }}>
+                  Gesamtbetrag netto
+                </td>
+                <td style={{ padding: "10px 6px", textAlign: "right", background: "#fafafa" }}>
+                  {totals.net.toFixed(2)} EUR
+                </td>
+              </tr>
+
+              {vatRate > 0 ? (
+                <tr>
+                  <td colSpan={4} style={{ padding: "10px 6px", textAlign: "right", fontWeight: 600, background: "#fafafa" }}>
+                    zzgl. Umsatzsteuer {vatRate}%
+                  </td>
+                  <td style={{ padding: "10px 6px", textAlign: "right", background: "#fafafa" }}>
+                    {totals.vat.toFixed(2)} EUR
+                  </td>
+                </tr>
+              ) : null}
+
+              <tr>
+                <td colSpan={4} style={{ padding: "10px 6px", textAlign: "right", fontWeight: 700, background: "#f0f0f0" }}>
+                  Gesamtbetrag brutto
+                </td>
+                <td style={{ padding: "10px 6px", textAlign: "right", fontWeight: 700, background: "#f0f0f0" }}>
+                  {totals.gross.toFixed(2)} EUR
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        {/* Payment + closing */}
+        <div style={{ marginTop: 18, ...small }}>
+          <textarea
+            value={paymentTerms}
+            onChange={(e) => setPaymentTerms(e.target.value)}
+            style={{ width: "100%", border: "1px solid #eee", padding: 10, fontSize: 12, minHeight: 54, resize: "vertical" }}
+          />
+
+          <textarea
+            value={closingText}
+            onChange={(e) => setClosingText(e.target.value)}
+            style={{ width: "100%", border: "1px solid #eee", padding: 10, fontSize: 12, minHeight: 90, marginTop: 10, resize: "vertical", whiteSpace: "pre-line" }}
+          />
+        </div>
+
+        {/* Footer columns like Vorlage */}
+        <div style={{ marginTop: 24, borderTop: "1px solid #eee", paddingTop: 14, display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 14, ...small }}>
+          <div>
+            <div style={{ fontWeight: 700 }}>{settings.company_name}</div>
+            <div style={{ whiteSpace: "pre-line" }}>{settings.address}</div>
+            {clientEmail ? <div>E-Mail: {clientEmail}</div> : null}
+          </div>
+
+          <div>
+            <div style={{ fontWeight: 700 }}>Rechtliches</div>
+            <div style={muted}>UID:</div> {settings.vat_number || "—"}
+            <br />
+            <div style={muted}>Steuernr:</div> {settings.tax_number || "—"}
+          </div>
+
+          <div>
+            <div style={{ fontWeight: 700 }}>Bank</div>
+            <div>IBAN: {settings.iban || "—"}</div>
+            <div>BIC: {settings.bic || "—"}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** Hilfsfunktionen */
+
+function buildServicePeriod(sessions) {
+  if (!sessions || sessions.length === 0) {
+    return new Date().toLocaleDateString("de-AT");
+  }
+  const dates = sessions
+    .map((s) => (s.date ? new Date(s.date).getTime() : null))
+    .filter((t) => typeof t === "number");
+  if (dates.length === 0) return new Date().toLocaleDateString("de-AT");
+
+  const min = new Date(Math.min(...dates));
+  const max = new Date(Math.max(...dates));
+  const a = min.toLocaleDateString("de-AT");
+  const b = max.toLocaleDateString("de-AT");
+  return a === b ? a : `${a} - ${b}`;
+}
+
+function buildPdf({
+  doc,
+  settings,
+  invoiceNumber,
+  invoiceDate,
+  servicePeriod,
+  customerNumber,
+  contactPerson,
+  clientName,
+  clientStreet,
+  clientZipCity,
+  clientCountry,
+  clientEmail,
+  salutation,
+  introText,
+  paymentTerms,
+  closingText,
+  vatRate,
+  lineItems,
+  totals,
+}) {
+  const marginX = 15;
+  const pageWidth = doc.internal.pageSize.getWidth();
+
+  // Header
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(10);
+
+  doc.text(String(settings.company_name || ""), marginX, 18);
+  const addrLines = String(settings.address || "").split("\n");
+  let y = 23;
+  for (const ln of addrLines) {
+    doc.text(ln, marginX, y);
+    y += 5;
+  }
+
+  // Right meta
+  doc.setFontSize(18);
+  doc.text("RECHNUNG", pageWidth - marginX, 22, { align: "right" });
+
+  doc.setFontSize(10);
+  const metaY = 32;
+  doc.text("Rechnungs-Nr.:", pageWidth - marginX - 70, metaY);
+  doc.text(String(invoiceNumber || ""), pageWidth - marginX, metaY, { align: "right" });
+
+  doc.text("Rechnungsdatum:", pageWidth - marginX - 70, metaY + 6);
+  doc.text(String(invoiceDate || ""), pageWidth - marginX, metaY + 6, { align: "right" });
+
+  doc.text("Leistungszeitraum:", pageWidth - marginX - 70, metaY + 12);
+  doc.text(String(servicePeriod || ""), pageWidth - marginX, metaY + 12, { align: "right" });
+
+  if (customerNumber) {
+    doc.text("Kundennummer:", pageWidth - marginX - 70, metaY + 18);
+    doc.text(String(customerNumber), pageWidth - marginX, metaY + 18, { align: "right" });
+  }
+  if (contactPerson) {
+    doc.text("Ansprechpartner:", pageWidth - marginX - 70, metaY + 24);
+    doc.text(String(contactPerson), pageWidth - marginX, metaY + 24, { align: "right" });
+  }
+
+  // Recipient
+  let ry = 50;
+  doc.setFontSize(10);
+  doc.text("Rechnung an:", marginX, ry);
+  ry += 6;
+  doc.text(String(clientName || ""), marginX, ry);
+  ry += 5;
+  doc.text(String(clientStreet || ""), marginX, ry);
+  ry += 5;
+  doc.text(String(clientZipCity || ""), marginX, ry);
+  ry += 5;
+  if (clientCountry) {
+    doc.text(String(clientCountry), marginX, ry);
+    ry += 5;
+  }
+  if (clientEmail) {
+    doc.text(String(clientEmail), marginX, ry);
+    ry += 5;
+  }
+
+  // Title
+  ry += 8;
+  doc.setFont("helvetica", "bold");
+  doc.text(`Rechnung Nr. ${invoiceNumber}`, marginX, ry);
+  doc.setFont("helvetica", "normal");
+
+  // Texts
+  ry += 10;
+  doc.setFontSize(10);
+  doc.text(String(salutation || ""), marginX, ry);
+  ry += 6;
+
+  const introLines = doc.splitTextToSize(String(introText || ""), pageWidth - 2 * marginX);
+  doc.text(introLines, marginX, ry);
+  ry += introLines.length * 5 + 4;
+
+  // Table
+  const body = (lineItems || []).map((li, idx) => {
+    const dateStr = li.date ? new Date(li.date).toLocaleDateString("de-AT") : "";
+    const desc = li.description ? `${li.description}\nTermin: ${dateStr}` : `Termin: ${dateStr}`;
+    return [
+      `${idx + 1}.`,
+      desc,
+      String(li.qty ?? 1),
+      `${Number(li.unit || 0).toFixed(2)} EUR`,
+      `${Number(li.total || 0).toFixed(2)} EUR`,
+    ];
+  });
+
+  doc.autoTable({
+    startY: ry,
+    head: [["Pos.", "Beschreibung", "Menge", "Einzelpreis", "Gesamtpreis"]],
+    body,
+    styles: { font: "helvetica", fontSize: 9, cellPadding: 2 },
+    headStyles: { fillColor: [255, 255, 255], textColor: 20, lineWidth: 0.1, lineColor: 200 },
+    tableLineWidth: 0.1,
+    tableLineColor: 200,
+    columnStyles: {
+      0: { cellWidth: 12 },
+      1: { cellWidth: 95 },
+      2: { cellWidth: 18, halign: "right" },
+      3: { cellWidth: 30, halign: "right" },
+      4: { cellWidth: 30, halign: "right" },
+    },
+  });
+
+  let fy = doc.lastAutoTable.finalY + 6;
+
+  // Totals block (like Vorlage)
+  doc.setFont("helvetica", "bold");
+  doc.text("Gesamtbetrag netto", pageWidth - marginX - 70, fy);
+  doc.setFont("helvetica", "normal");
+  doc.text(`${totals.net.toFixed(2)} EUR`, pageWidth - marginX, fy, { align: "right" });
+
+  fy += 6;
+
+  if (vatRate > 0) {
+    doc.setFont("helvetica", "bold");
+    doc.text(`zzgl. Umsatzsteuer ${vatRate}%`, pageWidth - marginX - 70, fy);
+    doc.setFont("helvetica", "normal");
+    doc.text(`${totals.vat.toFixed(2)} EUR`, pageWidth - marginX, fy, { align: "right" });
+    fy += 6;
+  }
+
+  doc.setFont("helvetica", "bold");
+  doc.text("Gesamtbetrag brutto", pageWidth - marginX - 70, fy);
+  doc.text(`${totals.gross.toFixed(2)} EUR`, pageWidth - marginX, fy, { align: "right" });
+  doc.setFont("helvetica", "normal");
+
+  fy += 10;
+
+  // Payment + closing
+  const payLines = doc.splitTextToSize(String(paymentTerms || ""), pageWidth - 2 * marginX);
+  doc.text(payLines, marginX, fy);
+  fy += payLines.length * 5 + 4;
+
+  const closeLines = doc.splitTextToSize(String(closingText || ""), pageWidth - 2 * marginX);
+  doc.text(closeLines, marginX, fy);
+  fy += closeLines.length * 5 + 6;
+
+  // Footer bank info
+  doc.setFontSize(9);
+  doc.text(`IBAN: ${settings.iban || "—"}`, marginX, 285);
+  doc.text(`BIC: ${settings.bic || "—"}`, marginX + 70, 285);
+  doc.text(`UID: ${settings.vat_number || "—"}  |  StNr: ${settings.tax_number || "—"}`, pageWidth - marginX, 285, {
+    align: "right",
+  });
+}
