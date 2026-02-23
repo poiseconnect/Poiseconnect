@@ -1835,7 +1835,10 @@ body: JSON.stringify({
             <td align="right">
               <button
                 onClick={() => {
-                  window.location.href = `/dashboard/rechnung/${r.anfrage_id}`;
+ window.open(
+  `/dashboard/rechnung/${r.anfrage_id}`,
+  "_blank"
+);
                 }}
               >
                 🧾 Rechnung öffnen
