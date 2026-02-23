@@ -326,3 +326,4 @@ export default function RechnungPage({ params }) {
     </div>
   </div>
 );
+}
