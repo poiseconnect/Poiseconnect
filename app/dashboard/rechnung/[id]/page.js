@@ -115,79 +115,214 @@ export default function RechnungPage({ params }) {
   const totalGross = totalNet + vatAmount;
 
   return (
-    <div style={{ padding: 60, background: "#fff", maxWidth: 900, margin: "auto" }}>
-      
-      {/* 🔵 Kopf */}
+  <div
+    style={{
+      background: "#f5f5f5",
+      padding: "60px 0",
+      minHeight: "100vh",
+    }}
+  >
+    <div
+      style={{
+        background: "#fff",
+        maxWidth: 900,
+        margin: "0 auto",
+        padding: 80,
+        fontFamily: "Arial, sans-serif",
+        color: "#222",
+      }}
+    >
+      {/* ================= HEADER ================= */}
       <div style={{ display: "flex", justifyContent: "space-between" }}>
+        
+        {/* LEFT: COMPANY */}
         <div>
-          <strong>{settings.company_name}</strong><br />
-          <div style={{ whiteSpace: "pre-line" }}>
+          <div style={{ fontSize: 22, fontWeight: 600 }}>
+            {settings.company_name}
+          </div>
+          <div style={{ whiteSpace: "pre-line", marginTop: 8 }}>
             {settings.address}
           </div>
-          UID: {settings.vat_number}<br />
-          StNr: {settings.tax_number}
+          <div style={{ marginTop: 10, fontSize: 13, color: "#666" }}>
+            UID: {settings.vat_number}<br />
+            StNr: {settings.tax_number}
+          </div>
         </div>
 
+        {/* RIGHT: INVOICE BLOCK */}
         <div style={{ textAlign: "right" }}>
-          Rechnungsnr: <input value={invoiceNumber} onChange={e=>setInvoiceNumber(e.target.value)} /><br />
-          Datum: <input type="date" value={invoiceDate} onChange={e=>setInvoiceDate(e.target.value)} /><br />
-          Leistungszeitraum: <input value={servicePeriod} onChange={e=>setServicePeriod(e.target.value)} /><br />
-          Kundennr: <input value={customerNumber} onChange={e=>setCustomerNumber(e.target.value)} /><br />
-          Ansprechpartner: <input value={contactPerson} onChange={e=>setContactPerson(e.target.value)} />
+          <div style={{ fontSize: 26, fontWeight: 300 }}>
+            Rechnung
+          </div>
+
+          <div style={{ marginTop: 20, fontSize: 14 }}>
+            <div>
+              <strong>Nr:</strong>{" "}
+              <input
+                value={invoiceNumber}
+                onChange={(e) => setInvoiceNumber(e.target.value)}
+                style={{ border: "none", textAlign: "right" }}
+              />
+            </div>
+
+            <div>
+              <strong>Datum:</strong>{" "}
+              <input
+                type="date"
+                value={invoiceDate}
+                onChange={(e) => setInvoiceDate(e.target.value)}
+                style={{ border: "none", textAlign: "right" }}
+              />
+            </div>
+
+            <div>
+              <strong>Leistungszeitraum:</strong>{" "}
+              <input
+                value={servicePeriod}
+                onChange={(e) => setServicePeriod(e.target.value)}
+                style={{ border: "none", textAlign: "right" }}
+              />
+            </div>
+          </div>
         </div>
       </div>
 
-      <hr style={{ margin: "40px 0" }} />
+      <hr style={{ margin: "60px 0", borderColor: "#eee" }} />
 
-      {/* 🔵 Kunde */}
-      <strong>Rechnung an:</strong><br />
-      <input value={clientName} onChange={e=>setClientName(e.target.value)} /><br />
-      <input value={clientStreet} onChange={e=>setClientStreet(e.target.value)} /><br />
-      <input value={clientCity} onChange={e=>setClientCity(e.target.value)} /><br />
-      <input value={clientEmail} onChange={e=>setClientEmail(e.target.value)} />
+      {/* ================= CLIENT ================= */}
+      <div style={{ marginBottom: 50 }}>
+        <div style={{ fontSize: 14, color: "#666" }}>
+          Rechnung an
+        </div>
 
-      <hr style={{ margin: "40px 0" }} />
+        <div style={{ marginTop: 8 }}>
+          <input
+            value={clientName}
+            onChange={(e) => setClientName(e.target.value)}
+            style={{ border: "none", fontWeight: 600 }}
+          /><br />
 
-      <textarea value={salutation} onChange={e=>setSalutation(e.target.value)} /><br /><br />
-      <textarea value={introText} onChange={e=>setIntroText(e.target.value)} /><br /><br />
+          <input
+            value={clientStreet}
+            onChange={(e) => setClientStreet(e.target.value)}
+            style={{ border: "none" }}
+          /><br />
 
-      {/* 🔵 Tabelle */}
-      <table width="100%" border="1" cellPadding="6">
+          <input
+            value={clientCity}
+            onChange={(e) => setClientCity(e.target.value)}
+            style={{ border: "none" }}
+          /><br />
+
+          <input
+            value={clientEmail}
+            onChange={(e) => setClientEmail(e.target.value)}
+            style={{ border: "none", color: "#666" }}
+          />
+        </div>
+      </div>
+
+      {/* ================= TEXT ================= */}
+      <div style={{ marginBottom: 30 }}>
+        <textarea
+          value={salutation}
+          onChange={(e) => setSalutation(e.target.value)}
+          style={{ width: "100%", border: "none", resize: "none" }}
+        />
+      </div>
+
+      <div style={{ marginBottom: 30 }}>
+        <textarea
+          value={introText}
+          onChange={(e) => setIntroText(e.target.value)}
+          style={{ width: "100%", border: "none", resize: "none" }}
+        />
+      </div>
+
+      {/* ================= TABLE ================= */}
+      <table width="100%" style={{ borderCollapse: "collapse" }}>
         <thead>
-          <tr>
-            <th>Pos</th>
-            <th>Beschreibung</th>
-            <th>Menge</th>
-            <th>Einzelpreis</th>
-            <th>Gesamt</th>
+          <tr style={{ borderBottom: "1px solid #ddd" }}>
+            <th align="left">Pos.</th>
+            <th align="left">Leistung</th>
+            <th align="right">Einzelpreis</th>
+            <th align="right">Gesamt</th>
           </tr>
         </thead>
         <tbody>
           {sessions.map((s, index) => (
-            <tr key={s.id}>
+            <tr key={s.id} style={{ borderBottom: "1px solid #f0f0f0" }}>
               <td>{index + 1}</td>
               <td>
-                <input value={description} onChange={e=>setDescription(e.target.value)} />
+                <input
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  style={{ border: "none", width: "100%" }}
+                />
               </td>
-              <td>1</td>
-              <td align="right">{Number(s.price).toFixed(2)} €</td>
-              <td align="right">{Number(s.price).toFixed(2)} €</td>
+              <td align="right">
+                {Number(s.price).toFixed(2)} €
+              </td>
+              <td align="right">
+                {Number(s.price).toFixed(2)} €
+              </td>
             </tr>
           ))}
         </tbody>
       </table>
 
-      <div style={{ textAlign: "right", marginTop: 20 }}>
-        Netto: {totalNet.toFixed(2)} €<br />
-        USt {vatRate}%: {vatAmount.toFixed(2)} €<br />
-        <strong>Gesamt: {totalGross.toFixed(2)} €</strong>
+      {/* ================= TOTAL BLOCK ================= */}
+      <div
+        style={{
+          marginTop: 40,
+          display: "flex",
+          justifyContent: "flex-end",
+        }}
+      >
+        <div style={{ width: 300 }}>
+          <div style={{ display: "flex", justifyContent: "space-between" }}>
+            <span>Zwischensumme</span>
+            <span>{totalNet.toFixed(2)} €</span>
+          </div>
+
+          <div style={{ display: "flex", justifyContent: "space-between" }}>
+            <span>USt {vatRate}%</span>
+            <span>{vatAmount.toFixed(2)} €</span>
+          </div>
+
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              fontWeight: 600,
+              marginTop: 10,
+            }}
+          >
+            <span>Gesamt</span>
+            <span>{totalGross.toFixed(2)} €</span>
+          </div>
+        </div>
       </div>
 
-      <hr style={{ margin: "40px 0" }} />
+      <hr style={{ margin: "60px 0", borderColor: "#eee" }} />
 
-      <textarea value={paymentTerms} onChange={e=>setPaymentTerms(e.target.value)} /><br /><br />
-      <textarea value={closingText} onChange={e=>setClosingText(e.target.value)} />
-
+      {/* ================= FOOTER ================= */}
+      <div style={{ fontSize: 13, color: "#555" }}>
+        <textarea
+          value={paymentTerms}
+          onChange={(e) => setPaymentTerms(e.target.value)}
+          style={{ width: "100%", border: "none", resize: "none" }}
+        />
+        <br /><br />
+        <textarea
+          value={closingText}
+          onChange={(e) => setClosingText(e.target.value)}
+          style={{ width: "100%", border: "none", resize: "none" }}
+        />
+        <br /><br />
+        IBAN: {settings.iban} <br />
+        BIC: {settings.bic}
+      </div>
     </div>
-  );
-}
+  </div>
+);
