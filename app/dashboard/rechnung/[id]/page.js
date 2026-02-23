@@ -9,16 +9,23 @@ export default function RechnungPage({ params }) {
   const [client, setClient] = useState(null);
   const [sessions, setSessions] = useState([]);
   const [settings, setSettings] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [therapistId, setTherapistId] = useState(null);
 
+  const [invoiceId, setInvoiceId] = useState(null);
   const [invoiceNumber, setInvoiceNumber] = useState("");
   const [invoiceDate, setInvoiceDate] = useState("");
+  const [clientName, setClientName] = useState("");
+  const [clientStreet, setClientStreet] = useState("");
+  const [clientCity, setClientCity] = useState("");
+  const [clientEmail, setClientEmail] = useState("");
   const [introText, setIntroText] = useState(
     "Für unsere Unterstützung stellen wir wie vereinbart in Rechnung:"
   );
   const [closingText, setClosingText] = useState(
     "Zahlungsbedingungen: Zahlung innerhalb von 14 Tagen ohne Abzüge."
   );
+
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     loadData();
@@ -34,9 +41,14 @@ export default function RechnungPage({ params }) {
       .eq("id", id)
       .single();
 
+    if (!anfrage) {
+      setLoading(false);
+      return;
+    }
+
     setClient(anfrage);
 
-    // 🔹 Billing API (stabile Quelle!)
+    // 🔹 Billing API laden (stabil!)
     const {
       data: { session },
     } = await supabase.auth.getSession();
@@ -56,22 +68,50 @@ export default function RechnungPage({ params }) {
 
     setSessions(invoiceSessions);
 
-    const therapistId =
+    // 🔹 Therapist ID ermitteln
+    const resolvedTherapistId =
       anfrage?.assigned_therapist_id ||
       invoiceSessions?.[0]?.therapist_id;
 
-    if (therapistId) {
+    setTherapistId(resolvedTherapistId);
+
+    // 🔹 Therapist Invoice Settings laden
+    if (resolvedTherapistId) {
       const { data: invoiceSettings } = await supabase
         .from("therapist_invoice_settings")
         .select("*")
-        .eq("therapist_id", therapistId)
+        .eq("therapist_id", resolvedTherapistId)
         .single();
 
-      setSettings(invoiceSettings);
+      setSettings(invoiceSettings || {});
     }
 
-    setInvoiceNumber("RE-" + Date.now().toString().slice(-5));
-    setInvoiceDate(new Date().toISOString().slice(0, 10));
+    // 🔹 Prüfen ob Rechnung existiert
+    const { data: existingInvoice } = await supabase
+      .from("invoices")
+      .select("*")
+      .eq("anfrage_id", id)
+      .maybeSingle();
+
+    if (existingInvoice) {
+      setInvoiceId(existingInvoice.id);
+      setInvoiceNumber(existingInvoice.invoice_number);
+      setInvoiceDate(existingInvoice.invoice_date);
+      setClientName(existingInvoice.client_name);
+      setClientStreet(existingInvoice.client_street);
+      setClientCity(existingInvoice.client_city);
+      setClientEmail(existingInvoice.client_email);
+      setIntroText(existingInvoice.intro_text || "");
+      setClosingText(existingInvoice.payment_terms || "");
+    } else {
+      // Neue Rechnung vorbereiten
+      setInvoiceNumber("RE-" + Date.now().toString().slice(-5));
+      setInvoiceDate(new Date().toISOString().slice(0, 10));
+      setClientName(`${anfrage.vorname} ${anfrage.nachname}`);
+      setClientStreet(anfrage.strasse_hausnr || "");
+      setClientCity(anfrage.plz_ort || "");
+      setClientEmail(anfrage.email || "");
+    }
 
     setLoading(false);
   }
@@ -94,6 +134,48 @@ export default function RechnungPage({ params }) {
 
   const vatAmount = totalBrutto - totalNet;
 
+  async function saveInvoice() {
+    const invoicePayload = {
+      id: invoiceId,
+      anfrage_id: id,
+      therapist_id: therapistId,
+
+      invoice_number: invoiceNumber,
+      invoice_date: invoiceDate,
+
+      client_name: clientName,
+      client_street: clientStreet,
+      client_city: clientCity,
+      client_email: clientEmail,
+
+      intro_text: introText,
+      payment_terms: closingText,
+
+      total_net: totalNet,
+      vat_rate: vatRate,
+      vat_amount: vatAmount,
+      total_gross: totalBrutto
+    };
+
+    const res = await fetch("/api/invoices/save", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(invoicePayload),
+    });
+
+    const result = await res.json();
+
+    if (!res.ok) {
+      alert("Fehler beim Speichern");
+      console.log(result);
+      return;
+    }
+
+    setInvoiceId(result.data.id);
+
+    alert("Rechnung gespeichert");
+  }
+
   return (
     <div style={{ display: "flex", padding: 40, gap: 40 }}>
 
@@ -114,6 +196,34 @@ export default function RechnungPage({ params }) {
           onChange={(e) => setInvoiceDate(e.target.value)}
         />
 
+        <hr />
+
+        <label>Kundenname</label>
+        <input
+          value={clientName}
+          onChange={(e) => setClientName(e.target.value)}
+        />
+
+        <label>Straße</label>
+        <input
+          value={clientStreet}
+          onChange={(e) => setClientStreet(e.target.value)}
+        />
+
+        <label>PLZ / Ort</label>
+        <input
+          value={clientCity}
+          onChange={(e) => setClientCity(e.target.value)}
+        />
+
+        <label>E-Mail</label>
+        <input
+          value={clientEmail}
+          onChange={(e) => setClientEmail(e.target.value)}
+        />
+
+        <hr />
+
         <label>Einleitung</label>
         <textarea
           value={introText}
@@ -125,6 +235,13 @@ export default function RechnungPage({ params }) {
           value={closingText}
           onChange={(e) => setClosingText(e.target.value)}
         />
+
+        <button
+          onClick={saveInvoice}
+          style={{ marginTop: 20 }}
+        >
+          Rechnung speichern
+        </button>
       </div>
 
       {/* ================= VORSCHAU ================= */}
@@ -139,7 +256,7 @@ export default function RechnungPage({ params }) {
       >
         <h1>Rechnung</h1>
 
-        {/* THERAPEUT (NICHT EDITIERBAR) */}
+        {/* Therapeut (fix) */}
         <div style={{ marginBottom: 20 }}>
           <strong>{settings.company_name}</strong><br />
           <div style={{ whiteSpace: "pre-line" }}>
@@ -151,12 +268,12 @@ export default function RechnungPage({ params }) {
 
         <hr style={{ margin: "40px 0" }} />
 
-        {/* KLIENT */}
+        {/* Kunde */}
         <strong>Rechnung an:</strong><br />
-        {client.vorname} {client.nachname}<br />
-        {client.strasse_hausnr}<br />
-        {client.plz_ort}<br />
-        {client.email}
+        {clientName}<br />
+        {clientStreet}<br />
+        {clientCity}<br />
+        {clientEmail}
 
         <hr style={{ margin: "40px 0" }} />
 
