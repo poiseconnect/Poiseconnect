@@ -115,44 +115,55 @@ export default function RechnungPage({ params }) {
   const totalGross = totalNet + vatAmount;
 
   return (
-  <div
-    style={{
-      background: "#f5f5f5",
-      padding: "60px 0",
-      minHeight: "100vh",
-    }}
-  >
+  <div style={{ background: "#f3f3f3", minHeight: "100vh", padding: "60px 0" }}>
+
+    {/* ================= TOOLBAR ================= */}
+    <div style={{ maxWidth: 900, margin: "0 auto 30px auto", textAlign: "right" }}>
+      <button
+        onClick={saveInvoice}
+        style={{
+          background: "#000",
+          color: "#fff",
+          padding: "12px 24px",
+          border: "none",
+          cursor: "pointer",
+          fontSize: 14
+        }}
+      >
+        Rechnung speichern
+      </button>
+    </div>
+
+    {/* ================= RECHNUNGSBLATT ================= */}
     <div
       style={{
         background: "#fff",
         maxWidth: 900,
         margin: "0 auto",
         padding: 80,
-        fontFamily: "Arial, sans-serif",
-        color: "#222",
+        fontFamily: "Helvetica, Arial, sans-serif",
+        color: "#111"
       }}
     >
-      {/* ================= HEADER ================= */}
+
+      {/* ===== HEADER ===== */}
       <div style={{ display: "flex", justifyContent: "space-between" }}>
-        
-        {/* LEFT: COMPANY */}
         <div>
-          <div style={{ fontSize: 22, fontWeight: 600 }}>
+          <div style={{ fontSize: 16, fontWeight: 600 }}>
             {settings.company_name}
           </div>
-          <div style={{ whiteSpace: "pre-line", marginTop: 8 }}>
+          <div style={{ whiteSpace: "pre-line", marginTop: 6, fontSize: 14 }}>
             {settings.address}
           </div>
-          <div style={{ marginTop: 10, fontSize: 13, color: "#666" }}>
+          <div style={{ fontSize: 13, marginTop: 10, color: "#666" }}>
             UID: {settings.vat_number}<br />
             StNr: {settings.tax_number}
           </div>
         </div>
 
-        {/* RIGHT: INVOICE BLOCK */}
         <div style={{ textAlign: "right" }}>
-          <div style={{ fontSize: 26, fontWeight: 300 }}>
-            Rechnung
+          <div style={{ fontSize: 34, fontWeight: 300, letterSpacing: 1 }}>
+            RECHNUNG
           </div>
 
           <div style={{ marginTop: 20, fontSize: 14 }}>
@@ -161,7 +172,7 @@ export default function RechnungPage({ params }) {
               <input
                 value={invoiceNumber}
                 onChange={(e) => setInvoiceNumber(e.target.value)}
-                style={{ border: "none", textAlign: "right" }}
+                style={{ border: "none", textAlign: "right", fontSize: 14 }}
               />
             </div>
 
@@ -171,7 +182,7 @@ export default function RechnungPage({ params }) {
                 type="date"
                 value={invoiceDate}
                 onChange={(e) => setInvoiceDate(e.target.value)}
-                style={{ border: "none", textAlign: "right" }}
+                style={{ border: "none", textAlign: "right", fontSize: 14 }}
               />
             </div>
 
@@ -180,7 +191,7 @@ export default function RechnungPage({ params }) {
               <input
                 value={servicePeriod}
                 onChange={(e) => setServicePeriod(e.target.value)}
-                style={{ border: "none", textAlign: "right" }}
+                style={{ border: "none", textAlign: "right", fontSize: 14 }}
               />
             </div>
           </div>
@@ -189,58 +200,56 @@ export default function RechnungPage({ params }) {
 
       <hr style={{ margin: "60px 0", borderColor: "#eee" }} />
 
-      {/* ================= CLIENT ================= */}
-      <div style={{ marginBottom: 50 }}>
-        <div style={{ fontSize: 14, color: "#666" }}>
+      {/* ===== KLIENT ===== */}
+      <div style={{ marginBottom: 60 }}>
+        <div style={{ fontSize: 13, color: "#777", marginBottom: 8 }}>
           Rechnung an
         </div>
 
-        <div style={{ marginTop: 8 }}>
-          <input
-            value={clientName}
-            onChange={(e) => setClientName(e.target.value)}
-            style={{ border: "none", fontWeight: 600 }}
-          /><br />
+        <input
+          value={clientName}
+          onChange={(e) => setClientName(e.target.value)}
+          style={{ border: "none", fontWeight: 600, fontSize: 15 }}
+        /><br />
 
-          <input
-            value={clientStreet}
-            onChange={(e) => setClientStreet(e.target.value)}
-            style={{ border: "none" }}
-          /><br />
+        <input
+          value={clientStreet}
+          onChange={(e) => setClientStreet(e.target.value)}
+          style={{ border: "none", fontSize: 14 }}
+        /><br />
 
-          <input
-            value={clientCity}
-            onChange={(e) => setClientCity(e.target.value)}
-            style={{ border: "none" }}
-          /><br />
+        <input
+          value={clientCity}
+          onChange={(e) => setClientCity(e.target.value)}
+          style={{ border: "none", fontSize: 14 }}
+        /><br />
 
-          <input
-            value={clientEmail}
-            onChange={(e) => setClientEmail(e.target.value)}
-            style={{ border: "none", color: "#666" }}
-          />
-        </div>
+        <input
+          value={clientEmail}
+          onChange={(e) => setClientEmail(e.target.value)}
+          style={{ border: "none", fontSize: 14, color: "#666" }}
+        />
       </div>
 
-      {/* ================= TEXT ================= */}
-      <div style={{ marginBottom: 30 }}>
+      {/* ===== TEXT ===== */}
+      <div style={{ marginBottom: 40 }}>
         <textarea
           value={salutation}
           onChange={(e) => setSalutation(e.target.value)}
-          style={{ width: "100%", border: "none", resize: "none" }}
+          style={{ width: "100%", border: "none", resize: "none", fontSize: 14 }}
         />
       </div>
 
-      <div style={{ marginBottom: 30 }}>
+      <div style={{ marginBottom: 40 }}>
         <textarea
           value={introText}
           onChange={(e) => setIntroText(e.target.value)}
-          style={{ width: "100%", border: "none", resize: "none" }}
+          style={{ width: "100%", border: "none", resize: "none", fontSize: 14 }}
         />
       </div>
 
-      {/* ================= TABLE ================= */}
-      <table width="100%" style={{ borderCollapse: "collapse" }}>
+      {/* ===== TABELLE ===== */}
+      <table width="100%" style={{ borderCollapse: "collapse", fontSize: 14 }}>
         <thead>
           <tr style={{ borderBottom: "1px solid #ddd" }}>
             <th align="left">Pos.</th>
@@ -251,7 +260,7 @@ export default function RechnungPage({ params }) {
         </thead>
         <tbody>
           {sessions.map((s, index) => (
-            <tr key={s.id} style={{ borderBottom: "1px solid #f0f0f0" }}>
+            <tr key={s.id} style={{ borderBottom: "1px solid #f2f2f2" }}>
               <td>{index + 1}</td>
               <td>
                 <input
@@ -260,25 +269,15 @@ export default function RechnungPage({ params }) {
                   style={{ border: "none", width: "100%" }}
                 />
               </td>
-              <td align="right">
-                {Number(s.price).toFixed(2)} €
-              </td>
-              <td align="right">
-                {Number(s.price).toFixed(2)} €
-              </td>
+              <td align="right">{Number(s.price).toFixed(2)} €</td>
+              <td align="right">{Number(s.price).toFixed(2)} €</td>
             </tr>
           ))}
         </tbody>
       </table>
 
-      {/* ================= TOTAL BLOCK ================= */}
-      <div
-        style={{
-          marginTop: 40,
-          display: "flex",
-          justifyContent: "flex-end",
-        }}
-      >
+      {/* ===== SUMMENBLOCK ===== */}
+      <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 50 }}>
         <div style={{ width: 300 }}>
           <div style={{ display: "flex", justifyContent: "space-between" }}>
             <span>Zwischensumme</span>
@@ -296,9 +295,10 @@ export default function RechnungPage({ params }) {
               justifyContent: "space-between",
               fontWeight: 600,
               marginTop: 10,
+              fontSize: 16
             }}
           >
-            <span>Gesamt</span>
+            <span>Gesamtbetrag</span>
             <span>{totalGross.toFixed(2)} €</span>
           </div>
         </div>
@@ -306,7 +306,7 @@ export default function RechnungPage({ params }) {
 
       <hr style={{ margin: "60px 0", borderColor: "#eee" }} />
 
-      {/* ================= FOOTER ================= */}
+      {/* ===== FOOTER ===== */}
       <div style={{ fontSize: 13, color: "#555" }}>
         <textarea
           value={paymentTerms}
@@ -320,7 +320,7 @@ export default function RechnungPage({ params }) {
           style={{ width: "100%", border: "none", resize: "none" }}
         />
         <br /><br />
-        IBAN: {settings.iban} <br />
+        IBAN: {settings.iban}<br />
         BIC: {settings.bic}
       </div>
     </div>
