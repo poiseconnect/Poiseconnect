@@ -12,17 +12,31 @@ export default function RechnungPage({ params }) {
   const [therapistId, setTherapistId] = useState(null);
 
   const [invoiceId, setInvoiceId] = useState(null);
+
+  // 🔵 Kopf rechts
   const [invoiceNumber, setInvoiceNumber] = useState("");
   const [invoiceDate, setInvoiceDate] = useState("");
+  const [servicePeriod, setServicePeriod] = useState("");
+  const [customerNumber, setCustomerNumber] = useState("");
+  const [contactPerson, setContactPerson] = useState("");
+
+  // 🔵 Kunde
   const [clientName, setClientName] = useState("");
   const [clientStreet, setClientStreet] = useState("");
   const [clientCity, setClientCity] = useState("");
   const [clientEmail, setClientEmail] = useState("");
+
+  // 🔵 Text
+  const [salutation, setSalutation] = useState("Sehr geehrte Damen und Herren,");
   const [introText, setIntroText] = useState(
     "Für unsere Unterstützung stellen wir wie vereinbart in Rechnung:"
   );
+  const [description, setDescription] = useState("Psychologische Beratung");
+  const [paymentTerms, setPaymentTerms] = useState(
+    "Zahlbar innerhalb von 14 Tagen ohne Abzug."
+  );
   const [closingText, setClosingText] = useState(
-    "Zahlungsbedingungen: Zahlung innerhalb von 14 Tagen ohne Abzüge."
+    "Vielen Dank für Ihr Vertrauen."
   );
 
   const [loading, setLoading] = useState(true);
@@ -34,21 +48,14 @@ export default function RechnungPage({ params }) {
   async function loadData() {
     setLoading(true);
 
-    // 🔹 Anfrage laden
     const { data: anfrage } = await supabase
       .from("anfragen")
       .select("*")
       .eq("id", id)
       .single();
 
-    if (!anfrage) {
-      setLoading(false);
-      return;
-    }
-
     setClient(anfrage);
 
-    // 🔹 Billing API laden (stabil!)
     const {
       data: { session },
     } = await supabase.auth.getSession();
@@ -68,14 +75,12 @@ export default function RechnungPage({ params }) {
 
     setSessions(invoiceSessions);
 
-    // 🔹 Therapist ID ermitteln
     const resolvedTherapistId =
       anfrage?.assigned_therapist_id ||
       invoiceSessions?.[0]?.therapist_id;
 
     setTherapistId(resolvedTherapistId);
 
-    // 🔹 Therapist Invoice Settings laden
     if (resolvedTherapistId) {
       const { data: invoiceSettings } = await supabase
         .from("therapist_invoice_settings")
@@ -86,178 +91,35 @@ export default function RechnungPage({ params }) {
       setSettings(invoiceSettings || {});
     }
 
-    // 🔹 Prüfen ob Rechnung existiert
-    const { data: existingInvoice } = await supabase
-      .from("invoices")
-      .select("*")
-      .eq("anfrage_id", id)
-      .maybeSingle();
-
-    if (existingInvoice) {
-      setInvoiceId(existingInvoice.id);
-      setInvoiceNumber(existingInvoice.invoice_number);
-      setInvoiceDate(existingInvoice.invoice_date);
-      setClientName(existingInvoice.client_name);
-      setClientStreet(existingInvoice.client_street);
-      setClientCity(existingInvoice.client_city);
-      setClientEmail(existingInvoice.client_email);
-      setIntroText(existingInvoice.intro_text || "");
-      setClosingText(existingInvoice.payment_terms || "");
-    } else {
-      // Neue Rechnung vorbereiten
-      setInvoiceNumber("RE-" + Date.now().toString().slice(-5));
-      setInvoiceDate(new Date().toISOString().slice(0, 10));
-      setClientName(`${anfrage.vorname} ${anfrage.nachname}`);
-      setClientStreet(anfrage.strasse_hausnr || "");
-      setClientCity(anfrage.plz_ort || "");
-      setClientEmail(anfrage.email || "");
-    }
+    setInvoiceNumber("RE-" + Date.now().toString().slice(-5));
+    setInvoiceDate(new Date().toISOString().slice(0, 10));
+    setServicePeriod(new Date().toLocaleDateString("de-AT"));
+    setClientName(`${anfrage?.vorname} ${anfrage?.nachname}`);
+    setClientStreet(anfrage?.strasse_hausnr || "");
+    setClientCity(anfrage?.plz_ort || "");
+    setClientEmail(anfrage?.email || "");
 
     setLoading(false);
   }
 
-  if (loading) return <div style={{ padding: 40 }}>Lade Rechnung…</div>;
-  if (!client || !settings)
-    return <div style={{ padding: 40 }}>Keine Daten</div>;
+  if (loading || !settings) return <div style={{ padding: 40 }}>Lade…</div>;
 
   const vatRate = Number(settings.default_vat_rate || 0);
 
-  const totalBrutto = sessions.reduce(
+  const totalNet = sessions.reduce(
     (sum, s) => sum + Number(s.price || 0),
     0
   );
 
-  const totalNet =
-    vatRate > 0
-      ? totalBrutto / (1 + vatRate / 100)
-      : totalBrutto;
-
-  const vatAmount = totalBrutto - totalNet;
-
-  async function saveInvoice() {
-    const invoicePayload = {
-      id: invoiceId,
-      anfrage_id: id,
-      therapist_id: therapistId,
-
-      invoice_number: invoiceNumber,
-      invoice_date: invoiceDate,
-
-      client_name: clientName,
-      client_street: clientStreet,
-      client_city: clientCity,
-      client_email: clientEmail,
-
-      intro_text: introText,
-      payment_terms: closingText,
-
-      total_net: totalNet,
-      vat_rate: vatRate,
-      vat_amount: vatAmount,
-      total_gross: totalBrutto
-    };
-
-    const res = await fetch("/api/invoices/save", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(invoicePayload),
-    });
-
-    const result = await res.json();
-
-    if (!res.ok) {
-      alert("Fehler beim Speichern");
-      console.log(result);
-      return;
-    }
-
-    setInvoiceId(result.data.id);
-
-    alert("Rechnung gespeichert");
-  }
+  const vatAmount = vatRate > 0 ? totalNet * (vatRate / 100) : 0;
+  const totalGross = totalNet + vatAmount;
 
   return (
-    <div style={{ display: "flex", padding: 40, gap: 40 }}>
-
-      {/* ================= EDIT PANEL ================= */}
-      <div style={{ width: 400 }}>
-        <h3>Rechnungsdaten</h3>
-
-        <label>Rechnungsnummer</label>
-        <input
-          value={invoiceNumber}
-          onChange={(e) => setInvoiceNumber(e.target.value)}
-        />
-
-        <label>Rechnungsdatum</label>
-        <input
-          type="date"
-          value={invoiceDate}
-          onChange={(e) => setInvoiceDate(e.target.value)}
-        />
-
-        <hr />
-
-        <label>Kundenname</label>
-        <input
-          value={clientName}
-          onChange={(e) => setClientName(e.target.value)}
-        />
-
-        <label>Straße</label>
-        <input
-          value={clientStreet}
-          onChange={(e) => setClientStreet(e.target.value)}
-        />
-
-        <label>PLZ / Ort</label>
-        <input
-          value={clientCity}
-          onChange={(e) => setClientCity(e.target.value)}
-        />
-
-        <label>E-Mail</label>
-        <input
-          value={clientEmail}
-          onChange={(e) => setClientEmail(e.target.value)}
-        />
-
-        <hr />
-
-        <label>Einleitung</label>
-        <textarea
-          value={introText}
-          onChange={(e) => setIntroText(e.target.value)}
-        />
-
-        <label>Zahlungshinweis</label>
-        <textarea
-          value={closingText}
-          onChange={(e) => setClosingText(e.target.value)}
-        />
-
-        <button
-          onClick={saveInvoice}
-          style={{ marginTop: 20 }}
-        >
-          Rechnung speichern
-        </button>
-      </div>
-
-      {/* ================= VORSCHAU ================= */}
-      <div
-        style={{
-          width: 800,
-          background: "#fff",
-          padding: 60,
-          border: "1px solid #ddd",
-          borderRadius: 8,
-        }}
-      >
-        <h1>Rechnung</h1>
-
-        {/* Therapeut (fix) */}
-        <div style={{ marginBottom: 20 }}>
+    <div style={{ padding: 60, background: "#fff", maxWidth: 900, margin: "auto" }}>
+      
+      {/* 🔵 Kopf */}
+      <div style={{ display: "flex", justifyContent: "space-between" }}>
+        <div>
           <strong>{settings.company_name}</strong><br />
           <div style={{ whiteSpace: "pre-line" }}>
             {settings.address}
@@ -266,52 +128,66 @@ export default function RechnungPage({ params }) {
           StNr: {settings.tax_number}
         </div>
 
-        <hr style={{ margin: "40px 0" }} />
-
-        {/* Kunde */}
-        <strong>Rechnung an:</strong><br />
-        {clientName}<br />
-        {clientStreet}<br />
-        {clientCity}<br />
-        {clientEmail}
-
-        <hr style={{ margin: "40px 0" }} />
-
-        <p>{introText}</p>
-
-        <table width="100%">
-          <thead>
-            <tr>
-              <th align="left">Datum</th>
-              <th align="right">Preis €</th>
-            </tr>
-          </thead>
-          <tbody>
-            {sessions.map((s) => (
-              <tr key={s.id}>
-                <td>
-                  {new Date(s.date).toLocaleDateString("de-AT")}
-                </td>
-                <td align="right">
-                  {Number(s.price).toFixed(2)}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-
-        <hr />
-
         <div style={{ textAlign: "right" }}>
-          Netto: {totalNet.toFixed(2)} €<br />
-          {vatRate > 0 && (
-            <>USt {vatRate}%: {vatAmount.toFixed(2)} €<br /></>
-          )}
-          <strong>Gesamt: {totalBrutto.toFixed(2)} €</strong>
+          Rechnungsnr: <input value={invoiceNumber} onChange={e=>setInvoiceNumber(e.target.value)} /><br />
+          Datum: <input type="date" value={invoiceDate} onChange={e=>setInvoiceDate(e.target.value)} /><br />
+          Leistungszeitraum: <input value={servicePeriod} onChange={e=>setServicePeriod(e.target.value)} /><br />
+          Kundennr: <input value={customerNumber} onChange={e=>setCustomerNumber(e.target.value)} /><br />
+          Ansprechpartner: <input value={contactPerson} onChange={e=>setContactPerson(e.target.value)} />
         </div>
-
-        <p style={{ marginTop: 40 }}>{closingText}</p>
       </div>
+
+      <hr style={{ margin: "40px 0" }} />
+
+      {/* 🔵 Kunde */}
+      <strong>Rechnung an:</strong><br />
+      <input value={clientName} onChange={e=>setClientName(e.target.value)} /><br />
+      <input value={clientStreet} onChange={e=>setClientStreet(e.target.value)} /><br />
+      <input value={clientCity} onChange={e=>setClientCity(e.target.value)} /><br />
+      <input value={clientEmail} onChange={e=>setClientEmail(e.target.value)} />
+
+      <hr style={{ margin: "40px 0" }} />
+
+      <textarea value={salutation} onChange={e=>setSalutation(e.target.value)} /><br /><br />
+      <textarea value={introText} onChange={e=>setIntroText(e.target.value)} /><br /><br />
+
+      {/* 🔵 Tabelle */}
+      <table width="100%" border="1" cellPadding="6">
+        <thead>
+          <tr>
+            <th>Pos</th>
+            <th>Beschreibung</th>
+            <th>Menge</th>
+            <th>Einzelpreis</th>
+            <th>Gesamt</th>
+          </tr>
+        </thead>
+        <tbody>
+          {sessions.map((s, index) => (
+            <tr key={s.id}>
+              <td>{index + 1}</td>
+              <td>
+                <input value={description} onChange={e=>setDescription(e.target.value)} />
+              </td>
+              <td>1</td>
+              <td align="right">{Number(s.price).toFixed(2)} €</td>
+              <td align="right">{Number(s.price).toFixed(2)} €</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+
+      <div style={{ textAlign: "right", marginTop: 20 }}>
+        Netto: {totalNet.toFixed(2)} €<br />
+        USt {vatRate}%: {vatAmount.toFixed(2)} €<br />
+        <strong>Gesamt: {totalGross.toFixed(2)} €</strong>
+      </div>
+
+      <hr style={{ margin: "40px 0" }} />
+
+      <textarea value={paymentTerms} onChange={e=>setPaymentTerms(e.target.value)} /><br /><br />
+      <textarea value={closingText} onChange={e=>setClosingText(e.target.value)} />
+
     </div>
   );
 }
