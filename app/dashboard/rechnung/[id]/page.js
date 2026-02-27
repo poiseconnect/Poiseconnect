@@ -790,25 +790,27 @@ for (let i = 1; i <= pageCount; i++) {
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
 
-  const marginX = 15;
-  const footerTopY = pageHeight - 45; // höher setzen!
-  const lineGap = 5;
+  const marginX = 20;
+  const footerTopY = pageHeight - 40; // höher positioniert
+  const lineGap = 4.5;
 
   const usableWidth = pageWidth - marginX * 2;
   const colWidth = usableWidth / 3;
 
   // Linie über Footer
-  doc.setDrawColor(200);
-  doc.line(marginX, footerTopY - 6, pageWidth - marginX, footerTopY - 6);
+  doc.setDrawColor(220);
+  doc.setLineWidth(0.5);
+  doc.line(marginX, footerTopY - 8, pageWidth - marginX, footerTopY - 8);
 
   doc.setFontSize(9);
 
-  // ===== SPALTE 1 =====
+  // ================= SPALTE 1 =================
   let x1 = marginX;
   let y1 = footerTopY;
 
   doc.setFont("helvetica", "bold");
   doc.text(settings.company_name || "", x1, y1);
+
   doc.setFont("helvetica", "normal");
   y1 += lineGap;
 
@@ -822,12 +824,13 @@ for (let i = 1; i <= pageCount; i++) {
     doc.text(`E-Mail: ${settings.email}`, x1, y1);
   }
 
-  // ===== SPALTE 2 =====
+  // ================= SPALTE 2 =================
   let x2 = marginX + colWidth;
   let y2 = footerTopY;
 
   doc.setFont("helvetica", "bold");
   doc.text("Rechtliches", x2, y2);
+
   doc.setFont("helvetica", "normal");
   y2 += lineGap;
 
@@ -836,12 +839,13 @@ for (let i = 1; i <= pageCount; i++) {
 
   doc.text(`Steuernr: ${settings.tax_number || "—"}`, x2, y2);
 
-  // ===== SPALTE 3 =====
+  // ================= SPALTE 3 =================
   let x3 = marginX + colWidth * 2;
   let y3 = footerTopY;
 
   doc.setFont("helvetica", "bold");
   doc.text("Bank", x3, y3);
+
   doc.setFont("helvetica", "normal");
   y3 += lineGap;
 
