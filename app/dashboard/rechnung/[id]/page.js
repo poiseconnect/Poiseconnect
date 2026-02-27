@@ -780,7 +780,7 @@ function buildPdf({
   const closeLines = doc.splitTextToSize(String(closingText || ""), pageWidth - 2 * marginX);
   doc.text(closeLines, marginX, fy);
   fy += closeLines.length * 5 + 6;
-// ================= FOOTER 3-SPALTIG =================
+// =================== FOOTER BLOCK ===================
 
 const pageCount = doc.internal.getNumberOfPages();
 
@@ -791,59 +791,63 @@ for (let i = 1; i <= pageCount; i++) {
   const pageHeight = doc.internal.pageSize.getHeight();
 
   const marginX = 15;
-  const footerTopY = pageHeight - 32;  // Oberkante Footerblock
+  const footerTopY = pageHeight - 45; // höher setzen!
   const lineGap = 5;
 
-  const colWidth = (pageWidth - marginX * 2) / 3;
+  const usableWidth = pageWidth - marginX * 2;
+  const colWidth = usableWidth / 3;
+
+  // Linie über Footer
+  doc.setDrawColor(200);
+  doc.line(marginX, footerTopY - 6, pageWidth - marginX, footerTopY - 6);
 
   doc.setFontSize(9);
-  doc.setFont("helvetica", "normal");
 
-  // ----- SPALTE 1: FIRMA -----
+  // ===== SPALTE 1 =====
+  let x1 = marginX;
   let y1 = footerTopY;
 
   doc.setFont("helvetica", "bold");
-  doc.text(settings.company_name || "", marginX, y1);
+  doc.text(settings.company_name || "", x1, y1);
   doc.setFont("helvetica", "normal");
   y1 += lineGap;
 
-  const addrLines = (settings.address || "").split("\n");
-  addrLines.forEach(line => {
-    doc.text(line, marginX, y1);
+  const addressLines = (settings.address || "").split("\n");
+  addressLines.forEach(line => {
+    doc.text(line, x1, y1);
     y1 += lineGap;
   });
 
-  // optional Email
   if (settings.email) {
-    doc.text(`E-Mail: ${settings.email}`, marginX, y1);
+    doc.text(`E-Mail: ${settings.email}`, x1, y1);
   }
 
-  // ----- SPALTE 2: RECHTLICHES -----
-  let col2X = marginX + colWidth;
+  // ===== SPALTE 2 =====
+  let x2 = marginX + colWidth;
   let y2 = footerTopY;
 
   doc.setFont("helvetica", "bold");
-  doc.text("Rechtliches", col2X, y2);
+  doc.text("Rechtliches", x2, y2);
   doc.setFont("helvetica", "normal");
   y2 += lineGap;
 
-  doc.text(`UID: ${settings.vat_number || "—"}`, col2X, y2);
+  doc.text(`UID: ${settings.vat_number || "—"}`, x2, y2);
   y2 += lineGap;
 
-  doc.text(`Steuernr: ${settings.tax_number || "—"}`, col2X, y2);
+  doc.text(`Steuernr: ${settings.tax_number || "—"}`, x2, y2);
 
-  // ----- SPALTE 3: BANK -----
-  let col3X = marginX + colWidth * 2;
+  // ===== SPALTE 3 =====
+  let x3 = marginX + colWidth * 2;
   let y3 = footerTopY;
 
   doc.setFont("helvetica", "bold");
-  doc.text("Bank", col3X, y3);
+  doc.text("Bank", x3, y3);
   doc.setFont("helvetica", "normal");
   y3 += lineGap;
 
-  doc.text(`IBAN: ${settings.iban || "—"}`, col3X, y3);
+  doc.text(`IBAN: ${settings.iban || "—"}`, x3, y3);
   y3 += lineGap;
 
-  doc.text(`BIC: ${settings.bic || "—"}`, col3X, y3);
+  doc.text(`BIC: ${settings.bic || "—"}`, x3, y3);
 }
 }
