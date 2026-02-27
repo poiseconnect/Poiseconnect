@@ -780,12 +780,70 @@ function buildPdf({
   const closeLines = doc.splitTextToSize(String(closingText || ""), pageWidth - 2 * marginX);
   doc.text(closeLines, marginX, fy);
   fy += closeLines.length * 5 + 6;
+// ================= FOOTER 3-SPALTIG =================
 
-  // Footer bank info
+const pageCount = doc.internal.getNumberOfPages();
+
+for (let i = 1; i <= pageCount; i++) {
+  doc.setPage(i);
+
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+
+  const marginX = 15;
+  const footerTopY = pageHeight - 32;  // Oberkante Footerblock
+  const lineGap = 5;
+
+  const colWidth = (pageWidth - marginX * 2) / 3;
+
   doc.setFontSize(9);
-  doc.text(`IBAN: ${settings.iban || "—"}`, marginX, 285);
-  doc.text(`BIC: ${settings.bic || "—"}`, marginX + 70, 285);
-  doc.text(`UID: ${settings.vat_number || "—"}  |  StNr: ${settings.tax_number || "—"}`, pageWidth - marginX, 285, {
-    align: "right",
+  doc.setFont("helvetica", "normal");
+
+  // ----- SPALTE 1: FIRMA -----
+  let y1 = footerTopY;
+
+  doc.setFont("helvetica", "bold");
+  doc.text(settings.company_name || "", marginX, y1);
+  doc.setFont("helvetica", "normal");
+  y1 += lineGap;
+
+  const addrLines = (settings.address || "").split("\n");
+  addrLines.forEach(line => {
+    doc.text(line, marginX, y1);
+    y1 += lineGap;
   });
+
+  // optional Email
+  if (settings.email) {
+    doc.text(`E-Mail: ${settings.email}`, marginX, y1);
+  }
+
+  // ----- SPALTE 2: RECHTLICHES -----
+  let col2X = marginX + colWidth;
+  let y2 = footerTopY;
+
+  doc.setFont("helvetica", "bold");
+  doc.text("Rechtliches", col2X, y2);
+  doc.setFont("helvetica", "normal");
+  y2 += lineGap;
+
+  doc.text(`UID: ${settings.vat_number || "—"}`, col2X, y2);
+  y2 += lineGap;
+
+  doc.text(`Steuernr: ${settings.tax_number || "—"}`, col2X, y2);
+
+  // ----- SPALTE 3: BANK -----
+  let col3X = marginX + colWidth * 2;
+  let y3 = footerTopY;
+
+  doc.setFont("helvetica", "bold");
+  doc.text("Bank", col3X, y3);
+  doc.setFont("helvetica", "normal");
+  y3 += lineGap;
+
+  doc.text(`IBAN: ${settings.iban || "—"}`, col3X, y3);
+  y3 += lineGap;
+
+  doc.text(`BIC: ${settings.bic || "—"}`, col3X, y3);
+}
 }
