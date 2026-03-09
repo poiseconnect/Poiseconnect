@@ -5,6 +5,8 @@ import { supabase } from "../lib/supabase";
 import { teamData } from "../lib/teamData";
 import jsPDF from "jspdf";
 import "jspdf-autotable";
+const [bookingSettings, setBookingSettings] = useState(null);
+const [bookingSaving, setBookingSaving] = useState(false);
 
 // ================= POISE DASHBOARD COLORS =================
 const POISE_COLORS = {
@@ -943,7 +945,31 @@ const sessionsSafe = useMemo(() => {
   return Array.isArray(billingSessions) ? billingSessions : [];
 }, [billingSessions]);
 
+useEffect(() => {
+  loadBookingSettings();
+}, []);
 
+async function loadBookingSettings() {
+
+  const { data: { session } } = await supabase.auth.getSession();
+
+  const res = await fetch("/api/booking/settings/get", {
+    headers: {
+      Authorization: `Bearer ${session?.access_token}`
+    }
+  });
+
+  const json = await res.json();
+
+  setBookingSettings(
+    json.settings || {
+      booking_enabled: false,
+      slot_duration_min: 60,
+      buffer_min: 10,
+      time_zone: "Europe/Vienna"
+    }
+  );
+}
 /* =========================================================
    GEFILTERTE ANFRAGEN (KARTEN / LISTEN)
 ========================================================= */
