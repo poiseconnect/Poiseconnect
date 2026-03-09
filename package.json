@@ -19,6 +19,8 @@
     "resend": "2.0.0",
     "papaparse": "^5.4.1",
   "jspdf": "^2.5.1",
-  "jspdf-autotable": "^3.8.4"
+  "jspdf-autotable": "^3.8.4",
+    "googleapis": "^131.0.0",
+"date-fns": "^3.6.0"
   }
 }
