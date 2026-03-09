@@ -5,8 +5,6 @@ import { supabase } from "../lib/supabase";
 import { teamData } from "../lib/teamData";
 import jsPDF from "jspdf";
 import "jspdf-autotable";
-const [bookingSettings, setBookingSettings] = useState(null);
-const [bookingSaving, setBookingSaving] = useState(false);
 
 // ================= POISE DASHBOARD COLORS =================
 const POISE_COLORS = {
@@ -607,6 +605,8 @@ const [access, setAccess] = useState("loading");
   const [detailsModal, setDetailsModal] = useState(null);
   const [editTarif, setEditTarif] = useState("");
   const [newSessions, setNewSessions] = useState([{ date: "", duration: 60 }]);
+  const [bookingSettings, setBookingSettings] = useState(null);
+  const [bookingSaving, setBookingSaving] = useState(false);
 
   // ================= PROPOSALS =================
 const [proposalModal, setProposalModal] = useState(null);
@@ -944,19 +944,24 @@ const r = await fetch(endpoint, {
 const sessionsSafe = useMemo(() => {
   return Array.isArray(billingSessions) ? billingSessions : [];
 }, [billingSessions]);
+  
+  useEffect(() => {
+  if (!user?.email) return;
+  if (role !== "therapist") return;
+  if (!myTeamMemberId) return;
 
-useEffect(() => {
   loadBookingSettings();
-}, []);
+}, [user, role, myTeamMemberId]);
 
 async function loadBookingSettings() {
-
-  const { data: { session } } = await supabase.auth.getSession();
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
 
   const res = await fetch("/api/booking/settings/get", {
     headers: {
-      Authorization: `Bearer ${session?.access_token}`
-    }
+      Authorization: `Bearer ${session?.access_token}`,
+    },
   });
 
   const json = await res.json();
@@ -966,9 +971,58 @@ async function loadBookingSettings() {
       booking_enabled: false,
       slot_duration_min: 60,
       buffer_min: 10,
-      time_zone: "Europe/Vienna"
+      time_zone: "Europe/Vienna",
     }
   );
+}
+
+  async function connectGoogleCalendar() {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
+  const res = await fetch("/api/google/start", {
+    headers: {
+      Authorization: `Bearer ${session?.access_token}`,
+    },
+  });
+
+  const json = await res.json();
+
+  if (json.url) {
+    window.location.href = json.url;
+  }
+}
+  async function saveBookingSettings() {
+  setBookingSaving(true);
+
+  try {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+
+    const res = await fetch("/api/booking/settings/save", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${session?.access_token}`,
+      },
+      body: JSON.stringify(bookingSettings),
+    });
+
+    const json = await res.json();
+
+    if (!res.ok) {
+      alert("Fehler beim Speichern");
+      console.log(json);
+      return;
+    }
+
+    setBookingSettings(json.data);
+    alert("✅ Buchungssettings gespeichert");
+  } finally {
+    setBookingSaving(false);
+  }
 }
 /* =========================================================
    GEFILTERTE ANFRAGEN (KARTEN / LISTEN)
@@ -1436,7 +1490,98 @@ return (
     </button>
   </div>
 )}
+{role === "therapist" && bookingSettings && (
+  <details
+    style={{
+      marginBottom: 16,
+      border: "1px solid #eee",
+      borderRadius: 10,
+      background: "#FAFAFA",
+      padding: 10,
+    }}
+  >
+    <summary style={{ cursor: "pointer", fontWeight: 600 }}>
+      📅 Online Terminbuchung
+    </summary>
 
+    <div style={{ marginTop: 12 }}>
+      <label style={{ display: "block", marginBottom: 10 }}>
+        <input
+          type="checkbox"
+          checked={!!bookingSettings.booking_enabled}
+          onChange={(e) =>
+            setBookingSettings({
+              ...bookingSettings,
+              booking_enabled: e.target.checked,
+            })
+          }
+        />{" "}
+        Online Buchung aktivieren
+      </label>
+
+      <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 12 }}>
+        <div>
+          <label>Termin Dauer (Min)</label>
+          <input
+            type="number"
+            value={bookingSettings.slot_duration_min || 60}
+            onChange={(e) =>
+              setBookingSettings({
+                ...bookingSettings,
+                slot_duration_min: Number(e.target.value),
+              })
+            }
+          />
+        </div>
+
+        <div>
+          <label>Puffer (Min)</label>
+          <input
+            type="number"
+            value={bookingSettings.buffer_min || 10}
+            onChange={(e) =>
+              setBookingSettings({
+                ...bookingSettings,
+                buffer_min: Number(e.target.value),
+              })
+            }
+          />
+        </div>
+
+        <div>
+          <label>Zeitzone</label>
+          <input
+            value={bookingSettings.time_zone || "Europe/Vienna"}
+            onChange={(e) =>
+              setBookingSettings({
+                ...bookingSettings,
+                time_zone: e.target.value,
+              })
+            }
+          />
+        </div>
+      </div>
+
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+        <button type="button" onClick={connectGoogleCalendar}>
+          🔗 Google Kalender verbinden
+        </button>
+
+        <button
+          type="button"
+          onClick={saveBookingSettings}
+          disabled={bookingSaving}
+        >
+          {bookingSaving ? "Speichere..." : "💾 Speichern"}
+        </button>
+      </div>
+
+      <div style={{ fontSize: 12, color: "#666", marginTop: 8 }}>
+        Client sieht nur freie Slots. Standard: 60 Minuten Termin + 10 Minuten Pause.
+      </div>
+    </div>
+  </details>
+)}
 {/* ================= ABRECHNUNG ================= */}
 {filter === "abrechnung" && (
   <>
