@@ -8,10 +8,11 @@ export function supabaseAdmin() {
   );
 }
 
-// Stabil: User aus Bearer Token (wie bei billing-sessions)
 export async function getUserFromBearer(req) {
   const authHeader = req.headers.get("authorization") || "";
-  if (!authHeader.startsWith("Bearer ")) return { user: null, error: "NO_TOKEN" };
+  if (!authHeader.startsWith("Bearer ")) {
+    return { user: null, error: "NO_TOKEN" };
+  }
 
   const token = authHeader.replace("Bearer ", "");
 
@@ -21,7 +22,10 @@ export async function getUserFromBearer(req) {
   );
 
   const { data, error } = await supabaseAnon.auth.getUser(token);
-  if (error || !data?.user) return { user: null, error: "INVALID_USER" };
+
+  if (error || !data?.user) {
+    return { user: null, error: "INVALID_USER" };
+  }
 
   return { user: data.user, error: null };
 }
