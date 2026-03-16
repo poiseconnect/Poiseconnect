@@ -1,6 +1,10 @@
 export const dynamic = "force-dynamic";
 
-import { json, supabaseAdmin, getUserFromBearer } from "../../../_lib/server";
+import {
+  json,
+  supabaseAdmin,
+  getUserFromBearer,
+} from "../../../api/_lib/server";
 
 export async function GET(req) {
   try {
@@ -9,13 +13,13 @@ export async function GET(req) {
 
     const sb = supabaseAdmin();
 
-    const { data: member, error: mErr } = await sb
+    const { data: member, error: memberErr } = await sb
       .from("team_members")
       .select("id, role, active")
       .eq("user_id", user.id)
       .single();
 
-    if (mErr || !member) return json({ error: "NO_TEAM_MEMBER" }, 403);
+    if (memberErr || !member) return json({ error: "NO_TEAM_MEMBER" }, 403);
 
     const { data } = await sb
       .from("therapist_booking_settings")
