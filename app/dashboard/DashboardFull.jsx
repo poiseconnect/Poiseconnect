@@ -607,6 +607,7 @@ const [access, setAccess] = useState("loading");
   const [newSessions, setNewSessions] = useState([{ date: "", duration: 60 }]);
   const [bookingSettings, setBookingSettings] = useState(null);
   const [bookingSaving, setBookingSaving] = useState(false);
+  const [googleCalendars, setGoogleCalendars] = useState([]);
 
   // ================= PROPOSALS =================
 const [proposalModal, setProposalModal] = useState(null);
@@ -945,12 +946,13 @@ const sessionsSafe = useMemo(() => {
   return Array.isArray(billingSessions) ? billingSessions : [];
 }, [billingSessions]);
   
-  useEffect(() => {
+useEffect(() => {
   if (!user?.email) return;
   if (role !== "therapist") return;
   if (!myTeamMemberId) return;
 
   loadBookingSettings();
+  loadGoogleCalendars();
 }, [user, role, myTeamMemberId]);
 
 async function loadBookingSettings() {
@@ -993,6 +995,26 @@ async function loadBookingSettings() {
     window.location.href = json.url;
   }
 }
+  async function loadGoogleCalendars() {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
+  const res = await fetch("/api/google/calendars", {
+    headers: {
+      Authorization: `Bearer ${session?.access_token}`,
+    },
+  });
+
+  const json = await res.json();
+
+  if (res.ok) {
+    setGoogleCalendars(json.calendars || []);
+  } else {
+    console.log("GOOGLE CALENDARS LOAD ERROR", json);
+    setGoogleCalendars([]);
+  }
+}
   async function saveBookingSettings() {
   setBookingSaving(true);
 
@@ -1007,7 +1029,10 @@ async function loadBookingSettings() {
         "Content-Type": "application/json",
         Authorization: `Bearer ${session?.access_token}`,
       },
-      body: JSON.stringify(bookingSettings),
+      body: JSON.stringify({
+  ...bookingSettings,
+  therapist_id: myTeamMemberId
+}),
     });
 
     const json = await res.json();
@@ -1560,6 +1585,42 @@ return (
             }
           />
         </div>
+<div>
+  <label>Google Kalender</label>
+  <select
+    value={bookingSettings.selected_calendar_id || ""}
+    disabled={!googleCalendars.length}
+    onChange={(e) => {
+      const selected = googleCalendars.find(
+        (c) => c.id === e.target.value
+      );
+
+      setBookingSettings({
+        ...bookingSettings,
+        selected_calendar_id: e.target.value,
+        selected_calendar_name: selected?.summary || "",
+      });
+    }}
+  >
+    <option value="">
+      {googleCalendars.length
+        ? "Kalender wählen…"
+        : "Bitte zuerst Google Kalender verbinden"}
+    </option>
+
+    {googleCalendars.map((c) => (
+      <option key={c.id} value={c.id}>
+        {c.summary}
+      </option>
+    ))}
+  </select>
+
+  {!googleCalendars.length && (
+    <div style={{ fontSize: 12, color: "#999", marginTop: 4 }}>
+      Nach dem Verbinden werden hier alle verfügbaren Google Kalender angezeigt.
+    </div>
+  )}
+</div>
       </div>
 
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
@@ -1576,9 +1637,10 @@ return (
         </button>
       </div>
 
-      <div style={{ fontSize: 12, color: "#666", marginTop: 8 }}>
-        Client sieht nur freie Slots. Standard: 60 Minuten Termin + 10 Minuten Pause.
-      </div>
+<div style={{ fontSize: 12, color: "#666", marginTop: 8 }}>
+  Client sieht nur Events aus dem gewählten Kalender, deren Titel mit <strong>POISE SLOT</strong> beginnt.
+  Standard: 60 Minuten Termin + 10 Minuten Pause.
+</div>
     </div>
   </details>
 )}
