@@ -1,6 +1,11 @@
 export const dynamic = "force-dynamic";
 
-import { json, oauthClient, supabaseAdmin, getUserFromBearer } from "../../_lib/server";
+import {
+  json,
+  oauthClient,
+  supabaseAdmin,
+  getUserFromBearer,
+} from "../../_lib/server";
 
 export async function GET(req) {
   try {
@@ -9,26 +14,26 @@ export async function GET(req) {
 
     const sb = supabaseAdmin();
 
-    // team_member finden (therapist)
-    const { data: member, error: mErr } = await sb
+    const { data: member, error: memberErr } = await sb
       .from("team_members")
       .select("id, role, active")
       .eq("user_id", user.id)
       .single();
 
-    if (mErr || !member) return json({ error: "NO_TEAM_MEMBER" }, 403);
-    if (member.role !== "therapist" || !member.active) return json({ error: "NOT_ALLOWED" }, 403);
+    if (memberErr || !member) return json({ error: "NO_TEAM_MEMBER" }, 403);
+    if (member.role !== "therapist" || !member.active) {
+      return json({ error: "NOT_ALLOWED" }, 403);
+    }
 
     const oauth = oauthClient();
 
     const url = oauth.generateAuthUrl({
       access_type: "offline",
-      prompt: "consent", // wichtig fürs refresh_token
+      prompt: "consent",
       scope: [
-        "https://www.googleapis.com/auth/calendar.readonly",
-        "https://www.googleapis.com/auth/calendar.events",
+        "https://www.googleapis.com/auth/calendar",
       ],
-      state: member.id, // therapist_id
+      state: member.id,
     });
 
     return json({ url });
