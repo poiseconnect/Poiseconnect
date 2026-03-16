@@ -1,25 +1,33 @@
 export const dynamic = "force-dynamic";
 
-import { json, supabaseAdmin } from "../../_lib/server";
-import { getTherapistContext, fetchGoogleBusyBlocks, generateDaySlots } from "../../_lib/slots";
+import { google } from "googleapis";
 import { addDays, format, parseISO } from "date-fns";
+import {
+  json,
+  oauthClient,
+  supabaseAdmin,
+} from "../../_lib/server";
+
+function isPoiseSlot(ev) {
+  const title = String(ev.summary || "").trim().toUpperCase();
+  return title.startsWith("POISE SLOT");
+}
 
 export async function GET(req) {
   try {
     const url = new URL(req.url);
-    const bookingToken = url.searchParams.get("token");
-    const from = url.searchParams.get("from"); // YYYY-MM-DD
-    const days = Number(url.searchParams.get("days") || 30);
+    const token = url.searchParams.get("token");
+    const from = url.searchParams.get("from");
+    const days = Number(url.searchParams.get("days") || 14);
 
-    if (!bookingToken || !from) return json({ error: "MISSING_PARAMS" }, 400);
+    if (!token || !from) return json({ error: "MISSING_PARAMS" }, 400);
 
     const sb = supabaseAdmin();
 
-    // Anfrage via booking_token -> therapist_id
     const { data: anfrage, error: aErr } = await sb
       .from("anfragen")
-      .select("id, assigned_therapist_id, status")
-      .eq("booking_token", bookingToken)
+      .select("id, assigned_therapist_id")
+      .eq("booking_token", token)
       .single();
 
     if (aErr || !anfrage) return json({ error: "INVALID_TOKEN" }, 404);
@@ -27,59 +35,78 @@ export async function GET(req) {
     const therapistId = anfrage.assigned_therapist_id;
     if (!therapistId) return json({ error: "NO_THERAPIST_ASSIGNED" }, 400);
 
-    const { settings, tokens } = await getTherapistContext(therapistId);
+    const { data: settings } = await sb
+      .from("therapist_booking_settings")
+      .select("*")
+      .eq("therapist_id", therapistId)
+      .single();
+
     if (!settings?.booking_enabled) return json({ slots: [] });
+    if (!settings?.selected_calendar_id) return json({ slots: [] });
 
-    const timeZone = settings.time_zone || "Europe/Vienna";
-    const slotMin = Number(settings.slot_duration_min || 60);
-    const bufferMin = Number(settings.buffer_min || 10);
-    const workingHours = settings.working_hours || {};
+    const { data: tokens } = await sb
+      .from("therapist_google_tokens")
+      .select("*")
+      .eq("therapist_id", therapistId)
+      .single();
 
-    // Zeitraum
+    if (!tokens) return json({ slots: [] });
+
     const startDate = parseISO(from);
     const endDate = addDays(startDate, Math.min(Math.max(days, 1), 60));
 
-    const timeMinISO = new Date(startDate).toISOString();
-    const timeMaxISO = new Date(endDate).toISOString();
-
-    // Google busy
-    const busyBlocks = await fetchGoogleBusyBlocks(tokens, timeMinISO, timeMaxISO, timeZone);
-
-    // Zusätzlich: vorhandene sessions blocken (falls Google mal nicht synced)
-    const { data: dbSessions } = await sb
-      .from("sessions")
-      .select("date, duration_min")
-      .eq("therapist_id", therapistId)
-      .gte("date", timeMinISO)
-      .lte("date", timeMaxISO);
-
-    const dbBusy = (dbSessions || []).map((s) => {
-      const start = new Date(s.date);
-      const end = new Date(start.getTime() + Number(s.duration_min || 60) * 60000);
-      return { start, end };
+    const oauth = oauthClient();
+    oauth.setCredentials({
+      access_token: tokens.access_token || undefined,
+      refresh_token: tokens.refresh_token || undefined,
+      expiry_date: tokens.expiry_date || undefined,
     });
 
-    const allBusy = [...busyBlocks, ...dbBusy];
+    const calendar = google.calendar({ version: "v3", auth: oauth });
 
-    // Slots pro Tag generieren
-    const out = [];
-    for (let i = 0; i < days; i++) {
-      const day = addDays(startDate, i);
-      const dayISO = format(day, "yyyy-MM-dd");
+    const res = await calendar.events.list({
+      calendarId: settings.selected_calendar_id,
+      timeMin: startDate.toISOString(),
+      timeMax: endDate.toISOString(),
+      singleEvents: true,
+      orderBy: "startTime",
+      maxResults: 2500,
+    });
 
-      const slots = generateDaySlots({
-        dateISO: dayISO,
-        workingHours,
-        slotMin,
-        bufferMin,
-        busyBlocks: allBusy,
-        timeZone,
+    const rawEvents = res.data.items || [];
+
+    const slotEvents = rawEvents.filter((ev) => {
+      if (!isPoiseSlot(ev)) return false;
+      if (!ev.start?.dateTime || !ev.end?.dateTime) return false;
+      return true;
+    });
+
+    const grouped = {};
+
+    slotEvents.forEach((ev) => {
+      const startISO = ev.start.dateTime;
+      const endISO = ev.end.dateTime;
+      const day = format(new Date(startISO), "yyyy-MM-dd");
+
+      if (!grouped[day]) grouped[day] = [];
+
+      grouped[day].push({
+        googleEventId: ev.id,
+        start: startISO,
+        end: endISO,
       });
+    });
 
-      if (slots.length) out.push({ day: dayISO, slots });
-    }
+    const slots = Object.entries(grouped).map(([day, arr]) => ({
+      day,
+      slots: arr,
+    }));
 
-    return json({ therapist_id: therapistId, slots: out });
+    return json({
+      therapist_id: therapistId,
+      calendar_id: settings.selected_calendar_id,
+      slots,
+    });
   } catch (e) {
     return json({ error: "SERVER_ERROR", detail: String(e) }, 500);
   }
