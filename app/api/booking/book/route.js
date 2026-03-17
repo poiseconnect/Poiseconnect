@@ -12,52 +12,69 @@ export async function POST(req) {
     const sb = supabaseAdmin();
     const body = await req.json();
 
-    const { token, googleEventId } = body;
+    const { token, googleEventId } = body || {};
 
     if (!token || !googleEventId) {
       return json({ error: "MISSING_PARAMS" }, 400);
     }
 
-    const { data: anfrage, error: aErr } = await sb
+    // 1) Anfrage über booking_token laden
+    const { data: anfrage, error: anfrageErr } = await sb
       .from("anfragen")
       .select(`
         id,
         vorname,
         nachname,
         email,
+        telefon,
         honorar_klient,
-        assigned_therapist_id
+        assigned_therapist_id,
+        status
       `)
       .eq("booking_token", token)
       .single();
 
-    if (aErr || !anfrage) return json({ error: "INVALID_TOKEN" }, 404);
+    if (anfrageErr || !anfrage) {
+      return json({ error: "INVALID_TOKEN", detail: anfrageErr?.message || null }, 404);
+    }
 
     const therapistId = anfrage.assigned_therapist_id;
-    if (!therapistId) return json({ error: "NO_THERAPIST_ASSIGNED" }, 400);
 
-    const { data: settings } = await sb
+    if (!therapistId) {
+      return json({ error: "NO_THERAPIST_ASSIGNED" }, 400);
+    }
+
+    // 2) Booking Settings laden
+    const { data: settings, error: settingsErr } = await sb
       .from("therapist_booking_settings")
       .select("*")
       .eq("therapist_id", therapistId)
       .single();
 
-    if (!settings?.booking_enabled) {
+    if (settingsErr || !settings) {
+      return json({ error: "BOOKING_SETTINGS_NOT_FOUND", detail: settingsErr?.message || null }, 400);
+    }
+
+    if (!settings.booking_enabled) {
       return json({ error: "BOOKING_DISABLED" }, 403);
     }
 
-    if (!settings?.selected_calendar_id) {
+    if (!settings.selected_calendar_id) {
       return json({ error: "NO_CALENDAR_SELECTED" }, 400);
     }
 
-    const { data: tokens } = await sb
+    // 3) Google Tokens laden
+    const { data: tokens, error: tokenErr } = await sb
       .from("therapist_google_tokens")
       .select("*")
       .eq("therapist_id", therapistId)
       .single();
 
-    if (!tokens) return json({ error: "GOOGLE_NOT_CONNECTED" }, 400);
+    if (tokenErr || !tokens) {
+      return json({ error: "GOOGLE_NOT_CONNECTED", detail: tokenErr?.message || null }, 400);
+    }
 
+    // 4) OAuth Client vorbereiten
     const oauth = oauthClient();
     oauth.setCredentials({
       access_token: tokens.access_token || undefined,
@@ -65,44 +82,57 @@ export async function POST(req) {
       expiry_date: tokens.expiry_date || undefined,
     });
 
-    const calendar = google.calendar({ version: "v3", auth: oauth });
-
-    // 1) Event nochmal live laden
-    const evRes = await calendar.events.get({
-      calendarId: settings.selected_calendar_id,
-      eventId: googleEventId,
+    const calendar = google.calendar({
+      version: "v3",
+      auth: oauth,
     });
 
-    const ev = evRes.data;
+    // 5) Google Event live laden
+    let ev;
+    try {
+      const evRes = await calendar.events.get({
+        calendarId: settings.selected_calendar_id,
+        eventId: googleEventId,
+      });
+      ev = evRes.data;
+    } catch (err) {
+      return json({ error: "GOOGLE_EVENT_NOT_FOUND", detail: String(err) }, 404);
+    }
 
-    const title = String(ev.summary || "").trim().toUpperCase();
-    if (!title.startsWith("POISE SLOT")) {
+    const eventTitle = String(ev?.summary || "").trim().toUpperCase();
+
+    // Nur POISE SLOT darf gebucht werden
+    if (!eventTitle.startsWith("POISE SLOT")) {
       return json({ error: "SLOT_NOT_AVAILABLE" }, 409);
     }
 
-    if (!ev.start?.dateTime || !ev.end?.dateTime) {
+    if (!ev?.start?.dateTime || !ev?.end?.dateTime) {
       return json({ error: "INVALID_SLOT_EVENT" }, 400);
     }
 
     const startISO = ev.start.dateTime;
     const endISO = ev.end.dateTime;
 
-    // 2) DB check: gleiche Session schon vorhanden?
-    const { data: existing } = await sb
+    // 6) Doppelbuchungsschutz in DB
+    const { data: existingSessions, error: existingErr } = await sb
       .from("sessions")
-      .select("id")
+      .select("id, date, therapist_id")
       .eq("therapist_id", therapistId)
       .eq("date", startISO);
 
-    if ((existing || []).length > 0) {
+    if (existingErr) {
+      return json({ error: "SESSION_CHECK_FAILED", detail: existingErr.message }, 500);
+    }
+
+    if ((existingSessions || []).length > 0) {
       return json({ error: "SLOT_ALREADY_BOOKED" }, 409);
     }
 
-    // 3) Session anlegen
+    // 7) Session anlegen
     const durationMin = Number(settings.slot_duration_min || 60);
     const price = anfrage.honorar_klient ? Number(anfrage.honorar_klient) : null;
 
-    const { data: inserted, error: insErr } = await sb
+    const { data: insertedSession, error: sessionInsertErr } = await sb
       .from("sessions")
       .insert({
         anfrage_id: anfrage.id,
@@ -114,29 +144,76 @@ export async function POST(req) {
       .select()
       .single();
 
-    if (insErr) return json({ error: insErr.message }, 400);
+    if (sessionInsertErr || !insertedSession) {
+      return json({
+        error: "SESSION_INSERT_FAILED",
+        detail: sessionInsertErr?.message || null,
+      }, 400);
+    }
 
-    // 4) Google Event umbenennen
-    const clientName = `${anfrage.vorname || ""} ${anfrage.nachname || ""}`.trim();
+    // 8) Optional: Anfrage-Status anpassen
+    // Nur wenn gewünscht. termin_neu passt meist gut für frisch gebucht.
+    const { error: statusErr } = await sb
+      .from("anfragen")
+      .update({
+        status: "termin_neu",
+      })
+      .eq("id", anfrage.id);
 
-    await calendar.events.patch({
-      calendarId: settings.selected_calendar_id,
-      eventId: googleEventId,
-      requestBody: {
-        summary: `Gebucht – ${clientName}`,
-        description:
-          `Poise Buchung\n` +
-          `Anfrage-ID: ${anfrage.id}\n` +
-          `Session-ID: ${inserted.id}\n` +
-          `E-Mail: ${anfrage.email || ""}`,
-      },
-    });
+    if (statusErr) {
+      console.error("BOOKING STATUS UPDATE FAILED:", statusErr);
+      // Kein hard fail – Buchung selbst war erfolgreich
+    }
 
+    // 9) Google Event umbenennen / markieren als gebucht
+    const clientName = `${anfrage.vorname || ""} ${anfrage.nachname || ""}`.trim() || "Klient";
+
+    try {
+      await calendar.events.patch({
+        calendarId: settings.selected_calendar_id,
+        eventId: googleEventId,
+        requestBody: {
+          summary: `Gebucht – ${clientName}`,
+          description:
+            `Poise Buchung\n` +
+            `Anfrage-ID: ${anfrage.id}\n` +
+            `Session-ID: ${insertedSession.id}\n` +
+            `Klient: ${clientName}\n` +
+            `E-Mail: ${anfrage.email || ""}\n` +
+            `Telefon: ${anfrage.telefon || ""}`,
+        },
+      });
+    } catch (googlePatchErr) {
+      // Falls Google Patch fehlschlägt, Session nicht wieder löschen
+      // aber Fehler sauber loggen
+      console.error("GOOGLE EVENT PATCH FAILED:", googlePatchErr);
+      return json({
+        error: "GOOGLE_EVENT_PATCH_FAILED",
+        detail: String(googlePatchErr),
+        session: insertedSession,
+      }, 500);
+    }
+
+    // 10) Erfolgreiche Antwort
     return json({
       ok: true,
-      session: inserted,
+      session: insertedSession,
+      booking: {
+        anfrage_id: anfrage.id,
+        therapist_id: therapistId,
+        google_event_id: googleEventId,
+        start: startISO,
+        end: endISO,
+      },
     });
-  } catch (e) {
-    return json({ error: "SERVER_ERROR", detail: String(e) }, 500);
+  } catch (err) {
+    console.error("BOOKING BOOK ROUTE ERROR:", err);
+    return json(
+      {
+        error: "SERVER_ERROR",
+        detail: String(err),
+      },
+      500
+    );
   }
 }
