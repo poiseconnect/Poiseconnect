@@ -207,7 +207,7 @@ export async function POST(req) {
     const { error: statusErr } = await sb
       .from("anfragen")
       .update({
-        status: "termin_neu",
+        status: "active",
       })
       .eq("id", anfrage.id);
 
