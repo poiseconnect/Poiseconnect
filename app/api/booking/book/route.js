@@ -1,6 +1,7 @@
 export const dynamic = "force-dynamic";
 
 import { google } from "googleapis";
+import { Resend } from "resend";
 import {
   json,
   oauthClient,
@@ -11,6 +12,7 @@ export async function POST(req) {
   try {
     const sb = supabaseAdmin();
     const body = await req.json();
+    const resend = new Resend(process.env.RESEND_API_KEY);
 
     const { token, googleEventId } = body || {};
 
@@ -203,7 +205,7 @@ export async function POST(req) {
       );
     }
 
-    // 9) Anfrage-Status anpassen
+    // 9) Anfrage-Status auf active setzen
     const { error: statusErr } = await sb
       .from("anfragen")
       .update({
@@ -268,75 +270,53 @@ export async function POST(req) {
 
       const from = "Poise <noreply@mypoise.de>";
 
-      // Mail an Klient
       if (anfrage.email) {
-        const clientMailRes = await fetch("https://api.resend.com/emails", {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            from,
-            to: anfrage.email,
-            subject: "Dein Poise Termin wurde gebucht 🤍",
-            html: `
-              <p>Hallo ${anfrage.vorname || ""},</p>
+        const clientMailResult = await resend.emails.send({
+          from,
+          to: anfrage.email,
+          subject: "Dein Poise Termin wurde gebucht 🤍",
+          html: `
+            <p>Hallo ${anfrage.vorname || ""},</p>
 
-              <p>
-                dein Termin wurde erfolgreich gebucht.
-              </p>
+            <p>dein Termin wurde erfolgreich gebucht.</p>
 
-              <p>
-                <strong>Datum:</strong> ${dateString}<br />
-                <strong>Uhrzeit:</strong> ${timeString}
-              </p>
+            <p>
+              <strong>Datum:</strong> ${dateString}<br />
+              <strong>Uhrzeit:</strong> ${timeString}
+            </p>
 
-              <p>Wir freuen uns auf dich 🤍</p>
+            <p>Wir freuen uns auf dich 🤍</p>
 
-              <p>Dein Poise-Team</p>
-            `,
-          }),
+            <p>Dein Poise-Team</p>
+          `,
         });
 
-        if (!clientMailRes.ok) {
-          console.warn("⚠️ CLIENT MAIL FAILED");
-        }
+        console.log("CLIENT MAIL RESULT:", clientMailResult);
       }
 
-      // Mail an Therapeut
       if (therapistMember?.email) {
-        const therapistMailRes = await fetch("https://api.resend.com/emails", {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            from,
-            to: therapistMember.email,
-            subject: "Neue Terminbuchung bei Poise",
-            html: `
-              <p>Hallo ${therapistMember.name || ""},</p>
+        const therapistMailResult = await resend.emails.send({
+          from,
+          to: therapistMember.email,
+          subject: "Neue Terminbuchung bei Poise",
+          html: `
+            <p>Hallo ${therapistMember.name || ""},</p>
 
-              <p>ein neuer Termin wurde gebucht.</p>
+            <p>ein neuer Termin wurde gebucht.</p>
 
-              <p>
-                <strong>Klient:in:</strong> ${clientName || "–"}<br />
-                <strong>E-Mail:</strong> ${anfrage.email || "–"}<br />
-                <strong>Telefon:</strong> ${anfrage.telefon || "–"}<br />
-                <strong>Datum:</strong> ${dateString}<br />
-                <strong>Uhrzeit:</strong> ${timeString}
-              </p>
+            <p>
+              <strong>Klient:in:</strong> ${clientName || "–"}<br />
+              <strong>E-Mail:</strong> ${anfrage.email || "–"}<br />
+              <strong>Telefon:</strong> ${anfrage.telefon || "–"}<br />
+              <strong>Datum:</strong> ${dateString}<br />
+              <strong>Uhrzeit:</strong> ${timeString}
+            </p>
 
-              <p>Poise Connect</p>
-            `,
-          }),
+            <p>Poise Connect</p>
+          `,
         });
 
-        if (!therapistMailRes.ok) {
-          console.warn("⚠️ THERAPIST MAIL FAILED");
-        }
+        console.log("THERAPIST MAIL RESULT:", therapistMailResult);
       }
     } catch (mailErr) {
       console.error("BOOKING MAIL ERROR:", mailErr);
