@@ -83,6 +83,7 @@ export async function POST(req) {
       check_suizid: Boolean(body.check_suizid), // falls du so ein Feld hast
       status: "neu",
       match_state: body.match_state || "pending",
+      booking_token: crypto.randomUUID(),
     };
 
     let finalRequestId = requestId;
