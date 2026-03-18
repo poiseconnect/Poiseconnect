@@ -83,7 +83,6 @@ export async function POST(req) {
       check_suizid: Boolean(body.check_suizid), // falls du so ein Feld hast
       status: "neu",
       match_state: body.match_state || "pending",
-      booking_token: crypto.randomUUID(),
     };
 
     let finalRequestId = requestId;
@@ -99,11 +98,14 @@ export async function POST(req) {
         return JSONResponse({ error: updateError.message }, 500);
       }
     } else {
-      const { data: inserted, error: insertError } = await supabase
-        .from("anfragen")
-        .insert(payload)
-        .select("id")
-        .single();
+const { data: inserted, error: insertError } = await supabase
+  .from("anfragen")
+  .insert({
+    ...payload,
+    booking_token: crypto.randomUUID(),
+  })
+  .select("id")
+  .single();
 
       if (insertError) {
         console.error("INSERT ERROR:", insertError);
