@@ -815,7 +815,8 @@ useEffect(() => {
         honorar_klient,
         admin_therapeuten,
         terminwunsch_text,
-        assigned_therapist_id
+        assigned_therapist_id,
+        booking_token
       `)
       .order("created_at", { ascending: false });
 
@@ -1048,6 +1049,67 @@ async function loadBookingSettings() {
   } finally {
     setBookingSaving(false);
   }
+}
+  // ================================
+// 🔗 BOOKING LINK FUNCTIONS
+// ================================
+
+async function copyBookingLink(r) {
+  if (!r?.booking_token) {
+    alert("Kein booking_token vorhanden");
+    return;
+  }
+
+  const bookingUrl = `${window.location.origin}/booking/${r.booking_token}`;
+
+  try {
+    await navigator.clipboard.writeText(bookingUrl);
+    alert("✅ Buchungslink kopiert");
+  } catch (err) {
+    console.error("COPY BOOKING LINK FAILED:", err);
+    alert("Link konnte nicht kopiert werden");
+  }
+}
+
+async function sendBookingLink(r) {
+  if (!r?.booking_token) {
+    alert("Kein booking_token vorhanden");
+    return;
+  }
+
+  if (!r?.email) {
+    alert("Keine E-Mail vorhanden");
+    return;
+  }
+
+  const therapistName =
+    teamData.find((t) => t.id === r.assigned_therapist_id)?.name ||
+    r.wunschtherapeut ||
+    "";
+
+  const res = await fetch("/api/send-booking-link", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      requestId: r.id,
+      email: r.email,
+      vorname: r.vorname,
+      bookingToken: r.booking_token,
+      therapistName,
+    }),
+  });
+
+  const json = await res.json();
+
+  if (!res.ok) {
+    console.error("SEND BOOKING LINK ERROR:", json);
+    alert("Fehler beim Senden");
+    return;
+  }
+
+  alert("✅ Buchungslink gesendet");
 }
 /* =========================================================
    GEFILTERTE ANFRAGEN (KARTEN / LISTEN)
@@ -2563,8 +2625,7 @@ if (calendarMode === "ics") {
               {/* AKTIV */}
 {r._status === "active" && (
   <div style={{ marginTop: 8, display: "flex", gap: 8, flexWrap: "wrap" }}>
-    
-    {/* 🔴 COACHING BEENDET */}
+
     <button
       onClick={async () => {
         const res = await fetch("/api/finish-coaching", {
@@ -2576,11 +2637,10 @@ if (calendarMode === "ics") {
         if (!res.ok) {
           const t = await res.text();
           console.error("FINISH FAILED:", t);
-          alert("❌ Coaching konnte nicht beendet werden:\n" + t);
+          alert("❌ Fehler beim Beenden");
           return;
         }
 
-        // ✅ sofort in UI verschieben
         setRequests((prev) =>
           prev.map((x) =>
             x.id === r.id
@@ -2589,13 +2649,12 @@ if (calendarMode === "ics") {
           )
         );
 
-        alert("✅ Coaching beendet & Feedback-Mail gesendet");
+        alert("✅ Coaching beendet");
       }}
     >
       🔴 Coaching beenden
     </button>
 
-    {/* 👥 THERAPEUT WECHSELN → ADMIN */}
     <button
       onClick={async () => {
         await updateRequestStatus({
@@ -2610,7 +2669,6 @@ if (calendarMode === "ics") {
                   ...x,
                   _status: "admin_pruefen",
                   status: "admin_weiterleiten",
-                  admin_therapeuten: [],
                 }
               : x
           )
@@ -2620,6 +2678,16 @@ if (calendarMode === "ics") {
       }}
     >
       👥 Therapeut wechseln
+    </button>
+
+    {/* 🟢 NEU */}
+    <button onClick={() => copyBookingLink(r)}>
+      🔗 Buchungslink kopieren
+    </button>
+
+    {/* 🟢 NEU */}
+    <button onClick={() => sendBookingLink(r)}>
+      📧 Buchungslink senden
     </button>
 
   </div>
