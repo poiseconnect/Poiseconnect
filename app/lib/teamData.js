@@ -582,7 +582,7 @@ scores: {
 {
     id: "f7edf9da-8fda-4682-b464-250fd84db0cf",
   name: "Julius",
-  calendar_mode: "proposal",
+  calendar_mode: "ics",
   role: "Psychologe, Coach",
   qualificationLevel: 4,
   image: "https://mypoise.de/wp-content/uploads/2023/09/Poise_bild-1300x1300.jpg",
