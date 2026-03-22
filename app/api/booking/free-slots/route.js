@@ -20,7 +20,9 @@ export async function GET(req) {
     const from = url.searchParams.get("from");
     const days = Number(url.searchParams.get("days") || 14);
 
-    if (!token || !from) return json({ error: "MISSING_PARAMS" }, 400);
+    if (!token || !from) {
+      return json({ error: "MISSING_PARAMS" }, 400);
+    }
 
     const sb = supabaseAdmin();
 
@@ -30,10 +32,15 @@ export async function GET(req) {
       .eq("booking_token", token)
       .single();
 
-    if (aErr || !anfrage) return json({ error: "INVALID_TOKEN" }, 404);
+    if (aErr || !anfrage) {
+      return json({ error: "INVALID_TOKEN" }, 404);
+    }
 
     const therapistId = anfrage.assigned_therapist_id;
-    if (!therapistId) return json({ error: "NO_THERAPIST_ASSIGNED" }, 400);
+
+    if (!therapistId) {
+      return json({ error: "NO_THERAPIST_ASSIGNED" }, 400);
+    }
 
     const { data: settings } = await sb
       .from("therapist_booking_settings")
@@ -41,8 +48,20 @@ export async function GET(req) {
       .eq("therapist_id", therapistId)
       .single();
 
-    if (!settings?.booking_enabled) return json({ slots: [] });
-    if (!settings?.selected_calendar_id) return json({ slots: [] });
+    if (!settings?.booking_enabled) {
+      return json({ slots: [] });
+    }
+
+    if (!settings?.selected_calendar_id) {
+      return json({ slots: [] });
+    }
+
+    // Mindestvorlaufzeit
+    const minHours = Number(settings?.min_booking_notice_hours || 24);
+    const now = new Date();
+    const minAllowedStart = new Date(
+      now.getTime() + minHours * 60 * 60 * 1000
+    );
 
     const { data: tokens } = await sb
       .from("therapist_google_tokens")
@@ -50,7 +69,9 @@ export async function GET(req) {
       .eq("therapist_id", therapistId)
       .single();
 
-    if (!tokens) return json({ slots: [] });
+    if (!tokens) {
+      return json({ slots: [] });
+    }
 
     const startDate = parseISO(from);
     const endDate = addDays(startDate, Math.min(Math.max(days, 1), 60));
@@ -62,7 +83,10 @@ export async function GET(req) {
       expiry_date: tokens.expiry_date || undefined,
     });
 
-    const calendar = google.calendar({ version: "v3", auth: oauth });
+    const calendar = google.calendar({
+      version: "v3",
+      auth: oauth,
+    });
 
     const res = await calendar.events.list({
       calendarId: settings.selected_calendar_id,
@@ -75,9 +99,15 @@ export async function GET(req) {
 
     const rawEvents = res.data.items || [];
 
+    // Nur freie POISE SLOT Events
     const slotEvents = rawEvents.filter((ev) => {
       if (!isPoiseSlot(ev)) return false;
       if (!ev.start?.dateTime || !ev.end?.dateTime) return false;
+
+      // Mindestvorlaufzeit beachten
+      const slotStart = new Date(ev.start.dateTime);
+      if (slotStart < minAllowedStart) return false;
+
       return true;
     });
 
@@ -105,6 +135,7 @@ export async function GET(req) {
     return json({
       therapist_id: therapistId,
       calendar_id: settings.selected_calendar_id,
+      min_booking_notice_hours: minHours,
       slots,
     });
   } catch (e) {
