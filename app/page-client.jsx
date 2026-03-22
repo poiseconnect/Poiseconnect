@@ -328,15 +328,19 @@ const anfrageId =
   const [step, setStep] = useState(0);
   const [subStep9, setSubStep9] = useState(0);
   const totalSteps = 12;
+  
+const [draftRequestId, setDraftRequestId] = useState(null);
+const [bookingToken, setBookingToken] = useState(null);
+const [savingDraft, setSavingDraft] = useState(false);
 
   // Formular-Daten
   // 🔑 NEU: ausgewählte Therapeut:innen-ID (DB)
 const [assignedTherapistId, setAssignedTherapistId] = useState(null);
-  const calendarMode = useMemo(() => {
-  if (!assignedTherapistId) return "ics";
+const calendarMode = useMemo(() => {
+  if (!assignedTherapistId) return "booking";
 
   const t = teamData.find((x) => x.id === assignedTherapistId);
-  return t?.calendar_mode || "ics";
+  return t?.calendar_mode || "booking";
 }, [assignedTherapistId]);
   const [form, setForm] = useState({
 admin_therapeuten: [],
@@ -651,6 +655,10 @@ setBlockedOldTerminISO(oldIso);
         ...data,
         admin_therapeuten: adminTherapeuten,
       }));
+      setDraftRequestId(data.id || null);
+setBookingToken(data.booking_token || null);
+setAssignedTherapistId(data.assigned_therapist_id || null);
+
 
       // =================================================
       // 🧭 STEP-ENTSCHEIDUNG (HIER IST DIE WAHRHEIT)
@@ -817,67 +825,76 @@ async function loadAvailability() {
 // STEP 10 – ICS + Supabase (blocked_slots)
 // -------------------------------------
 useEffect(() => {
-  if (step !== 10 || !assignedTherapistId) return;
+  if (step !== 10) return;
+  if (calendarMode !== "booking") return;
+  if (!bookingToken) return;
 
   let isMounted = true;
 
-  async function loadData() {
+  async function loadBookingSlots() {
     setLoadingSlots(true);
     setSlotsError("");
 
     try {
-      const therapistObj = teamData.find(
-        (t) => t.id === assignedTherapistId
+      const from = new Date().toISOString();
+
+      const res = await fetch(
+        `/api/booking/free-slots?token=${encodeURIComponent(
+          bookingToken
+        )}&from=${encodeURIComponent(from)}&days=21`,
+        { cache: "no-store" }
       );
 
-      if (!therapistObj?.ics) {
+      const json = await res.json();
+
+      if (!res.ok) {
+        console.error("FREE SLOTS ERROR:", json);
         if (isMounted) {
           setSlots([]);
-          setSlotsError("Kein Kalender hinterlegt.");
+          setSlotsError("Kalender konnte nicht geladen werden.");
         }
         return;
       }
 
-      const allSlots = await loadIcsSlots(therapistObj.ics);
-      let freeSlots = [...allSlots];
+      const flatSlots = [];
 
-      const { data: blocked } = await supabase
-        .from("blocked_slots")
-        .select("start_at")
-        .eq("therapist_id", assignedTherapistId);
-
-      if (blocked?.length) {
-        const blockedSet = new Set(
-          blocked.map((b) => new Date(b.start_at).toISOString())
-        );
-
-        freeSlots = freeSlots.filter(
-          (s) => !blockedSet.has(s.start.toISOString())
-        );
+      for (const dayGroup of json.slots || []) {
+        for (const slot of dayGroup.slots || []) {
+          flatSlots.push({
+            start: new Date(slot.start),
+            end: new Date(slot.end),
+            googleEventId: slot.googleEventId,
+          });
+        }
       }
 
       if (blockedOldTerminISO) {
-        freeSlots = freeSlots.filter(
+        const filtered = flatSlots.filter(
           (s) => s.start.toISOString() !== blockedOldTerminISO
         );
-      }
-
-      if (isMounted) {
-        setSlots(freeSlots);
+        if (isMounted) setSlots(filtered);
+      } else {
+        if (isMounted) setSlots(flatSlots);
       }
     } catch (err) {
-      console.error("Slot-Load error:", err);
-      if (isMounted) setSlotsError("Kalender konnte nicht geladen werden.");
+      console.error("BOOKING SLOT LOAD ERROR:", err);
+      if (isMounted) {
+        setSlots([]);
+        setSlotsError("Kalender konnte nicht geladen werden.");
+      }
+    } finally {
+      if (isMounted) setLoadingSlots(false);
     }
-
-    if (isMounted) setLoadingSlots(false);
   }
 
-  loadData();
+  loadBookingSlots();
+
   return () => {
     isMounted = false;
   };
-}, [step, assignedTherapistId, blockedOldTerminISO]);
+}, [step, calendarMode, bookingToken, blockedOldTerminISO]);
+
+
 
   // Slots nach Tagen gruppieren
   
@@ -910,7 +927,46 @@ const slotsByMonth = useMemo(() => {
   return Array.from(map.entries());
 }, [groupedSlots]);
 
+async function createOrUpdateDraft(selectedMember) {
+  setSavingDraft(true);
 
+  try {
+    const res = await fetch("/api/create-request-draft", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        anfrageId: draftRequestId || anfrageId || null,
+
+        ...form,
+
+        wunschtherapeut: selectedMember.name,
+        assigned_therapist_id: selectedMember.id,
+      }),
+    });
+
+    const json = await res.json();
+
+    if (!res.ok) {
+      console.error("DRAFT SAVE ERROR:", json);
+      alert("Fehler beim Vorbereiten der Anfrage");
+      return false;
+    }
+
+    setDraftRequestId(json.id);
+    setBookingToken(json.booking_token);
+    setAssignedTherapistId(json.assigned_therapist_id);
+
+    return true;
+  } catch (err) {
+    console.error("DRAFT SAVE FAILED:", err);
+    alert("Fehler beim Vorbereiten der Anfrage");
+    return false;
+  } finally {
+    setSavingDraft(false);
+  }
+}
   // -------------------------------------
   // Formular absenden
   // -------------------------------------
@@ -927,13 +983,10 @@ if (!assignedTherapistId) {
       headers: { "Content-Type": "application/json" },
 body: JSON.stringify({
   ...form,
-
-  // 🔑 ENTSCHEIDEND
+  anfrageId: draftRequestId || anfrageId || null,
+  booking_token: bookingToken || null,
   assigned_therapist_id: assignedTherapistId,
-
-  // optional für Anzeige / Mail
   therapist_from_url: form.wunschtherapeut,
-// 🔥🔥🔥 DAS IST DER FIX
   terminwunsch_text: form.preferred_times || null,
 }),
     }); // ✅ DAS war der fehlende Abschluss
@@ -1458,16 +1511,20 @@ color: "#000", // ✅ FIX: Text IMMER schwarz
           Es werden ausschließlich Therapeut:innen angezeigt,
           die aktuell freie Termine haben.
         </p>
+<TeamCarousel
+  members={step8Members}
+  onSelect={async (member) => {
+    const ok = await createOrUpdateDraft(member);
+    if (!ok) return;
 
-        <TeamCarousel
-          members={step8Members}
-         onSelect={(member) => {
-  setAssignedTherapistId(member.id);
+    setForm((prev) => ({
+      ...prev,
+      wunschtherapeut: member.name,
+    }));
 
-  setForm({ ...form, wunschtherapeut: member.name });
-  next();
-}}
-        />
+    next();
+  }}
+/>
 
         <div className="footer-buttons">
           <button onClick={back}>Zurück</button>
@@ -1605,9 +1662,9 @@ Eine Kostenübernahme kann möglich sein — individuell klären.`,
     )}
 
     {/* ================================================= */}
-    {/* ================== ICS MODE ===================== */}
+    {/* ================== booking MODE ===================== */}
     {/* ================================================= */}
-    {calendarMode === "ics" && (
+    {calendarMode === "booking" && (
       <>
         {loadingSlots && <p>Kalender wird geladen…</p>}
         {slotsError && <p style={{ color: "red" }}>{slotsError}</p>}
