@@ -8,19 +8,35 @@ import {
   supabaseAdmin,
 } from "../../_lib/server";
 
+function normalizeIso(v) {
+  const d = new Date(v);
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toISOString();
+}
+
 export async function POST(req) {
   try {
     const sb = supabaseAdmin();
     const body = await req.json();
     const resend = new Resend(process.env.RESEND_API_KEY);
 
-    const { token, googleEventId } = body || {};
+    const token = body?.token || null;
+    const googleEventIdFromBody = body?.googleEventId || null;
+    const startFromBody = body?.start || null;
+    const bookingType = body?.bookingType || "session";
+    const durationMin =
+      Number(body?.durationMin) ||
+      (bookingType === "erstgespraech" ? 30 : 60);
 
-    if (!token || !googleEventId) {
-      return json({ error: "MISSING_PARAMS" }, 400);
+    if (!token) {
+      return json({ error: "MISSING_TOKEN" }, 400);
     }
 
-    // 1) Anfrage über booking_token laden
+    if (!googleEventIdFromBody && !startFromBody) {
+      return json({ error: "MISSING_SLOT_REFERENCE" }, 400);
+    }
+
+    // 1) Anfrage laden
     const { data: anfrage, error: anfrageErr } = await sb
       .from("anfragen")
       .select(`
@@ -47,7 +63,6 @@ export async function POST(req) {
     }
 
     const therapistId = anfrage.assigned_therapist_id;
-
     if (!therapistId) {
       return json({ error: "NO_THERAPIST_ASSIGNED" }, 400);
     }
@@ -94,7 +109,7 @@ export async function POST(req) {
       );
     }
 
-    // 4) Therapeut laden (für Mail)
+    // 4) Therapeut laden
     const { data: therapistMember, error: therapistErr } = await sb
       .from("team_members")
       .select("id, name, email")
@@ -111,7 +126,7 @@ export async function POST(req) {
       );
     }
 
-    // 5) OAuth Client vorbereiten
+    // 5) OAuth
     const oauth = oauthClient();
     oauth.setCredentials({
       access_token: tokens.access_token || undefined,
@@ -124,27 +139,66 @@ export async function POST(req) {
       auth: oauth,
     });
 
-    // 6) Google Event live laden
-    let ev;
-    try {
-      const evRes = await calendar.events.get({
+    // 6) Passendes Google Event finden
+    let ev = null;
+    let googleEventId = googleEventIdFromBody || null;
+
+    if (googleEventIdFromBody) {
+      try {
+        const evRes = await calendar.events.get({
+          calendarId: settings.selected_calendar_id,
+          eventId: googleEventIdFromBody,
+        });
+        ev = evRes.data;
+      } catch (err) {
+        return json(
+          {
+            error: "GOOGLE_EVENT_NOT_FOUND",
+            detail: String(err),
+          },
+          404
+        );
+      }
+    } else {
+      // Suche per Startzeit
+      const wantedStartIso = normalizeIso(startFromBody);
+      if (!wantedStartIso) {
+        return json({ error: "INVALID_START" }, 400);
+      }
+
+      const endSearch = new Date(
+        new Date(wantedStartIso).getTime() + durationMin * 60000
+      ).toISOString();
+
+      const listRes = await calendar.events.list({
         calendarId: settings.selected_calendar_id,
-        eventId: googleEventId,
+        timeMin: wantedStartIso,
+        timeMax: endSearch,
+        singleEvents: true,
+        orderBy: "startTime",
+        maxResults: 20,
       });
-      ev = evRes.data;
-    } catch (err) {
-      return json(
-        {
-          error: "GOOGLE_EVENT_NOT_FOUND",
-          detail: String(err),
-        },
-        404
-      );
+
+      const candidates = listRes.data.items || [];
+
+      ev =
+        candidates.find((item) => {
+          const title = String(item.summary || "").trim().toUpperCase();
+          return (
+            title.startsWith("POISE SLOT") &&
+            normalizeIso(item?.start?.dateTime) === wantedStartIso
+          );
+        }) || null;
+
+      if (!ev?.id) {
+        return json({ error: "slot_taken" }, 409);
+      }
+
+      googleEventId = ev.id;
     }
 
     const eventTitle = String(ev?.summary || "").trim().toUpperCase();
 
-    // Nur POISE SLOT darf gebucht werden
     if (!eventTitle.startsWith("POISE SLOT")) {
       return json({ error: "SLOT_NOT_AVAILABLE" }, 409);
     }
@@ -153,89 +207,167 @@ export async function POST(req) {
       return json({ error: "INVALID_SLOT_EVENT" }, 400);
     }
 
-    const startISO = ev.start.dateTime;
-    const endISO = ev.end.dateTime;
+    const startISO = normalizeIso(ev.start.dateTime);
+    const endISO = normalizeIso(ev.end.dateTime);
 
-    // 7) Doppelbuchungsschutz in DB
-    const { data: existingSessions, error: existingErr } = await sb
-      .from("sessions")
-      .select("id, date, therapist_id")
-      .eq("therapist_id", therapistId)
-      .eq("date", startISO);
-
-    if (existingErr) {
-      return json(
-        {
-          error: "SESSION_CHECK_FAILED",
-          detail: existingErr.message,
-        },
-        500
-      );
+    if (!startISO || !endISO) {
+      return json({ error: "INVALID_SLOT_DATES" }, 400);
     }
 
-    if ((existingSessions || []).length > 0) {
-      return json({ error: "SLOT_ALREADY_BOOKED" }, 409);
+    // 7) Doppelbuchungsschutz
+    // Für Erstgespräch prüfen wir blocked_slots
+    // Für Session prüfen wir sessions
+    if (bookingType === "erstgespraech") {
+      const { data: existingBlocked, error: blockedErr } = await sb
+        .from("blocked_slots")
+        .select("id")
+        .eq("therapist_id", therapistId)
+        .eq("start_at", startISO);
+
+      if (blockedErr) {
+        return json(
+          {
+            error: "BLOCKED_CHECK_FAILED",
+            detail: blockedErr.message,
+          },
+          500
+        );
+      }
+
+      if ((existingBlocked || []).length > 0) {
+        return json({ error: "slot_taken" }, 409);
+      }
+    } else {
+      const { data: existingSessions, error: existingErr } = await sb
+        .from("sessions")
+        .select("id")
+        .eq("therapist_id", therapistId)
+        .eq("date", startISO);
+
+      if (existingErr) {
+        return json(
+          {
+            error: "SESSION_CHECK_FAILED",
+            detail: existingErr.message,
+          },
+          500
+        );
+      }
+
+      if ((existingSessions || []).length > 0) {
+        return json({ error: "slot_taken" }, 409);
+      }
     }
 
-    // 8) Session anlegen
-    const durationMin = Number(settings.slot_duration_min || 60);
-    const price = anfrage.honorar_klient
-      ? Number(anfrage.honorar_klient)
-      : null;
+    const clientName =
+      `${anfrage.vorname || ""} ${anfrage.nachname || ""}`.trim() || "Klient";
 
-    const { data: insertedSession, error: sessionInsertErr } = await sb
-      .from("sessions")
-      .insert({
+    let insertedSession = null;
+
+    // 8) Unterschiedliche Logik je Typ
+    if (bookingType === "erstgespraech") {
+      const { error: blockErr } = await sb.from("blocked_slots").insert({
         anfrage_id: anfrage.id,
         therapist_id: therapistId,
-        date: startISO,
-        duration_min: durationMin,
-        price,
-      })
-      .select()
-      .single();
+        start_at: startISO,
+        end_at: endISO,
+        reason: "erstgespraech_booking",
+      });
 
-    if (sessionInsertErr || !insertedSession) {
-      return json(
-        {
-          error: "SESSION_INSERT_FAILED",
-          detail: sessionInsertErr?.message || null,
-        },
-        400
-      );
+      if (blockErr) {
+        return json(
+          {
+            error: "BLOCKED_SLOT_INSERT_FAILED",
+            detail: blockErr.message,
+          },
+          400
+        );
+      }
+
+      const { error: updateReqErr } = await sb
+        .from("anfragen")
+        .update({
+          bevorzugte_zeit: startISO,
+          status: "termin_bestaetigt",
+          assigned_therapist_id: therapistId,
+        })
+        .eq("id", anfrage.id);
+
+      if (updateReqErr) {
+        return json(
+          {
+            error: "REQUEST_UPDATE_FAILED",
+            detail: updateReqErr.message,
+          },
+          500
+        );
+      }
+    } else {
+      const price = anfrage.honorar_klient
+        ? Number(anfrage.honorar_klient)
+        : null;
+
+      const { data: inserted, error: sessionInsertErr } = await sb
+        .from("sessions")
+        .insert({
+          anfrage_id: anfrage.id,
+          therapist_id: therapistId,
+          date: startISO,
+          duration_min: durationMin,
+          price,
+        })
+        .select()
+        .single();
+
+      if (sessionInsertErr || !inserted) {
+        return json(
+          {
+            error: "SESSION_INSERT_FAILED",
+            detail: sessionInsertErr?.message || null,
+          },
+          400
+        );
+      }
+
+      insertedSession = inserted;
+
+      const { error: statusErr } = await sb
+        .from("anfragen")
+        .update({
+          status: "active",
+        })
+        .eq("id", anfrage.id);
+
+      if (statusErr) {
+        console.error("BOOKING STATUS UPDATE FAILED:", statusErr);
+      }
     }
 
-    // 9) Anfrage-Status auf active setzen
-    const { error: statusErr } = await sb
-      .from("anfragen")
-      .update({
-        status: "active",
-      })
-      .eq("id", anfrage.id);
-
-    if (statusErr) {
-      console.error("BOOKING STATUS UPDATE FAILED:", statusErr);
-      // Kein Hard-Fail – Buchung war erfolgreich
-    }
-
-    // 10) Google Event umbenennen / markieren als gebucht
-    const clientName =
-      `${anfrage.vorname || ""} ${anfrage.nachname || ""}`.trim() ||
-      "Klient";
-
+    // 9) Google Event patchen
     try {
+      const descriptionLines = [
+        bookingType === "erstgespraech"
+          ? "Poise Erstgespräch"
+          : "Poise Buchung",
+        `Anfrage-ID: ${anfrage.id}`,
+        `Klient: ${clientName}`,
+        `E-Mail: ${anfrage.email || ""}`,
+        `Telefon: ${anfrage.telefon || ""}`,
+      ];
+
+      if (insertedSession?.id) {
+        descriptionLines.splice(2, 0, `Session-ID: ${insertedSession.id}`);
+      }
+
       await calendar.events.patch({
         calendarId: settings.selected_calendar_id,
         eventId: googleEventId,
         requestBody: {
-          summary: `Gebucht – ${clientName}`,
-          description:
-            `Poise Buchung\n` +
-            `Anfrage-ID: ${anfrage.id}\n` +
-            `Session-ID: ${insertedSession.id}\n` +
-            `Klient: ${clientName}\n` +
-            `E-Mail: ${anfrage.email || ""}\n` +
-            `Telefon: ${anfrage.telefon || ""}`,
+          summary:
+            bookingType === "erstgespraech"
+              ? `Erstgespräch – ${clientName}`
+              : `Gebucht – ${clientName}`,
+          description: descriptionLines.join("\n"),
         },
       });
     } catch (googlePatchErr) {
@@ -244,13 +376,12 @@ export async function POST(req) {
         {
           error: "GOOGLE_EVENT_PATCH_FAILED",
           detail: String(googlePatchErr),
-          session: insertedSession,
         },
         500
       );
     }
 
-    // 11) Bestätigungsmails senden
+    // 10) Mails
     try {
       const startDate = new Date(startISO);
 
@@ -269,41 +400,40 @@ export async function POST(req) {
       });
 
       const from = "Poise <noreply@mypoise.de>";
+      const subjectClient =
+        bookingType === "erstgespraech"
+          ? "Dein Poise Erstgespräch wurde gebucht 🤍"
+          : "Dein Poise Termin wurde gebucht 🤍";
 
       if (anfrage.email) {
-        const clientMailResult = await resend.emails.send({
+        await resend.emails.send({
           from,
           to: anfrage.email,
-          subject: "Dein Poise Termin wurde gebucht 🤍",
+          subject: subjectClient,
           html: `
             <p>Hallo ${anfrage.vorname || ""},</p>
-
             <p>dein Termin wurde erfolgreich gebucht.</p>
-
             <p>
               <strong>Datum:</strong> ${dateString}<br />
               <strong>Uhrzeit:</strong> ${timeString}
             </p>
-
             <p>Wir freuen uns auf dich 🤍</p>
-
             <p>Dein Poise-Team</p>
           `,
         });
-
-        console.log("CLIENT MAIL RESULT:", clientMailResult);
       }
 
       if (therapistMember?.email) {
-        const therapistMailResult = await resend.emails.send({
+        await resend.emails.send({
           from,
           to: therapistMember.email,
-          subject: "Neue Terminbuchung bei Poise",
+          subject:
+            bookingType === "erstgespraech"
+              ? "Neues Erstgespräch bei Poise"
+              : "Neue Terminbuchung bei Poise",
           html: `
             <p>Hallo ${therapistMember.name || ""},</p>
-
             <p>ein neuer Termin wurde gebucht.</p>
-
             <p>
               <strong>Klient:in:</strong> ${clientName || "–"}<br />
               <strong>E-Mail:</strong> ${anfrage.email || "–"}<br />
@@ -311,21 +441,17 @@ export async function POST(req) {
               <strong>Datum:</strong> ${dateString}<br />
               <strong>Uhrzeit:</strong> ${timeString}
             </p>
-
             <p>Poise Connect</p>
           `,
         });
-
-        console.log("THERAPIST MAIL RESULT:", therapistMailResult);
       }
     } catch (mailErr) {
       console.error("BOOKING MAIL ERROR:", mailErr);
-      // Kein Hard-Fail – Buchung selbst war erfolgreich
     }
 
-    // 12) Erfolgreiche Antwort
     return json({
       ok: true,
+      bookingType,
       session: insertedSession,
       booking: {
         anfrage_id: anfrage.id,
