@@ -1047,7 +1047,7 @@ scores: {
 {
   id: "79db9444-4abd-49a3-ace1-e52fdaed8ad0",
   name: "Test Therapeut",
-  calendar_mode: "proposal",
+  calendar_mode: "booking",
   role: "Psychologe (Test)",
   qualificationLevel: 0,
   image: "https://mypoise.de/wp-content/uploads/2026/02/Bildschirmfoto-2026-02-02-um-04.22.00.png",
