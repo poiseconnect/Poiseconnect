@@ -1,3 +1,4 @@
+
 export const dynamic = "force-dynamic";
 
 import {
@@ -20,6 +21,7 @@ export async function POST(req) {
       .single();
 
     if (memberErr || !member) return json({ error: "NO_TEAM_MEMBER" }, 403);
+
     if (member.role !== "therapist" || !member.active) {
       return json({ error: "NOT_ALLOWED" }, 403);
     }
@@ -32,6 +34,7 @@ export async function POST(req) {
       slot_duration_min: Number(body.slot_duration_min || 60),
       buffer_min: Number(body.buffer_min || 10),
       time_zone: body.time_zone || "Europe/Vienna",
+      min_booking_notice_hours: Number(body.min_booking_notice_hours || 24),
       selected_calendar_id: body.selected_calendar_id || null,
       selected_calendar_name: body.selected_calendar_name || null,
       updated_at: new Date().toISOString(),
