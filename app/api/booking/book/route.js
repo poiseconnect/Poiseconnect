@@ -8,8 +8,8 @@ import {
   supabaseAdmin,
 } from "../../_lib/server";
 
-function normalizeIso(v) {
-  const d = new Date(v);
+function normalizeIso(value) {
+  const d = new Date(value);
   if (Number.isNaN(d.getTime())) return null;
   return d.toISOString();
 }
@@ -24,6 +24,7 @@ export async function POST(req) {
     const googleEventIdFromBody = body?.googleEventId || null;
     const startFromBody = body?.start || null;
     const bookingType = body?.bookingType || "session";
+
     const durationMin =
       Number(body?.durationMin) ||
       (bookingType === "erstgespraech" ? 30 : 60);
@@ -47,7 +48,8 @@ export async function POST(req) {
         telefon,
         honorar_klient,
         assigned_therapist_id,
-        status
+        status,
+        booking_token
       `)
       .eq("booking_token", token)
       .single();
@@ -126,7 +128,7 @@ export async function POST(req) {
       );
     }
 
-    // 5) OAuth
+    // 5) OAuth vorbereiten
     const oauth = oauthClient();
     oauth.setCredentials({
       access_token: tokens.access_token || undefined,
@@ -139,7 +141,7 @@ export async function POST(req) {
       auth: oauth,
     });
 
-    // 6) Passendes Google Event finden
+    // 6) Google Event finden
     let ev = null;
     let googleEventId = googleEventIdFromBody || null;
 
@@ -160,23 +162,22 @@ export async function POST(req) {
         );
       }
     } else {
-      // Suche per Startzeit
       const wantedStartIso = normalizeIso(startFromBody);
       if (!wantedStartIso) {
         return json({ error: "INVALID_START" }, 400);
       }
 
-      const endSearch = new Date(
-        new Date(wantedStartIso).getTime() + durationMin * 60000
+      const endSearchIso = new Date(
+        new Date(wantedStartIso).getTime() + 2 * 60 * 60 * 1000
       ).toISOString();
 
       const listRes = await calendar.events.list({
         calendarId: settings.selected_calendar_id,
         timeMin: wantedStartIso,
-        timeMax: endSearch,
+        timeMax: endSearchIso,
         singleEvents: true,
         orderBy: "startTime",
-        maxResults: 20,
+        maxResults: 30,
       });
 
       const candidates = listRes.data.items || [];
@@ -207,16 +208,20 @@ export async function POST(req) {
       return json({ error: "INVALID_SLOT_EVENT" }, 400);
     }
 
-    const startISO = normalizeIso(ev.start.dateTime);
-    const endISO = normalizeIso(ev.end.dateTime);
-
-    if (!startISO || !endISO) {
-      return json({ error: "INVALID_SLOT_DATES" }, 400);
+    const originalStartISO = normalizeIso(ev.start.dateTime);
+    if (!originalStartISO) {
+      return json({ error: "INVALID_SLOT_START" }, 400);
     }
 
+    const startISO = originalStartISO;
+    const endISO = new Date(
+      new Date(startISO).getTime() + durationMin * 60000
+    ).toISOString();
+
+    const clientName =
+      `${anfrage.vorname || ""} ${anfrage.nachname || ""}`.trim() || "Klient";
+
     // 7) Doppelbuchungsschutz
-    // Für Erstgespräch prüfen wir blocked_slots
-    // Für Session prüfen wir sessions
     if (bookingType === "erstgespraech") {
       const { data: existingBlocked, error: blockedErr } = await sb
         .from("blocked_slots")
@@ -259,12 +264,9 @@ export async function POST(req) {
       }
     }
 
-    const clientName =
-      `${anfrage.vorname || ""} ${anfrage.nachname || ""}`.trim() || "Klient";
-
     let insertedSession = null;
 
-    // 8) Unterschiedliche Logik je Typ
+    // 8) DB-Logik je nach Typ
     if (bookingType === "erstgespraech") {
       const { error: blockErr } = await sb.from("blocked_slots").insert({
         anfrage_id: anfrage.id,
@@ -348,7 +350,7 @@ export async function POST(req) {
       const descriptionLines = [
         bookingType === "erstgespraech"
           ? "Poise Erstgespräch"
-          : "Poise Buchung",
+          : "Poise Sitzung",
         `Anfrage-ID: ${anfrage.id}`,
         `Klient: ${clientName}`,
         `E-Mail: ${anfrage.email || ""}`,
@@ -365,9 +367,17 @@ export async function POST(req) {
         requestBody: {
           summary:
             bookingType === "erstgespraech"
-              ? `Erstgespräch – ${clientName}`
-              : `Gebucht – ${clientName}`,
+              ? `Poise Erstgespräch – ${clientName}`
+              : `Poise Sitzung – ${clientName}`,
           description: descriptionLines.join("\n"),
+          start: {
+            dateTime: startISO,
+            timeZone: settings.time_zone || "Europe/Vienna",
+          },
+          end: {
+            dateTime: endISO,
+            timeZone: settings.time_zone || "Europe/Vienna",
+          },
         },
       });
     } catch (googlePatchErr) {
@@ -384,6 +394,7 @@ export async function POST(req) {
     // 10) Mails
     try {
       const startDate = new Date(startISO);
+      const endDate = new Date(endISO);
 
       const dateString = startDate.toLocaleDateString("de-AT", {
         weekday: "long",
@@ -399,48 +410,76 @@ export async function POST(req) {
         timeZone: settings.time_zone || "Europe/Vienna",
       });
 
+      const endTimeString = endDate.toLocaleTimeString("de-AT", {
+        hour: "2-digit",
+        minute: "2-digit",
+        timeZone: settings.time_zone || "Europe/Vienna",
+      });
+
       const from = "Poise <noreply@mypoise.de>";
-      const subjectClient =
-        bookingType === "erstgespraech"
-          ? "Dein Poise Erstgespräch wurde gebucht 🤍"
-          : "Dein Poise Termin wurde gebucht 🤍";
 
       if (anfrage.email) {
+        const clientSubject =
+          bookingType === "erstgespraech"
+            ? "Dein kostenloses Poise Erstgespräch wurde gebucht 🤍"
+            : "Dein Poise Termin wurde gebucht 🤍";
+
         await resend.emails.send({
           from,
           to: anfrage.email,
-          subject: subjectClient,
+          subject: clientSubject,
           html: `
             <p>Hallo ${anfrage.vorname || ""},</p>
-            <p>dein Termin wurde erfolgreich gebucht.</p>
+
+            <p>
+              dein ${
+                bookingType === "erstgespraech"
+                  ? "kostenloses Erstgespräch"
+                  : "Termin"
+              } wurde erfolgreich gebucht.
+            </p>
+
             <p>
               <strong>Datum:</strong> ${dateString}<br />
-              <strong>Uhrzeit:</strong> ${timeString}
+              <strong>Zeit:</strong> ${timeString} bis ${endTimeString}
             </p>
+
             <p>Wir freuen uns auf dich 🤍</p>
+
             <p>Dein Poise-Team</p>
           `,
         });
       }
 
       if (therapistMember?.email) {
+        const coachSubject =
+          bookingType === "erstgespraech"
+            ? "Neues Erstgespräch bei Poise"
+            : "Neue Sitzung bei Poise";
+
+        const coachTypeLabel =
+          bookingType === "erstgespraech"
+            ? "Erstgespräch"
+            : "Sitzung";
+
         await resend.emails.send({
           from,
           to: therapistMember.email,
-          subject:
-            bookingType === "erstgespraech"
-              ? "Neues Erstgespräch bei Poise"
-              : "Neue Terminbuchung bei Poise",
+          subject: coachSubject,
           html: `
             <p>Hallo ${therapistMember.name || ""},</p>
-            <p>ein neuer Termin wurde gebucht.</p>
+
+            <p>Es wurde ein neuer Termin bei Poise gebucht.</p>
+
             <p>
+              <strong>Typ:</strong> ${coachTypeLabel}<br />
               <strong>Klient:in:</strong> ${clientName || "–"}<br />
               <strong>E-Mail:</strong> ${anfrage.email || "–"}<br />
               <strong>Telefon:</strong> ${anfrage.telefon || "–"}<br />
               <strong>Datum:</strong> ${dateString}<br />
-              <strong>Uhrzeit:</strong> ${timeString}
+              <strong>Zeit:</strong> ${timeString} bis ${endTimeString}
             </p>
+
             <p>Poise Connect</p>
           `,
         });
