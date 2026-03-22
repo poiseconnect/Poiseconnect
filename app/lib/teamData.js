@@ -350,7 +350,7 @@ scores: {
 {
     id: "64699791-6203-416e-bab9-6abe043ac454",
   name: "Gerhard",
-  calendar_mode: "ics",
+  calendar_mode: "booking",
   role: "Coach, systemischer Berater, Mediator",
   qualificationLevel: 6,
   image: "https://mypoise.de/wp-content/uploads/2025/04/Frontfoto-1024x1024.jpg",
@@ -985,7 +985,7 @@ scores: {
 {
     id: "22b71ea3-9a49-42e9-bee1-f7d4f47b186c",
   name: "Linda",
-  calendar_mode: "ics",
+  calendar_mode: "booking",
   role: "Psychologe (Test)",
   qualificationLevel: 0,
   image: "https://mypoise.de/wp-content/uploads/2025/11/Buchcover-scaled.jpg",
@@ -1016,7 +1016,7 @@ scores: {
 {
     id: "48ead819-0493-4fa0-a258-93d572266b30",
   name: "Vivienne",
-  calendar_mode: "proposal",
+  calendar_mode: "booking",
   role: "Psychologe (Test)",
   qualificationLevel: 0,
   image: null,
