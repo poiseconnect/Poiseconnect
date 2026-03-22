@@ -608,6 +608,7 @@ const [access, setAccess] = useState("loading");
   const [bookingSettings, setBookingSettings] = useState(null);
   const [bookingSaving, setBookingSaving] = useState(false);
   const [googleCalendars, setGoogleCalendars] = useState([]);
+  const [myAvailability, setMyAvailability] = useState(true);
 
   // ================= PROPOSALS =================
 const [proposalModal, setProposalModal] = useState(null);
@@ -954,6 +955,7 @@ useEffect(() => {
 
   loadBookingSettings();
   loadGoogleCalendars();
+  loadMyAvailability();
 }, [user, role, myTeamMemberId]);
 
 async function loadBookingSettings() {
@@ -969,14 +971,15 @@ async function loadBookingSettings() {
 
   const json = await res.json();
 
-  setBookingSettings(
-    json.settings || {
-      booking_enabled: false,
-      slot_duration_min: 60,
-      buffer_min: 10,
-      time_zone: "Europe/Vienna",
-    }
-  );
+setBookingSettings(
+  json.settings || {
+    booking_enabled: false,
+    slot_duration_min: 60,
+    buffer_min: 10,
+    time_zone: "Europe/Vienna",
+    min_booking_notice_hours: 24,
+  }
+);
 }
 
   async function connectGoogleCalendar() {
@@ -1000,6 +1003,7 @@ async function loadBookingSettings() {
   const {
     data: { session },
   } = await supabase.auth.getSession();
+    
 
   const res = await fetch("/api/google/calendars", {
     headers: {
@@ -1015,6 +1019,22 @@ async function loadBookingSettings() {
     console.log("GOOGLE CALENDARS LOAD ERROR", json);
     setGoogleCalendars([]);
   }
+}
+  async function loadMyAvailability() {
+  if (!myTeamMemberId) return;
+
+  const { data, error } = await supabase
+    .from("team_members")
+    .select("available_for_intake")
+    .eq("id", myTeamMemberId)
+    .single();
+
+  if (error) {
+    console.error("LOAD AVAILABILITY ERROR:", error);
+    return;
+  }
+
+  setMyAvailability(!!data?.available_for_intake);
 }
   async function saveBookingSettings() {
   setBookingSaving(true);
@@ -1049,6 +1069,31 @@ async function loadBookingSettings() {
   } finally {
     setBookingSaving(false);
   }
+}
+  async function toggleMyAvailability(nextValue) {
+  const res = await fetch("/api/team-members/toggle-availability", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      teamMemberId: myTeamMemberId,
+      available: nextValue,
+    }),
+  });
+
+  const json = await res.json();
+
+  if (!res.ok) {
+    console.error("TOGGLE AVAILABILITY ERROR:", json);
+    alert("Fehler beim Speichern");
+    return;
+  }
+
+  setMyAvailability(nextValue);
+  alert(
+    nextValue
+      ? "✅ Du bist jetzt im Formular sichtbar"
+      : "⏸ Du bist jetzt im Formular ausgeblendet"
+  );
 }
   // ================================
 // 🔗 BOOKING LINK FUNCTIONS
@@ -1577,6 +1622,41 @@ return (
     </button>
   </div>
 )}
+    {role === "therapist" && (
+  <div
+    style={{
+      marginBottom: 16,
+      border: "1px solid #eee",
+      borderRadius: 10,
+      background: "#FAFAFA",
+      padding: 10,
+    }}
+  >
+    <div style={{ fontWeight: 600, marginBottom: 8 }}>
+      Sichtbarkeit im Anfrageformular
+    </div>
+
+    <div style={{ fontSize: 12, color: "#666", marginBottom: 10 }}>
+      Hier steuerst du, ob du für neue Klient:innen im Formular auswählbar bist.
+    </div>
+
+    <button
+      type="button"
+      onClick={() => toggleMyAvailability(!myAvailability)}
+      style={{
+        padding: "8px 14px",
+        borderRadius: 999,
+        border: "1px solid #ccc",
+        background: myAvailability ? "#E8FFF0" : "#FFF4E6",
+        fontWeight: 600,
+      }}
+    >
+      {myAvailability
+        ? "🟢 Verfügbar – im Formular sichtbar"
+        : "⏸ Nicht verfügbar – im Formular ausgeblendet"}
+    </button>
+  </div>
+)}
 {role === "therapist" && bookingSettings && (
   <details
     style={{
@@ -1634,7 +1714,23 @@ return (
             }
           />
         </div>
-
+<div>
+  <label>Mindestvorlaufzeit (Stunden)</label>
+  <input
+    type="number"
+    min={0}
+    value={bookingSettings.min_booking_notice_hours || 24}
+    onChange={(e) =>
+      setBookingSettings({
+        ...bookingSettings,
+        min_booking_notice_hours: Number(e.target.value),
+      })
+    }
+  />
+  <div style={{ fontSize: 12, color: "#666", marginTop: 4 }}>
+    Beispiel: 24 = Termine erst ab 24h Vorlauf buchbar
+  </div>
+</div>
         <div>
           <label>Zeitzone</label>
           <input
