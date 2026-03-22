@@ -788,9 +788,8 @@ if (therapist.calendar_mode === "proposal") {
 }
 
 if (
-  therapist.calendar_mode === "booking" &&
-  bookingMap.get(therapist.id)
-) {
+  therapist.calendar_mode === "booking")
+ {
   hasAvailability = true;
 }
 
