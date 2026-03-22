@@ -444,9 +444,36 @@ export async function POST(req) {
               <strong>Zeit:</strong> ${timeString} bis ${endTimeString}
             </p>
 
-            <p>Wir freuen uns auf dich 🤍</p>
+             <p>
+    Unsre Sitzungen findet online per Video statt.
+  </p>
 
-            <p>Dein Poise-Team</p>
+  <br />
+
+  <p><strong>Termin ändern oder absagen</strong></p>
+
+  <p>
+    Falls du den Termin nicht wahrnehmen kannst oder Fragen dazu hast,
+    melde dich bitte rechtzeitig bei uns unter:
+  </p>
+
+  <p>
+    <strong>hallo@mypoise.de</strong>
+  </p>
+
+  <p>
+    Wir kümmern uns schnell um eine Lösung und finden gemeinsam einen neuen Termin.
+  </p>
+
+  <p style="margin-top:12px;">
+    Bitte gib uns möglichst früh Bescheid, falls du den Termin nicht wahrnehmen kannst.
+  </p>
+
+  <br />
+
+  <p>Wir freuen uns auf dich 🤍</p>
+
+  <p>Dein Poise-Team</p>
           `,
         });
       }
