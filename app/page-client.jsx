@@ -337,10 +337,10 @@ const [savingDraft, setSavingDraft] = useState(false);
   // 🔑 NEU: ausgewählte Therapeut:innen-ID (DB)
 const [assignedTherapistId, setAssignedTherapistId] = useState(null);
 const calendarMode = useMemo(() => {
-  if (!assignedTherapistId) return "booking";
+  if (!assignedTherapistId) return "proposal";
 
   const t = teamData.find((x) => x.id === assignedTherapistId);
-  return t?.calendar_mode || "booking";
+  return t?.calendar_mode || "proposal";
 }, [assignedTherapistId]);
   const [form, setForm] = useState({
 admin_therapeuten: [],
@@ -781,24 +781,19 @@ async function loadAvailability() {
           continue;
         }
 
-        let hasAvailability = false;
+let hasAvailability = false;
 
-        // 🔹 ICS prüfen
-        if (therapist.ics) {
-          try {
-            const slots = await loadIcsSlots(therapist.ics, 21);
-            if (slots.length > 0) {
-              hasAvailability = true;
-            }
-          } catch (err) {
-            console.error("ICS fail:", therapist.name);
-          }
-        }
+if (therapist.calendar_mode === "proposal") {
+  hasAvailability = true;
+}
 
-        // 🔹 Calendar Mode prüfen (Google)
-        if (bookingMap.get(therapist.id)) {
-          hasAvailability = true;
-        }
+if (
+  therapist.calendar_mode === "booking" &&
+  bookingMap.get(therapist.id)
+) {
+  hasAvailability = true;
+}
+
 
         if (hasAvailability) {
           result.push(therapist.id);
@@ -972,48 +967,40 @@ async function createOrUpdateDraft(selectedMember) {
   // -------------------------------------
   
 const send = async () => {
-  // 🔒 Sicherheitscheck: Therapeut:in MUSS gewählt sein
-if (!assignedTherapistId) {
-  alert("Bitte wähle eine Therapeutin oder einen Therapeuten aus.");
-  return;
-}
+  if (!assignedTherapistId) {
+    alert("Bitte wähle eine Therapeutin oder einen Therapeuten aus.");
+    return;
+  }
+
   try {
     const res = await fetch("/api/form-submit", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-body: JSON.stringify({
-  ...form,
-  anfrageId: draftRequestId || anfrageId || null,
-  booking_token: bookingToken || null,
-  assigned_therapist_id: assignedTherapistId,
-  therapist_from_url: form.wunschtherapeut,
-  terminwunsch_text: form.preferred_times || null,
-}),
-    }); // ✅ DAS war der fehlende Abschluss
+      body: JSON.stringify({
+        ...form,
+        anfrageId: draftRequestId || anfrageId || null,
+        booking_token: bookingToken || null,
+        assigned_therapist_id: assignedTherapistId,
+        therapist_from_url: form.wunschtherapeut,
+        terminwunsch_text: form.preferred_times || null,
+      }),
+    });
 
-    let json = null;
-    try {
-      if (res.headers.get("content-type")?.includes("application/json")) {
-        json = await res.json();
+    const data = await res.json().catch(() => null);
+
+    if (!res.ok) {
+      if (data?.error === "slot_taken") {
+        alert(
+          "Dieser Termin wurde gerade vergeben. Bitte wähle einen neuen Termin."
+        );
+        setStep(10);
+        return;
       }
-    } catch (_) {
-      // ignorieren
+
+      alert("Fehler – Anfrage konnte nicht gesendet werden.");
+      console.error("FORM SUBMIT ERROR:", data);
+      return;
     }
-
-if (!res.ok) {
-  const err = await res.json().catch(() => null);
-
-  if (err?.error === "slot_taken") {
-    alert(
-      "Dieser Termin wurde gerade vergeben. Bitte wähle einen neuen Termin."
-    );
-    setStep(10); // ⬅ zurück zur Terminwahl
-    return;
-  }
-
-  alert("Fehler – Anfrage konnte nicht gesendet werden.");
-  return;
-}
 
     alert("Danke – deine Anfrage wurde erfolgreich gesendet 🤍");
   } catch (err) {
@@ -1021,6 +1008,7 @@ if (!res.ok) {
     alert("Unerwarteter Fehler – bitte später erneut versuchen.");
   }
 };
+
 
 
   // -------------------------------------
@@ -1514,12 +1502,20 @@ color: "#000", // ✅ FIX: Text IMMER schwarz
 <TeamCarousel
   members={step8Members}
   onSelect={async (member) => {
+    // 🔒 verhindert doppelklick
+    if (savingDraft) return;
+
     const ok = await createOrUpdateDraft(member);
     if (!ok) return;
+
+    setSelectedDay(null);
+    setSlots([]);
 
     setForm((prev) => ({
       ...prev,
       wunschtherapeut: member.name,
+      terminISO: "",
+      terminDisplay: "",
     }));
 
     next();
@@ -1782,7 +1778,7 @@ Eine Kostenübernahme kann möglich sein — individuell klären.`,
       <hr style={{ margin: "12px 0" }} />
       <p><strong>Wunschtherapeut:in:</strong> {form.wunschtherapeut || "—"}</p>
       {/* Termin / Wunschzeiten */}
-{calendarMode === "ics" && (
+{calendarMode === "booking" && (
   <p>
     <strong>Erstgespräch-Termin:</strong>{" "}
     {form.terminDisplay || "—"}
