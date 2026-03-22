@@ -965,7 +965,6 @@ async function createOrUpdateDraft(selectedMember) {
   // -------------------------------------
   // Formular absenden
   // -------------------------------------
-  
 const send = async () => {
   if (!assignedTherapistId) {
     alert("Bitte wähle eine Therapeutin oder einen Therapeuten aus.");
@@ -973,6 +972,44 @@ const send = async () => {
   }
 
   try {
+    // 1) Bei booking: echten Termin zuerst buchen
+    if (calendarMode === "booking") {
+      if (!bookingToken || !form.terminISO) {
+        alert("Bitte wähle zuerst einen Termin.");
+        return;
+      }
+
+      const bookingRes = await fetch("/api/booking/book", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          token: bookingToken,
+          start: form.terminISO,
+          durationMin: 30,
+          bookingType: "erstgespraech",
+        }),
+      });
+
+      const bookingData = await bookingRes.json().catch(() => null);
+
+      if (!bookingRes.ok) {
+        if (bookingData?.error === "slot_taken") {
+          alert(
+            "Dieser Termin wurde gerade vergeben. Bitte wähle einen neuen Termin."
+          );
+          setStep(10);
+          return;
+        }
+
+        console.error("BOOKING ERROR:", bookingData);
+        alert("Der Termin konnte nicht gebucht werden.");
+        return;
+      }
+    }
+
+    // 2) Danach Anfrage final speichern
     const res = await fetch("/api/form-submit", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -989,16 +1026,8 @@ const send = async () => {
     const data = await res.json().catch(() => null);
 
     if (!res.ok) {
-      if (data?.error === "slot_taken") {
-        alert(
-          "Dieser Termin wurde gerade vergeben. Bitte wähle einen neuen Termin."
-        );
-        setStep(10);
-        return;
-      }
-
-      alert("Fehler – Anfrage konnte nicht gesendet werden.");
       console.error("FORM SUBMIT ERROR:", data);
+      alert("Fehler – Anfrage konnte nicht gesendet werden.");
       return;
     }
 
