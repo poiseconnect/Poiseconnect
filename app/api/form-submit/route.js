@@ -7,7 +7,7 @@ function JSONResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
     status,
     headers: { "Content-Type": "application/json" },
-  });
+  });x
 }
 
 function getSupabase() {
@@ -115,16 +115,6 @@ const { data: inserted, error: insertError } = await supabase
       finalRequestId = inserted.id;
     }
 
-    if (startAt && endAt) {
-      const { error: blockError } = await supabase.from("blocked_slots").insert({
-        anfrage_id: finalRequestId,
-        therapist_id: assignedTherapistId,
-        start_at: startAt.toISOString(),
-        end_at: endAt.toISOString(),
-        reason: "client_submit",
-      });
-      if (blockError) console.warn("blocked_slots insert failed:", blockError);
-    }
 
     // Mail (optional – aber darf DB nicht killen)
     try {
