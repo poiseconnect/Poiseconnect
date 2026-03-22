@@ -1527,20 +1527,7 @@ color: "#000", // ✅ FIX: Text IMMER schwarz
           Es werden ausschließlich Therapeut:innen angezeigt,
           die aktuell freie Termine haben.
         </p>
-        <pre style={{ fontSize: 12, background: "#f5f5f5", padding: 8 }}>
-  {JSON.stringify(
-    {
-      availableTherapists,
-      step8Members: step8Members.map((m) => ({
-        name: m.name,
-        id: m.id,
-        calendar_mode: m.calendar_mode,
-      })),
-    },
-    null,
-    2
-  )}
-</pre>
+
 <TeamCarousel
   members={step8Members}
   onSelect={async (member) => {
