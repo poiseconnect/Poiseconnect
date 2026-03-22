@@ -740,49 +740,67 @@ useEffect(() => {
 useEffect(() => {
   let isMounted = true;
 
-  async function loadAvailability() {
+async function loadAvailability() {
     setLoadingAvailability(true);
 
     try {
       const result = [];
 
-for (const therapist of teamData) {  
-  //✅ nur aktive
-  if (therapist.status && therapist.status !== "frei") {
-    console.warn("⛔ übersprungen (status):", therapist.name, therapist.status);
-    continue;
-  }
+      // 🔥 1. Lade echte DB-Settings
+      const { data: members } = await supabase
+        .from("team_members")
+        .select("id, available_for_intake");
 
-  // ✅ MUSS: id + ics
- if (!therapist.id || !therapist.ics) {
-    console.warn("⛔ übersprungen (id/ics fehlt):", therapist.name, therapist.id, therapist.ics);
-    continue;
-  }
+      const { data: bookingSettings } = await supabase
+        .from("therapist_booking_settings")
+        .select("therapist_id, booking_enabled");
 
-  try {
-    const slots = await loadIcsSlots(therapist.ics, 21);
+      const bookingMap = new Map(
+        (bookingSettings || []).map((b) => [
+          b.therapist_id,
+          b.booking_enabled,
+        ])
+      );
 
-    console.log("📅 Slots für", therapist.name, therapist.id, "=", slots.length);
+      for (const therapist of teamData) {
+        if (!therapist.id) continue;
 
-    if (slots.length > 0) {
-      result.push(therapist.id); // ✅ UUID merken
-    }
-  } catch (err) {
-    console.error("❌ Availability failed for", therapist.name, therapist.id, err);
-    // weiter
-  }
-}
+        const dbMember = members?.find((m) => m.id === therapist.id);
 
-if (isMounted) {
-  console.log("🧪 AVAILABILITY RESULT (raw):", result);
+        // ❌ NICHT VERFÜGBAR → SKIP
+        if (!dbMember?.available_for_intake) {
+          console.log("⛔ NOT AVAILABLE:", therapist.name);
+          continue;
+        }
 
-  setAvailableTherapists(result);
+        let hasAvailability = false;
 
-  console.log(
-    "🧪 AVAILABLE IDS SET:",
-    new Set(result)
-  );
-}
+        // 🔹 ICS prüfen
+        if (therapist.ics) {
+          try {
+            const slots = await loadIcsSlots(therapist.ics, 21);
+            if (slots.length > 0) {
+              hasAvailability = true;
+            }
+          } catch (err) {
+            console.error("ICS fail:", therapist.name);
+          }
+        }
+
+        // 🔹 Calendar Mode prüfen (Google)
+        if (bookingMap.get(therapist.id)) {
+          hasAvailability = true;
+        }
+
+        if (hasAvailability) {
+          result.push(therapist.id);
+        }
+      }
+
+      if (isMounted) {
+        console.log("✅ FINAL AVAILABLE:", result);
+        setAvailableTherapists(result);
+      }
     } catch (e) {
       console.error("Availability error", e);
     } finally {
@@ -791,6 +809,7 @@ if (isMounted) {
   }
 
   loadAvailability();
+
   return () => {
     isMounted = false;
   };
