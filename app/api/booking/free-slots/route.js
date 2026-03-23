@@ -63,25 +63,15 @@ export async function GET(req) {
       now.getTime() + minHours * 60 * 60 * 1000
     );
 
-    const { data: tokens } = await sb
-      .from("therapist_google_tokens")
-      .select("*")
-      .eq("therapist_id", therapistId)
-      .single();
-
-    if (!tokens) {
-      return json({ slots: [] });
-    }
 
     const startDate = parseISO(from);
     const endDate = addDays(startDate, Math.min(Math.max(days, 1), 60));
 
-    const oauth = oauthClient();
-    oauth.setCredentials({
-      access_token: tokens.access_token || undefined,
-      refresh_token: tokens.refresh_token || undefined,
-      expiry_date: tokens.expiry_date || undefined,
-    });
+const oauth = oauthClient();
+oauth.setCredentials({
+  access_token: process.env.GOOGLE_ACCESS_TOKEN,
+  refresh_token: process.env.GOOGLE_REFRESH_TOKEN,
+});
 
     const calendar = google.calendar({
       version: "v3",
