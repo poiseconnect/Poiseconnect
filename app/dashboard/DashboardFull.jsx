@@ -1705,23 +1705,6 @@ return (
           />
         </div>
 <div>
-  <label>Google Kalender</label>
-  <select
-    value={bookingSettings.selected_calendar_id || ""}
-    disabled={!googleCalendars.length}
-    onChange={(e) => {
-      const selected = googleCalendars.find(
-        (c) => c.id === e.target.value
-      );
-
-      setBookingSettings({
-        ...bookingSettings,
-        selected_calendar_id: e.target.value,
-        selected_calendar_name: selected?.summary || "",
-      });
-    }}
-  >
-<div>
   <label>Poise Kalender</label>
 
   <input
@@ -1743,6 +1726,7 @@ return (
   <label>Mindestvorlaufzeit (Stunden)</label>
   <input
     type="number"
+    min={0}
     value={bookingSettings.min_booking_notice_hours || 24}
     onChange={(e) =>
       setBookingSettings({
@@ -1764,6 +1748,7 @@ return (
 <div style={{ fontSize: 12, color: "#666", marginTop: 8 }}>
   Klient:innen sehen nur freie Zeitfenster aus dem hinterlegten Poise-Kalender,
   deren Titel mit <strong>POISE SLOT</strong> beginnt.
+  <br />
   Standard: 60 Minuten Sitzung + 10 Minuten Puffer.
 </div>
     </div>
