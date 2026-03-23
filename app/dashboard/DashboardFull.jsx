@@ -1647,7 +1647,14 @@ return (
         Online Buchung aktivieren
       </label>
 
-      <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 12 }}>
+      <div
+        style={{
+          display: "flex",
+          gap: 12,
+          flexWrap: "wrap",
+          marginBottom: 12,
+        }}
+      >
         <div>
           <label>Termin Dauer (Min)</label>
           <input
@@ -1675,23 +1682,25 @@ return (
             }
           />
         </div>
-<div>
-  <label>Mindestvorlaufzeit (Stunden)</label>
-  <input
-    type="number"
-    min={0}
-    value={bookingSettings.min_booking_notice_hours || 24}
-    onChange={(e) =>
-      setBookingSettings({
-        ...bookingSettings,
-        min_booking_notice_hours: Number(e.target.value),
-      })
-    }
-  />
-  <div style={{ fontSize: 12, color: "#666", marginTop: 4 }}>
-    Beispiel: 24 = Termine erst ab 24h Vorlauf buchbar
-  </div>
-</div>
+
+        <div>
+          <label>Mindestvorlaufzeit (Stunden)</label>
+          <input
+            type="number"
+            min={0}
+            value={bookingSettings.min_booking_notice_hours || 24}
+            onChange={(e) =>
+              setBookingSettings({
+                ...bookingSettings,
+                min_booking_notice_hours: Number(e.target.value),
+              })
+            }
+          />
+          <div style={{ fontSize: 12, color: "#666", marginTop: 4 }}>
+            Beispiel: 24 = Termine erst ab 24h Vorlauf buchbar
+          </div>
+        </div>
+
         <div>
           <label>Zeitzone</label>
           <input
@@ -1704,53 +1713,41 @@ return (
             }
           />
         </div>
-<div>
-  <label>Poise Kalender</label>
+      </div>
 
-  <input
-    value={bookingSettings.selected_calendar_name || "Kein Kalender hinterlegt"}
-    disabled
-    style={{
-      width: "100%",
-      background: "#f7f7f7",
-      color: "#555",
-    }}
-  />
+      <div style={{ marginTop: 12 }}>
+        <label>Poise Kalender</label>
+        <input
+          value={
+            bookingSettings.selected_calendar_name || "Kein Kalender hinterlegt"
+          }
+          disabled
+          style={{
+            width: "100%",
+            background: "#f7f7f7",
+            color: "#555",
+          }}
+        />
+        <div style={{ fontSize: 12, color: "#999", marginTop: 4 }}>
+          Dieser Kalender wird zentral von Poise verwaltet.
+        </div>
+      </div>
 
-  <div style={{ fontSize: 12, color: "#999", marginTop: 4 }}>
-    Dieser Kalender wird zentral von Poise verwaltet.
-  </div>
-</div>
+      <button
+        type="button"
+        onClick={saveBookingSettings}
+        disabled={bookingSaving}
+        style={{ marginTop: 12 }}
+      >
+        {bookingSaving ? "Speichere..." : "💾 Speichern"}
+      </button>
 
-<div>
-  <label>Mindestvorlaufzeit (Stunden)</label>
-  <input
-    type="number"
-    min={0}
-    value={bookingSettings.min_booking_notice_hours || 24}
-    onChange={(e) =>
-      setBookingSettings({
-        ...bookingSettings,
-        min_booking_notice_hours: Number(e.target.value),
-      })
-    }
-  />
-</div>
-
-<button
-  type="button"
-  onClick={saveBookingSettings}
-  disabled={bookingSaving}
->
-  {bookingSaving ? "Speichere..." : "💾 Speichern"}
-</button>
-
-<div style={{ fontSize: 12, color: "#666", marginTop: 8 }}>
-  Klient:innen sehen nur freie Zeitfenster aus dem hinterlegten Poise-Kalender,
-  deren Titel mit <strong>POISE SLOT</strong> beginnt.
-  <br />
-  Standard: 60 Minuten Sitzung + 10 Minuten Puffer.
-</div>
+      <div style={{ fontSize: 12, color: "#666", marginTop: 8 }}>
+        Klient:innen sehen nur freie Zeitfenster aus dem hinterlegten
+        Poise-Kalender, deren Titel mit <strong>POISE SLOT</strong> beginnt.
+        <br />
+        Standard: 60 Minuten Sitzung + 10 Minuten Puffer.
+      </div>
     </div>
   </details>
 )}
