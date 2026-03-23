@@ -68,11 +68,17 @@ export async function GET(req) {
     const endDate = addDays(startDate, Math.min(Math.max(days, 1), 60));
 
 const oauth = oauthClient();
+
+if (!process.env.GOOGLE_REFRESH_TOKEN) {
+  return json(
+    { error: "MISSING_GOOGLE_REFRESH_TOKEN" },
+    500
+  );
+}
+
 oauth.setCredentials({
-  access_token: process.env.GOOGLE_ACCESS_TOKEN,
   refresh_token: process.env.GOOGLE_REFRESH_TOKEN,
 });
-
     const calendar = google.calendar({
       version: "v3",
       auth: oauth,
