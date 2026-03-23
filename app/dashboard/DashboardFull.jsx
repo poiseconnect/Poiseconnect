@@ -607,7 +607,6 @@ const [access, setAccess] = useState("loading");
   const [newSessions, setNewSessions] = useState([{ date: "", duration: 60 }]);
   const [bookingSettings, setBookingSettings] = useState(null);
   const [bookingSaving, setBookingSaving] = useState(false);
-  const [googleCalendars, setGoogleCalendars] = useState([]);
   const [myAvailability, setMyAvailability] = useState(true);
 
   // ================= PROPOSALS =================
@@ -954,7 +953,6 @@ useEffect(() => {
   if (!myTeamMemberId) return;
 
   loadBookingSettings();
-  loadGoogleCalendars();
   loadMyAvailability();
 }, [user, role, myTeamMemberId]);
 
@@ -982,44 +980,7 @@ setBookingSettings(
 );
 }
 
-  async function connectGoogleCalendar() {
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
 
-  const res = await fetch("/api/google/start", {
-    headers: {
-      Authorization: `Bearer ${session?.access_token}`,
-    },
-  });
-
-  const json = await res.json();
-
-  if (json.url) {
-    window.location.href = json.url;
-  }
-}
-  async function loadGoogleCalendars() {
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-    
-
-  const res = await fetch("/api/google/calendars", {
-    headers: {
-      Authorization: `Bearer ${session?.access_token}`,
-    },
-  });
-
-  const json = await res.json();
-
-  if (res.ok) {
-    setGoogleCalendars(json.calendars || []);
-  } else {
-    console.log("GOOGLE CALENDARS LOAD ERROR", json);
-    setGoogleCalendars([]);
-  }
-}
   async function loadMyAvailability() {
   if (!myTeamMemberId) return;
 
@@ -1760,44 +1721,50 @@ return (
       });
     }}
   >
-    <option value="">
-      {googleCalendars.length
-        ? "Kalender wählen…"
-        : "Bitte zuerst Google Kalender verbinden"}
-    </option>
+<div>
+  <label>Poise Kalender</label>
 
-    {googleCalendars.map((c) => (
-      <option key={c.id} value={c.id}>
-        {c.summary}
-      </option>
-    ))}
-  </select>
+  <input
+    value={bookingSettings.selected_calendar_name || "Kein Kalender hinterlegt"}
+    disabled
+    style={{
+      width: "100%",
+      background: "#f7f7f7",
+      color: "#555",
+    }}
+  />
 
-  {!googleCalendars.length && (
-    <div style={{ fontSize: 12, color: "#999", marginTop: 4 }}>
-      Nach dem Verbinden werden hier alle verfügbaren Google Kalender angezeigt.
-    </div>
-  )}
+  <div style={{ fontSize: 12, color: "#999", marginTop: 4 }}>
+    Dieser Kalender wird zentral von Poise verwaltet.
+  </div>
 </div>
-      </div>
 
-      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-        <button type="button" onClick={connectGoogleCalendar}>
-          🔗 Google Kalender verbinden
-        </button>
+<div>
+  <label>Mindestvorlaufzeit (Stunden)</label>
+  <input
+    type="number"
+    value={bookingSettings.min_booking_notice_hours || 24}
+    onChange={(e) =>
+      setBookingSettings({
+        ...bookingSettings,
+        min_booking_notice_hours: Number(e.target.value),
+      })
+    }
+  />
+</div>
 
-        <button
-          type="button"
-          onClick={saveBookingSettings}
-          disabled={bookingSaving}
-        >
-          {bookingSaving ? "Speichere..." : "💾 Speichern"}
-        </button>
-      </div>
+<button
+  type="button"
+  onClick={saveBookingSettings}
+  disabled={bookingSaving}
+>
+  {bookingSaving ? "Speichere..." : "💾 Speichern"}
+</button>
 
 <div style={{ fontSize: 12, color: "#666", marginTop: 8 }}>
-  Client sieht nur Events aus dem gewählten Kalender, deren Titel mit <strong>POISE SLOT</strong> beginnt.
-  Standard: 60 Minuten Termin + 10 Minuten Pause.
+  Klient:innen sehen nur freie Zeitfenster aus dem hinterlegten Poise-Kalender,
+  deren Titel mit <strong>POISE SLOT</strong> beginnt.
+  Standard: 60 Minuten Sitzung + 10 Minuten Puffer.
 </div>
     </div>
   </details>
