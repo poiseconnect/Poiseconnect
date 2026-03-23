@@ -94,22 +94,12 @@ export async function POST(req) {
       return json({ error: "NO_CALENDAR_SELECTED" }, 400);
     }
 
-    // 3) Google Tokens laden
-    const { data: tokens, error: tokenErr } = await sb
-      .from("therapist_google_tokens")
-      .select("*")
-      .eq("therapist_id", therapistId)
-      .single();
+const oauth = oauthClient();
 
-    if (tokenErr || !tokens) {
-      return json(
-        {
-          error: "GOOGLE_NOT_CONNECTED",
-          detail: tokenErr?.message || null,
-        },
-        400
-      );
-    }
+oauth.setCredentials({
+  access_token: process.env.GOOGLE_ACCESS_TOKEN,
+  refresh_token: process.env.GOOGLE_REFRESH_TOKEN,
+});
 
     // 4) Therapeut laden
     const { data: therapistMember, error: therapistErr } = await sb
@@ -128,13 +118,6 @@ export async function POST(req) {
       );
     }
 
-    // 5) OAuth vorbereiten
-    const oauth = oauthClient();
-    oauth.setCredentials({
-      access_token: tokens.access_token || undefined,
-      refresh_token: tokens.refresh_token || undefined,
-      expiry_date: tokens.expiry_date || undefined,
-    });
 
     const calendar = google.calendar({
       version: "v3",
