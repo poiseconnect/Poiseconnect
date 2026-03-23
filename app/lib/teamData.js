@@ -350,7 +350,7 @@ scores: {
 {
     id: "64699791-6203-416e-bab9-6abe043ac454",
   name: "Gerhard",
-  calendar_mode: "booking",
+  calendar_mode: "Proposal",
   role: "Coach, systemischer Berater, Mediator",
   qualificationLevel: 6,
   image: "https://mypoise.de/wp-content/uploads/2025/04/Frontfoto-1024x1024.jpg",
