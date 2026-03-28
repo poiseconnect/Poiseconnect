@@ -5,6 +5,7 @@ import { supabase } from "../lib/supabase";
 import { teamData } from "../lib/teamData";
 import jsPDF from "jspdf";
 import "jspdf-autotable";
+import ActionMenu from "../components/ActionMenu";
 
 // ================= POISE DASHBOARD COLORS =================
 const POISE_COLORS = {
@@ -114,6 +115,7 @@ const STATUS_LABEL = {
 
 };
 const STATUS_FILTER_MAP = {
+  
   unbearbeitet: ["neu", "termin_neu"],
 erstgespraech: ["termin_bestaetigt"],
   admin_pruefen: ["admin_pruefen", "admin_weiterleiten"],
@@ -136,7 +138,36 @@ erstgespraech: ["termin_bestaetigt"],
 
 
 
+const TAB_ACTIONS = {
+  unbearbeitet: [
+    { key: "confirm", label: "✅ Termin bestätigen" },
+    { key: "new_appointment", label: "🔁 Neuer Termin" },
+    { key: "forward", label: "➡️ Weiterleiten" },
+    { key: "no_match", label: "❌ Kein Match" },
+  ],
 
+  erstgespraech: [
+    { key: "match", label: "❤️ Match" },
+    { key: "new_appointment", label: "🔁 Neuer Termin" },
+    { key: "no_match", label: "❌ Kein Match" },
+  ],
+
+  aktiv: [
+    { key: "finish", label: "🔴 Coaching beenden" },
+    { key: "reassign", label: "👥 Therapeut wechseln" },
+    { key: "copy_link", label: "🔗 Link kopieren" },
+    { key: "send_link", label: "📧 Link senden" },
+  ],
+
+  beendet: [
+    { key: "reactivate", label: "🔄 Reaktivieren" },
+  ],
+
+  papierkorb: [
+    { key: "restore", label: "♻️ Wiederherstellen" },
+    { key: "delete", label: "🗑 Löschen" },
+  ],
+};
 
 const UNBEARBEITET = ["neu", "termin_neu"];
 
@@ -581,6 +612,46 @@ async function deleteForever(r) {
   // 🔄 Frontend-State aktualisieren
   location.reload();
 }
+async function handleAction(action, r) {
+  try {
+    if (action === "confirm") {
+      await updateRequestStatus({
+        requestId: r.id,
+        status: "termin_bestaetigt",
+        client: r.email,
+        vorname: r.vorname,
+      });
+    }
+
+    if (action === "no_match") {
+      await updateRequestStatus({
+        requestId: r.id,
+        status: "papierkorb",
+      });
+    }
+
+    if (action === "copy_link") {
+      await copyBookingLink(r);
+    }
+
+    if (action === "send_link") {
+      await sendBookingLink(r);
+    }
+
+    if (action === "restore") {
+      await restoreFromTrash(r);
+    }
+
+    if (action === "delete") {
+      await deleteForever(r);
+    }
+
+  } catch (err) {
+    console.error("ACTION ERROR", err);
+  }
+
+  setOpenMenuId(null);
+}
 /* ================= DASHBOARD ================= */
 
 export default function DashboardFull() {
@@ -595,6 +666,7 @@ const [access, setAccess] = useState("loading");
   const [billingSessions, setBillingSessions] = useState([]);
   const [selectedClientId, setSelectedClientId] = useState("alle");
   const [filter, setFilter] = useState("unbearbeitet");
+  const [openMenuId, setOpenMenuId] = useState(null);
  
   
 
@@ -2216,18 +2288,42 @@ const calendarMode =
               : null;
 
           return (
-          <article
+<article
   key={`${r.id}-${(sessionsByRequest[String(r.id)] || []).length}`}
   style={{
     border: "1px solid #ddd",
     borderRadius: 12,
     padding: 16,
     marginBottom: 16,
+    position: "relative", // 🔥 NEU
   }}
 >
               <strong>
                 {safeText(r.vorname, "")} {safeText(r.nachname, "")}
               </strong>
+  <div style={{ position: "absolute", top: 10, right: 10 }}>
+  <button
+    onClick={() =>
+      setOpenMenuId(openMenuId === r.id ? null : r.id)
+    }
+    style={{
+      border: "none",
+      background: "#eee",
+      borderRadius: 8,
+      padding: "4px 8px",
+      cursor: "pointer",
+    }}
+  >
+    •••
+  </button>
+
+  {openMenuId === r.id && (
+    <ActionMenu
+      actions={TAB_ACTIONS[filter] || []}
+      onAction={(action) => handleAction(action, r)}
+    />
+  )}
+</div>
 
               <div>{STATUS_LABEL[r._status] || safeText(r._status)}</div>
 
