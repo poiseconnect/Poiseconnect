@@ -711,6 +711,94 @@ function getActionsForRequest(r, sessionList = []) {
 
   return [{ key: "details", label: "🔍 Details" }];
 }
+
+/* ================= DASHBOARD ================= */
+
+export default function DashboardFull() {
+  const [user, setUser] = useState(null);
+  const [requests, setRequests] = useState([]);
+const [role, setRole] = useState(null); // "admin" | "therapist"
+  const isAdmin = role === "admin";
+const [myUserId, setMyUserId] = useState(null);
+  const [myTeamMemberId, setMyTeamMemberId] = useState(null);
+const [access, setAccess] = useState("loading");
+  const [sessionsByRequest, setSessionsByRequest] = useState({});
+  const [billingSessions, setBillingSessions] = useState([]);
+  const [selectedClientId, setSelectedClientId] = useState("alle");
+  const [filter, setFilter] = useState("unbearbeitet");
+  const [openMenuId, setOpenMenuId] = useState(null);
+ 
+  
+
+  const [therapistFilter, setTherapistFilter] = useState("alle");
+  const [search, setSearch] = useState("");
+  const [sort, setSort] = useState("last"); // last | name
+
+  const [detailsModal, setDetailsModal] = useState(null);
+  const [editTarif, setEditTarif] = useState("");
+  const [newSessions, setNewSessions] = useState([{ date: "", duration: 60 }]);
+  const [bookingSettings, setBookingSettings] = useState(null);
+  const [bookingSaving, setBookingSaving] = useState(false);
+  const [myAvailability, setMyAvailability] = useState(true);
+
+  // ================= PROPOSALS =================
+const [proposalModal, setProposalModal] = useState(null);
+const [proposalDates, setProposalDates] = useState([
+  { date: "" },
+  { date: "" },
+  { date: "" },
+]);
+
+  const [reassignModal, setReassignModal] = useState(null);
+  const [newTherapist, setNewTherapist] = useState("");
+
+  const [createBestandOpen, setCreateBestandOpen] = useState(false);
+  const [bestandVorname, setBestandVorname] = useState("");
+  const [bestandNachname, setBestandNachname] = useState("");
+  const [bestandTherapeut, setBestandTherapeut] = useState("");
+  const handleLogout = async () => {
+  const { error } = await supabase.auth.signOut();
+
+  if (error) {
+    console.error("Logout fehlgeschlagen:", error);
+    alert("Logout fehlgeschlagen");
+    return;
+  }
+
+  // 🔥 WICHTIG: kompletter Reload, sonst bleibt alte Session
+  window.location.href = "/";
+};
+
+ 
+  // ================= ABRECHNUNG FILTER =================
+const [billingMode, setBillingMode] = useState("monat");
+// "monat" | "quartal" | "jahr" | "einzeln"
+
+const now = new Date();
+const [billingYear, setBillingYear] = useState(now.getFullYear());
+const [billingMonth, setBillingMonth] = useState(now.getMonth() + 1);
+const [billingQuarter, setBillingQuarter] = useState(
+  Math.floor(now.getMonth() / 3) + 1
+);
+
+const [billingDate, setBillingDate] = useState(""); // YYYY-MM-DD
+
+const [invoiceSettings, setInvoiceSettings] = useState({
+  company_name: "",
+  address: "",
+  iban: "",
+  bic: "",
+  logo_url: "",
+  tax_number: "",        // 🔥 NEU
+  vat_number: "",        // 🔥 UID Nummer
+  default_vat_country: "AT",
+  default_vat_rate: 0,
+});
+
+const [invoiceLoading, setInvoiceLoading] = useState(false);
+
+
+
 async function handleAction(action, r, sessionList = [], calendarModeParam) {
   try {
     const therapistId =
@@ -940,94 +1028,6 @@ async function handleAction(action, r, sessionList = [], calendarModeParam) {
 
   setOpenMenuId(null);
 }
-/* ================= DASHBOARD ================= */
-
-export default function DashboardFull() {
-  const [user, setUser] = useState(null);
-  const [requests, setRequests] = useState([]);
-const [role, setRole] = useState(null); // "admin" | "therapist"
-  const isAdmin = role === "admin";
-const [myUserId, setMyUserId] = useState(null);
-  const [myTeamMemberId, setMyTeamMemberId] = useState(null);
-const [access, setAccess] = useState("loading");
-  const [sessionsByRequest, setSessionsByRequest] = useState({});
-  const [billingSessions, setBillingSessions] = useState([]);
-  const [selectedClientId, setSelectedClientId] = useState("alle");
-  const [filter, setFilter] = useState("unbearbeitet");
-  const [openMenuId, setOpenMenuId] = useState(null);
- 
-  
-
-  const [therapistFilter, setTherapistFilter] = useState("alle");
-  const [search, setSearch] = useState("");
-  const [sort, setSort] = useState("last"); // last | name
-
-  const [detailsModal, setDetailsModal] = useState(null);
-  const [editTarif, setEditTarif] = useState("");
-  const [newSessions, setNewSessions] = useState([{ date: "", duration: 60 }]);
-  const [bookingSettings, setBookingSettings] = useState(null);
-  const [bookingSaving, setBookingSaving] = useState(false);
-  const [myAvailability, setMyAvailability] = useState(true);
-
-  // ================= PROPOSALS =================
-const [proposalModal, setProposalModal] = useState(null);
-const [proposalDates, setProposalDates] = useState([
-  { date: "" },
-  { date: "" },
-  { date: "" },
-]);
-
-  const [reassignModal, setReassignModal] = useState(null);
-  const [newTherapist, setNewTherapist] = useState("");
-
-  const [createBestandOpen, setCreateBestandOpen] = useState(false);
-  const [bestandVorname, setBestandVorname] = useState("");
-  const [bestandNachname, setBestandNachname] = useState("");
-  const [bestandTherapeut, setBestandTherapeut] = useState("");
-  const handleLogout = async () => {
-  const { error } = await supabase.auth.signOut();
-
-  if (error) {
-    console.error("Logout fehlgeschlagen:", error);
-    alert("Logout fehlgeschlagen");
-    return;
-  }
-
-  // 🔥 WICHTIG: kompletter Reload, sonst bleibt alte Session
-  window.location.href = "/";
-};
-
- 
-  // ================= ABRECHNUNG FILTER =================
-const [billingMode, setBillingMode] = useState("monat");
-// "monat" | "quartal" | "jahr" | "einzeln"
-
-const now = new Date();
-const [billingYear, setBillingYear] = useState(now.getFullYear());
-const [billingMonth, setBillingMonth] = useState(now.getMonth() + 1);
-const [billingQuarter, setBillingQuarter] = useState(
-  Math.floor(now.getMonth() / 3) + 1
-);
-
-const [billingDate, setBillingDate] = useState(""); // YYYY-MM-DD
-
-const [invoiceSettings, setInvoiceSettings] = useState({
-  company_name: "",
-  address: "",
-  iban: "",
-  bic: "",
-  logo_url: "",
-  tax_number: "",        // 🔥 NEU
-  vat_number: "",        // 🔥 UID Nummer
-  default_vat_country: "AT",
-  default_vat_rate: 0,
-});
-
-const [invoiceLoading, setInvoiceLoading] = useState(false);
-
-
-
-
 
 
   /* ---------- LOAD USER ---------- */
@@ -2746,7 +2746,7 @@ const calendarMode =
   onClick={() => {
     setDetailsModal({
       ...r,
-     _status: "active",
+     _status: r.status,
     });
     setEditTarif(r.honorar_klient || "");
     setNewSessions([{ date: "", duration: 60 }]);
@@ -2832,7 +2832,7 @@ const calendarMode =
         return;
       }
 
-if (calendarMode === "ics") {
+if (calendarMode === "booking") {
   const therapistName =
     r.wunschtherapeut ||
     sessionsByRequest[String(r.id)]?.[0]?.therapist;
@@ -2861,13 +2861,13 @@ if (calendarMode === "ics") {
 
     }}
   >
-    {calendarMode === "ics"
+    {calendarMode === "booking"
       ? "🔁 Neuer Termin"
       : "📩 Terminvorschläge senden"}
   </button>
 
   <div style={{ fontSize: 12, opacity: 0.7, marginTop: 4 }}>
-    {calendarMode === "ics"
+    {calendarMode === "booking"
       ? "Termin passt nicht – Klient:in wählt neu"
       : "Therapeut schlägt Zeiten vor"}
   </div>
@@ -3003,7 +3003,7 @@ if (calendarMode === "ics") {
 <div style={{ maxWidth: 220 }}>
   <button
     onClick={async () => {
-      if (calendarMode === "ics") {
+      if (calendarMode === "booking") {
         const therapistName =
           r.wunschtherapeut ||
           sessionsByRequest[String(r.id)]?.[0]?.therapist;
@@ -3044,7 +3044,7 @@ if (calendarMode === "ics") {
   </button>
 
   <div style={{ fontSize: 12, opacity: 0.7, marginTop: 4 }}>
-    {calendarMode === "ics"
+    {calendarMode === "booking"
       ? "Klient:in wählt neuen Termin"
       : "Therapeut schlägt neue Zeiten vor"}
   </div>
