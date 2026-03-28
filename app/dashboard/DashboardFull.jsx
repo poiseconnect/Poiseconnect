@@ -801,11 +801,13 @@ const [invoiceLoading, setInvoiceLoading] = useState(false);
 
 async function handleAction(action, r, sessionList = [], calendarModeParam) {
   try {
-    const therapistId =
-      r.assigned_therapist_id || sessionList?.[0]?.therapist_id;
+const therapistId =
+  r.assigned_therapist_id ||
+  sessionList?.[0]?.therapist_id ||
+  teamData.find((t) => t.name === r.wunschtherapeut)?.id ||
+  null;
 
-    const calendarMode =
-      calendarModeParam || getCalendarModeByTherapistId(therapistId);
+const calendarMode = getCalendarModeByTherapistId(therapistId);
 
     if (action === "details") {
       setDetailsModal({
