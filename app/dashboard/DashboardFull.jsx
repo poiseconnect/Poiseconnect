@@ -138,43 +138,14 @@ erstgespraech: ["termin_bestaetigt"],
 
 
 
-const TAB_ACTIONS = {
-  unbearbeitet: [
-    { key: "confirm", label: "✅ Termin bestätigen" },
-    { key: "new_appointment", label: "🔁 Neuer Termin" },
-    { key: "forward", label: "➡️ Weiterleiten" },
-    { key: "no_match", label: "❌ Kein Match" },
-  ],
 
-  erstgespraech: [
-    { key: "match", label: "❤️ Match" },
-    { key: "new_appointment", label: "🔁 Neuer Termin" },
-    { key: "no_match", label: "❌ Kein Match" },
-  ],
-
-  aktiv: [
-    { key: "finish", label: "🔴 Coaching beenden" },
-    { key: "reassign", label: "👥 Therapeut wechseln" },
-    { key: "copy_link", label: "🔗 Link kopieren" },
-    { key: "send_link", label: "📧 Link senden" },
-  ],
-
-  beendet: [
-    { key: "reactivate", label: "🔄 Reaktivieren" },
-  ],
-
-  papierkorb: [
-    { key: "restore", label: "♻️ Wiederherstellen" },
-    { key: "delete", label: "🗑 Löschen" },
-  ],
-};
 
 const UNBEARBEITET = ["neu", "termin_neu"];
 
 // ================= CALENDAR MODE HELPER =================
 function getCalendarModeByTherapistId(id) {
   const t = teamData.find((x) => x.id === id);
-  return t?.calendar_mode || "ics"; // fallback = alter flow
+  return t?.calendar_mode || "booking"; // fallback = alter flow
 }
 
 
@@ -612,8 +583,153 @@ async function deleteForever(r) {
   // 🔄 Frontend-State aktualisieren
   location.reload();
 }
-async function handleAction(action, r) {
+function getActionsForRequest(r, sessionList = []) {
+  const status = normalizeStatus(r._status || r.status);
+
+  const therapistId =
+    r.assigned_therapist_id || sessionList?.[0]?.therapist_id;
+
+  const calendarMode = getCalendarModeByTherapistId(therapistId);
+
+  // =========================
+  // NEU / TERMIN_NEU
+  // =========================
+  if (status === "neu" || status === "termin_neu") {
+    const actions = [];
+
+    if (calendarMode === "booking") {
+      if (r.bevorzugte_zeit) {
+        actions.push({ key: "confirm", label: "✅ Termin bestätigen" });
+      }
+
+      actions.push({ key: "new_appointment", label: "🔁 Neuer Termin" });
+      actions.push({ key: "forward", label: "⏸ Keine Kapazitäten" });
+      actions.push({ key: "admin", label: "👥 Anliegen passt nicht zu mir" });
+      actions.push({ key: "no_match", label: "❌ Kein Match (Poise)" });
+      actions.push({ key: "details", label: "🔍 Details" });
+
+      return actions;
+    }
+
+    if (calendarMode === "proposal") {
+      actions.push({ key: "proposal_send", label: "📩 Terminvorschläge senden" });
+      actions.push({ key: "forward", label: "⏸ Keine Kapazitäten" });
+      actions.push({ key: "admin", label: "👥 Anliegen passt nicht zu mir" });
+      actions.push({ key: "no_match", label: "❌ Kein Match (Poise)" });
+      actions.push({ key: "details", label: "🔍 Details" });
+
+      return actions;
+    }
+
+    return [
+      { key: "new_appointment", label: "🔁 Neuer Termin" },
+      { key: "forward", label: "⏸ Keine Kapazitäten" },
+      { key: "admin", label: "👥 Anliegen passt nicht zu mir" },
+      { key: "no_match", label: "❌ Kein Match (Poise)" },
+      { key: "details", label: "🔍 Details" },
+    ];
+  }
+
+  // =========================
+  // TERMIN BESTÄTIGT
+  // =========================
+  if (status === "termin_bestaetigt") {
+    const actions = [
+      { key: "match", label: "❤️ Match" },
+      { key: "no_match", label: "❌ Kein Match (Poise)" },
+      { key: "details", label: "🔍 Details" },
+    ];
+
+    if (calendarMode === "booking") {
+      actions.splice(1, 0, {
+        key: "new_appointment",
+        label: "🔁 Neuer Termin",
+      });
+    }
+
+    if (calendarMode === "proposal") {
+      actions.splice(1, 0, {
+        key: "proposal_send",
+        label: "📩 Neue Vorschläge senden",
+      });
+    }
+
+    return actions;
+  }
+
+  // =========================
+  // ACTIVE
+  // =========================
+  if (status === "active") {
+    const actions = [
+      { key: "details", label: "🔍 Details" },
+      { key: "finish", label: "🔴 Coaching beenden" },
+      { key: "reassign", label: "👥 Therapeut wechseln" },
+    ];
+
+    if (calendarMode === "booking") {
+      actions.push({ key: "copy_link", label: "🔗 Buchungslink kopieren" });
+      actions.push({ key: "send_link", label: "📧 Buchungslink senden" });
+    }
+
+    if (calendarMode === "proposal") {
+      actions.push({ key: "proposal_send", label: "📩 Weitere Vorschläge senden" });
+    }
+
+    return actions;
+  }
+
+  // =========================
+  // BEENDET
+  // =========================
+  if (status === "beendet") {
+    return [
+      { key: "details", label: "🔍 Details" },
+      { key: "reactivate", label: "🔄 Coaching wieder aktivieren" },
+    ];
+  }
+
+  // =========================
+  // PAPIERKORB
+  // =========================
+  if (status === "papierkorb") {
+    return [
+      { key: "details", label: "🔍 Details" },
+      { key: "restore", label: "♻️ Wiederherstellen" },
+      { key: "delete", label: "🗑 Löschen" },
+    ];
+  }
+
+  // =========================
+  // ADMIN
+  // =========================
+  if (status === "admin_pruefen") {
+    return [
+      { key: "details", label: "🔍 Details" },
+    ];
+  }
+
+  return [{ key: "details", label: "🔍 Details" }];
+}
+async function handleAction(action, r, sessionList = [], calendarModeParam) {
   try {
+    const therapistId =
+      r.assigned_therapist_id || sessionList?.[0]?.therapist_id;
+
+    const calendarMode =
+      calendarModeParam || getCalendarModeByTherapistId(therapistId);
+
+    if (action === "details") {
+      setDetailsModal({
+        ...r,
+        _status: r._status,
+      });
+      setEditTarif(r.honorar_klient || "");
+      setNewSessions([{ date: "", duration: 60 }]);
+      setOpenMenuId(null);
+      return;
+    }
+
     if (action === "confirm") {
       await updateRequestStatus({
         requestId: r.id,
@@ -621,6 +737,14 @@ async function handleAction(action, r) {
         client: r.email,
         vorname: r.vorname,
       });
+
+      setRequests((prev) =>
+        prev.map((x) =>
+          x.id === r.id
+            ? { ...x, _status: "termin_bestaetigt", status: "termin_bestaetigt" }
+            : x
+        )
+      );
     }
 
     if (action === "no_match") {
@@ -628,6 +752,154 @@ async function handleAction(action, r) {
         requestId: r.id,
         status: "papierkorb",
       });
+
+      setRequests((prev) =>
+        prev.map((x) =>
+          x.id === r.id
+            ? { ...x, _status: "papierkorb", status: "papierkorb" }
+            : x
+        )
+      );
+    }
+
+    if (action === "forward") {
+      const res = await fetch("/api/forward-request", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          requestId: r.id,
+          client: r.email,
+          vorname: r.vorname,
+          excludedTherapist: r.wunschtherapeut,
+        }),
+      });
+
+      if (!res.ok) {
+        const t = await res.text();
+        console.error("FORWARD FAILED:", t);
+        alert("Fehler bei der Weiterleitung");
+        setOpenMenuId(null);
+        return;
+      }
+
+      setRequests((prev) => prev.filter((x) => x.id !== r.id));
+      alert("📧 Anfrage weitergeleitet – Klient:in wählt neu");
+    }
+
+    if (action === "admin") {
+      await updateRequestStatus({
+        requestId: r.id,
+        status: "admin_weiterleiten",
+      });
+
+      setRequests((prev) =>
+        prev.map((x) =>
+          x.id === r.id
+            ? {
+                ...x,
+                _status: "admin_pruefen",
+                status: "admin_weiterleiten",
+                admin_therapeuten: [],
+              }
+            : x
+        )
+      );
+    }
+
+    if (action === "new_appointment") {
+      const therapistName =
+        r.wunschtherapeut || sessionList?.[0]?.therapist;
+
+      if (!therapistName && calendarMode === "booking") {
+        alert("❌ Keine Therapeut:in gefunden");
+        setOpenMenuId(null);
+        return;
+      }
+
+      if (calendarMode === "booking") {
+        const res = await fetch("/api/new-appointment", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            requestId: r.id,
+            client: r.email,
+            vorname: r.vorname,
+            therapistName,
+            oldSlot: r.bevorzugte_zeit,
+          }),
+        });
+
+        if (!res.ok) {
+          const t = await res.text();
+          console.error("NEW APPOINTMENT FAILED:", t);
+          alert("Fehler beim Senden");
+          setOpenMenuId(null);
+          return;
+        }
+
+        alert("📧 Neue Terminauswahl gesendet");
+      } else {
+        setProposalModal(r);
+        setProposalDates([{ date: "" }, { date: "" }, { date: "" }]);
+      }
+    }
+
+    if (action === "proposal_send") {
+      setProposalModal(r);
+      setProposalDates([{ date: "" }, { date: "" }, { date: "" }]);
+    }
+
+    if (action === "match") {
+      const res = await fetch("/api/match-client", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          anfrageId: r.id,
+          honorar: r.honorar_klient,
+        }),
+      });
+
+      if (!res.ok) {
+        const t = await res.text();
+        console.error("MATCH FAILED:", t);
+        alert("Fehler beim Match");
+        setOpenMenuId(null);
+        return;
+      }
+
+      location.reload();
+      return;
+    }
+
+    if (action === "finish") {
+      const res = await fetch("/api/finish-coaching", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ anfrageId: r.id }),
+      });
+
+      if (!res.ok) {
+        const t = await res.text();
+        console.error("FINISH FAILED:", t);
+        alert("❌ Fehler beim Beenden");
+        setOpenMenuId(null);
+        return;
+      }
+
+      setRequests((prev) =>
+        prev.map((x) =>
+          x.id === r.id
+            ? { ...x, _status: "beendet", status: "beendet" }
+            : x
+        )
+      );
+
+      alert("✅ Coaching beendet");
+    }
+
+    if (action === "reassign") {
+      setReassignModal(r);
+      setNewTherapist("");
     }
 
     if (action === "copy_link") {
@@ -638,14 +910,30 @@ async function handleAction(action, r) {
       await sendBookingLink(r);
     }
 
+    if (action === "reactivate") {
+      await updateRequestStatus({
+        requestId: r.id,
+        status: "active",
+      });
+
+      setRequests((prev) =>
+        prev.map((x) =>
+          x.id === r.id
+            ? { ...x, _status: "active", status: "active" }
+            : x
+        )
+      );
+    }
+
     if (action === "restore") {
       await restoreFromTrash(r);
+      return;
     }
 
     if (action === "delete") {
       await deleteForever(r);
+      return;
     }
-
   } catch (err) {
     console.error("ACTION ERROR", err);
   }
@@ -2317,12 +2605,12 @@ const calendarMode =
     •••
   </button>
 
-  {openMenuId === r.id && (
-    <ActionMenu
-      actions={TAB_ACTIONS[filter] || []}
-      onAction={(action) => handleAction(action, r)}
-    />
-  )}
+{openMenuId === r.id && (
+  <ActionMenu
+    actions={getActionsForRequest(r, sessionList)}
+    onAction={(action) => handleAction(action, r, sessionList, calendarMode)}
+  />
+)}
 </div>
 
               <div>{STATUS_LABEL[r._status] || safeText(r._status)}</div>
