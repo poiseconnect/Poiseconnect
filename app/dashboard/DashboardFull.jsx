@@ -2014,8 +2014,6 @@ return (
     </div>
 )}
 
-
-
   {filter !== "abrechnung" && filter !== "einstellungen" && sortedRequests.length === 0 && (
     <div
       style={{
