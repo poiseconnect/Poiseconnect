@@ -1936,10 +1936,7 @@ return (
       value="admin_pruefen"
       active={filter === "admin_pruefen"}
       onClick={setFilter}
-      color={{
-        base: "#F1EFFF",
-        active: "#6B5AED",
-      }}
+      color={POISE_COLORS.admin_pruefen}
     />
   )}
 
@@ -2016,6 +2013,9 @@ return (
       <small>Aktiver Filter: {filter}</small>
     </div>
 )}
+
+
+
   {filter !== "abrechnung" && filter !== "einstellungen" && sortedRequests.length === 0 && (
     <div
       style={{
