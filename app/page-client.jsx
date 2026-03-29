@@ -757,17 +757,24 @@ useEffect(() => {
 async function loadAvailability() {
     setLoadingAvailability(true);
 
-    try {
+    try {      
+console.log("BROWSER URL", window.location.href);
+console.log("BROWSER USER AGENT", navigator.userAgent);
       const result = [];
 
       // 🔥 1. Lade echte DB-Settings
-      const { data: members } = await supabase
-        .from("team_members")
-        .select("id, available_for_intake");
+ const {
+  data: bookingSettings,
+  error: bookingSettingsError,
+} = await supabase
+  .from("therapist_booking_settings")
+  .select("therapist_id, booking_enabled");
 
-      const { data: bookingSettings } = await supabase
-        .from("therapist_booking_settings")
-        .select("therapist_id, booking_enabled");
+console.log("SUPABASE MEMBERS", members);
+console.log("SUPABASE MEMBERS ERROR", membersError);
+
+console.log("SUPABASE BOOKING SETTINGS", bookingSettings);
+console.log("SUPABASE BOOKING SETTINGS ERROR", bookingSettingsError);;
 
       console.log("SUPABASE MEMBERS", members);
 console.log("SUPABASE BOOKING SETTINGS", bookingSettings);
