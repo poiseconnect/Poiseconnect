@@ -586,10 +586,15 @@ async function deleteForever(r) {
 function getActionsForRequest(r, sessionList = []) {
   const status = normalizeStatus(r._status || r.status);
 
-  const therapistId =
-    r.assigned_therapist_id || sessionList?.[0]?.therapist_id;
+const therapistId =
+  r.assigned_therapist_id ||
+  sessionList?.[0]?.therapist_id ||
+  teamData.find(
+    (t) => t.name === r.wunschtherapeut || t.email === r.wunschtherapeut
+  )?.id ||
+  null;
 
-  const calendarMode = getCalendarModeByTherapistId(therapistId);
+const calendarMode = getCalendarModeByTherapistId(therapistId);
 
   // =========================
   // NEU / TERMIN_NEU
