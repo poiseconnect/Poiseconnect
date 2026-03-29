@@ -10,35 +10,42 @@ import ActionMenu from "../components/ActionMenu";
 // ================= POISE DASHBOARD COLORS =================
 const POISE_COLORS = {
   unbearbeitet: {
-    base: "#E6F0FF",
-    active: "#4C6EF5",
+    base: "#EAF2FB",
+    active: "#3F7DC0",
   },
   erstgespraech: {
     base: "#E8FFF0",
-    active: "#2F9E44",
-  },
-  admin_pruefen: {
-    base: "#FFF4E6",
-    active: "#E8590C",
+    active: "#2E9E63",
   },
   aktiv: {
-    base: "#F3F0FF",
-    active: "#7048E8",
+    base: "#E6F7F0",
+    active: "#1F8A5B",
   },
-  abrechnung: {
-    base: "#F8F0FC",
-    active: "#9C36B5",
-  },
-  papierkorb: {
-    base: "#F1F3F5",
-    active: "#495057",
+  admin_pruefen: {
+    base: "#F1EFFF",
+    active: "#6B5AED",
   },
   beendet: {
-    base: "#EDF2FF",
-    active: "#364FC7",
+    base: "#ECEFF1",
+    active: "#546E7A",
+  },
+  papierkorb: {
+    base: "#FDEEEE",
+    active: "#B83227",
+  },
+  abrechnung: {
+    base: "#FFF4D6",
+    active: "#D39E00",
+  },
+  alle: {
+    base: "#F4F6F8",
+    active: "#2C3E50",
+  },
+  settings: {
+    base: "#F7F1FF",
+    active: "#7B61FF",
   },
 };
-
 // ================= STATUS UPDATE (NEU, ZENTRAL) =================
 async function updateRequestStatus({
   requestId,
