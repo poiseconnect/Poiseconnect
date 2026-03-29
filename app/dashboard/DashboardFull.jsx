@@ -20,7 +20,12 @@ const POISE_COLORS = {
   aktiv: {
     base: "#E3AC1D",     // gelb/orange body
     active: "#0B6E4F",   // dunkelgrüner Kreis
+    
   },
+  admin_pruefen: {
+  base: "#9FC3CF",
+  active: "#7E6BC4",
+},
   abrechnung: {
     base: "#7BC47F",     // grün body
     active: "#F2D98D",   // beige Kreis
