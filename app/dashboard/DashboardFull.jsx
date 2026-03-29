@@ -1580,35 +1580,9 @@ const filteredRequests = useMemo(() => {
   const allowedStatuses = STATUS_FILTER_MAP[filter] || [];
 
   return requests.filter((r) => {
-    const statusMatch = allowedStatuses.includes(r._status);
-    if (!statusMatch) return false;
-
-    return true;
+    return allowedStatuses.includes(r._status);
   });
 }, [requests, filter]);
-
-    const query = search.toLowerCase();
-
-    const fullName =
-      `${r.vorname || ""} ${r.nachname || ""}`.toLowerCase();
-
-    const email = (r.email || "").toLowerCase();
-    const telefon = (r.telefon || "").toLowerCase();
-    const anliegen =
-      typeof r.anliegen === "string"
-        ? r.anliegen.toLowerCase()
-        : "";
-    const therapist = (r.wunschtherapeut || "").toLowerCase();
-
-    return (
-      fullName.includes(query) ||
-      email.includes(query) ||
-      telefon.includes(query) ||
-      anliegen.includes(query) ||
-      therapist.includes(query)
-    );
-  });
-}, [requests, filter, search]);
 
 
 
