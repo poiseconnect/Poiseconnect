@@ -1896,121 +1896,126 @@ return (
   🔒 Logout
 </button>
 
-{/* FILTER */}
-<div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
-  <button
-    onClick={() => setFilter("unbearbeitet")}
-    style={{
-      background: filter === "unbearbeitet" ? "#3F7DC0" : "#EAF2FB",
-      color: filter === "unbearbeitet" ? "#fff" : "#1E2A3A",
-      border: "1px solid #3F7DC0",
-    }}
-  >
-    Unbearbeitet
-  </button>
+{/* FILTER / TABS */}
+<div
+  style={{
+    display: "flex",
+    gap: 18,
+    marginBottom: 24,
+    flexWrap: "wrap",
+    alignItems: "flex-start",
+  }}
+>
+  <DashboardTab
+    label="Unbearbeitet"
+    value="unbearbeitet"
+    active={filter === "unbearbeitet"}
+    onClick={setFilter}
+    color={POISE_COLORS.unbearbeitet}
+  />
 
-  <button
-    onClick={() => setFilter("erstgespraech")}
-    style={{
-      background: filter === "erstgespraech" ? "#2E9E63" : "#E8FFF0",
-      color: filter === "erstgespraech" ? "#fff" : "#1E2A3A",
-      border: "1px solid #2E9E63",
-    }}
-  >
-    🗓 Erstgespräch
-  </button>
+  <DashboardTab
+    label="Erstgespräch"
+    value="erstgespraech"
+    active={filter === "erstgespraech"}
+    onClick={setFilter}
+    color={POISE_COLORS.erstgespraech}
+  />
 
-  <button
-    onClick={() => setFilter("aktiv")}
-    style={{
-      background: filter === "aktiv" ? "#1F8A5B" : "#E6F7F0",
-      color: filter === "aktiv" ? "#fff" : "#1E2A3A",
-      border: "1px solid #1F8A5B",
-    }}
-  >
-    Aktiv
-  </button>
+  <DashboardTab
+    label="Aktiv"
+    value="aktiv"
+    active={filter === "aktiv"}
+    onClick={setFilter}
+    color={POISE_COLORS.aktiv}
+  />
 
-  <button
-    onClick={() => setFilter("admin_pruefen")}
-    style={{
-      background: filter === "admin_pruefen" ? "#6B5AED" : "#F1EFFF",
-      color: filter === "admin_pruefen" ? "#fff" : "#1E2A3A",
-      border: "1px solid #6B5AED",
-    }}
-  >
-    🛂 Admin – Weiterleitungen
-  </button>
-
-  <button
-    onClick={() => setFilter("beendet")}
-    style={{
-      background: filter === "beendet" ? "#546E7A" : "#ECEFF1",
-      color: filter === "beendet" ? "#fff" : "#1E2A3A",
-      border: "1px solid #546E7A",
-    }}
-  >
-    Beendet
-  </button>
-
-  <button
-    onClick={() => setFilter("papierkorb")}
-    style={{
-      background: filter === "papierkorb" ? "#B83227" : "#FDEEEE",
-      color: filter === "papierkorb" ? "#fff" : "#1E2A3A",
-      border: "1px solid #B83227",
-    }}
-  >
-    Papierkorb
-  </button>
-
-  <button
-    onClick={() => setFilter("abrechnung")}
-    style={{
-      background: filter === "abrechnung" ? "#D39E00" : "#FFF4D6",
-      color: filter === "abrechnung" ? "#fff" : "#1E2A3A",
-      border: "1px solid #D39E00",
-    }}
-  >
-    💶 Abrechnung
-  </button>
-
-  <button
-    onClick={() => setFilter("alle")}
-    style={{
-      background: filter === "alle" ? "#2C3E50" : "#F4F6F8",
-      color: filter === "alle" ? "#fff" : "#1E2A3A",
-      border: "1px solid #2C3E50",
-    }}
-  >
-    Alle
-  </button>
-  
-  <button
-    onClick={() => setFilter("einstellungen")}
-    style={{
-      background: filter === "einstellungen" ? "#7B61FF" : "#F7F1FF",
-      color: filter === "einstellungen" ? "#fff" : "#1E2A3A",
-      border: "1px solid #7B61FF",
-    }}
-  >
-    ⚙️ Einstellungen
-  </button>
   {isAdmin && (
+    <DashboardTab
+      label="Admin"
+      value="admin_pruefen"
+      active={filter === "admin_pruefen"}
+      onClick={setFilter}
+      color={{
+        base: "#F1EFFF",
+        active: "#6B5AED",
+      }}
+    />
+  )}
+
+  <DashboardTab
+    label="Abrechnung"
+    value="abrechnung"
+    active={filter === "abrechnung"}
+    onClick={setFilter}
+    color={POISE_COLORS.abrechnung}
+  />
+
+  <DashboardTab
+    label="Beendet"
+    value="beendet"
+    active={filter === "beendet"}
+    onClick={setFilter}
+    color={POISE_COLORS.beendet}
+  />
+
+  <DashboardTab
+    label="Papierkorb"
+    value="papierkorb"
+    active={filter === "papierkorb"}
+    onClick={setFilter}
+    color={POISE_COLORS.papierkorb}
+  />
+
+  <DashboardTab
+    label="Einstellungen"
+    value="einstellungen"
+    active={filter === "einstellungen"}
+    onClick={setFilter}
+    color={POISE_COLORS.einstellungen}
+  />
+</div>
+
+{isAdmin && (
+  <div style={{ marginBottom: 16 }}>
     <select
       value={therapistFilter}
       onChange={(e) => setTherapistFilter(e.target.value)}
+      style={{
+        padding: "8px 12px",
+        borderRadius: 10,
+        border: "1px solid #ccc",
+        background: "#fff",
+      }}
     >
       <option value="alle">Alle Teammitglieder</option>
       {teamData.map((t) => (
-<option key={t.id} value={t.id}>
-  {t.name}
-</option>
+        <option key={t.id} value={t.id}>
+          {t.name}
+        </option>
       ))}
     </select>
-  )}
+  </div>
+)}
 
-
+{filter !== "abrechnung" &&
+  filter !== "einstellungen" &&
+  sortedRequests.length === 0 && (
+    <div
+      style={{
+        padding: 24,
+        textAlign: "center",
+        color: "#777",
+        border: "1px dashed #ccc",
+        borderRadius: 12,
+        marginBottom: 20,
+      }}
+    >
+      Keine Einträge für diesen Filter
+      <br />
+      <small>Aktiver Filter: {filter}</small>
+    </div>
+)}
   {filter !== "abrechnung" && filter !== "einstellungen" && sortedRequests.length === 0 && (
     <div
       style={{
