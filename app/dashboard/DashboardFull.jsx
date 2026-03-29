@@ -23,8 +23,8 @@ const POISE_COLORS = {
     
   },
   admin_pruefen: {
-  base: "#9FC3CF",
-  active: "#7E6BC4",
+  base: "#4C6FFF",
+  active: "#1B2A6B",
 },
   abrechnung: {
     base: "#7BC47F",     // grün body
@@ -1907,8 +1907,10 @@ return (
     display: "flex",
     gap: 18,
     marginBottom: 24,
-    flexWrap: "wrap",
+    flexWrap: "nowrap",
+    overflowX: "auto",
     alignItems: "flex-start",
+    paddingBottom: 10,
   }}
 >
   <DashboardTab
