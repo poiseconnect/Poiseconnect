@@ -47,7 +47,7 @@ const POISE_COLORS = {
     active: "#2C3E50",
   },
 };
-unction DashboardTab({ label, value, active, onClick, color }) {
+function DashboardTab({ label, value, active, onClick, color }) {
   const isMobile =
     typeof window !== "undefined" && window.innerWidth < 768;
 
