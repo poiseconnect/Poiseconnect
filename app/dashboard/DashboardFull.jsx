@@ -48,24 +48,14 @@ const POISE_COLORS = {
   },
 };
 function DashboardTab({ label, value, active, onClick, color }) {
-  const isMobile =
-    typeof window !== "undefined" && window.innerWidth < 768;
-
-  const tabWidth = isMobile ? 88 : 120;
-  const tabHeight = isMobile ? 160 : 220;
-  const circleSize = isMobile ? 96 : 140;
-  const circleTop = isMobile ? -20 : -40;
-  const labelTop = isMobile ? 48 : 70;
-  const labelRight = isMobile ? 6 : 8;
-  const labelFont = isMobile ? 10 : 12;
+  const textColor = value === "einstellungen" ? "#000" : "#fff";
 
   return (
     <div
       onClick={() => onClick(value)}
       style={{
-        width: tabWidth,
-        minWidth: tabWidth,
-        height: tabHeight,
+        width: 120,
+        height: 220,
         borderRadius: 999,
         cursor: "pointer",
         position: "relative",
@@ -74,38 +64,40 @@ function DashboardTab({ label, value, active, onClick, color }) {
         alignItems: "flex-end",
         background: color.base,
         overflow: "hidden",
-        transform: active ? "scale(1.04)" : "scale(1)",
-        boxShadow: active ? "0 10px 24px rgba(0,0,0,0.18)" : "none",
-        transition: "all 0.2s ease",
-        flexShrink: 0,
+        flex: "0 0 auto",
       }}
     >
       <div
         style={{
-          width: circleSize,
-          height: circleSize,
+          width: 140,
+          height: 140,
           borderRadius: "50%",
           background: color.active,
           position: "absolute",
-          top: circleTop,
-        }}
-      />
-
-      <div
-        style={{
-          position: "absolute",
-          right: labelRight,
-          top: labelTop,
-          writingMode: "vertical-rl",
-          transform: "rotate(180deg)",
-          fontSize: labelFont,
-          fontWeight: 700,
-          letterSpacing: 1,
-          color: value === "einstellungen" ? "#000" : "#fff",
-          lineHeight: 1,
+          top: -12,
+          left: "50%",
+          transform: "translateX(-50%)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          padding: 14,
+          boxSizing: "border-box",
         }}
       >
-        {label.toUpperCase()}
+        <div
+          style={{
+            textAlign: "center",
+            fontSize: 17,
+            lineHeight: 1.02,
+            fontWeight: 800,
+            letterSpacing: 0.5,
+            color: textColor,
+            textTransform: "uppercase",
+            wordBreak: "break-word",
+          }}
+        >
+          {label}
+        </div>
       </div>
     </div>
   );
@@ -223,15 +215,15 @@ function getCardStyleByFilter(filter) {
   const c = POISE_COLORS[filter] || POISE_COLORS.alle;
 
   return {
-    background: c.base,
-    border: `1px solid ${c.active}`,
-    borderRadius: 12,
-    padding: 16,
+    background: "#fff",
+    border: `1.5px solid ${c.active}`,
+    borderRadius: 18,
+    padding: 18,
     marginBottom: 16,
     position: "relative",
+    boxShadow: "0 8px 24px rgba(0,0,0,0.06)",
   };
 }
-
 
 /* ================= MODAL ================= */
 
@@ -1920,13 +1912,13 @@ return (
 <div
   style={{
     display: "flex",
-    gap: 12,
-    marginBottom: 20,
+    gap: 18,
+    marginBottom: 24,
     flexWrap: "nowrap",
-    overflowX: "auto",
     alignItems: "flex-start",
-    paddingBottom: 10,
-    WebkitOverflowScrolling: "touch",
+    overflowX: "auto",
+    overflowY: "hidden",
+    paddingBottom: 8,
   }}
 >
   <DashboardTab
@@ -2746,6 +2738,7 @@ const calendarMode =
   <ActionMenu
     actions={getActionsForRequest(r, sessionList)}
     onAction={(action) => handleAction(action, r, sessionList, calendarMode)}
+    color={POISE_COLORS[filter] || POISE_COLORS.alle}
   />
 )}
 </div>
