@@ -2029,21 +2029,6 @@ return (
     </div>
 )}
 
-  {filter !== "abrechnung" && filter !== "einstellungen" && sortedRequests.length === 0 && (
-    <div
-      style={{
-        padding: 24,
-        textAlign: "center",
-        color: "#777",
-        border: "1px dashed #ccc",
-        borderRadius: 12,
-        marginBottom: 20,
-      }}
-    >
-      Keine Einträge für diesen Filter<br />
-      <small>Aktiver Filter: {filter}</small>
-    </div>
-  )}
 {filter === "aktiv" && (
   <div style={{ marginBottom: 16 }}>
     <button
