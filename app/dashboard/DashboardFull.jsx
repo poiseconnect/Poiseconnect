@@ -47,13 +47,25 @@ const POISE_COLORS = {
     active: "#2C3E50",
   },
 };
-function DashboardTab({ label, value, active, onClick, color }) {
+unction DashboardTab({ label, value, active, onClick, color }) {
+  const isMobile =
+    typeof window !== "undefined" && window.innerWidth < 768;
+
+  const tabWidth = isMobile ? 88 : 120;
+  const tabHeight = isMobile ? 160 : 220;
+  const circleSize = isMobile ? 96 : 140;
+  const circleTop = isMobile ? -20 : -40;
+  const labelTop = isMobile ? 48 : 70;
+  const labelRight = isMobile ? 6 : 8;
+  const labelFont = isMobile ? 10 : 12;
+
   return (
     <div
       onClick={() => onClick(value)}
       style={{
-        width: 120,
-        height: 220,
+        width: tabWidth,
+        minWidth: tabWidth,
+        height: tabHeight,
         borderRadius: 999,
         cursor: "pointer",
         position: "relative",
@@ -62,32 +74,35 @@ function DashboardTab({ label, value, active, onClick, color }) {
         alignItems: "flex-end",
         background: color.base,
         overflow: "hidden",
+        transform: active ? "scale(1.04)" : "scale(1)",
+        boxShadow: active ? "0 10px 24px rgba(0,0,0,0.18)" : "none",
+        transition: "all 0.2s ease",
+        flexShrink: 0,
       }}
     >
-      {/* TOP CIRCLE */}
       <div
         style={{
-          width: 140,
-          height: 140,
+          width: circleSize,
+          height: circleSize,
           borderRadius: "50%",
           background: color.active,
           position: "absolute",
-          top: -40,
+          top: circleTop,
         }}
       />
 
-      {/* LABEL */}
       <div
         style={{
           position: "absolute",
-          right: 8,
-          top: 70,
+          right: labelRight,
+          top: labelTop,
           writingMode: "vertical-rl",
           transform: "rotate(180deg)",
-          fontSize: 12,
-          fontWeight: 600,
+          fontSize: labelFont,
+          fontWeight: 700,
           letterSpacing: 1,
           color: value === "einstellungen" ? "#000" : "#fff",
+          lineHeight: 1,
         }}
       >
         {label.toUpperCase()}
@@ -1826,12 +1841,12 @@ if (access === "denied") {
 }
 
 return (
-  <div
-    style={{
-      padding: 24,
-      maxWidth: 1100,
-      margin: "0 auto",
-      minHeight: "100vh",
+<div
+  style={{
+    padding: typeof window !== "undefined" && window.innerWidth < 768 ? 12 : 24,
+    maxWidth: 1100,
+    margin: "0 auto",
+    minHeight: "100vh",
       background:
         role === "admin"
           ? "linear-gradient(180deg,#F8F9FF 0%, #FFFFFF 60%)"
@@ -1905,12 +1920,13 @@ return (
 <div
   style={{
     display: "flex",
-    gap: 18,
-    marginBottom: 24,
+    gap: 12,
+    marginBottom: 20,
     flexWrap: "nowrap",
     overflowX: "auto",
     alignItems: "flex-start",
     paddingBottom: 10,
+    WebkitOverflowScrolling: "touch",
   }}
 >
   <DashboardTab
