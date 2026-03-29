@@ -130,6 +130,7 @@ erstgespraech: ["termin_bestaetigt"],
   abrechnung: ["active"],
   beendet: ["beendet"],
   papierkorb: ["papierkorb"],
+  einstellungen: [],
   alle: [
     "offen",
     "neu",
@@ -153,6 +154,18 @@ const UNBEARBEITET = ["neu", "termin_neu"];
 function getCalendarModeByTherapistId(id) {
   const t = teamData.find((x) => x.id === id);
   return t?.calendar_mode || "booking"; // fallback = alter flow
+}
+function getCardStyleByFilter(filter) {
+  const c = POISE_COLORS[filter] || POISE_COLORS.alle;
+
+  return {
+    background: c.base,
+    border: `1px solid ${c.active}`,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    position: "relative",
+  };
 }
 
 
@@ -593,135 +606,203 @@ async function deleteForever(r) {
 function getActionsForRequest(r, sessionList = []) {
   const status = normalizeStatus(r._status || r.status);
 
-const therapistId =
-  r.assigned_therapist_id ||
-  sessionList?.[0]?.therapist_id ||
-  teamData.find(
-    (t) => t.name === r.wunschtherapeut || t.email === r.wunschtherapeut
-  )?.id ||
-  null;
+  const therapistId =
+    r.assigned_therapist_id ||
+    sessionList?.[0]?.therapist_id ||
+    teamData.find((t) => t.name === r.wunschtherapeut)?.id ||
+    null;
 
-const calendarMode = getCalendarModeByTherapistId(therapistId);
+  const calendarMode = getCalendarModeByTherapistId(therapistId);
 
-  // =========================
-  // NEU / TERMIN_NEU
-  // =========================
   if (status === "neu" || status === "termin_neu") {
     const actions = [];
 
-    if (calendarMode === "booking") {
-      if (r.bevorzugte_zeit) {
-        actions.push({ key: "confirm", label: "✅ Termin bestätigen" });
-      }
-
-      actions.push({ key: "new_appointment", label: "🔁 Neuer Termin" });
-      actions.push({ key: "forward", label: "⏸ Keine Kapazitäten" });
-      actions.push({ key: "admin", label: "👥 Anliegen passt nicht zu mir" });
-      actions.push({ key: "no_match", label: "❌ Kein Match (Poise)" });
-      actions.push({ key: "details", label: "🔍 Details" });
-
-      return actions;
+    if (calendarMode === "booking" && r.bevorzugte_zeit) {
+      actions.push({
+        key: "confirm",
+        label: "✅ Termin bestätigen",
+        hint: "Anliegen passt zu mir – ich führe das Erstgespräch",
+      });
     }
 
-    if (calendarMode === "proposal") {
-      actions.push({ key: "proposal_send", label: "📩 Terminvorschläge senden" });
-      actions.push({ key: "forward", label: "⏸ Keine Kapazitäten" });
-      actions.push({ key: "admin", label: "👥 Anliegen passt nicht zu mir" });
-      actions.push({ key: "no_match", label: "❌ Kein Match (Poise)" });
-      actions.push({ key: "details", label: "🔍 Details" });
-
-      return actions;
-    }
-
-    return [
-      { key: "new_appointment", label: "🔁 Neuer Termin" },
-      { key: "forward", label: "⏸ Keine Kapazitäten" },
-      { key: "admin", label: "👥 Anliegen passt nicht zu mir" },
-      { key: "no_match", label: "❌ Kein Match (Poise)" },
-      { key: "details", label: "🔍 Details" },
-    ];
-  }
-
-  // =========================
-  // TERMIN BESTÄTIGT
-  // =========================
-  if (status === "termin_bestaetigt") {
-    const actions = [
-      { key: "match", label: "❤️ Match" },
-      { key: "no_match", label: "❌ Kein Match (Poise)" },
-      { key: "details", label: "🔍 Details" },
-    ];
-
     if (calendarMode === "booking") {
-      actions.splice(1, 0, {
+      actions.push({
         key: "new_appointment",
         label: "🔁 Neuer Termin",
+        hint: "Termin passt nicht – Klient:in wählt neu",
       });
     }
 
     if (calendarMode === "proposal") {
-      actions.splice(1, 0, {
+      actions.push({
         key: "proposal_send",
-        label: "📩 Neue Vorschläge senden",
+        label: "📩 Terminvorschläge senden",
+        hint: "Therapeut schlägt Zeiten vor",
       });
     }
+
+    actions.push({
+      key: "forward",
+      label: "⏸ Keine Kapazitäten",
+      hint: "Anliegen passt, aber aktuell keine Kapazitäten",
+    });
+
+    actions.push({
+      key: "admin",
+      label: "👥 Anliegen passt nicht zu mir",
+      hint: "Admin wählt passende Therapeut:innen",
+    });
+
+    actions.push({
+      key: "no_match",
+      label: "❌ Kein Match (Poise)",
+      hint: "Anliegen passt grundsätzlich nicht zu Poise",
+    });
+
+    actions.push({
+      key: "details",
+      label: "🔍 Details",
+      hint: "Alle Angaben und Verlauf ansehen",
+    });
 
     return actions;
   }
 
-  // =========================
-  // ACTIVE
-  // =========================
-  if (status === "active") {
+  if (status === "termin_bestaetigt") {
     const actions = [
-      { key: "details", label: "🔍 Details" },
-      { key: "finish", label: "🔴 Coaching beenden" },
-      { key: "reassign", label: "👥 Therapeut wechseln" },
+      {
+        key: "match",
+        label: "❤️ Match",
+        hint: "Erstgespräch war passend – Begleitung startet",
+      },
     ];
 
     if (calendarMode === "booking") {
-      actions.push({ key: "copy_link", label: "🔗 Buchungslink kopieren" });
-      actions.push({ key: "send_link", label: "📧 Buchungslink senden" });
+      actions.push({
+        key: "new_appointment",
+        label: "🔁 Neuer Termin",
+        hint: "Klient:in wählt neuen Termin",
+      });
     }
 
     if (calendarMode === "proposal") {
-      actions.push({ key: "proposal_send", label: "📩 Weitere Vorschläge senden" });
+      actions.push({
+        key: "proposal_send",
+        label: "📩 Neue Vorschläge senden",
+        hint: "Therapeut schlägt neue Zeiten vor",
+      });
+    }
+
+    actions.push({
+      key: "no_match",
+      label: "❌ Kein Match (Poise)",
+      hint: "Anliegen passt grundsätzlich nicht zu Poise",
+    });
+
+    actions.push({
+      key: "details",
+      label: "🔍 Details",
+      hint: "Alle Angaben und Verlauf ansehen",
+    });
+
+    return actions;
+  }
+
+  if (status === "active") {
+    const actions = [
+      {
+        key: "details",
+        label: "🔍 Details",
+        hint: "Sitzungen, Tarif und Verlauf ansehen",
+      },
+      {
+        key: "finish",
+        label: "🔴 Coaching beenden",
+        hint: "Klient:in in beendet verschieben",
+      },
+      {
+        key: "reassign",
+        label: "👥 Therapeut wechseln",
+        hint: "An Admin zur Neuverteilung geben",
+      },
+    ];
+
+    if (calendarMode === "booking") {
+      actions.push({
+        key: "copy_link",
+        label: "🔗 Buchungslink kopieren",
+        hint: "Link für weitere Terminbuchungen kopieren",
+      });
+      actions.push({
+        key: "send_link",
+        label: "📧 Buchungslink senden",
+        hint: "Link direkt per Mail an Klient:in senden",
+      });
+    }
+
+    if (calendarMode === "proposal") {
+      actions.push({
+        key: "proposal_send",
+        label: "📩 Weitere Vorschläge senden",
+        hint: "Neue Zeitvorschläge an Klient:in senden",
+      });
     }
 
     return actions;
   }
 
-  // =========================
-  // BEENDET
-  // =========================
   if (status === "beendet") {
     return [
-      { key: "details", label: "🔍 Details" },
-      { key: "reactivate", label: "🔄 Coaching wieder aktivieren" },
+      {
+        key: "details",
+        label: "🔍 Details",
+        hint: "Verlauf und Daten ansehen",
+      },
+      {
+        key: "reactivate",
+        label: "🔄 Coaching wieder aktivieren",
+        hint: "Klient:in zurück in aktiv setzen",
+      },
     ];
   }
 
-  // =========================
-  // PAPIERKORB
-  // =========================
   if (status === "papierkorb") {
     return [
-      { key: "details", label: "🔍 Details" },
-      { key: "restore", label: "♻️ Wiederherstellen" },
-      { key: "delete", label: "🗑 Löschen" },
+      {
+        key: "details",
+        label: "🔍 Details",
+        hint: "Eintrag ansehen",
+      },
+      {
+        key: "restore",
+        label: "♻️ Wiederherstellen",
+        hint: "Anfrage zurückholen",
+      },
+      {
+        key: "delete",
+        label: "🗑 Löschen",
+        hint: "Anfrage endgültig löschen",
+      },
     ];
   }
 
-  // =========================
-  // ADMIN
-  // =========================
   if (status === "admin_pruefen") {
     return [
-      { key: "details", label: "🔍 Details" },
+      {
+        key: "details",
+        label: "🔍 Details",
+        hint: "Angaben ansehen",
+      },
     ];
   }
 
-  return [{ key: "details", label: "🔍 Details" }];
+  return [
+    {
+      key: "details",
+      label: "🔍 Details",
+      hint: "Angaben ansehen",
+    },
+  ];
 }
 
 /* ================= DASHBOARD ================= */
@@ -1898,17 +1979,6 @@ return (
     </select>
   )}
 
-  <input
-    placeholder="🔍 Klient:in suchen…"
-    value={search}
-    onChange={(e) => setSearch(e.target.value)}
-    style={{
-      padding: "6px 10px",
-      borderRadius: 8,
-      border: "1px solid #ccc",
-      minWidth: 220,
-    }}
-  />
 
   {filter !== "abrechnung" && sortedRequests.length === 0 && (
     <div
@@ -1926,20 +1996,6 @@ return (
     </div>
   )}
 
-  {filter !== "abrechnung" && (
-    <select
-      value={sort}
-      onChange={(e) => setSort(e.target.value)}
-      style={{
-        padding: "6px 10px",
-        borderRadius: 8,
-        border: "1px solid #ccc",
-      }}
-    >
-      <option value="last">Letzte Aktivität</option>
-      <option value="name">Name A–Z</option>
-    </select>
-  )}
 </div>
 
 {filter === "aktiv" && (
@@ -1958,173 +2014,186 @@ return (
     </button>
   </div>
 )}
+
+
+    {/* ================= EINSTELLUNGEN ================= */}
+{filter === "einstellungen" && (
+  <section
+    style={{
+      border: "1px solid #ddd",
+      borderRadius: 12,
+      padding: 16,
+      background: "#fff",
+    }}
+  >
+    <h2 style={{ marginTop: 0 }}>⚙️ Einstellungen</h2>
+
     {role === "therapist" && (
-  <div
-    style={{
-      marginBottom: 16,
-      border: "1px solid #eee",
-      borderRadius: 10,
-      background: "#FAFAFA",
-      padding: 10,
-    }}
-  >
-    <div style={{ fontWeight: 600, marginBottom: 8 }}>
-      Sichtbarkeit im Anfrageformular
-    </div>
-
-    <div style={{ fontSize: 12, color: "#666", marginBottom: 10 }}>
-      Hier steuerst du, ob du für neue Klient:innen im Formular auswählbar bist.
-    </div>
-
-    <button
-      type="button"
-      onClick={() => toggleMyAvailability(!myAvailability)}
-      style={{
-        padding: "8px 14px",
-        borderRadius: 999,
-        border: "1px solid #ccc",
-        background: myAvailability ? "#E8FFF0" : "#FFF4E6",
-        fontWeight: 600,
-      }}
-    >
-      {myAvailability
-        ? "🟢 Verfügbar – im Formular sichtbar"
-        : "⏸ Nicht verfügbar – im Formular ausgeblendet"}
-    </button>
-  </div>
-)}
-{role === "therapist" && bookingSettings && (
-  <details
-    style={{
-      marginBottom: 16,
-      border: "1px solid #eee",
-      borderRadius: 10,
-      background: "#FAFAFA",
-      padding: 10,
-    }}
-  >
-    <summary style={{ cursor: "pointer", fontWeight: 600 }}>
-      📅 Online Terminbuchung
-    </summary>
-
-    <div style={{ marginTop: 12 }}>
-      <label style={{ display: "block", marginBottom: 10 }}>
-        <input
-          type="checkbox"
-          checked={!!bookingSettings.booking_enabled}
-          onChange={(e) =>
-            setBookingSettings({
-              ...bookingSettings,
-              booking_enabled: e.target.checked,
-            })
-          }
-        />{" "}
-        Online Buchung aktivieren
-      </label>
-
-      <div
-        style={{
-          display: "flex",
-          gap: 12,
-          flexWrap: "wrap",
-          marginBottom: 12,
-        }}
-      >
-        <div>
-          <label>Termin Dauer (Min)</label>
-          <input
-            type="number"
-            value={bookingSettings.slot_duration_min || 60}
-            onChange={(e) =>
-              setBookingSettings({
-                ...bookingSettings,
-                slot_duration_min: Number(e.target.value),
-              })
-            }
-          />
-        </div>
-
-        <div>
-          <label>Puffer (Min)</label>
-          <input
-            type="number"
-            value={bookingSettings.buffer_min || 10}
-            onChange={(e) =>
-              setBookingSettings({
-                ...bookingSettings,
-                buffer_min: Number(e.target.value),
-              })
-            }
-          />
-        </div>
-
-        <div>
-          <label>Mindestvorlaufzeit (Stunden)</label>
-          <input
-            type="number"
-            min={0}
-            value={bookingSettings.min_booking_notice_hours || 24}
-            onChange={(e) =>
-              setBookingSettings({
-                ...bookingSettings,
-                min_booking_notice_hours: Number(e.target.value),
-              })
-            }
-          />
-          <div style={{ fontSize: 12, color: "#666", marginTop: 4 }}>
-            Beispiel: 24 = Termine erst ab 24h Vorlauf buchbar
-          </div>
-        </div>
-
-        <div>
-          <label>Zeitzone</label>
-          <input
-            value={bookingSettings.time_zone || "Europe/Vienna"}
-            onChange={(e) =>
-              setBookingSettings({
-                ...bookingSettings,
-                time_zone: e.target.value,
-              })
-            }
-          />
-        </div>
-      </div>
-
-      <div style={{ marginTop: 12 }}>
-        <label>Poise Kalender</label>
-        <input
-          value={
-            bookingSettings.selected_calendar_name || "Kein Kalender hinterlegt"
-          }
-          disabled
+      <>
+        <div
           style={{
-            width: "100%",
-            background: "#f7f7f7",
-            color: "#555",
+            marginBottom: 16,
+            border: "1px solid #eee",
+            borderRadius: 10,
+            background: "#FAFAFA",
+            padding: 12,
           }}
-        />
-        <div style={{ fontSize: 12, color: "#999", marginTop: 4 }}>
-          Dieser Kalender wird zentral von Poise verwaltet.
+        >
+          <div style={{ fontWeight: 600, marginBottom: 8 }}>
+            Sichtbarkeit im Anfrageformular
+          </div>
+
+          <div style={{ fontSize: 12, color: "#666", marginBottom: 10 }}>
+            Hier steuerst du, ob du für neue Klient:innen im Formular auswählbar bist.
+          </div>
+
+          <button
+            type="button"
+            onClick={() => toggleMyAvailability(!myAvailability)}
+            style={{
+              padding: "8px 14px",
+              borderRadius: 999,
+              border: "1px solid #ccc",
+              background: myAvailability ? "#E8FFF0" : "#FFF4E6",
+              fontWeight: 600,
+            }}
+          >
+            {myAvailability
+              ? "🟢 Verfügbar – im Formular sichtbar"
+              : "⏸ Nicht verfügbar – im Formular ausgeblendet"}
+          </button>
         </div>
-      </div>
 
-      <button
-        type="button"
-        onClick={saveBookingSettings}
-        disabled={bookingSaving}
-        style={{ marginTop: 12 }}
-      >
-        {bookingSaving ? "Speichere..." : "💾 Speichern"}
-      </button>
+        {bookingSettings && (
+          <div
+            style={{
+              marginBottom: 16,
+              border: "1px solid #eee",
+              borderRadius: 10,
+              background: "#FAFAFA",
+              padding: 12,
+            }}
+          >
+            <div style={{ fontWeight: 600, marginBottom: 12 }}>
+              📅 Online Terminbuchung
+            </div>
 
-      <div style={{ fontSize: 12, color: "#666", marginTop: 8 }}>
-        Klient:innen sehen nur freie Zeitfenster aus dem hinterlegten
-        Poise-Kalender, deren Titel mit <strong>POISE SLOT</strong> beginnt.
-        <br />
-        Standard: 60 Minuten Sitzung + 10 Minuten Puffer.
+            <label style={{ display: "block", marginBottom: 10 }}>
+              <input
+                type="checkbox"
+                checked={!!bookingSettings.booking_enabled}
+                onChange={(e) =>
+                  setBookingSettings({
+                    ...bookingSettings,
+                    booking_enabled: e.target.checked,
+                  })
+                }
+              />{" "}
+              Online Buchung aktivieren
+            </label>
+
+            <div
+              style={{
+                display: "flex",
+                gap: 12,
+                flexWrap: "wrap",
+                marginBottom: 12,
+              }}
+            >
+              <div>
+                <label>Termin Dauer (Min)</label>
+                <input
+                  type="number"
+                  value={bookingSettings.slot_duration_min || 60}
+                  onChange={(e) =>
+                    setBookingSettings({
+                      ...bookingSettings,
+                      slot_duration_min: Number(e.target.value),
+                    })
+                  }
+                />
+              </div>
+
+              <div>
+                <label>Puffer (Min)</label>
+                <input
+                  type="number"
+                  value={bookingSettings.buffer_min || 10}
+                  onChange={(e) =>
+                    setBookingSettings({
+                      ...bookingSettings,
+                      buffer_min: Number(e.target.value),
+                    })
+                  }
+                />
+              </div>
+
+              <div>
+                <label>Mindestvorlaufzeit (Stunden)</label>
+                <input
+                  type="number"
+                  min={0}
+                  value={bookingSettings.min_booking_notice_hours || 24}
+                  onChange={(e) =>
+                    setBookingSettings({
+                      ...bookingSettings,
+                      min_booking_notice_hours: Number(e.target.value),
+                    })
+                  }
+                />
+              </div>
+
+              <div>
+                <label>Zeitzone</label>
+                <input
+                  value={bookingSettings.time_zone || "Europe/Vienna"}
+                  onChange={(e) =>
+                    setBookingSettings({
+                      ...bookingSettings,
+                      time_zone: e.target.value,
+                    })
+                  }
+                />
+              </div>
+            </div>
+
+            <div style={{ marginTop: 12 }}>
+              <label>Poise Kalender</label>
+              <input
+                value={
+                  bookingSettings.selected_calendar_name || "Kein Kalender hinterlegt"
+                }
+                disabled
+                style={{
+                  width: "100%",
+                  background: "#f7f7f7",
+                  color: "#555",
+                }}
+              />
+              <div style={{ fontSize: 12, color: "#999", marginTop: 4 }}>
+                Dieser Kalender wird zentral von Poise verwaltet.
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={saveBookingSettings}
+              disabled={bookingSaving}
+              style={{ marginTop: 12 }}
+            >
+              {bookingSaving ? "Speichere..." : "💾 Speichern"}
+            </button>
+          </div>
+        )}
+      </>
+    )}
+
+    {role !== "therapist" && (
+      <div style={{ color: "#666" }}>
+        Einstellungen sind aktuell nur für Therapeut:innen sichtbar.
       </div>
-    </div>
-  </details>
+    )}
+  </section>
 )}
 {/* ================= ABRECHNUNG ================= */}
 {filter === "abrechnung" && (
@@ -2596,11 +2665,8 @@ const calendarMode =
 <article
   key={`${r.id}-${(sessionsByRequest[String(r.id)] || []).length}`}
   style={{
-    border: "1px solid #ddd",
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-    position: "relative", // 🔥 NEU
+    ...getCardStyleByFilter(filter),
+    position: "relative",
   }}
 >
               <strong>
