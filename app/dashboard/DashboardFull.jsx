@@ -807,7 +807,8 @@ const therapistId =
   teamData.find((t) => t.name === r.wunschtherapeut)?.id ||
   null;
 
-const calendarMode = getCalendarModeByTherapistId(therapistId);
+const calendarMode =
+  getCalendarModeByTherapistId(therapistId);
 
     if (action === "details") {
       setDetailsModal({
@@ -2562,9 +2563,11 @@ body: JSON.stringify({
 {filter !== "abrechnung" &&
   therapistFilteredRequests.map((r) => {
           const sessionList = sessionsByRequest[String(r.id)] || [];
-    const therapistId =
+const therapistId =
   r.assigned_therapist_id ||
-  sessionList?.[0]?.therapist_id;
+  sessionList?.[0]?.therapist_id ||
+  teamData.find((t) => t.name === r.wunschtherapeut)?.id ||
+  null;
 
 const calendarMode =
   getCalendarModeByTherapistId(therapistId);
