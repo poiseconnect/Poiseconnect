@@ -312,6 +312,12 @@ function toggleThema(key, setForm) {
 // PAGE COMPONENT
 // --------------------------------------------------
 export default function PageClient() {
+  console.log("BROWSER TEAMDATA", teamData.map((t) => ({
+    name: t.name,
+    id: t.id,
+    calendar_mode: t.calendar_mode,
+    email: t.email,
+  })));
   const today = new Date();
   const searchParams = useSearchParams();
 const resumeMode = searchParams.get("resume");
@@ -763,6 +769,9 @@ async function loadAvailability() {
         .from("therapist_booking_settings")
         .select("therapist_id, booking_enabled");
 
+      console.log("SUPABASE MEMBERS", members);
+console.log("SUPABASE BOOKING SETTINGS", bookingSettings);
+
       const bookingMap = new Map(
         (bookingSettings || []).map((b) => [
           b.therapist_id,
@@ -771,6 +780,12 @@ async function loadAvailability() {
       );
 
       for (const therapist of teamData) {
+        console.log("CHECK THERAPIST", {
+  name: therapist.name,
+  id: therapist.id,
+  calendar_mode: therapist.calendar_mode,
+  dbMember: members?.find((m) => m.id === therapist.id),
+});
         if (!therapist.id) continue;
 
         const dbMember = members?.find((m) => m.id === therapist.id);
@@ -799,10 +814,22 @@ if (
         }
       }
 
-      if (isMounted) {
-        console.log("✅ FINAL AVAILABLE:", result);
-        setAvailableTherapists(result);
-      }
+if (isMounted) {
+  console.log("FINAL AVAILABLE IDS", result);
+
+  console.log(
+    "FINAL AVAILABLE NAMES",
+    teamData
+      .filter((t) => result.includes(t.id))
+      .map((t) => ({
+        name: t.name,
+        id: t.id,
+        calendar_mode: t.calendar_mode,
+      }))
+  );
+
+  setAvailableTherapists(result);
+}
     } catch (e) {
       console.error("Availability error", e);
     } finally {
@@ -815,7 +842,7 @@ if (
   return () => {
     isMounted = false;
   };
-}, [matchedTeam]);
+}, []);
 // STEP 10 – ICS + Supabase (blocked_slots)
 // -------------------------------------
 useEffect(() => {
