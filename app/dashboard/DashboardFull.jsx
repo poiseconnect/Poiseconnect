@@ -41,7 +41,7 @@ const POISE_COLORS = {
     base: "#F4F6F8",
     active: "#2C3E50",
   },
-  settings: {
+  einstellungen: {
     base: "#F7F1FF",
     active: "#7B61FF",
   },
@@ -1583,7 +1583,9 @@ const filteredRequests = useMemo(() => {
     const statusMatch = allowedStatuses.includes(r._status);
     if (!statusMatch) return false;
 
-    if (!search.trim()) return true;
+    return true;
+  });
+}, [requests, filter]);
 
     const query = search.toLowerCase();
 
@@ -1965,6 +1967,17 @@ return (
   >
     Alle
   </button>
+  
+  <button
+    onClick={() => setFilter("einstellungen")}
+    style={{
+      background: filter === "einstellungen" ? "#7B61FF" : "#F7F1FF",
+      color: filter === "einstellungen" ? "#fff" : "#1E2A3A",
+      border: "1px solid #7B61FF",
+    }}
+  >
+    ⚙️ Einstellungen
+  </button>
   {isAdmin && (
     <select
       value={therapistFilter}
@@ -1980,7 +1993,7 @@ return (
   )}
 
 
-  {filter !== "abrechnung" && sortedRequests.length === 0 && (
+  {filter !== "abrechnung" && filter !== "einstellungen" && sortedRequests.length === 0 && (
     <div
       style={{
         padding: 24,
@@ -2839,403 +2852,9 @@ const calendarMode =
 </button>
 
 
-{["neu", "termin_neu"].includes(r._status) && (
-  <div
-    style={{
-      display: "flex",
-      gap: 16,
-      marginTop: 12,
-      flexWrap: "wrap",
-    }}
-  >
-{/* ✅ TERMIN BESTÄTIGEN */}
-{r.bevorzugte_zeit && (
-  <div style={{ maxWidth: 240 }}>
-    <button
-      onClick={async () => {
-        await updateRequestStatus({
-          requestId: r.id,
-          status: "termin_bestaetigt",
-          client: r.email,
-          vorname: r.vorname,
-        });
-
-        setRequests((prev) =>
-          prev.map((x) =>
-            x.id === r.id
-              ? { ...x, _status: "termin_bestaetigt" }
-              : x
-          )
-        );
-      }}
-    >
-      ✅ Termin bestätigen
-    </button>
-    <div style={{ fontSize: 12, opacity: 0.7, marginTop: 4 }}>
-      Anliegen passt zu mir – ich führe das Erstgespräch
-    </div>
-  </div>
-)}
-
-    {/* ❌ KEIN MATCH POISE */}
-    <div style={{ maxWidth: 240 }}>
-    <button
-  onClick={async () => {
-    await updateRequestStatus({
-      requestId: r.id,
-      status: "papierkorb",
-    });
-
-    setRequests((prev) =>
-      prev.map((x) =>
-        x.id === r.id
-          ? { ...x, _status: "papierkorb" }
-          : x
-      )
-    );
-  }}
->
-  ❌ Kein Match (Poise)
-</button>
-      <div style={{ fontSize: 12, opacity: 0.7, marginTop: 4 }}>
-        Anliegen passt grundsätzlich nicht zu Poise
-      </div>
-    </div>
-
-{/* 🔁 TERMIN / VORSCHLAG */}
-<div style={{ maxWidth: 240 }}>
-  <button
-    onClick={async () => {
-      const therapistName =
-        r.wunschtherapeut ||
-        sessionsByRequest[String(r.id)]?.[0]?.therapist;
-
-      if (!therapistName) {
-        alert("❌ Keine Therapeut:in gefunden");
-        return;
-      }
-
-if (calendarMode === "booking") {
-  const therapistName =
-    r.wunschtherapeut ||
-    sessionsByRequest[String(r.id)]?.[0]?.therapist;
-
-  const res = await fetch("/api/new-appointment", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      requestId: r.id,
-      client: r.email,
-      vorname: r.vorname,
-      therapistName,
-      oldSlot: r.bevorzugte_zeit,
-    }),
-  });
-
-  if (!res.ok) {
-    alert("Fehler beim Senden");
-    return;
-  }
-
-  alert("📧 Mail zur Terminauswahl gesendet");
-} else {
-  setProposalModal(r); // 🔥 HIER ÖFFNET SICH DAS FENSTER
-}
-
-    }}
-  >
-    {calendarMode === "booking"
-      ? "🔁 Neuer Termin"
-      : "📩 Terminvorschläge senden"}
-  </button>
-
-  <div style={{ fontSize: 12, opacity: 0.7, marginTop: 4 }}>
-    {calendarMode === "booking"
-      ? "Termin passt nicht – Klient:in wählt neu"
-      : "Therapeut schlägt Zeiten vor"}
-  </div>
-</div>
-
-{/* ⏸ KEINE KAPAZITÄTEN */}
-<div style={{ maxWidth: 240 }}>
-  <button
-    onClick={async () => {
-      const res = await fetch("/api/forward-request", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          requestId: r.id,
-          client: r.email,
-          vorname: r.vorname,
-          excludedTherapist: r.wunschtherapeut, // 🔥 wird in Step 8 ausgeschlossen
-        }),
-      });
-
-      if (!res.ok) {
-        const t = await res.text();
-        console.error("FORWARD FAILED:", t);
-        alert("Fehler bei der Weiterleitung");
-        return;
-      }
-
-      // sofort aus UI entfernen
-      setRequests((prev) => prev.filter((x) => x.id !== r.id));
-
-      alert("📧 Anfrage weitergeleitet – Klient:in wählt neu");
-    }}
-  >
-    ⏸ Keine Kapazitäten
-  </button>
-
-  <div style={{ fontSize: 12, opacity: 0.7, marginTop: 4 }}>
-    Anliegen passt, aber aktuell keine Kapazitäten
-  </div>
-</div>
-
-    {/* 👥 ANLIEGEN PASST NICHT ZU MIR */}
-    <div style={{ maxWidth: 260 }}>
-<button
-  onClick={async () => {
-    await updateRequestStatus({
-      requestId: r.id,
-      status: "admin_weiterleiten",
-    });
-
-    setRequests((prev) =>
-      prev.map((x) =>
-        x.id === r.id
-          ? {
-              ...x,
-              _status: "admin_pruefen",
-              admin_therapeuten: [], // 🔥 DAS IST DER FIX
-            }
-          : x
-      )
-    );
-  }}
->
-  👥 Anliegen passt nicht zu mir
-</button>
-      <div style={{ fontSize: 12, opacity: 0.7, marginTop: 4 }}>
-        Admin wählt passende Therapeut:innen
-      </div>
-    </div>
-  </div>
-)}
 
 
 
-
-              {/* MATCH / NO MATCH */}
-              {/* MATCH / NO MATCH / WEITERLEITEN */}
-{r._status === "termin_bestaetigt" && (
-  <div
-    style={{
-      display: "flex",
-      gap: 16,
-      marginTop: 12,
-      flexWrap: "wrap",
-    }}
-  >
-    {/* ❤️ MATCH */}
-    <div style={{ maxWidth: 220 }}>
-      <button
-        onClick={() =>
-          fetch("/api/match-client", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              anfrageId: r.id,
-              honorar: r.honorar_klient,
-            }),
-          }).then(() => location.reload())
-        }
-      >
-        ❤️ Match
-      </button>
-      <div style={{ fontSize: 12, opacity: 0.7, marginTop: 4 }}>
-        Erstgespräch war passend – Begleitung startet
-      </div>
-    </div>
-
-    {/* ❌ KEIN MATCH POISE */}
-    <div style={{ maxWidth: 220 }}>
-  <button
-  onClick={async () => {
-    await updateRequestStatus({
-      requestId: r.id,
-      status: "papierkorb",
-    });
-
-    setRequests((prev) =>
-      prev.map((x) =>
-        x.id === r.id
-          ? { ...x, _status: "papierkorb" }
-          : x
-      )
-    );
-  }}
->
-  ❌ Kein Match (Poise)
-</button>
-      <div style={{ fontSize: 12, opacity: 0.7, marginTop: 4 }}>
-        Anliegen passt grundsätzlich nicht zu Poise
-      </div>
-    </div>
-{/* 🔁 NEUER TERMIN */}
-<div style={{ maxWidth: 220 }}>
-  <button
-    onClick={async () => {
-      if (calendarMode === "booking") {
-        const therapistName =
-          r.wunschtherapeut ||
-          sessionsByRequest[String(r.id)]?.[0]?.therapist;
-
-        if (!therapistName) {
-          alert("❌ Keine Therapeut:in gefunden");
-          return;
-        }
-
-        const res = await fetch("/api/new-appointment", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            requestId: r.id,
-            client: r.email,
-            vorname: r.vorname,
-            therapistName,
-            oldSlot: r.bevorzugte_zeit,
-          }),
-        });
-
-        if (!res.ok) {
-          const t = await res.text();
-          console.error("NEW APPOINTMENT FAILED:", t);
-          alert("Fehler beim Senden");
-          return;
-        }
-
-        alert("📧 Neue Terminauswahl gesendet");
-        return;
-      }
-
-      // proposal mode
-      setProposalModal(r);
-    }}
-  >
-    🔁 Neuer Termin
-  </button>
-
-  <div style={{ fontSize: 12, opacity: 0.7, marginTop: 4 }}>
-    {calendarMode === "booking"
-      ? "Klient:in wählt neuen Termin"
-      : "Therapeut schlägt neue Zeiten vor"}
-  </div>
-</div>
-  </div>
-)}
-              {/* AKTIV */}
-{r._status === "active" && (
-  <div style={{ marginTop: 8, display: "flex", gap: 8, flexWrap: "wrap" }}>
-
-    <button
-      onClick={async () => {
-        const res = await fetch("/api/finish-coaching", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ anfrageId: r.id }),
-        });
-
-        if (!res.ok) {
-          const t = await res.text();
-          console.error("FINISH FAILED:", t);
-          alert("❌ Fehler beim Beenden");
-          return;
-        }
-
-        setRequests((prev) =>
-          prev.map((x) =>
-            x.id === r.id
-              ? { ...x, _status: "beendet", status: "beendet" }
-              : x
-          )
-        );
-
-        alert("✅ Coaching beendet");
-      }}
-    >
-      🔴 Coaching beenden
-    </button>
-
-    <button
-      onClick={async () => {
-        await updateRequestStatus({
-          requestId: r.id,
-          status: "admin_weiterleiten",
-        });
-
-        setRequests((prev) =>
-          prev.map((x) =>
-            x.id === r.id
-              ? {
-                  ...x,
-                  _status: "admin_pruefen",
-                  status: "admin_weiterleiten",
-                }
-              : x
-          )
-        );
-
-        alert("🛂 An Admin übergeben");
-      }}
-    >
-      👥 Therapeut wechseln
-    </button>
-
-    {/* 🟢 NEU */}
-    <button onClick={() => copyBookingLink(r)}>
-      🔗 Buchungslink kopieren
-    </button>
-
-    {/* 🟢 NEU */}
-    <button onClick={() => sendBookingLink(r)}>
-      📧 Buchungslink senden
-    </button>
-
-  </div>
-)}
-
-              {/* BEENDET */}
-              {r._status === "beendet" && (
-                <div style={{ marginTop: 8 }}>
-<button
-  onClick={async () => {
-    await updateRequestStatus({
-      requestId: r.id,
-      status: "active",
-    });
-
-    setRequests((prev) =>
-      prev.map((x) =>
-        x.id === r.id
-          ? { ...x, _status: "active", status: "active" }
-          : x
-      )
-    );
-  }}
->
-  🔄 Coaching wieder aktivieren
-</button>
-                </div>
-              )}
-
-              {/* PAPIERKORB */}
-              {r._status === "papierkorb" && (
-                <div style={{ marginTop: 8 }}>
-                  <button onClick={() => restoreFromTrash(r)}>♻️ Wiederherstellen</button>
-                  <button onClick={() => deleteForever(r)}>🗑 Löschen</button>
-                </div>
-              )}
             </article>
           );
         })}
