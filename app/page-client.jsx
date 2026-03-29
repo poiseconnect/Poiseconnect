@@ -754,91 +754,101 @@ useEffect(() => {
 useEffect(() => {
   let isMounted = true;
 
-async function loadAvailability() {
-  setLoadingAvailability(true);
+  async function loadAvailability() {
+    setLoadingAvailability(true);
 
-  try {
-    console.log("BROWSER URL", window.location.href);
-    console.log("BROWSER USER AGENT", navigator.userAgent);
-    console.log("BROWSER TEAMDATA", teamData);
+    try {
+      const result = [];
 
-    const result = [];
+      const { data: members, error: membersError } = await supabase
+        .from("team_members")
+        .select("id, available_for_intake");
 
-    const {
-      data: members,
-      error: membersError,
-    } = await supabase
-      .from("team_members")
-      .select("id, available_for_intake");
+      const { data: bookingSettings, error: bookingError } = await supabase
+        .from("therapist_booking_settings")
+        .select("therapist_id, booking_enabled");
 
-    const {
-      data: bookingSettings,
-      error: bookingSettingsError,
-    } = await supabase
-      .from("therapist_booking_settings")
-      .select("therapist_id, booking_enabled");
+      console.log("SUPABASE MEMBERS", members || []);
+      console.log("SUPABASE MEMBERS ERROR", membersError || null);
+      console.log("SUPABASE BOOKING SETTINGS", bookingSettings || []);
+      console.log("SUPABASE BOOKING SETTINGS ERROR", bookingError || null);
 
-    console.log("SUPABASE MEMBERS", members);
-    console.log("SUPABASE MEMBERS ERROR", membersError);
-    console.log("SUPABASE BOOKING SETTINGS", bookingSettings);
-    console.log("SUPABASE BOOKING SETTINGS ERROR", bookingSettingsError);
+      const hasMembersFromDb = Array.isArray(members) && members.length > 0;
 
-    const bookingMap = new Map(
-      (bookingSettings || []).map((b) => [
-        b.therapist_id,
-        b.booking_enabled,
-      ])
-    );
+      const bookingMap = new Map(
+        (bookingSettings || []).map((b) => [
+          String(b.therapist_id),
+          !!b.booking_enabled,
+        ])
+      );
 
-    for (const therapist of teamData) {
-      if (!therapist.id) continue;
+      for (const therapist of teamData) {
+        if (!therapist.id) continue;
 
-      const dbMember = (members || []).find((m) => m.id === therapist.id);
+        const dbMember = hasMembersFromDb
+          ? members.find((m) => String(m.id) === String(therapist.id))
+          : null;
 
-      console.log("CHECK THERAPIST", {
-        name: therapist.name,
-        id: therapist.id,
-        dbMember,
-        calendar_mode: therapist.calendar_mode,
-        booking_enabled: bookingMap.get(therapist.id),
-      });
+        console.log("CHECK THERAPIST", {
+          name: therapist.name,
+          id: therapist.id,
+          dbMember,
+          calendar_mode: therapist.calendar_mode,
+          booking_enabled: bookingMap.get(String(therapist.id)),
+        });
 
-      if (!dbMember?.available_for_intake) {
-        console.log("⛔ NOT AVAILABLE:", therapist.name);
-        continue;
+        // ✅ FALLBACK:
+        // Wenn DB leer ist, nehmen wir standardmäßig an, dass der/die Therapeut:in sichtbar ist.
+        const intakeAllowed = hasMembersFromDb
+          ? !!dbMember?.available_for_intake
+          : true;
+
+        if (!intakeAllowed) {
+          console.log("⛔ NOT AVAILABLE:", therapist.name);
+          continue;
+        }
+
+        let hasAvailability = false;
+
+        const mode = String(therapist.calendar_mode || "").toLowerCase();
+
+        if (mode === "proposal") {
+          hasAvailability = true;
+        }
+
+        if (mode === "booking") {
+          hasAvailability = bookingMap.has(String(therapist.id))
+            ? !!bookingMap.get(String(therapist.id))
+            : true;
+        }
+
+        if (mode === "ics") {
+          hasAvailability = true;
+        }
+
+        if (hasAvailability) {
+          result.push(String(therapist.id));
+        }
       }
 
-      let hasAvailability = false;
-
-      if (therapist.calendar_mode === "proposal") {
-        hasAvailability = true;
-      }
-
-      if (therapist.calendar_mode === "booking") {
-        hasAvailability = true;
-      }
-
-      if (hasAvailability) {
-        result.push(therapist.id);
-      }
-    }
-
-    if (isMounted) {
       console.log("FINAL AVAILABLE IDS", result);
       console.log(
         "FINAL AVAILABLE NAMES",
         teamData
-          .filter((t) => result.includes(t.id))
+          .filter((t) => result.includes(String(t.id)))
           .map((t) => t.name)
       );
-      setAvailableTherapists(result);
+
+      if (isMounted) {
+        setAvailableTherapists(result);
+      }
+    } catch (e) {
+      console.error("Availability error", e);
+      if (isMounted) setAvailableTherapists([]);
+    } finally {
+      if (isMounted) setLoadingAvailability(false);
     }
-  } catch (e) {
-    console.error("Availability error", e);
-  } finally {
-    if (isMounted) setLoadingAvailability(false);
   }
-}
 
   loadAvailability();
 
