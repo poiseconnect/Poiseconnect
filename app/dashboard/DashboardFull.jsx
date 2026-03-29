@@ -2029,9 +2029,6 @@ return (
       <small>Aktiver Filter: {filter}</small>
     </div>
   )}
-
-</div>
-
 {filter === "aktiv" && (
   <div style={{ marginBottom: 16 }}>
     <button
