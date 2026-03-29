@@ -10,40 +10,36 @@ import ActionMenu from "../components/ActionMenu";
 // ================= POISE DASHBOARD COLORS =================
 const POISE_COLORS = {
   unbearbeitet: {
-    base: "#EAF2FB",
-    active: "#3F7DC0",
+    base: "#F2726A",     // coral/rot
+    active: "#8E3A4A",   // dunkler Kreis
   },
   erstgespraech: {
-    base: "#E8FFF0",
-    active: "#2E9E63",
+    base: "#6F8FCB",     // blau
+    active: "#E6B3C2",   // rosa Kreis
   },
   aktiv: {
-    base: "#E6F7F0",
-    active: "#1F8A5B",
-  },
-  admin_pruefen: {
-    base: "#F1EFFF",
-    active: "#6B5AED",
-  },
-  beendet: {
-    base: "#ECEFF1",
-    active: "#546E7A",
-  },
-  papierkorb: {
-    base: "#FDEEEE",
-    active: "#B83227",
+    base: "#E3AC1D",     // gelb/orange body
+    active: "#0B6E4F",   // dunkelgrüner Kreis
   },
   abrechnung: {
-    base: "#FFF4D6",
-    active: "#D39E00",
+    base: "#7BC47F",     // grün body
+    active: "#F2D98D",   // beige Kreis
+  },
+  beendet: {
+    base: "#CBE34B",     // lime
+    active: "#E7A374",   // orange Kreis
+  },
+  papierkorb: {
+    base: "#9FC3CF",     // hellblau
+    active: "#7E6BC4",   // lila Kreis
+  },
+  einstellungen: {
+    base: "#000000",     // schwarz body
+    active: "#EDEDED",   // weißer Kreis
   },
   alle: {
     base: "#F4F6F8",
     active: "#2C3E50",
-  },
-  einstellungen: {
-    base: "#F7F1FF",
-    active: "#7B61FF",
   },
 };
 // ================= STATUS UPDATE (NEU, ZENTRAL) =================
