@@ -42,6 +42,54 @@ const POISE_COLORS = {
     active: "#2C3E50",
   },
 };
+function DashboardTab({ label, value, active, onClick, color }) {
+  return (
+    <div
+      onClick={() => onClick(value)}
+      style={{
+        width: 120,
+        height: 220,
+        borderRadius: 999,
+        cursor: "pointer",
+        position: "relative",
+        display: "flex",
+        justifyContent: "center",
+        alignItems: "flex-end",
+        background: color.base,
+        overflow: "hidden",
+      }}
+    >
+      {/* TOP CIRCLE */}
+      <div
+        style={{
+          width: 140,
+          height: 140,
+          borderRadius: "50%",
+          background: color.active,
+          position: "absolute",
+          top: -40,
+        }}
+      />
+
+      {/* LABEL */}
+      <div
+        style={{
+          position: "absolute",
+          right: 8,
+          top: 70,
+          writingMode: "vertical-rl",
+          transform: "rotate(180deg)",
+          fontSize: 12,
+          fontWeight: 600,
+          letterSpacing: 1,
+          color: value === "einstellungen" ? "#000" : "#fff",
+        }}
+      >
+        {label.toUpperCase()}
+      </div>
+    </div>
+  );
+}
 // ================= STATUS UPDATE (NEU, ZENTRAL) =================
 async function updateRequestStatus({
   requestId,
