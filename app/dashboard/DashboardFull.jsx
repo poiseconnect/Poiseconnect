@@ -2677,7 +2677,17 @@ body: JSON.stringify({
 </section>
 </>
 )}
-
+{openMenuId && (
+  <div
+    onClick={() => setOpenMenuId(null)}
+    style={{
+      position: "fixed",
+      inset: 0,
+      background: "rgba(0,0,0,0.2)",
+      zIndex: 9998,
+    }}
+  />
+)}
       {/* KARTEN */}
 {filter !== "abrechnung" &&
   filter !== "einstellungen" &&
