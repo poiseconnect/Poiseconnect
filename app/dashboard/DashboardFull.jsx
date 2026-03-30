@@ -215,13 +215,17 @@ function getCardStyleByFilter(filter) {
   const c = POISE_COLORS[filter] || POISE_COLORS.alle;
 
   return {
-    background: "#fff",
-    border: `1.5px solid ${c.active}`,
-    borderRadius: 18,
-    padding: 18,
+    background: "#FFFFFF",
+    border: `2px solid ${c.active}`,
+    borderRadius: 20,
+    padding: 16,
     marginBottom: 16,
     position: "relative",
     boxShadow: "0 8px 24px rgba(0,0,0,0.06)",
+    width: "100%",
+    maxWidth: "100%",
+    boxSizing: "border-box",
+    overflow: "hidden",
   };
 }
 
