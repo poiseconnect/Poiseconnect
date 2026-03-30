@@ -13,20 +13,24 @@ export default function ActionMenu({ actions, onAction, color }) {
   const textColor = isLight ? "#000" : "#fff";
 
   return (
-    <div
-      style={{
-        position: "absolute",
-        top: 44,
-        right: 0,
-        zIndex: 20,
-        background: "#fff",
-        border: `2px solid ${activeColor}`, // 🔥 Rahmen bleibt Kreisfarbe
-        borderRadius: 18,
-        padding: 12,
-        width: 280,
-        boxShadow: "0 16px 36px rgba(0,0,0,.14)",
-      }}
-    >
+<div
+  style={{
+    position: "fixed",
+    top: 100,
+    left: 16,
+    right: 16,
+    zIndex: 9999,
+    background: "#fff",
+    border: `2px solid ${activeColor}`,
+    borderRadius: 18,
+    padding: 12,
+    maxWidth: 420,
+    margin: "0 auto",
+    boxShadow: "0 20px 60px rgba(0,0,0,.2)",
+    maxHeight: "60vh",
+overflowY: "auto",
+  }}
+>
       {actions.map((a) => (
         <div key={a.key} style={{ marginBottom: 10 }}>
           <button
