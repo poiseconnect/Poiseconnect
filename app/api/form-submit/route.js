@@ -127,8 +127,48 @@ const { data: inserted, error: insertError } = await supabase
           from: "Poise <noreply@mypoise.de>",
           to: body.email,
           subject: "Deine Anfrage bei Poise 🤍",
-          html: `<p>Hallo ${body.vorname || ""},</p><p>Therapeut: ${therapistName}</p><p>Termin: ${terminText}</p>`,
-        });
+html: `
+  <p>Hallo ${body.vorname || ""},</p>
+
+  <p>
+    vielen Dank für dein Vertrauen – es bedeutet uns viel, dass du dich mit deinem Anliegen an uns wendest.
+  </p>
+
+  <p>
+    Dein Erstgespräch wurde erfolgreich angefragt und wir haben folgenden Termin für dich reserviert:
+  </p>
+
+  <p>
+    <strong>Therapeutin:</strong> ${therapistName}<br/>
+    <strong>Termin:</strong> ${terminText}
+  </p>
+
+  <p>
+    In diesem ersten Gespräch lernst du deine Therapeutin in Ruhe kennen, kannst dein Anliegen besprechen
+    und gemeinsam die nächsten Schritte für dich definieren.
+    Natürlich ist auch Raum für alle Fragen, die dir wichtig sind.
+  </p>
+
+  <p>
+    Wir prüfen deine Anfrage nun intern und melden uns in Kürze mit der finalen Bestätigung bei dir.
+    <strong>In der Bestätigung erhältst du auch den Link für deinen Video-Call.</strong>
+  </p>
+
+  <p>
+    Solltest du den Termin doch nicht wahrnehmen können, melde dich bitte kurz unter
+    <a href="mailto:hallo@mypoise.de">hallo@mypoise.de</a>.
+  </p>
+
+  <p>
+    Wir freuen uns sehr, dich ein Stück auf deinem Weg begleiten zu dürfen 🤍
+  </p>
+
+  <p>
+    Herzliche Grüße<br/>
+    Sebastian<br/>
+    Poise
+  </p>
+`,        });
       }
     } catch (mailErr) {
       console.warn("MAIL FAILED (but DB ok):", mailErr);
