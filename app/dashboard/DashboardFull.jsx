@@ -1841,14 +1841,17 @@ return (
   style={{
     padding: typeof window !== "undefined" && window.innerWidth < 768 ? 12 : 24,
     maxWidth: 1100,
+    width: "100%",
     margin: "0 auto",
     minHeight: "100vh",
-      background:
-        role === "admin"
-          ? "linear-gradient(180deg,#F8F9FF 0%, #FFFFFF 60%)"
-          : "linear-gradient(180deg,#F7FFF9 0%, #FFFFFF 60%)",
-    }}
-  >
+    boxSizing: "border-box",
+    overflowX: "hidden",
+    background:
+      role === "admin"
+        ? "linear-gradient(180deg,#F8F9FF 0%, #FFFFFF 60%)"
+        : "linear-gradient(180deg,#F7FFF9 0%, #FFFFFF 60%)",
+  }}
+>
      
 
       
@@ -2677,6 +2680,7 @@ body: JSON.stringify({
 
       {/* KARTEN */}
 {filter !== "abrechnung" &&
+  filter !== "einstellungen" &&
   therapistFilteredRequests.map((r) => {
           const sessionList = sessionsByRequest[String(r.id)] || [];
 const therapistId =
@@ -2704,24 +2708,68 @@ const calendarMode =
     position: "relative",
   }}
 >
-              <strong>
-                {safeText(r.vorname, "")} {safeText(r.nachname, "")}
-              </strong>
-  <div style={{ position: "absolute", top: 10, right: 10 }}>
-  <button
-    onClick={() =>
-      setOpenMenuId(openMenuId === r.id ? null : r.id)
-    }
+<div
+  style={{
+    paddingRight: 54,
+    maxWidth: "100%",
+    boxSizing: "border-box",
+  }}
+>
+  <strong
     style={{
-      border: "none",
-      background: "#eee",
-      borderRadius: 8,
-      padding: "4px 8px",
-      cursor: "pointer",
+      display: "block",
+      fontSize:
+        typeof window !== "undefined" && window.innerWidth < 768 ? 20 : 28,
+      lineHeight: 1,
+      fontWeight: 800,
+      letterSpacing: -0.4,
+      marginBottom: 8,
+      textTransform: "uppercase",
+      wordBreak: "break-word",
+      overflowWrap: "anywhere",
     }}
   >
-    •••
-  </button>
+    {safeText(r.vorname, "")} {safeText(r.nachname, "")}
+  </strong>
+
+  <div
+    style={{
+      fontSize:
+        typeof window !== "undefined" && window.innerWidth < 768 ? 15 : 18,
+      fontWeight: 500,
+      marginBottom: 10,
+      wordBreak: "break-word",
+    }}
+  >
+    {STATUS_LABEL[r._status] || safeText(r._status)}
+  </div>
+</div>
+  <div style={{ position: "absolute", top: 10, right: 10 }}>
+<button
+  onClick={() =>
+    setOpenMenuId(openMenuId === r.id ? null : r.id)
+  }
+  style={{
+    border: "none",
+    background: (POISE_COLORS[filter] || POISE_COLORS.alle).active,
+    color: "#fff",
+    borderRadius: 12,
+    width:
+      typeof window !== "undefined" && window.innerWidth < 768 ? 34 : 40,
+    height:
+      typeof window !== "undefined" && window.innerWidth < 768 ? 34 : 40,
+    cursor: "pointer",
+    fontSize:
+      typeof window !== "undefined" && window.innerWidth < 768 ? 18 : 20,
+    fontWeight: 700,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    boxShadow: "0 4px 12px rgba(0,0,0,0.12)",
+  }}
+>
+  •••
+</button>
 
 {openMenuId === r.id && (
   <ActionMenu
@@ -2762,8 +2810,21 @@ const calendarMode =
                     ⚠️ keine Sitzung seit {Math.round(daysSinceLast)} Tagen
                   </div>
                 )}
-
-              <p>{typeof r.anliegen === "string" ? r.anliegen : "–"}</p>
+<p
+  style={{
+    fontSize:
+      typeof window !== "undefined" && window.innerWidth < 768 ? 14 : 16,
+    lineHeight: 1.45,
+    marginTop: 10,
+    marginBottom: 0,
+    color: "#222",
+    wordBreak: "break-word",
+    overflowWrap: "anywhere",
+    maxWidth: "100%",
+  }}
+>
+  {typeof r.anliegen === "string" ? r.anliegen : "–"}
+</p>
             {/* 🕒 Terminwunsch des Klienten */}
 {calendarMode === "proposal" && r.terminwunsch_text && (
   <div
