@@ -139,12 +139,12 @@ html: `
   </p>
 
   <p>
-    <strong>Therapeutin:</strong> ${therapistName}<br/>
+    <strong>Coach:</strong> ${therapistName}<br/>
     <strong>Termin:</strong> ${terminText}
   </p>
 
   <p>
-    In diesem ersten Gespräch lernst du deine Therapeutin in Ruhe kennen, kannst dein Anliegen besprechen
+    In diesem ersten Gespräch lernst du deine Begeleitung in Ruhe kennen, kannst dein Anliegen besprechen
     und gemeinsam die nächsten Schritte für dich definieren.
     Natürlich ist auch Raum für alle Fragen, die dir wichtig sind.
   </p>
