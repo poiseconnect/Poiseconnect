@@ -2751,7 +2751,7 @@ const calendarMode =
   }
   style={{
     border: "none",
-    background: (POISE_COLORS[filter] || POISE_COLORS.alle).active,
+    background: (POISE_COLORS[filter] || POISE_COLORS.alle).base,
     color: "#fff",
     borderRadius: 12,
     width:
