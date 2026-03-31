@@ -779,36 +779,24 @@ console.log("SUPABASE MEMBERS", members || []);
 console.log("SUPABASE BOOKING SETTINGS", bookingSettings || []);
       console.log("SUPABASE BOOKING SETTINGS", bookingSettings || []);
       console.log("SUPABASE BOOKING SETTINGS ERROR", bookingError || null);
+const membersMap = new Map(
+  (members || []).map((m) => [String(m.id), m])
+);
 
-      const hasMembersFromDb = Array.isArray(members) && members.length > 0;
+const bookingMap = new Map(
+  (bookingSettings || []).map((b) => [
+    String(b.therapist_id),
+    !!b.booking_enabled,
+  ])
+);
 
-      const bookingMap = new Map(
-        (bookingSettings || []).map((b) => [
-          String(b.therapist_id),
-          !!b.booking_enabled,
-        ])
-      );
+for (const therapist of teamData) {
+  if (!therapist.id) continue;
 
-      for (const therapist of teamData) {
-        if (!therapist.id) continue;
+  const dbMember = membersMap.get(String(therapist.id)) || null;
 
-        const dbMember = hasMembersFromDb
-          ? members.find((m) => String(m.id) === String(therapist.id))
-          : null;
-
-        console.log("CHECK THERAPIST", {
-          name: therapist.name,
-          id: therapist.id,
-          dbMember,
-          calendar_mode: therapist.calendar_mode,
-          booking_enabled: bookingMap.get(String(therapist.id)),
-        });
-
-        // ✅ FALLBACK:
-        // Wenn DB leer ist, nehmen wir standardmäßig an, dass der/die Therapeut:in sichtbar ist.
-        const intakeAllowed = hasMembersFromDb
-          ? !!dbMember?.available_for_intake
-          : true;
+  const intakeAllowed =
+    dbMember == null ? true : !!dbMember.available_for_intake;
 
         if (!intakeAllowed) {
           console.log("⛔ NOT AVAILABLE:", therapist.name);
