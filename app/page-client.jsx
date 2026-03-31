@@ -749,11 +749,9 @@ useEffect(() => {
 // STEP 8 – Verfügbarkeit der Therapeut:innen laden
 // -------------------------------------
 // -------------------------------------
+// -------------------------------------
 // AVAILABILITY – EINMAL BEIM PAGE LOAD
 // -------------------------------------
-useEffect(() => {
-  let isMounted = true;
-
 useEffect(() => {
   let isMounted = true;
 
@@ -778,15 +776,15 @@ useEffect(() => {
       const members = json.members || [];
       const bookingSettings = json.bookingSettings || [];
 
-      console.log("SUPABASE MEMBERS", members || []);
-      console.log("SUPABASE BOOKING SETTINGS", bookingSettings || []);
+      console.log("SUPABASE MEMBERS", members);
+      console.log("SUPABASE BOOKING SETTINGS", bookingSettings);
 
       const membersMap = new Map(
-        (members || []).map((m) => [String(m.id), m])
+        members.map((m) => [String(m.id), m])
       );
 
       const bookingMap = new Map(
-        (bookingSettings || []).map((b) => [
+        bookingSettings.map((b) => [
           String(b.therapist_id),
           !!b.booking_enabled,
         ])
