@@ -893,6 +893,7 @@ const [access, setAccess] = useState("loading");
   const [bookingSettings, setBookingSettings] = useState(null);
   const [bookingSaving, setBookingSaving] = useState(false);
   const [myAvailability, setMyAvailability] = useState(true);
+  const [meetingLinkOverride, setMeetingLinkOverride] = useState("");
 
   // ================= PROPOSALS =================
 const [proposalModal, setProposalModal] = useState(null);
@@ -963,17 +964,17 @@ const therapistId =
 const calendarMode =
   getCalendarModeByTherapistId(therapistId);
 
-    if (action === "details") {
-      setDetailsModal({
-        ...r,
-        _status: r._status,
-      });
-      setEditTarif(r.honorar_klient || "");
-      setNewSessions([{ date: "", duration: 60 }]);
-      setOpenMenuId(null);
-      return;
-    }
-
+if (action === "details") {
+  setDetailsModal({
+    ...r,
+    _status: r._status,
+  });
+  setEditTarif(r.honorar_klient || "");
+  setMeetingLinkOverride(r.meeting_link_override || "");
+  setNewSessions([{ date: "", duration: 60 }]);
+  setOpenMenuId(null);
+  return;
+}
     if (action === "confirm") {
       await updateRequestStatus({
         requestId: r.id,
@@ -1309,31 +1310,32 @@ useEffect(() => {
   (async () => {
     let query = supabase
       .from("anfragen")
-      .select(`
-        id,
-        created_at,
-        vorname,
-        nachname,
-        email,
-        telefon,
-        strasse_hausnr,
-        plz_ort,
-        geburtsdatum,
-        beschaeftigungsgrad,
-        anliegen,
-        leidensdruck,
-        verlauf,
-        ziel,
-        diagnose,
-        status,
-        bevorzugte_zeit,
-        wunschtherapeut,
-        honorar_klient,
-        admin_therapeuten,
-        terminwunsch_text,
-        assigned_therapist_id,
-        booking_token
-      `)
+ .select(`
+  id,
+  created_at,
+  vorname,
+  nachname,
+  email,
+  telefon,
+  strasse_hausnr,
+  plz_ort,
+  geburtsdatum,
+  beschaeftigungsgrad,
+  anliegen,
+  leidensdruck,
+  verlauf,
+  ziel,
+  diagnose,
+  status,
+  bevorzugte_zeit,
+  wunschtherapeut,
+  honorar_klient,
+  admin_therapeuten,
+  terminwunsch_text,
+  assigned_therapist_id,
+  booking_token,
+  meeting_link_override
+`)
       .order("created_at", { ascending: false });
 
     // ✅ Therapeuten sehen NUR ihre eigenen Anfragen
@@ -1485,15 +1487,16 @@ async function loadBookingSettings() {
 
   const json = await res.json();
 
-setBookingSettings(
-  json.settings || {
-    booking_enabled: false,
-    slot_duration_min: 60,
-    buffer_min: 10,
-    time_zone: "Europe/Vienna",
-    min_booking_notice_hours: 24,
-  }
-);
+  setBookingSettings(
+    json.settings || {
+      booking_enabled: false,
+      slot_duration_min: 60,
+      buffer_min: 10,
+      time_zone: "Europe/Vienna",
+      min_booking_notice_hours: 24,
+      meeting_link: "",
+    }
+  );
 }
 
 
@@ -2212,6 +2215,26 @@ return (
                 Dieser Kalender wird zentral von Poise verwaltet.
               </div>
             </div>
+            <div style={{ marginTop: 12 }}>
+  <label>Standard Video-Call Link</label>
+  <input
+    type="url"
+    value={bookingSettings.meeting_link || ""}
+    onChange={(e) =>
+      setBookingSettings({
+        ...bookingSettings,
+        meeting_link: e.target.value,
+      })
+    }
+    placeholder="https://meet.google.com/..."
+    style={{
+      width: "100%",
+    }}
+  />
+  <div style={{ fontSize: 12, color: "#999", marginTop: 4 }}>
+    Dieser Link wird standardmäßig in der Terminbestätigung verwendet.
+  </div>
+</div>
 
             <button
               type="button"
@@ -2932,13 +2955,14 @@ const calendarMode =
   </div>
 )}
 
-              <button
+<button
   onClick={() => {
     setDetailsModal({
       ...r,
-     _status: r.status,
+      _status: r.status,
     });
     setEditTarif(r.honorar_klient || "");
+    setMeetingLinkOverride(r.meeting_link_override || "");
     setNewSessions([{ date: "", duration: 60 }]);
   }}
 >
@@ -3053,7 +3077,61 @@ const calendarMode =
   </p>
 )}
 </section>
+<div style={{ marginTop: 12, marginBottom: 12 }}>
+  <strong>Persönlicher Video-Link</strong>
+  <input
+    type="url"
+    value={meetingLinkOverride}
+    onChange={(e) => setMeetingLinkOverride(e.target.value)}
+    placeholder="Optional: persönlicher Link nur für diese Klient:in"
+    style={{
+      width: "100%",
+      marginTop: 6,
+    }}
+  />
+  <div style={{ fontSize: 12, color: "#666", marginTop: 4 }}>
+    Wenn hier ein Link eingetragen ist, wird dieser statt des Standard-Links aus den Einstellungen verwendet.
+  </div>
 
+  <button
+    type="button"
+    style={{ marginTop: 8 }}
+    onClick={async () => {
+      const res = await fetch("/api/update-meeting-link-override", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          anfrageId: detailsModal.id,
+          meeting_link_override: meetingLinkOverride || null,
+        }),
+      });
+
+      if (!res.ok) {
+        const text = await res.text();
+        console.error("UPDATE MEETING LINK OVERRIDE FAILED:", text);
+        alert("❌ Persönlicher Link konnte nicht gespeichert werden");
+        return;
+      }
+
+      setDetailsModal({
+        ...detailsModal,
+        meeting_link_override: meetingLinkOverride || null,
+      });
+
+      setRequests((prev) =>
+        prev.map((x) =>
+          x.id === detailsModal.id
+            ? { ...x, meeting_link_override: meetingLinkOverride || null }
+            : x
+        )
+      );
+
+      alert("✅ Persönlicher Video-Link gespeichert");
+    }}
+  >
+    💾 Persönlichen Link speichern
+  </button>
+</div>
 
       {/* ================= AKTIV-BEREICH ================= */}
 {["active", "beendet", "termin_bestaetigt"].includes(
