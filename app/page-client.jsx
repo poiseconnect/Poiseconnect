@@ -888,8 +888,7 @@ useEffect(() => {
       const json = await res.json();
 
       if (!res.ok) {
-        console.error("FREE SLOTS ERROR:", json);
-        if (isMounted) {
+console.error("FREE SLOTS ERROR FULL:", JSON.stringify(json, null, 2));        if (isMounted) {
           setSlots([]);
           setSlotsError("Kalender konnte nicht geladen werden.");
         }
