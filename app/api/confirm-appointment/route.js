@@ -7,6 +7,13 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
+function safeDateString(v) {
+  if (!v) return "";
+  const d = new Date(v);
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toLocaleString("de-AT");
+}
+
 export async function POST(request) {
   try {
     const body = await request.json();
@@ -23,11 +30,18 @@ export async function POST(request) {
     }
 
     /* --------------------------------------------------
-       1️⃣ AKTUELLE ANFRAGE LADEN (SICHERHEIT)
+       1️⃣ AKTUELLE ANFRAGE LADEN
     -------------------------------------------------- */
     const { data: existing, error: loadError } = await supabase
       .from("anfragen")
-      .select("id, status")
+      .select(`
+        id,
+        status,
+        bevorzugte_zeit,
+        assigned_therapist_id,
+        wunschtherapeut,
+        meeting_link_override
+      `)
       .eq("id", requestId)
       .single();
 
@@ -39,7 +53,7 @@ export async function POST(request) {
       );
     }
 
-    // ❗ Schon bestätigt → nichts tun (idempotent)
+    // ❗ Schon bestätigt → nichts tun
     if (existing.status === "termin_bestaetigt") {
       console.log("ℹ️ already confirmed:", requestId);
       return new Response(
@@ -73,12 +87,39 @@ export async function POST(request) {
     console.log("✅ STATUS UPDATED → termin_bestaetigt:", requestId);
 
     /* --------------------------------------------------
-       3️⃣ MAIL AN KLIENT:IN
+       3️⃣ BOOKING SETTINGS DES COACHS LADEN
     -------------------------------------------------- */
-    const baseUrl =
-      process.env.NEXT_PUBLIC_SITE_URL ||
-      "https://poiseconnect.vercel.app";
+    let bookingSettings = null;
 
+    if (existing.assigned_therapist_id) {
+      const { data: bookingData, error: bookingError } = await supabase
+        .from("therapist_booking_settings")
+        .select("meeting_link")
+        .eq("therapist_id", existing.assigned_therapist_id)
+        .single();
+
+      if (bookingError) {
+        console.warn("⚠️ BOOKING SETTINGS LOAD FAILED:", bookingError);
+      } else {
+        bookingSettings = bookingData;
+      }
+    }
+
+    const therapistName =
+      existing.wunschtherapeut?.trim() || "dein Coach";
+
+    const terminText = existing.bevorzugte_zeit
+      ? safeDateString(existing.bevorzugte_zeit)
+      : "wird dir separat mitgeteilt";
+
+    const videoLink =
+      existing.meeting_link_override ||
+      bookingSettings?.meeting_link ||
+      "";
+
+    /* --------------------------------------------------
+       4️⃣ MAIL AN KLIENT:IN
+    -------------------------------------------------- */
     const mailRes = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: {
@@ -91,19 +132,54 @@ export async function POST(request) {
         subject: "Dein Termin ist bestätigt 🤍",
         html: `
           <p>Hallo ${vorname || ""},</p>
-          <p>dein Termin wurde bestätigt.</p>
+
           <p>
-            <a href="${baseUrl}?resume=confirmed"
-               style="color:#6f4f49; font-weight:bold;">
-              Zur Bestätigung
-            </a>
+            dein Termin wurde erfolgreich bestätigt – wir freuen uns sehr auf dich.
+          </p>
+
+          <p>
+            <strong>Dein Coach:</strong> ${therapistName}<br/>
+            <strong>Termin:</strong> ${terminText}
+          </p>
+
+          <p>
+            ${therapistName} freut sich darauf, dich kennenzulernen und dich ein Stück auf deinem Weg zu begleiten.
+          </p>
+
+          ${
+            videoLink
+              ? `
+              <p>
+                <strong>Video-Call:</strong><br/>
+                <a href="${videoLink}" target="_blank" style="color:#6f4f49; font-weight:bold;">
+                  Zum Gespräch
+                </a>
+              </p>
+              `
+              : ""
+          }
+
+          <p>
+            Bitte plane dir ausreichend Zeit und einen ruhigen Ort für das Gespräch ein.
+          </p>
+
+          <p>
+            Solltest du den Termin doch nicht wahrnehmen können, melde dich bitte rechtzeitig unter
+            <a href="mailto:hallo@mypoise.de">hallo@mypoise.de</a>.
+          </p>
+
+          <p>
+            Herzliche Grüße<br/>
+            Sebastian<br/>
+            Poise
           </p>
         `,
       }),
     });
 
     if (!mailRes.ok) {
-      console.warn("⚠️ MAIL FAILED – STATUS IST ABER KORREKT");
+      const mailText = await mailRes.text();
+      console.warn("⚠️ MAIL FAILED – STATUS IST ABER KORREKT:", mailText);
     }
 
     return new Response(
