@@ -28,17 +28,18 @@ export async function POST(req) {
 
     const body = await req.json();
 
-    const payload = {
-      therapist_id: member.id,
-      booking_enabled: !!body.booking_enabled,
-      slot_duration_min: Number(body.slot_duration_min || 60),
-      buffer_min: Number(body.buffer_min || 10),
-      time_zone: body.time_zone || "Europe/Vienna",
-      min_booking_notice_hours: Number(body.min_booking_notice_hours || 24),
-      selected_calendar_id: body.selected_calendar_id || null,
-      selected_calendar_name: body.selected_calendar_name || null,
-      updated_at: new Date().toISOString(),
-    };
+const payload = {
+  therapist_id: member.id,
+  booking_enabled: !!body.booking_enabled,
+  slot_duration_min: Number(body.slot_duration_min || 60),
+  buffer_min: Number(body.buffer_min || 10),
+  time_zone: body.time_zone || "Europe/Vienna",
+  min_booking_notice_hours: Number(body.min_booking_notice_hours || 24),
+  selected_calendar_id: body.selected_calendar_id || null,
+  selected_calendar_name: body.selected_calendar_name || null,
+  meeting_link: body.meeting_link || null,
+  updated_at: new Date().toISOString(),
+};
 
     const { data, error: upErr } = await sb
       .from("therapist_booking_settings")
