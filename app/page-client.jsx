@@ -760,16 +760,23 @@ useEffect(() => {
     try {
       const result = [];
 
-      const { data: members, error: membersError } = await supabase
-        .from("team_members")
-        .select("id, available_for_intake");
+const res = await fetch("/api/public-availability", {
+  cache: "no-store",
+});
 
-      const { data: bookingSettings, error: bookingError } = await supabase
-        .from("therapist_booking_settings")
-        .select("therapist_id, booking_enabled");
+const json = await res.json();
 
-      console.log("SUPABASE MEMBERS", members || []);
-      console.log("SUPABASE MEMBERS ERROR", membersError || null);
+if (!res.ok) {
+  console.error("PUBLIC AVAILABILITY ERROR:", json);
+  if (isMounted) setAvailableTherapists([]);
+  return;
+}
+
+const members = json.members || [];
+const bookingSettings = json.bookingSettings || [];
+
+console.log("SUPABASE MEMBERS", members || []);
+console.log("SUPABASE BOOKING SETTINGS", bookingSettings || []);
       console.log("SUPABASE BOOKING SETTINGS", bookingSettings || []);
       console.log("SUPABASE BOOKING SETTINGS ERROR", bookingError || null);
 
