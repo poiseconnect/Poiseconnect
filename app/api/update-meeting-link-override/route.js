@@ -1,6 +1,6 @@
 export const dynamic = "force-dynamic";
 
-import { json, supabaseAdmin } from "../../_lib/server";
+import { json, supabaseAdmin } from "../_lib/server";
 
 export async function POST(req) {
   try {
