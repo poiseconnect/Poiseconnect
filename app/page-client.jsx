@@ -754,49 +754,63 @@ useEffect(() => {
 useEffect(() => {
   let isMounted = true;
 
+useEffect(() => {
+  let isMounted = true;
+
   async function loadAvailability() {
     setLoadingAvailability(true);
 
     try {
       const result = [];
 
-const res = await fetch("/api/public-availability", {
-  cache: "no-store",
-});
+      const res = await fetch("/api/public-availability", {
+        cache: "no-store",
+      });
 
-const json = await res.json();
+      const json = await res.json();
 
-if (!res.ok) {
-  console.error("PUBLIC AVAILABILITY ERROR:", json);
-  if (isMounted) setAvailableTherapists([]);
-  return;
-}
+      if (!res.ok) {
+        console.error("PUBLIC AVAILABILITY ERROR:", json);
+        if (isMounted) setAvailableTherapists([]);
+        return;
+      }
 
-const members = json.members || [];
-const bookingSettings = json.bookingSettings || [];
+      const members = json.members || [];
+      const bookingSettings = json.bookingSettings || [];
 
-console.log("SUPABASE MEMBERS", members || []);
-console.log("SUPABASE BOOKING SETTINGS", bookingSettings || []);
+      console.log("SUPABASE MEMBERS", members || []);
       console.log("SUPABASE BOOKING SETTINGS", bookingSettings || []);
-      console.log("SUPABASE BOOKING SETTINGS ERROR", bookingError || null);
-const membersMap = new Map(
-  (members || []).map((m) => [String(m.id), m])
-);
 
-const bookingMap = new Map(
-  (bookingSettings || []).map((b) => [
-    String(b.therapist_id),
-    !!b.booking_enabled,
-  ])
-);
+      const membersMap = new Map(
+        (members || []).map((m) => [String(m.id), m])
+      );
 
-for (const therapist of teamData) {
-  if (!therapist.id) continue;
+      const bookingMap = new Map(
+        (bookingSettings || []).map((b) => [
+          String(b.therapist_id),
+          !!b.booking_enabled,
+        ])
+      );
 
-  const dbMember = membersMap.get(String(therapist.id)) || null;
+      for (const therapist of teamData) {
+        if (!therapist.id) continue;
 
-  const intakeAllowed =
-    dbMember == null ? true : !!dbMember.available_for_intake;
+        const dbMember = membersMap.get(String(therapist.id)) || null;
+
+        console.log("CHECK THERAPIST", {
+          name: therapist.name,
+          id: therapist.id,
+          dbMember,
+          calendar_mode: therapist.calendar_mode,
+          booking_enabled: bookingMap.get(String(therapist.id)),
+        });
+
+        const intakeAllowed =
+          dbMember == null
+            ? true
+            : dbMember.active === false
+            ? false
+            : !!dbMember.available_for_intake;
 
         if (!intakeAllowed) {
           console.log("⛔ NOT AVAILABLE:", therapist.name);
@@ -804,7 +818,6 @@ for (const therapist of teamData) {
         }
 
         let hasAvailability = false;
-
         const mode = String(therapist.calendar_mode || "").toLowerCase();
 
         if (mode === "proposal") {
