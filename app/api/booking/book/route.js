@@ -54,16 +54,18 @@ export async function POST(req) {
     // 1) Anfrage laden
     const { data: anfrage, error: anfrageErr } = await sb
       .from("anfragen")
-      .select(`
-        id,
-        vorname,
-        nachname,
-        email,
-        telefon,
-        honorar_klient,
-        assigned_therapist_id,
-        status,
-        booking_token
+.select(`
+  id,
+  vorname,
+  nachname,
+  email,
+  telefon,
+  honorar_klient,
+  assigned_therapist_id,
+  status,
+  booking_token,
+  meeting_link_override
+`)
       `)
       .eq("booking_token", token)
       .single();
