@@ -74,16 +74,26 @@ export async function POST(req) {
       .select("*")
       .eq("therapist_id", invoice.therapist_id)
       .single();
-    
-        const coachEmail = settings.email || null;
-    const coachName =
-      settings.display_name ||
-      settings.company_name ||
-      "Coach";
 
     if (settingsErr || !settings) {
       return json({ error: "INVOICE_SETTINGS_NOT_FOUND" }, 404);
     }
+
+    const { data: coachMember, error: coachErr } = await sb
+      .from("team_members")
+      .select("id, name, email")
+      .eq("id", invoice.therapist_id)
+      .single();
+
+    if (coachErr || !coachMember) {
+      return json({ error: "COACH_NOT_FOUND" }, 404);
+    }
+
+    const coachEmail = coachMember.email || null;
+    const coachName =
+      coachMember.name ||
+      settings.company_name ||
+      "Coach";
 
     if (!invoice.client_email) {
       return json({ error: "CLIENT_EMAIL_MISSING" }, 400);
@@ -130,37 +140,33 @@ export async function POST(req) {
 
     const resend = new Resend(process.env.RESEND_API_KEY);
 
-await resend.emails.send({
-  from: process.env.RESEND_FROM || "Poise <noreply@mypoise.de>",
-
-  reply_to: coachEmail || process.env.RESEND_FROM,
+    await resend.emails.send({
+      from: process.env.RESEND_FROM || "Poise <noreply@mypoise.de>",
+      reply_to: coachEmail || process.env.RESEND_FROM,
       to,
       subject,
       html: `
-  <div style="font-family: Arial, sans-serif; line-height: 1.5;">
-    
-    ${String(message || "")
-      .split("\n")
-      .map((line) => `<p>${line || "&nbsp;"}</p>`)
-      .join("")}
+        <div style="font-family: Arial, sans-serif; line-height: 1.5;">
+          ${String(message || "")
+            .split("\n")
+            .map((line) => `<p>${line || "&nbsp;"}</p>`)
+            .join("")}
 
-    <br/>
+          <br/>
 
-    <p>
-      Herzliche Grüße<br/>
-      ${coachName}
-    </p>
-
-  </div>
-`,
+          <p>
+            Herzliche Grüße<br/>
+            ${coachName}
+          </p>
+        </div>
+      `,
       attachments: [
         {
-          filename: `Rechnung_${invoice.invoice_number || "rechnung"}.pdf`,
+          filename: \`Rechnung_\${invoice.invoice_number || "rechnung"}.pdf\`,
           content: pdfBase64,
         },
       ],
     });
-
     return json({ ok: true });
   } catch (e) {
     return json({ error: "SERVER_ERROR", detail: String(e) }, 500);
