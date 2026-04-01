@@ -66,7 +66,6 @@ export async function POST(req) {
   booking_token,
   meeting_link_override
 `)
-      `)
       .eq("booking_token", token)
       .single();
 
@@ -652,7 +651,6 @@ if (anfrage.email) {
       <p>Dein Poise-Team</p>
     `,
   });
-}
 
         console.log("BOOKING CLIENT MAIL SENT");
       }
