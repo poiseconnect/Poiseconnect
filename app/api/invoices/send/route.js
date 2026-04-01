@@ -162,7 +162,7 @@ export async function POST(req) {
       `,
       attachments: [
         {
-          filename: \`Rechnung_\${invoice.invoice_number || "rechnung"}.pdf\`,
+filename: `Rechnung_${invoice.invoice_number || "rechnung"}.pdf`,
           content: pdfBase64,
         },
       ],
