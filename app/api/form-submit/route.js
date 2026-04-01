@@ -2,7 +2,7 @@ export const dynamic = "force-dynamic";
 
 import { createClient } from "@supabase/supabase-js";
 import { Resend } from "resend";
-import { teamData } from "@/app/lib/teamData";
+import { teamData } from "../../lib/teamData";
 
 function JSONResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
