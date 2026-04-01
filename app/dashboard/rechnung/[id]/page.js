@@ -49,6 +49,7 @@ export default function RechnungPage({ params }) {
   // Speichern
   const [saving, setSaving] = useState(false);
   const [savedInvoiceId, setSavedInvoiceId] = useState(null);
+    const [sendingInvoice, setSendingInvoice] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -219,6 +220,43 @@ async function loadData() {
       setSaving(false);
     }
   }
+    async function sendInvoiceToClient() {
+    try {
+      setSendingInvoice(true);
+
+      if (!savedInvoiceId) {
+        alert("Bitte die Rechnung zuerst speichern");
+        return;
+      }
+
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      const res = await fetch("/api/invoices/send", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session?.access_token}`,
+        },
+        body: JSON.stringify({
+          invoiceId: savedInvoiceId,
+        }),
+      });
+
+      const json = await res.json();
+
+      if (!res.ok) {
+        console.error("SEND INVOICE ERROR:", json);
+        alert("Fehler beim Senden der Rechnung");
+        return;
+      }
+
+      alert("Rechnung wurde an den Klienten gesendet");
+    } finally {
+      setSendingInvoice(false);
+    }
+  }
 
   function exportPDF() {
     try {
@@ -304,6 +342,23 @@ async function loadData() {
           }}
         >
           {saving ? "Speichere…" : "Rechnung speichern"}
+        </button>
+
+        <button
+          onClick={sendInvoiceToClient}
+          disabled={sendingInvoice || !savedInvoiceId}
+          style={{
+            background: "#0B6E4F",
+            color: "#fff",
+            border: "none",
+            padding: "10px 16px",
+            cursor: sendingInvoice || !savedInvoiceId ? "not-allowed" : "pointer",
+            fontSize: 13,
+            borderRadius: 6,
+            opacity: sendingInvoice || !savedInvoiceId ? 0.7 : 1,
+          }}
+        >
+          {sendingInvoice ? "Sende…" : "Rechnung an Klient senden"}
         </button>
 
         <button
