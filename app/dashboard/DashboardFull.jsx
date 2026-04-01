@@ -212,7 +212,20 @@ erstgespraech: ["termin_bestaetigt"],
 
 
 const UNBEARBEITET = ["neu", "termin_neu"];
-
+const MATCHING_THEMEN = [
+  { key: "partnerschaft_beziehung", label: "Partnerschaft & Beziehung" },
+  { key: "beruf_ziele_orientierung", label: "Beruf, Ziele & Orientierung" },
+  { key: "emotionales_essen", label: "Emotionales Essen" },
+  { key: "depressive_verstimmung", label: "Depressive Verstimmung" },
+  { key: "stress", label: "Stress" },
+  { key: "burnout", label: "Burnout" },
+  { key: "selbstwert_selbstliebe", label: "Selbstwert & Selbstliebe" },
+  { key: "angst_panik", label: "Angst & Panikattacken" },
+  { key: "krankheit_psychosomatik", label: "Krankheit & Psychosomatik" },
+  { key: "angehoerige", label: "Angehörige" },
+  { key: "sexualitaet", label: "Sexualität" },
+  { key: "trauer", label: "Trauer" },
+];
 // ================= CALENDAR MODE HELPER =================
 function getCalendarModeByTherapistId(id) {
   const t = teamData.find((x) => x.id === id);
@@ -901,6 +914,22 @@ const [access, setAccess] = useState("loading");
   const [bookingSaving, setBookingSaving] = useState(false);
   const [myAvailability, setMyAvailability] = useState(true);
   const [meetingLinkOverride, setMeetingLinkOverride] = useState("");
+  const [matchingScoresModalOpen, setMatchingScoresModalOpen] = useState(false);
+const [matchingScores, setMatchingScores] = useState({
+  partnerschaft_beziehung: 0,
+  beruf_ziele_orientierung: 0,
+  emotionales_essen: 0,
+  depressive_verstimmung: 0,
+  stress: 0,
+  burnout: 0,
+  selbstwert_selbstliebe: 0,
+  angst_panik: 0,
+  krankheit_psychosomatik: 0,
+  angehoerige: 0,
+  sexualitaet: 0,
+  trauer: 0,
+});
+const [matchingScoresSaving, setMatchingScoresSaving] = useState(false);
 
   // ================= PROPOSALS =================
 const [proposalModal, setProposalModal] = useState(null);
@@ -1416,7 +1445,38 @@ useEffect(() => {
   loadBookingSettings();
   loadMyAvailability();
 }, [user, role, myTeamMemberId]);
+useEffect(() => {
+  if (!user?.email) return;
+  if (role !== "therapist") return;
 
+  (async () => {
+    try {
+      const token = await getAccessToken();
+
+      const res = await fetch("/api/team-members/matching-scores", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const json = await res.json();
+
+      if (!res.ok) {
+        console.error("MATCHING SCORES LOAD ERROR:", json);
+        return;
+      }
+
+      if (json?.matching_scores) {
+        setMatchingScores((prev) => ({
+          ...prev,
+          ...json.matching_scores,
+        }));
+      }
+    } catch (err) {
+      console.error("MATCHING SCORES LOAD ERROR:", err);
+    }
+  })();
+}, [user, role]);
 async function loadBookingSettings() {
   const {
     data: { session },
@@ -2133,6 +2193,22 @@ return (
                 />
               </div>
               <div>
+  <label>Buchungsfenster (Tage im Voraus)</label>
+  <input
+    type="number"
+    min={7}
+    max={180}
+    value={bookingSettings.booking_window_days || 90}
+    onChange={(e) =>
+      setBookingSettings({
+        ...bookingSettings,
+        booking_window_days: Number(e.target.value),
+      })
+    }
+  />
+</div>
+              <div>
+                
   <label>Buchungsfenster (Tage im Voraus)</label>
   <input
     type="number"
