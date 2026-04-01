@@ -2132,6 +2132,21 @@ return (
                   }
                 />
               </div>
+              <div>
+  <label>Buchungsfenster (Tage im Voraus)</label>
+  <input
+    type="number"
+    min={7}
+    max={180}
+    value={bookingSettings.booking_window_days || 90}
+    onChange={(e) =>
+      setBookingSettings({
+        ...bookingSettings,
+        booking_window_days: Number(e.target.value),
+      })
+    }
+  />
+</div>
 
               <div>
                 <label>Zeitzone</label>
