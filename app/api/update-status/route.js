@@ -4,7 +4,7 @@ import {
   json,
   supabaseAdmin,
   getUserFromBearer,
-} from "../../_lib/server";
+} from "../_lib/server";
 
 export async function POST(req) {
   try {
