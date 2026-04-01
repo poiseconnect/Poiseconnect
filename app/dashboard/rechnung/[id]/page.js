@@ -55,86 +55,52 @@ export default function RechnungPage({ params }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
-  async function loadData() {
-    setLoading(true);
+async function loadData() {
+  setLoading(true);
 
-    // 1) Anfrage laden
-    const { data: a, error: anfrageErr } = await supabase
-      .from("anfragen")
-      .select("*")
-      .eq("id", id)
-      .single();
-
-    if (anfrageErr) {
-      console.error("ANFRAGE ERROR:", anfrageErr);
-      setLoading(false);
-      return;
-    }
-
-    setAnfrage(a);
-
-    // 2) Sessions über Billing-API (stabile Quelle)
+  try {
     const {
       data: { session },
-      error: sessAuthErr,
     } = await supabase.auth.getSession();
 
-    if (sessAuthErr) console.warn("SESSION AUTH WARN:", sessAuthErr);
-
-    const res = await fetch("/api/therapist/billing-sessions", {
+    const res = await fetch(`/api/invoices/load?id=${encodeURIComponent(id)}`, {
       headers: {
         Authorization: `Bearer ${session?.access_token}`,
       },
     });
 
-    const billingData = await res.json();
-    const allSessions = billingData?.data || [];
+    const json = await res.json();
 
-    const invoiceSessions = allSessions.filter(
-      (s) => String(s.anfrage_id) === String(id)
-    );
-
-    setSessions(invoiceSessions);
-
-    // 3) TherapistId bestimmen
-    const therapistId = a?.assigned_therapist_id || invoiceSessions?.[0]?.therapist_id;
-
-    // 4) Invoice Settings laden (Therapeut) – NICHT editierbar
-    if (therapistId) {
-      const { data: invSet, error: invErr } = await supabase
-        .from("therapist_invoice_settings")
-        .select("*")
-        .eq("therapist_id", therapistId)
-        .single();
-
-      if (invErr) console.error("INVOICE SETTINGS ERROR:", invErr);
-      setSettings(invSet || null);
-    } else {
-      setSettings(null);
+    if (!res.ok) {
+      console.error("LOAD INVOICE DATA ERROR:", json);
+      return;
     }
 
-    // 5) Defaults setzen (editierbar)
+    const a = json.anfrage || null;
+    const invoiceSessions = json.sessions || [];
+    const invSettings = json.settings || null;
+
+    setAnfrage(a);
+    setSessions(invoiceSessions);
+    setSettings(invSettings);
+
     const now = new Date();
     setInvoiceNumber((prev) => prev || "RE-" + Date.now().toString().slice(-5));
     setInvoiceDate((prev) => prev || now.toISOString().slice(0, 10));
 
-    // Leistungszeitraum: min–max Datum aus Sessions, sonst heute
     const period = buildServicePeriod(invoiceSessions);
     setServicePeriod((prev) => prev || period);
 
-    // Client defaults aus Anfrage
     setClientName((prev) => prev || `${a?.vorname || ""} ${a?.nachname || ""}`.trim());
     setClientStreet((prev) => prev || (a?.strasse_hausnr || ""));
     setClientZipCity((prev) => prev || (a?.plz_ort || ""));
     setClientEmail((prev) => prev || (a?.email || ""));
     setClientCountry((prev) => prev || "");
 
-    // 6) Positionsfelder initialisieren (beschreibungen/qty/unit)
     setDescriptions((prev) => {
       const next = { ...prev };
       for (const s of invoiceSessions) {
         if (!next[s.id]) {
-          // Vorlage-Style: “Psychologische Online Beratung …” (editierbar)
           next[s.id] = "Psychologische Beratung";
         }
       }
@@ -157,11 +123,11 @@ export default function RechnungPage({ params }) {
       return next;
     });
 
-    // optional: Ansprechpartner default (wie Vorlage)
     setContactPerson((prev) => prev || "");
-
+  } finally {
     setLoading(false);
   }
+}
 
   const vatRate = useMemo(() => Number(settings?.default_vat_rate || 0), [settings]);
 
