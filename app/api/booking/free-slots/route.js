@@ -18,8 +18,7 @@ export async function GET(req) {
     const url = new URL(req.url);
     const token = url.searchParams.get("token");
     const from = url.searchParams.get("from");
-    const days = Number(url.searchParams.get("days") || 14);
-
+const requestedDays = Number(url.searchParams.get("days") || 0);
     if (!token || !from) {
       return json({ error: "MISSING_PARAMS" }, 400);
     }
@@ -64,8 +63,19 @@ export async function GET(req) {
     );
 
 
-    const startDate = parseISO(from);
-    const endDate = addDays(startDate, Math.min(Math.max(days, 1), 60));
+const startDate = parseISO(from);
+
+const bookingWindowDays = Number(settings?.booking_window_days || 90);
+
+const effectiveDays =
+  requestedDays > 0
+    ? Math.min(requestedDays, bookingWindowDays)
+    : bookingWindowDays;
+
+const endDate = addDays(
+  startDate,
+  Math.min(Math.max(effectiveDays, 1), 180)
+);
 
 const oauth = oauthClient();
 
@@ -127,13 +137,13 @@ oauth.setCredentials({
       day,
       slots: arr,
     }));
-
-    return json({
-      therapist_id: therapistId,
-      calendar_id: settings.selected_calendar_id,
-      min_booking_notice_hours: minHours,
-      slots,
-    });
+return json({
+  therapist_id: therapistId,
+  calendar_id: settings.selected_calendar_id,
+  min_booking_notice_hours: minHours,
+  booking_window_days: bookingWindowDays,
+  slots,
+});
   } catch (e) {
     return json({ error: "SERVER_ERROR", detail: String(e) }, 500);
   }
