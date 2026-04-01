@@ -672,6 +672,19 @@ Poise`
             }}
           >
             <h3 style={{ marginTop: 0 }}>Rechnung an Klient senden</h3>
+                  <div style={{ marginBottom: 12 }}>
+        <label>Absender</label>
+        <input
+          type="text"
+          value={settings?.email || ""}
+          disabled
+          style={{
+            width: "100%",
+            background: "#f3f3f3",
+            color: "#555",
+          }}
+        />
+      </div>
 
             <div style={{ marginBottom: 12 }}>
               <label>Empfänger</label>
