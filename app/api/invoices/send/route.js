@@ -16,11 +16,20 @@ export async function POST(req) {
 
     const body = await req.json();
     const invoiceId = body.invoiceId;
+    const to = body.to;
+    const subject = body.subject;
+    const message = body.message;
 
     if (!invoiceId) {
       return json({ error: "MISSING_INVOICE_ID" }, 400);
     }
+    if (!to) {
+      return json({ error: "MISSING_TO" }, 400);
+    }
 
+    if (!subject) {
+      return json({ error: "MISSING_SUBJECT" }, 400);
+    }
     const sb = supabaseAdmin();
 
     const { data: member, error: memberErr } = await sb
@@ -117,17 +126,15 @@ export async function POST(req) {
 
     await resend.emails.send({
       from: process.env.RESEND_FROM || "Poise <noreply@mypoise.de>",
-      to: invoice.client_email,
-      subject: `Deine Rechnung ${invoice.invoice_number}`,
+      to,
+      subject,
       html: `
-        <p>Hallo ${invoice.client_name || anfrage.vorname || ""},</p>
-        <p>anbei erhältst du deine Rechnung.</p>
-        <p>
-          <strong>Rechnungsnummer:</strong> ${invoice.invoice_number}<br/>
-          <strong>Rechnungsdatum:</strong> ${invoice.invoice_date || "-"}
-        </p>
-        <p>Bei Fragen melde dich gerne direkt bei uns.</p>
-        <p>Herzliche Grüße<br/>Poise</p>
+        <div style="font-family: Arial, sans-serif; line-height: 1.5;">
+          ${String(message || "")
+            .split("\n")
+            .map((line) => `<p>${line || "&nbsp;"}</p>`)
+            .join("")}
+        </div>
       `,
       attachments: [
         {
