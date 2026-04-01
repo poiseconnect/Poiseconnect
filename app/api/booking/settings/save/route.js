@@ -35,6 +35,7 @@ const payload = {
   buffer_min: Number(body.buffer_min || 10),
   time_zone: body.time_zone || "Europe/Vienna",
   min_booking_notice_hours: Number(body.min_booking_notice_hours || 24),
+  booking_window_days: Number(body.booking_window_days || 90),
   selected_calendar_id: body.selected_calendar_id || null,
   selected_calendar_name: body.selected_calendar_name || null,
   meeting_link: body.meeting_link || null,
