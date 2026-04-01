@@ -16,8 +16,12 @@ function normalizeIso(value) {
 
 export async function POST(req) {
   try {
+    console.log("=== BOOKING POST START ===");
+
     const sb = supabaseAdmin();
     const body = await req.json();
+    console.log("BOOKING BODY:", JSON.stringify(body, null, 2));
+
     const resend = new Resend(process.env.RESEND_API_KEY);
 
     const token = body?.token || null;
@@ -29,11 +33,21 @@ export async function POST(req) {
       Number(body?.durationMin) ||
       (bookingType === "erstgespraech" ? 30 : 60);
 
+    console.log("BOOKING INPUT PARSED:", {
+      token,
+      googleEventIdFromBody,
+      startFromBody,
+      bookingType,
+      durationMin,
+    });
+
     if (!token) {
+      console.log("BOOKING FAIL: MISSING_TOKEN");
       return json({ error: "MISSING_TOKEN" }, 400);
     }
 
     if (!googleEventIdFromBody && !startFromBody) {
+      console.log("BOOKING FAIL: MISSING_SLOT_REFERENCE");
       return json({ error: "MISSING_SLOT_REFERENCE" }, 400);
     }
 
@@ -54,7 +68,13 @@ export async function POST(req) {
       .eq("booking_token", token)
       .single();
 
+    console.log("BOOKING ANFRAGE:", {
+      anfrage,
+      anfrageErr: anfrageErr?.message || null,
+    });
+
     if (anfrageErr || !anfrage) {
+      console.log("BOOKING FAIL: INVALID_TOKEN");
       return json(
         {
           error: "INVALID_TOKEN",
@@ -66,6 +86,7 @@ export async function POST(req) {
 
     const therapistId = anfrage.assigned_therapist_id;
     if (!therapistId) {
+      console.log("BOOKING FAIL: NO_THERAPIST_ASSIGNED");
       return json({ error: "NO_THERAPIST_ASSIGNED" }, 400);
     }
 
@@ -76,7 +97,13 @@ export async function POST(req) {
       .eq("therapist_id", therapistId)
       .single();
 
+    console.log("BOOKING SETTINGS:", {
+      settings,
+      settingsErr: settingsErr?.message || null,
+    });
+
     if (settingsErr || !settings) {
+      console.log("BOOKING FAIL: BOOKING_SETTINGS_NOT_FOUND");
       return json(
         {
           error: "BOOKING_SETTINGS_NOT_FOUND",
@@ -87,19 +114,26 @@ export async function POST(req) {
     }
 
     if (!settings.booking_enabled) {
+      console.log("BOOKING FAIL: BOOKING_DISABLED");
       return json({ error: "BOOKING_DISABLED" }, 403);
     }
 
     if (!settings.selected_calendar_id) {
+      console.log("BOOKING FAIL: NO_CALENDAR_SELECTED");
       return json({ error: "NO_CALENDAR_SELECTED" }, 400);
     }
 
-const oauth = oauthClient();
+    const oauth = oauthClient();
 
-oauth.setCredentials({
-  access_token: process.env.GOOGLE_ACCESS_TOKEN,
-  refresh_token: process.env.GOOGLE_REFRESH_TOKEN,
-});
+    oauth.setCredentials({
+      access_token: process.env.GOOGLE_ACCESS_TOKEN,
+      refresh_token: process.env.GOOGLE_REFRESH_TOKEN,
+    });
+
+    console.log("BOOKING GOOGLE CREDS PRESENT:", {
+      hasAccessToken: !!process.env.GOOGLE_ACCESS_TOKEN,
+      hasRefreshToken: !!process.env.GOOGLE_REFRESH_TOKEN,
+    });
 
     // 4) Therapeut laden
     const { data: therapistMember, error: therapistErr } = await sb
@@ -108,7 +142,13 @@ oauth.setCredentials({
       .eq("id", therapistId)
       .single();
 
+    console.log("BOOKING THERAPIST:", {
+      therapistMember,
+      therapistErr: therapistErr?.message || null,
+    });
+
     if (therapistErr || !therapistMember) {
+      console.log("BOOKING FAIL: THERAPIST_NOT_FOUND");
       return json(
         {
           error: "THERAPIST_NOT_FOUND",
@@ -118,10 +158,14 @@ oauth.setCredentials({
       );
     }
 
-
     const calendar = google.calendar({
       version: "v3",
       auth: oauth,
+    });
+
+    console.log("BOOKING CALENDAR READY:", {
+      calendarId: settings.selected_calendar_id,
+      timeZone: settings.time_zone || "Europe/Vienna",
     });
 
     // 6) Google Event finden
@@ -129,13 +173,23 @@ oauth.setCredentials({
     let googleEventId = googleEventIdFromBody || null;
 
     if (googleEventIdFromBody) {
+      console.log("BOOKING LOOKUP BY GOOGLE EVENT ID:", googleEventIdFromBody);
+
       try {
         const evRes = await calendar.events.get({
           calendarId: settings.selected_calendar_id,
           eventId: googleEventIdFromBody,
         });
         ev = evRes.data;
+
+        console.log("BOOKING EVENT FOUND BY ID:", {
+          id: ev?.id,
+          summary: ev?.summary,
+          start: ev?.start?.dateTime,
+          end: ev?.end?.dateTime,
+        });
       } catch (err) {
+        console.error("BOOKING GOOGLE EVENT GET ERROR:", err);
         return json(
           {
             error: "GOOGLE_EVENT_NOT_FOUND",
@@ -146,13 +200,25 @@ oauth.setCredentials({
       }
     } else {
       const wantedStartIso = normalizeIso(startFromBody);
+
+      console.log("BOOKING LOOKUP BY START:", {
+        startFromBody,
+        wantedStartIso,
+      });
+
       if (!wantedStartIso) {
+        console.log("BOOKING FAIL: INVALID_START");
         return json({ error: "INVALID_START" }, 400);
       }
 
       const endSearchIso = new Date(
         new Date(wantedStartIso).getTime() + 2 * 60 * 60 * 1000
       ).toISOString();
+
+      console.log("BOOKING GOOGLE LIST SEARCH:", {
+        timeMin: wantedStartIso,
+        timeMax: endSearchIso,
+      });
 
       const listRes = await calendar.events.list({
         calendarId: settings.selected_calendar_id,
@@ -165,6 +231,16 @@ oauth.setCredentials({
 
       const candidates = listRes.data.items || [];
 
+      console.log(
+        "BOOKING CANDIDATES:",
+        candidates.map((item) => ({
+          id: item?.id,
+          summary: item?.summary,
+          start: item?.start?.dateTime,
+          end: item?.end?.dateTime,
+        }))
+      );
+
       ev =
         candidates.find((item) => {
           const title = String(item.summary || "").trim().toUpperCase();
@@ -174,7 +250,15 @@ oauth.setCredentials({
           );
         }) || null;
 
+      console.log("BOOKING MATCHED EVENT:", {
+        id: ev?.id,
+        summary: ev?.summary,
+        start: ev?.start?.dateTime,
+        end: ev?.end?.dateTime,
+      });
+
       if (!ev?.id) {
+        console.log("BOOKING FAIL: slot_taken (no matching POISE SLOT found)");
         return json({ error: "slot_taken" }, 409);
       }
 
@@ -183,16 +267,27 @@ oauth.setCredentials({
 
     const eventTitle = String(ev?.summary || "").trim().toUpperCase();
 
+    console.log("BOOKING EVENT TITLE:", {
+      eventTitle,
+      originalSummary: ev?.summary,
+    });
+
     if (!eventTitle.startsWith("POISE SLOT")) {
+      console.log("BOOKING FAIL: SLOT_NOT_AVAILABLE");
       return json({ error: "SLOT_NOT_AVAILABLE" }, 409);
     }
 
     if (!ev?.start?.dateTime || !ev?.end?.dateTime) {
+      console.log("BOOKING FAIL: INVALID_SLOT_EVENT", {
+        start: ev?.start,
+        end: ev?.end,
+      });
       return json({ error: "INVALID_SLOT_EVENT" }, 400);
     }
 
     const originalStartISO = normalizeIso(ev.start.dateTime);
     if (!originalStartISO) {
+      console.log("BOOKING FAIL: INVALID_SLOT_START");
       return json({ error: "INVALID_SLOT_START" }, 400);
     }
 
@@ -204,6 +299,13 @@ oauth.setCredentials({
     const clientName =
       `${anfrage.vorname || ""} ${anfrage.nachname || ""}`.trim() || "Klient";
 
+    console.log("BOOKING FINAL SLOT:", {
+      startISO,
+      endISO,
+      clientName,
+      googleEventId,
+    });
+
     // 7) Doppelbuchungsschutz
     if (bookingType === "erstgespraech") {
       const { data: existingBlocked, error: blockedErr } = await sb
@@ -212,7 +314,13 @@ oauth.setCredentials({
         .eq("therapist_id", therapistId)
         .eq("start_at", startISO);
 
+      console.log("BOOKING BLOCKED SLOT CHECK:", {
+        existingBlocked,
+        blockedErr: blockedErr?.message || null,
+      });
+
       if (blockedErr) {
+        console.log("BOOKING FAIL: BLOCKED_CHECK_FAILED");
         return json(
           {
             error: "BLOCKED_CHECK_FAILED",
@@ -223,6 +331,7 @@ oauth.setCredentials({
       }
 
       if ((existingBlocked || []).length > 0) {
+        console.log("BOOKING FAIL: slot_taken (blocked slot exists)");
         return json({ error: "slot_taken" }, 409);
       }
     } else {
@@ -232,7 +341,13 @@ oauth.setCredentials({
         .eq("therapist_id", therapistId)
         .eq("date", startISO);
 
+      console.log("BOOKING SESSION CHECK:", {
+        existingSessions,
+        existingErr: existingErr?.message || null,
+      });
+
       if (existingErr) {
+        console.log("BOOKING FAIL: SESSION_CHECK_FAILED");
         return json(
           {
             error: "SESSION_CHECK_FAILED",
@@ -243,6 +358,7 @@ oauth.setCredentials({
       }
 
       if ((existingSessions || []).length > 0) {
+        console.log("BOOKING FAIL: slot_taken (session exists)");
         return json({ error: "slot_taken" }, 409);
       }
     }
@@ -259,7 +375,12 @@ oauth.setCredentials({
         reason: "erstgespraech_booking",
       });
 
+      console.log("BOOKING BLOCKED SLOT INSERT:", {
+        blockErr: blockErr?.message || null,
+      });
+
       if (blockErr) {
+        console.log("BOOKING FAIL: BLOCKED_SLOT_INSERT_FAILED");
         return json(
           {
             error: "BLOCKED_SLOT_INSERT_FAILED",
@@ -278,7 +399,14 @@ oauth.setCredentials({
         })
         .eq("id", anfrage.id);
 
+      console.log("BOOKING ANFRAGE UPDATE:", {
+        updateReqErr: updateReqErr?.message || null,
+        newStatus: "termin_bestaetigt",
+        bevorzugte_zeit: startISO,
+      });
+
       if (updateReqErr) {
+        console.log("BOOKING FAIL: REQUEST_UPDATE_FAILED");
         return json(
           {
             error: "REQUEST_UPDATE_FAILED",
@@ -292,6 +420,14 @@ oauth.setCredentials({
         ? Number(anfrage.honorar_klient)
         : null;
 
+      console.log("BOOKING SESSION INSERT TRY:", {
+        anfrage_id: anfrage.id,
+        therapist_id: therapistId,
+        date: startISO,
+        duration_min: durationMin,
+        price,
+      });
+
       const { data: inserted, error: sessionInsertErr } = await sb
         .from("sessions")
         .insert({
@@ -304,7 +440,13 @@ oauth.setCredentials({
         .select()
         .single();
 
+      console.log("BOOKING SESSION INSERT RESULT:", {
+        inserted,
+        sessionInsertErr: sessionInsertErr?.message || null,
+      });
+
       if (sessionInsertErr || !inserted) {
+        console.log("BOOKING FAIL: SESSION_INSERT_FAILED");
         return json(
           {
             error: "SESSION_INSERT_FAILED",
@@ -322,6 +464,10 @@ oauth.setCredentials({
           status: "active",
         })
         .eq("id", anfrage.id);
+
+      console.log("BOOKING STATUS UPDATE AFTER SESSION:", {
+        statusErr: statusErr?.message || null,
+      });
 
       if (statusErr) {
         console.error("BOOKING STATUS UPDATE FAILED:", statusErr);
@@ -344,6 +490,19 @@ oauth.setCredentials({
         descriptionLines.splice(2, 0, `Session-ID: ${insertedSession.id}`);
       }
 
+      console.log("BOOKING GOOGLE PATCH PAYLOAD:", {
+        calendarId: settings.selected_calendar_id,
+        eventId: googleEventId,
+        summary:
+          bookingType === "erstgespraech"
+            ? `Poise Erstgespräch – ${clientName}`
+            : `Poise Sitzung – ${clientName}`,
+        description: descriptionLines.join("\n"),
+        startISO,
+        endISO,
+        timeZone: settings.time_zone || "Europe/Vienna",
+      });
+
       await calendar.events.patch({
         calendarId: settings.selected_calendar_id,
         eventId: googleEventId,
@@ -363,6 +522,8 @@ oauth.setCredentials({
           },
         },
       });
+
+      console.log("BOOKING GOOGLE PATCH SUCCESS");
     } catch (googlePatchErr) {
       console.error("GOOGLE EVENT PATCH FAILED:", googlePatchErr);
       return json(
@@ -400,6 +561,14 @@ oauth.setCredentials({
       });
 
       const from = "Poise <noreply@mypoise.de>";
+
+      console.log("BOOKING MAIL PREP:", {
+        clientEmail: anfrage.email || null,
+        therapistEmail: therapistMember?.email || null,
+        dateString,
+        timeString,
+        endTimeString,
+      });
 
       if (anfrage.email) {
         const clientSubject =
@@ -459,6 +628,8 @@ oauth.setCredentials({
   <p>Dein Poise-Team</p>
           `,
         });
+
+        console.log("BOOKING CLIENT MAIL SENT");
       }
 
       if (therapistMember?.email) {
@@ -493,10 +664,22 @@ oauth.setCredentials({
             <p>Poise Connect</p>
           `,
         });
+
+        console.log("BOOKING COACH MAIL SENT");
       }
     } catch (mailErr) {
       console.error("BOOKING MAIL ERROR:", mailErr);
     }
+
+    console.log("=== BOOKING POST SUCCESS ===", {
+      bookingType,
+      sessionId: insertedSession?.id || null,
+      anfrageId: anfrage.id,
+      therapistId,
+      googleEventId,
+      startISO,
+      endISO,
+    });
 
     return json({
       ok: true,
