@@ -14,6 +14,7 @@ export default function RechnungPage({ params }) {
   const [anfrage, setAnfrage] = useState(null);
   const [sessions, setSessions] = useState([]);
   const [settings, setSettings] = useState(null);
+    const [coach, setCoach] = useState(null);
 
   // Invoice Header Felder (editierbar)
   const [invoiceNumber, setInvoiceNumber] = useState("");
@@ -84,10 +85,12 @@ async function loadData() {
     const a = json.anfrage || null;
     const invoiceSessions = json.sessions || [];
     const invSettings = json.settings || null;
+    const coachData = json.coach || null;
 
     setAnfrage(a);
     setSessions(invoiceSessions);
     setSettings(invSettings);
+    setCoach(coachData);
 
     const now = new Date();
     setInvoiceNumber((prev) => prev || "RE-" + Date.now().toString().slice(-5));
@@ -676,8 +679,7 @@ Poise`
         <label>Absender</label>
         <input
           type="text"
-          value={settings?.email || ""}
-          disabled
+value={coach?.email || "Keine Coach-E-Mail hinterlegt"}          disabled
           style={{
             width: "100%",
             background: "#f3f3f3",
