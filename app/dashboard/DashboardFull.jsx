@@ -2192,21 +2192,7 @@ return (
                   }
                 />
               </div>
-              <div>
-  <label>Buchungsfenster (Tage im Voraus)</label>
-  <input
-    type="number"
-    min={7}
-    max={180}
-    value={bookingSettings.booking_window_days || 90}
-    onChange={(e) =>
-      setBookingSettings({
-        ...bookingSettings,
-        booking_window_days: Number(e.target.value),
-      })
-    }
-  />
-</div>
+
               <div>
                 
   <label>Buchungsfenster (Tage im Voraus)</label>
@@ -2285,7 +2271,39 @@ return (
               {bookingSaving ? "Speichere..." : "💾 Speichern"}
             </button>
           </div>
-        )}
+           )}
+
+        <div
+          style={{
+            marginBottom: 16,
+            border: "1px solid #eee",
+            borderRadius: 10,
+            background: "#FAFAFA",
+            padding: 12,
+          }}
+        >
+          <div style={{ fontWeight: 600, marginBottom: 8 }}>
+            🎯 Themen-Gewichtung für Matching
+          </div>
+
+          <div style={{ fontSize: 12, color: "#666", marginBottom: 10 }}>
+            Hier kannst du festlegen, bei welchen Anliegen du stärker gematcht wirst.
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setMatchingScoresModalOpen(true)}
+            style={{
+              padding: "8px 14px",
+              borderRadius: 999,
+              border: "1px solid #ccc",
+              background: "#fff",
+              fontWeight: 600,
+            }}
+          >
+            Themen-Gewichtung bearbeiten
+          </button>
+        </div>
       </>
     )}
 
@@ -3679,6 +3697,113 @@ const data = await res.json();
               }}
             >
               💾 Speichern
+            </button>
+          </div>
+        </Modal>
+      )}
+        {matchingScoresModalOpen && (
+        <Modal onClose={() => setMatchingScoresModalOpen(false)}>
+          <h3>Themen-Gewichtung</h3>
+
+          <p style={{ fontSize: 14, color: "#666" }}>
+            0 = keine Relevanz, 5 = sehr starke Relevanz
+          </p>
+
+          <div
+            style={{
+              display: "grid",
+              gap: 12,
+              marginTop: 16,
+            }}
+          >
+            {MATCHING_THEMEN.map((item) => (
+              <div
+                key={item.key}
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr 100px",
+                  gap: 12,
+                  alignItems: "center",
+                }}
+              >
+                <label>{item.label}</label>
+
+                <input
+                  type="number"
+                  min={0}
+                  max={5}
+                  step={1}
+                  value={matchingScores[item.key] ?? 0}
+                  onChange={(e) =>
+                    setMatchingScores((prev) => ({
+                      ...prev,
+                      [item.key]: Number(e.target.value),
+                    }))
+                  }
+                />
+              </div>
+            ))}
+          </div>
+
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "flex-end",
+              gap: 8,
+              marginTop: 20,
+            }}
+          >
+            <button
+              type="button"
+              onClick={() => setMatchingScoresModalOpen(false)}
+            >
+              Abbrechen
+            </button>
+
+            <button
+              type="button"
+              disabled={matchingScoresSaving}
+              onClick={async () => {
+                setMatchingScoresSaving(true);
+
+                try {
+                  const token = await getAccessToken();
+
+                  const res = await fetch("/api/team-members/matching-scores", {
+                    method: "POST",
+                    headers: {
+                      "Content-Type": "application/json",
+                      Authorization: `Bearer ${token}`,
+                    },
+                    body: JSON.stringify({
+                      matching_scores: matchingScores,
+                    }),
+                  });
+
+                  const json = await res.json();
+
+                  if (!res.ok) {
+                    console.error("MATCHING SCORES SAVE ERROR:", json);
+                    alert("Fehler beim Speichern");
+                    return;
+                  }
+
+                  setMatchingScores((prev) => ({
+                    ...prev,
+                    ...(json.matching_scores || {}),
+                  }));
+
+                  alert("✅ Themen-Gewichtung gespeichert");
+                  setMatchingScoresModalOpen(false);
+                } catch (err) {
+                  console.error("MATCHING SCORES SAVE ERROR:", err);
+                  alert("Fehler beim Speichern");
+                } finally {
+                  setMatchingScoresSaving(false);
+                }
+              }}
+            >
+              {matchingScoresSaving ? "Speichere..." : "💾 Speichern"}
             </button>
           </div>
         </Modal>
