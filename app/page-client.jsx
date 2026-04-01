@@ -391,6 +391,7 @@ const [loadingSlots, setLoadingSlots] = useState(false);
 const [slotsError, setSlotsError] = useState("");
 const [selectedDay, setSelectedDay] = useState(null);
 const [blockedOldTerminISO, setBlockedOldTerminISO] = useState("");
+  const [bookingWindowDays, setBookingWindowDays] = useState(21);
 
   // -------------------------------------
   // Matching – Team-Sortierung nach Tags
@@ -875,16 +876,20 @@ useEffect(() => {
     setSlotsError("");
 
     try {
-      const from = new Date().toISOString();
+const from = new Date().toISOString();
 
-      const res = await fetch(
-        `/api/booking/free-slots?token=${encodeURIComponent(
-          bookingToken
-        )}&from=${encodeURIComponent(from)}&days=21`,
-        { cache: "no-store" }
-      );
+const res = await fetch(
+  `/api/booking/free-slots?token=${encodeURIComponent(
+    bookingToken
+  )}&from=${encodeURIComponent(from)}&days=${bookingWindowDays}`,
+  { cache: "no-store" }
+);
 
-      const json = await res.json();
+const json = await res.json();
+
+if (json.booking_window_days) {
+  setBookingWindowDays(Number(json.booking_window_days));
+}
 
       if (!res.ok) {
 console.error("FREE SLOTS ERROR FULL:", JSON.stringify(json, null, 2));        if (isMounted) {
