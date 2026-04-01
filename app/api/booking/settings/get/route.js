@@ -27,7 +27,14 @@ export async function GET(req) {
       .eq("therapist_id", member.id)
       .single();
 
-    return json({ settings: data || null });
+return json({
+  settings: data
+    ? {
+        ...data,
+        booking_window_days: Number(data.booking_window_days || 90),
+      }
+    : null,
+});
   } catch (e) {
     return json({ error: "SERVER_ERROR", detail: String(e) }, 500);
   }
