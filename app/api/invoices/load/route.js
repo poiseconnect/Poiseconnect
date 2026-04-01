@@ -54,13 +54,13 @@ export async function GET(req) {
     if (sessErr) {
       return json({ error: sessErr.message }, 400);
     }
-
     const therapistId =
       anfrage.assigned_therapist_id ||
       sessions?.[0]?.therapist_id ||
       null;
 
     let settings = null;
+    let coach = null;
 
     if (therapistId) {
       const { data: invSet } = await sb
@@ -70,12 +70,21 @@ export async function GET(req) {
         .single();
 
       settings = invSet || null;
+
+      const { data: coachMember } = await sb
+        .from("team_members")
+        .select("id, name, email")
+        .eq("id", therapistId)
+        .single();
+
+      coach = coachMember || null;
     }
 
     return json({
       anfrage,
       sessions: sessions || [],
       settings,
+      coach,
     });
   } catch (e) {
     return json({ error: "SERVER_ERROR", detail: String(e) }, 500);
