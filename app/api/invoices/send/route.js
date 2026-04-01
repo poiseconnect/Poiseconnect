@@ -74,6 +74,12 @@ export async function POST(req) {
       .select("*")
       .eq("therapist_id", invoice.therapist_id)
       .single();
+    
+        const coachEmail = settings.email || null;
+    const coachName =
+      settings.display_name ||
+      settings.company_name ||
+      "Coach";
 
     if (settingsErr || !settings) {
       return json({ error: "INVOICE_SETTINGS_NOT_FOUND" }, 404);
@@ -124,18 +130,29 @@ export async function POST(req) {
 
     const resend = new Resend(process.env.RESEND_API_KEY);
 
-    await resend.emails.send({
-      from: process.env.RESEND_FROM || "Poise <noreply@mypoise.de>",
+await resend.emails.send({
+  from: process.env.RESEND_FROM || "Poise <noreply@mypoise.de>",
+
+  reply_to: coachEmail || process.env.RESEND_FROM,
       to,
       subject,
       html: `
-        <div style="font-family: Arial, sans-serif; line-height: 1.5;">
-          ${String(message || "")
-            .split("\n")
-            .map((line) => `<p>${line || "&nbsp;"}</p>`)
-            .join("")}
-        </div>
-      `,
+  <div style="font-family: Arial, sans-serif; line-height: 1.5;">
+    
+    ${String(message || "")
+      .split("\n")
+      .map((line) => `<p>${line || "&nbsp;"}</p>`)
+      .join("")}
+
+    <br/>
+
+    <p>
+      Herzliche Grüße<br/>
+      ${coachName}
+    </p>
+
+  </div>
+`,
       attachments: [
         {
           filename: `Rechnung_${invoice.invoice_number || "rechnung"}.pdf`,
