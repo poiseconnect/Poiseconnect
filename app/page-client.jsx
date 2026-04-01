@@ -7,7 +7,6 @@ import Image from "next/image";
 import StepIndicator from "./components/StepIndicator";
 import TeamCarousel from "./components/TeamCarousel";
 import { teamData } from "./lib/teamData";
-import { supabase } from "./lib/supabase";
 
 
 
@@ -613,38 +612,44 @@ useEffect(() => {
   const params = new URLSearchParams(window.location.search);
   const resume = params.get("resume");
 
-  supabase
-    .from("anfragen")
-    .select("*")
-    .eq("id", anfrageId)
-    .single()
-    .then(({ data, error }) => {
-      if (error) {
-        console.error("LOAD ANFRAGE BY ID ERROR", error);
+  let isMounted = true;
+
+  async function loadExistingRequest() {
+    try {
+      const res = await fetch(
+        `/api/public-request?id=${encodeURIComponent(anfrageId)}`,
+        { cache: "no-store" }
+      );
+
+      const json = await res.json();
+
+      if (!res.ok) {
+        console.error("LOAD ANFRAGE BY ID ERROR", json);
         return;
       }
 
-      if (!data) return;
+      const data = json.request;
+      if (!data || !isMounted) return;
 
       console.log("✅ LOADED EXISTING REQUEST", data);
-      // ✅ alten Termin merken, damit er in Step 10 NICHT mehr angezeigt wird
-const rawOld =
-  data?.terminISO ||
-  data?.termin_iso ||
-  data?.terminISO_erstgespraech ||
-  data?.bevorzugte_zeit ||
-  "";
 
-let oldIso = "";
-if (rawOld) {
-  // rawOld kann ISO-String oder Timestamp sein → normalisieren
-  const d = new Date(rawOld);
-  oldIso = Number.isNaN(d.getTime()) ? String(rawOld) : d.toISOString();
-}
+      const rawOld =
+        data?.terminISO ||
+        data?.termin_iso ||
+        data?.terminISO_erstgespraech ||
+        data?.bevorzugte_zeit ||
+        "";
 
-setBlockedOldTerminISO(oldIso);
+      let oldIso = "";
+      if (rawOld) {
+        const d = new Date(rawOld);
+        oldIso = Number.isNaN(d.getTime())
+          ? String(rawOld)
+          : d.toISOString();
+      }
 
-      // 🔒 admin_therapeuten immer als Array sicherstellen
+      setBlockedOldTerminISO(oldIso);
+
       let adminTherapeuten = data.admin_therapeuten;
       if (typeof adminTherapeuten === "string") {
         try {
@@ -655,33 +660,25 @@ setBlockedOldTerminISO(oldIso);
       }
       if (!Array.isArray(adminTherapeuten)) adminTherapeuten = [];
 
-      // ✅ Formular füllen (NICHTS verlieren)
       setForm((prev) => ({
         ...prev,
         ...data,
         admin_therapeuten: adminTherapeuten,
       }));
+
       setDraftRequestId(data.id || null);
-setBookingToken(data.booking_token || null);
-setAssignedTherapistId(data.assigned_therapist_id || null);
+      setBookingToken(data.booking_token || null);
+      setAssignedTherapistId(data.assigned_therapist_id || null);
 
-
-      // =================================================
-      // 🧭 STEP-ENTSCHEIDUNG (HIER IST DIE WAHRHEIT)
-      // =================================================
-
-      // 🛂 ADMIN-WEITERLEITUNG → IMMER STEP 8
       if (resume === "admin") {
         setStep(8);
         setSelectedDay(null);
         return;
       }
 
-      // 🔢 NUMERISCHE RESUMES
       const n = parseInt(resume, 10);
 
       if (!Number.isNaN(n)) {
-        // 5 → Therapeut neu wählen → Step 8
         if (n === 5) {
           setStep(8);
           setSelectedDay(null);
@@ -693,7 +690,6 @@ setAssignedTherapistId(data.assigned_therapist_id || null);
           return;
         }
 
-        // 10 → Termin neu wählen
         if (n === 10) {
           setStep(10);
           setSelectedDay(null);
@@ -705,15 +701,18 @@ setAssignedTherapistId(data.assigned_therapist_id || null);
           return;
         }
 
-        // Fallback: direkter Step
         setStep(n);
-        return;
       }
+    } catch (err) {
+      console.error("LOAD ANFRAGE FETCH ERROR", err);
+    }
+  }
 
-      // 🟢 DEFAULT: normaler Flow
-      // (Step bleibt wie er ist – meist 0)
-    });
+  loadExistingRequest();
 
+  return () => {
+    isMounted = false;
+  };
 }, [anfrageId]);
 // -------------------------------------
 // Resume-Flow (NUR STEP STEUERN, KEINE DATEN ÄNDERN)
