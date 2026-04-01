@@ -50,6 +50,10 @@ export default function RechnungPage({ params }) {
   const [saving, setSaving] = useState(false);
   const [savedInvoiceId, setSavedInvoiceId] = useState(null);
     const [sendingInvoice, setSendingInvoice] = useState(false);
+    const [sendModalOpen, setSendModalOpen] = useState(false);
+  const [sendTo, setSendTo] = useState("");
+  const [sendSubject, setSendSubject] = useState("");
+  const [sendMessage, setSendMessage] = useState("");
 
   useEffect(() => {
     loadData();
@@ -220,7 +224,27 @@ async function loadData() {
       setSaving(false);
     }
   }
-    async function sendInvoiceToClient() {
+  function openSendInvoiceModal() {
+    if (!savedInvoiceId) {
+      alert("Bitte die Rechnung zuerst speichern");
+      return;
+    }
+
+    setSendTo(clientEmail || "");
+    setSendSubject(`Deine Rechnung ${invoiceNumber || ""}`);
+    setSendMessage(
+`Hallo ${clientName || ""},
+
+anbei erhältst du deine Rechnung.
+
+Bei Fragen melde dich gerne direkt bei uns.
+
+Herzliche Grüße
+Poise`
+    );
+    setSendModalOpen(true);
+  }
+  async function sendInvoiceToClient() {
     try {
       setSendingInvoice(true);
 
@@ -241,6 +265,9 @@ async function loadData() {
         },
         body: JSON.stringify({
           invoiceId: savedInvoiceId,
+          to: sendTo,
+          subject: sendSubject,
+          message: sendMessage,
         }),
       });
 
@@ -252,12 +279,12 @@ async function loadData() {
         return;
       }
 
+      setSendModalOpen(false);
       alert("Rechnung wurde an den Klienten gesendet");
     } finally {
       setSendingInvoice(false);
     }
   }
-
   function exportPDF() {
     try {
       const doc = new jsPDF("p", "mm", "a4");
@@ -345,8 +372,8 @@ async function loadData() {
         </button>
 
         <button
-          onClick={sendInvoiceToClient}
-          disabled={sendingInvoice || !savedInvoiceId}
+          onClick={openSendInvoiceModal}
+            disabled={sendingInvoice || !savedInvoiceId}
           style={{
             background: "#0B6E4F",
             color: "#fff",
@@ -619,6 +646,93 @@ async function loadData() {
             <div>BIC: {settings.bic || "—"}</div>
           </div>
         </div>
+                    {sendModalOpen && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.35)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 9999,
+            padding: 20,
+          }}
+          onClick={() => setSendModalOpen(false)}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: "#fff",
+              width: "100%",
+              maxWidth: 620,
+              borderRadius: 12,
+              padding: 20,
+              boxShadow: "0 10px 30px rgba(0,0,0,.2)",
+            }}
+          >
+            <h3 style={{ marginTop: 0 }}>Rechnung an Klient senden</h3>
+
+            <div style={{ marginBottom: 12 }}>
+              <label>Empfänger</label>
+              <input
+                type="email"
+                value={sendTo}
+                onChange={(e) => setSendTo(e.target.value)}
+                style={{ width: "100%" }}
+              />
+            </div>
+
+            <div style={{ marginBottom: 12 }}>
+              <label>Betreff</label>
+              <input
+                type="text"
+                value={sendSubject}
+                onChange={(e) => setSendSubject(e.target.value)}
+                style={{ width: "100%" }}
+              />
+            </div>
+
+            <div style={{ marginBottom: 16 }}>
+              <label>Persönliche Nachricht</label>
+              <textarea
+                value={sendMessage}
+                onChange={(e) => setSendMessage(e.target.value)}
+                style={{
+                  width: "100%",
+                  minHeight: 180,
+                  resize: "vertical",
+                }}
+              />
+            </div>
+
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+              <button
+                type="button"
+                onClick={() => setSendModalOpen(false)}
+              >
+                Abbrechen
+              </button>
+
+              <button
+                type="button"
+                onClick={sendInvoiceToClient}
+                disabled={sendingInvoice || !sendTo || !sendSubject}
+                style={{
+                  background: "#0B6E4F",
+                  color: "#fff",
+                  border: "none",
+                  padding: "10px 16px",
+                  borderRadius: 6,
+                  opacity: sendingInvoice || !sendTo || !sendSubject ? 0.7 : 1,
+                }}
+              >
+                {sendingInvoice ? "Sende…" : "Jetzt senden"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       </div>
     </div>
   );
