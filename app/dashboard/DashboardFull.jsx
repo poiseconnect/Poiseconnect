@@ -1,12 +1,19 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { supabase } from "../lib/supabase";
 import { teamData } from "../lib/teamData";
 import jsPDF from "jspdf";
 import "jspdf-autotable";
 import ActionMenu from "../components/ActionMenu";
+import { supabase } from "../lib/supabase";
 
+async function getAccessToken() {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
+  return session?.access_token || "";
+}
 // ================= POISE DASHBOARD COLORS =================
 const POISE_COLORS = {
   unbearbeitet: {
@@ -1191,70 +1198,38 @@ if (action === "details") {
 useEffect(() => {
   async function loadAuthAndRole() {
     const { data } = await supabase.auth.getUser();
-    
+
     if (!data?.user) return;
 
-    setUser(data.user);
-    setMyUserId(data.user.id);
-    // ================= AUTO LINK USER =================
-await supabase
-  .from("team_members")
-  .update({ user_id: data.user.id })
-  .eq("email", data.user.email)
-  .is("user_id", null);
+    const token = await getAccessToken();
 
-const { data: member, error } = await supabase
-  .from("team_members")
-  .select("id, role, active")
-  .eq("user_id", data.user.id)
-  .single();
-    // ============================================
-// AUTO LINK USER → TEAM MEMBER VIA EMAIL
-// ============================================
-if (!member) {
-  console.log("🔗 Versuche Auto-Link via Email");
+    const res = await fetch("/api/dashboard/me", {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
 
-  const { data: byMail } = await supabase
-    .from("team_members")
-    .select("id")
-    .eq("email", data.user.email)
-    .single();
+    const json = await res.json();
 
-  if (byMail?.id) {
-    console.log("✅ Linke user_id mit team member", byMail.id);
-
-    await supabase
-      .from("team_members")
-      .update({ user_id: data.user.id })
-      .eq("id", byMail.id);
-
-    // erneut laden
-    const { data: linkedMember } = await supabase
-      .from("team_members")
-      .select("id, role, active")
-      .eq("user_id", data.user.id)
-      .single();
-
-    if (linkedMember) {
-      setMyTeamMemberId(linkedMember.id);
-      setRole(linkedMember.role);
-      setAccess("granted");
-      return;
-    }
-  }
-}
-
-if (!error && member?.id) {
-  setMyTeamMemberId(member.id);
-}
-
-    if (error || !member || member.active !== true) {
-      console.warn("❌ Zugriff verweigert", error);
+    if (!res.ok || !json?.user) {
+      console.warn("❌ Zugriff verweigert", json);
       setAccess("denied");
       return;
     }
 
-    setRole(member.role); // "admin" oder "therapist"
+    setUser(json.user);
+    setMyUserId(json.user.id);
+
+    const member = json.member;
+
+    if (!member || member.active !== true) {
+      setAccess("denied");
+      return;
+    }
+
+    setMyTeamMemberId(member.id);
+    setRole(member.role);
+    setMyAvailability(!!member.available_for_intake);
     setAccess("granted");
   }
 
@@ -1297,83 +1272,51 @@ useEffect(() => {
   if (!user?.email) return;
   if (!role) return;
 
-  if (role === "therapist" && !myTeamMemberId) {
-    return; // ⛔ warten bis team_members.id da ist
-  }
-
-  console.log("🚀 LOAD REQUESTS EFFECT START", {
-    email: user.email,
-    role,
-    myTeamMemberId,
-  });
-
   (async () => {
-    let query = supabase
-      .from("anfragen")
-.select(`
-  id,
-  created_at,
-  vorname,
-  nachname,
-  email,
-  telefon,
-  strasse_hausnr,
-  plz_ort,
-  geburtsdatum,
-  beschaeftigungsgrad,
-  anliegen,
-  leidensdruck,
-  verlauf,
-  ziel,
-  diagnose,
-  status,
-  bevorzugte_zeit,
-  wunschtherapeut,
-  honorar_klient,
-  admin_therapeuten,
-  terminwunsch_text,
-  assigned_therapist_id,
-  booking_token,
-  meeting_link_override
-`)
-      .order("created_at", { ascending: false });
+    try {
+      const token = await getAccessToken();
 
-    // ✅ Therapeuten sehen NUR ihre eigenen Anfragen
-    if (role === "therapist") {
-      query = query.eq("assigned_therapist_id", myTeamMemberId);
-    }
+      const res = await fetch("/api/dashboard/requests", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
 
-    const { data, error } = await query;
+      const json = await res.json();
 
-    console.log("📦 SUPABASE anfragen DATA:", data);
-    console.log("❌ SUPABASE anfragen ERROR:", error);
+      if (!res.ok) {
+        console.error("🔥 Fehler beim Laden der Anfragen:", json);
+        setRequests([]);
+        return;
+      }
 
-    if (error) {
-      console.error("🔥 Fehler beim Laden der Anfragen:", error);
+      setRequests(
+        (json.requests || []).map((r) => {
+          const normalized = normalizeStatus(r.status);
+
+          let adminTher = r.admin_therapeuten;
+
+          if (typeof adminTher === "string") {
+            adminTher = adminTher.trim() ? [adminTher] : [];
+          }
+          if (!Array.isArray(adminTher)) adminTher = [];
+
+          return {
+            ...r,
+            admin_therapeuten: adminTher,
+            _status: normalized || "neu",
+          };
+        })
+      );
+
+      if (json.role) setRole(json.role);
+      if (json.myTeamMemberId) setMyTeamMemberId(json.myTeamMemberId);
+    } catch (err) {
+      console.error("🔥 REQUEST LOAD FAILED:", err);
       setRequests([]);
-      return;
     }
-
-    setRequests(
-      (data || []).map((r) => {
-        const normalized = normalizeStatus(r.status);
-
-        let adminTher = r.admin_therapeuten;
-
-        if (typeof adminTher === "string") {
-          adminTher = adminTher.trim() ? [adminTher] : [];
-        }
-        if (!Array.isArray(adminTher)) adminTher = [];
-
-        return {
-          ...r,
-          admin_therapeuten: adminTher,
-          _status: normalized || "neu",
-        };
-      })
-    );
   })();
-}, [user, role, myTeamMemberId]);
+}, [user, role]);
 /* ---------- LOAD SESSIONS (ADMIN API – STABIL) ---------- */
 useEffect(() => {
   let mounted = true;
@@ -1500,21 +1443,27 @@ async function loadBookingSettings() {
 }
 
 
-  async function loadMyAvailability() {
-  if (!myTeamMemberId) return;
+async function loadMyAvailability() {
+  try {
+    const token = await getAccessToken();
 
-  const { data, error } = await supabase
-    .from("team_members")
-    .select("available_for_intake")
-    .eq("id", myTeamMemberId)
-    .single();
+    const res = await fetch("/api/dashboard/me", {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
 
-  if (error) {
+    const json = await res.json();
+
+    if (!res.ok) {
+      console.error("LOAD AVAILABILITY ERROR:", json);
+      return;
+    }
+
+    setMyAvailability(!!json?.member?.available_for_intake);
+  } catch (error) {
     console.error("LOAD AVAILABILITY ERROR:", error);
-    return;
   }
-
-  setMyAvailability(!!data?.available_for_intake);
 }
   async function saveBookingSettings() {
   setBookingSaving(true);
