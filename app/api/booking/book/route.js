@@ -539,6 +539,10 @@ export async function POST(req) {
 
     // 10) Mails
     try {
+    const meetingLink =
+  anfrage.meeting_link_override ||
+  settings.meeting_link ||
+  "";
       const startDate = new Date(startISO);
       const endDate = new Date(endISO);
 
@@ -572,64 +576,83 @@ export async function POST(req) {
         endTimeString,
       });
 
-      if (anfrage.email) {
-        const clientSubject =
+if (anfrage.email) {
+  const clientSubject =
+    bookingType === "erstgespraech"
+      ? "Dein kostenloses Poise Erstgespräch wurde gebucht 🤍"
+      : "Dein Poise Termin wurde gebucht 🤍";
+
+  await resend.emails.send({
+    from,
+    to: anfrage.email,
+    subject: clientSubject,
+    html: `
+      <p>Hallo ${anfrage.vorname || ""},</p>
+
+      <p>
+        dein ${
           bookingType === "erstgespraech"
-            ? "Dein kostenloses Poise Erstgespräch wurde gebucht 🤍"
-            : "Dein Poise Termin wurde gebucht 🤍";
+            ? "kostenloses Erstgespräch"
+            : "Termin"
+        } wurde erfolgreich gebucht.
+      </p>
 
-        await resend.emails.send({
-          from,
-          to: anfrage.email,
-          subject: clientSubject,
-          html: `
-            <p>Hallo ${anfrage.vorname || ""},</p>
+      <p>
+        <strong>Datum:</strong> ${dateString}<br />
+        <strong>Zeit:</strong> ${timeString} bis ${endTimeString}
+      </p>
 
-            <p>
-              dein ${
-                bookingType === "erstgespraech"
-                  ? "kostenloses Erstgespräch"
-                  : "Termin"
-              } wurde erfolgreich gebucht.
-            </p>
+      ${
+        meetingLink
+          ? `
+      <p>
+        <strong>Dein Video-Link:</strong><br />
+        <a href="${meetingLink}" target="_blank" style="color:#8E3A4A; font-weight:600;">
+          Hier geht’s direkt zum Gespräch
+        </a>
+      </p>
+      `
+          : `
+      <p>
+        Der Link zum Gespräch wird dir rechtzeitig separat mitgeteilt.
+      </p>
+      `
+      }
 
-            <p>
-              <strong>Datum:</strong> ${dateString}<br />
-              <strong>Zeit:</strong> ${timeString} bis ${endTimeString}
-            </p>
+      <p>
+        Bitte sei ein paar Minuten vor Beginn bereit und stelle sicher,
+        dass Kamera, Mikrofon und Internetverbindung funktionieren.
+      </p>
 
-             <p>
-    Unsre Sitzungen findet online per Video statt.
-  </p>
+      <br />
 
-  <br />
+      <p><strong>Termin ändern oder absagen</strong></p>
 
-  <p><strong>Termin ändern oder absagen</strong></p>
+      <p>
+        Falls du den Termin nicht wahrnehmen kannst oder Fragen dazu hast,
+        melde dich bitte rechtzeitig bei uns unter:
+      </p>
 
-  <p>
-    Falls du den Termin nicht wahrnehmen kannst oder Fragen dazu hast,
-    melde dich bitte rechtzeitig bei uns unter:
-  </p>
+      <p>
+        <strong>hallo@mypoise.de</strong>
+      </p>
 
-  <p>
-    <strong>hallo@mypoise.de</strong>
-  </p>
+      <p>
+        Wir kümmern uns schnell um eine Lösung und finden gemeinsam einen neuen Termin.
+      </p>
 
-  <p>
-    Wir kümmern uns schnell um eine Lösung und finden gemeinsam einen neuen Termin.
-  </p>
+      <p style="margin-top:12px;">
+        Bitte gib uns möglichst früh Bescheid, falls du den Termin nicht wahrnehmen kannst.
+      </p>
 
-  <p style="margin-top:12px;">
-    Bitte gib uns möglichst früh Bescheid, falls du den Termin nicht wahrnehmen kannst.
-  </p>
+      <br />
 
-  <br />
+      <p>Wir freuen uns auf dich 🤍</p>
 
-  <p>Wir freuen uns auf dich 🤍</p>
-
-  <p>Dein Poise-Team</p>
-          `,
-        });
+      <p>Dein Poise-Team</p>
+    `,
+  });
+}
 
         console.log("BOOKING CLIENT MAIL SENT");
       }
