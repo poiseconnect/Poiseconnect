@@ -9,7 +9,7 @@ import TeamCarousel from "./components/TeamCarousel";
 import { teamData } from "./lib/teamData";
 
 
-
+ 
 // -------------------------------------
 // Helfer & Konfiguration
 // -------------------------------------
@@ -994,14 +994,11 @@ async function createOrUpdateDraft(selectedMember) {
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        anfrageId: draftRequestId || anfrageId || null,
-
-        ...form,
-
-        wunschtherapeut: selectedMember.name,
-        assigned_therapist_id: selectedMember.id,
-      }),
+body: JSON.stringify({
+  anfrageId: draftRequestId || anfrageId || null,
+  wunschtherapeut: selectedMember.name,
+  assigned_therapist_id: selectedMember.id,
+}),
     });
 
     const json = await res.json();
