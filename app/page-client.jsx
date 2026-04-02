@@ -392,7 +392,7 @@ const [slotsError, setSlotsError] = useState("");
 const [selectedDay, setSelectedDay] = useState(null);
 const [blockedOldTerminISO, setBlockedOldTerminISO] = useState("");
   const [bookingWindowDays, setBookingWindowDays] = useState(21);
-
+const [dbMatchingScores, setDbMatchingScores] = useState({});
   // -------------------------------------
   // Matching – Team-Sortierung nach Tags
   // -------------------------------------
@@ -472,8 +472,14 @@ const matchedTeam = useMemo(() => {
     .map((m) => {
       let score = 0;
 
+      const dbScores = dbMatchingScores[String(m.id)] || {};
+      const fallbackScores = m.scores || {};
+
       form.themen.forEach((t) => {
-        score += m.scores?.[t] ?? 0;
+        const basisScore =
+          dbScores[t] ?? fallbackScores[t] ?? 0;
+
+        score += Number(basisScore) || 0;
 
         const ausbildung = ROLE_TO_AUSBILDUNG(m.role);
         score += AUSBILDUNGS_BONUS?.[ausbildung]?.[t] ?? 0;
@@ -483,12 +489,12 @@ const matchedTeam = useMemo(() => {
       score += q * 0.5;
 
       return {
-        ...m,          // ⬅️ ORIGINAL-ID BLEIBT UNVERÄNDERT
+        ...m,
         _score: score,
       };
     })
     .sort((a, b) => b._score - a._score);
-}, [form.themen]);
+}, [form.themen, dbMatchingScores]);
 
 
 
@@ -775,6 +781,15 @@ useEffect(() => {
 
       const members = json.members || [];
       const bookingSettings = json.bookingSettings || [];
+      const matchingScoresMap = {};
+
+members.forEach((m) => {
+  matchingScoresMap[String(m.id)] = m.matching_scores || {};
+});
+
+if (isMounted) {
+  setDbMatchingScores(matchingScoresMap);
+}
 
       console.log("SUPABASE MEMBERS", members);
       console.log("SUPABASE BOOKING SETTINGS", bookingSettings);
