@@ -65,23 +65,44 @@ export async function POST(request) {
       body: JSON.stringify({
         from: "Poise <noreply@mypoise.de>",
         to: client,
-        subject: "Wir leiten deine Anfrage weiter 🤍",
-        html: `
-          <p>Hallo ${vorname || ""},</p>
+       subject: "Wähle jetzt deine passende Begleitung 🤍",
+html: `
+  <p>Hallo ${vorname || ""},</p>
 
-          <p>
-            wir leiten deine Anfrage an eine passende Begleitung weiter.
-          </p>
+  <p>
+    danke dir für dein Vertrauen 🤍
+  </p>
 
-          <p>
-            <a href="${baseUrl}?resume=8&email=${encodeURIComponent(client)}"
-               style="color:#6f4f49; font-weight:bold;">
-              Hier zur Auswahl der passenden Begleitung
-            </a>
-          </p>
+  <p>
+    die von dir ursprünglich ausgewählte Begleitung hat aktuell leider keine freien Kapazitäten.
+  </p>
 
-          <p>Liebe Grüße<br>dein Poise-Team 🤍</p>
-        `,
+  <p>
+    Damit du trotzdem gut begleitet wirst, kannst du jetzt eine andere passende Begleitung aus unserem Team auswählen.
+  </p>
+
+  <p>
+    <a href="${baseUrl}?resume=8&email=${encodeURIComponent(client)}"
+       style="color:#8E3A4A; font-weight:600;">
+      👉 Passende Begleitung auswählen
+    </a>
+  </p>
+
+  <p>
+    Nimm dir dafür gerne einen Moment Zeit und wähle die Person aus, die sich für dich stimmig anfühlt.
+  </p>
+
+  <p>
+    Wenn du Fragen hast, melde dich jederzeit gern bei uns.
+  </p>
+
+  <br />
+
+  <p>
+    Alles Liebe<br />
+    dein Poise-Team 🤍
+  </p>
+`,
       }),
     });
 
