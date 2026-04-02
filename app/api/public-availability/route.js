@@ -6,9 +6,9 @@ export async function GET() {
   try {
     const sb = supabaseAdmin();
 
-    const { data: members, error: membersError } = await sb
-      .from("team_members")
-      .select("id, available_for_intake, active");
+const { data: members, error: membersError } = await sb
+  .from("team_members")
+  .select("id, available_for_intake, active, matching_scores");
 
     if (membersError) {
       console.error("PUBLIC AVAILABILITY members ERROR:", membersError);
