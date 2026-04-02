@@ -896,7 +896,7 @@ const from = new Date().toISOString();
 const res = await fetch(
   `/api/booking/free-slots?token=${encodeURIComponent(
     bookingToken
-  )}&from=${encodeURIComponent(from)}&days=${bookingWindowDays}`,
+  )}&from=${encodeURIComponent(from)}`,
   { cache: "no-store" }
 );
 
