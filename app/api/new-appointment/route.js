@@ -124,25 +124,43 @@ if (requestData?.bevorzugte_zeit) {
         from: "Poise <noreply@mypoise.de>",
         to: client,
         subject: "Bitte neuen Termin auswählen 🤍",
-        html: `
-          <p>Hallo ${vorname || ""},</p>
+       html: `
+  <p>Hallo ${vorname || ""},</p>
 
-          <p>
-            der ursprünglich gewählte Termin ist leider nicht verfügbar.
-            Bitte wähle einen <strong>neuen Termin</strong>.
-          </p>
+  <p>
+    dein ursprünglich geplanter Termin kann so leider nicht stattfinden.
+  </p>
 
-          <p>
-            <a href="${baseUrl}?resume=10&anfrageId=${requestId}&therapist=${encodeURIComponent(
-              therapistName
-            )}"
-               style="color:#6f4f49; font-weight:bold;">
-              👉 Neuen Termin auswählen
-            </a>
-          </p>
+  <p>
+    Bitte wähle hier ganz einfach einen neuen Termin aus:
+  </p>
 
-          <p>🤍 Dein Poise-Team</p>
-        `,
+  <p>
+    <a 
+      href="${baseUrl}?resume=10&anfrageId=${requestId}&therapist=${encodeURIComponent(therapistName)}"
+      target="_blank"
+      style="color:#8E3A4A; font-weight:600;"
+    >
+      👉 Neuen Termin auswählen
+    </a>
+  </p>
+
+  <p>
+    Sobald du einen neuen Termin gewählt hast, kümmern wir uns direkt um alles Weitere.
+  </p>
+
+  <p>
+    Falls du Fragen hast oder Unterstützung brauchst, melde dich jederzeit gerne unter
+    <strong>hallo@mypoise.de</strong>.
+  </p>
+
+  <br />
+
+  <p>
+    Alles Liebe<br/>
+    ${therapistName || "Dein Coach"} 🤍
+  </p>
+`,
       }),
     });
 
