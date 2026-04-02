@@ -52,11 +52,11 @@ export async function POST(req) {
     }
 
     // ------------------------------------------------
-    // 🔥 EMAIL HOLEN
+    // KLIENT:IN + COACH LADEN
     // ------------------------------------------------
     const { data: request, error: reqError } = await supabase
       .from("anfragen")
-      .select("email, vorname")
+      .select("email, vorname, wunschtherapeut")
       .eq("id", requestId)
       .single();
 
@@ -66,37 +66,89 @@ export async function POST(req) {
     }
 
     // ------------------------------------------------
-    // 🔥 LINK BAUEN
+    // LINK BAUEN
     // ------------------------------------------------
-    const link = `https://poiseconnect.vercel.app/confirm-proposal?request=${requestId}`;
+    const baseUrl =
+      process.env.NEXT_PUBLIC_SITE_URL ||
+      "https://poiseconnect.vercel.app";
+
+    const link = `${baseUrl}/confirm-proposal?request=${requestId}`;
+
+    const coachName = request.wunschtherapeut || "dein Coach";
 
     // ------------------------------------------------
-    // 🔥 MAIL SENDEN (Resend)
+    // MAIL SENDEN
     // ------------------------------------------------
-    await fetch("https://api.resend.com/emails", {
+    const mailRes = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        from: "POISE <termine@mypoise.de>",
+        from: "Poise <noreply@mypoise.de>",
         to: request.email,
         subject: "Deine Terminvorschläge 🤍",
         html: `
-          <p>Hallo ${request.vorname || ""},</p>
-          <p>deine Therapeutin hat dir Termine vorgeschlagen.</p>
-          <p><a href="${link}">👉 Termin auswählen</a></p>
-          <p>Liebe Grüße<br/>POISE</p>
+          <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #111;">
+            <h2 style="margin-bottom: 16px;">Deine Terminvorschläge 🤍</h2>
+
+            <p>Hallo ${request.vorname || "du"},</p>
+
+            <p>
+              ich habe dir passende Terminvorschläge für unser Erstgespräch vorbereitet.
+            </p>
+
+            <p>
+              Such dir gerne den Termin aus, der für dich am besten passt.
+            </p>
+
+            <p style="margin: 24px 0;">
+              <a
+                href="${link}"
+                style="
+                  background:#111;
+                  color:#fff;
+                  padding:12px 18px;
+                  border-radius:999px;
+                  text-decoration:none;
+                  display:inline-block;
+                  font-weight:600;
+                "
+              >
+                Terminvorschläge ansehen
+              </a>
+            </p>
+
+            <p>
+              Sobald du einen Termin ausgewählt hast, erhältst du anschließend noch eine separate Bestätigungsmail mit dem Link zum Erstgespräch.
+            </p>
+
+            <p>
+              Falls du zu den vorgeschlagenen Zeiten keine Zeit hast oder sonst etwas nicht passt, melde dich bitte einfach unter
+              <a href="mailto:hallo@mypoise.de">hallo@mypoise.de</a>.
+            </p>
+
+            <p style="margin-top: 24px;">
+              Alles Liebe<br />
+              ${coachName} 🤍
+            </p>
+          </div>
         `,
       }),
     });
+
+    if (!mailRes.ok) {
+      const mailText = await mailRes.text();
+      console.error("❌ MAIL ERROR:", mailText);
+      return json({ error: "mail_failed", detail: mailText }, 500);
+    }
 
     console.log("✅ MAIL SENT TO:", request.email);
 
     return json({ ok: true });
   } catch (e) {
     console.error("SERVER ERROR:", e);
-    return json({ error: "server_error" }, 500);
+    return json({ error: "server_error", detail: String(e) }, 500);
   }
 }
