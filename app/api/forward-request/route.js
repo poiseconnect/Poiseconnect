@@ -30,14 +30,16 @@ export async function POST(request) {
       process.env.NEXT_PUBLIC_SITE_URL ||
       "https://poiseconnect.vercel.app";
 
-    // 1️⃣ Anfrage korrekt weiterleiten (NICHT Papierkorb!)
+    const link = `${baseUrl}?resume=8&rid=${requestId}`;
+
+    // 1️⃣ Anfrage korrekt weiterleiten
     const { error: updateError } = await supabase
       .from("anfragen")
       .update({
-        status: "admin_weiterleiten",      // ✅ RICHTIG
+        status: "admin_weiterleiten",
         wunschtherapeut: null,
         bevorzugte_zeit: null,
-        assigned_therapist_id: null,       // ✅ WICHTIG
+        assigned_therapist_id: null,
         excluded_therapeuten: excludedTherapist
           ? [excludedTherapist]
           : [],
@@ -65,44 +67,44 @@ export async function POST(request) {
       body: JSON.stringify({
         from: "Poise <noreply@mypoise.de>",
         to: client,
-       subject: "Wähle jetzt deine passende Begleitung 🤍",
-html: `
-  <p>Hallo ${vorname || ""},</p>
+        subject: "Wähle jetzt deine passende Begleitung 🤍",
+        html: `
+          <p>Hallo ${vorname || ""},</p>
 
-  <p>
-    danke dir für dein Vertrauen 🤍
-  </p>
+          <p>
+            danke dir für dein Vertrauen 🤍
+          </p>
 
-  <p>
-    die von dir ursprünglich ausgewählte Begleitung hat aktuell leider keine freien Kapazitäten.
-  </p>
+          <p>
+            die von dir ursprünglich ausgewählte Begleitung hat aktuell leider keine freien Kapazitäten.
+          </p>
 
-  <p>
-    Damit du trotzdem gut begleitet wirst, kannst du jetzt eine andere passende Begleitung aus unserem Team auswählen.
-  </p>
+          <p>
+            Damit du trotzdem gut begleitet wirst, kannst du jetzt eine andere passende Begleitung aus unserem Team auswählen.
+          </p>
 
-  <p>
-    <a href="${baseUrl}?resume=8&email=${encodeURIComponent(client)}"
-       style="color:#8E3A4A; font-weight:600;">
-      👉 Passende Begleitung auswählen
-    </a>
-  </p>
+          <p>
+            <a href="${link}"
+               style="color:#8E3A4A; font-weight:600;">
+              👉 Passende Begleitung auswählen
+            </a>
+          </p>
 
-  <p>
-    Nimm dir dafür gerne einen Moment Zeit und wähle die Person aus, die sich für dich stimmig anfühlt.
-  </p>
+          <p>
+            Nimm dir dafür gerne einen Moment Zeit und wähle die Person aus, die sich für dich stimmig anfühlt.
+          </p>
 
-  <p>
-    Wenn du Fragen hast, melde dich jederzeit gern bei uns.
-  </p>
+          <p>
+            Wenn du Fragen hast, melde dich jederzeit gern bei uns.
+          </p>
 
-  <br />
+          <br />
 
-  <p>
-    Alles Liebe<br />
-    dein Poise-Team 🤍
-  </p>
-`,
+          <p>
+            Alles Liebe<br />
+            dein Poise-Team 🤍
+          </p>
+        `,
       }),
     });
 
