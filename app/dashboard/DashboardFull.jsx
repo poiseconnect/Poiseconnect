@@ -1028,20 +1028,32 @@ if (action === "details") {
       );
     }
 
-    if (action === "no_match") {
-      await updateRequestStatus({
-        requestId: r.id,
-        status: "papierkorb",
-      });
-
-      setRequests((prev) =>
-        prev.map((x) =>
-          x.id === r.id
-            ? { ...x, _status: "papierkorb", status: "papierkorb" }
-            : x
-        )
-      );
+if (action === "no_match") {
+  await fetch("/api/no-match", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      anfrageId: r.id,
+      client: r.email,
+      vorname: r.vorname,
+    }),
+  }).then(async (res) => {
+    if (!res.ok) {
+      const text = await res.text();
+      console.error("NO MATCH FAILED:", text);
+      alert("Fehler beim Senden");
+      throw new Error("no_match_failed");
     }
+  });
+
+  setRequests((prev) =>
+    prev.map((x) =>
+      x.id === r.id
+        ? { ...x, _status: "papierkorb", status: "papierkorb" }
+        : x
+    )
+  );
+}
 
     if (action === "forward") {
       const res = await fetch("/api/forward-request", {
