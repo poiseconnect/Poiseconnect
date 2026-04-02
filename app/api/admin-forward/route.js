@@ -1,51 +1,61 @@
-import { createClient } from "@supabase/supabase-js";
-
 export const dynamic = "force-dynamic";
+
+import { createClient } from "@supabase/supabase-js";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
-export async function POST(req) {
+export async function POST(request) {
   try {
-    const { requestId, therapists, client, vorname } = await req.json();
+    const body = await request.json();
 
-    if (!requestId || !Array.isArray(therapists) || therapists.length === 0) {
+    console.log("FORWARD BODY:", body);
+
+    const { requestId, client, vorname, excludedTherapist } = body || {};
+
+    if (!requestId || !client) {
       return new Response(
-        JSON.stringify({ error: "invalid_payload" }),
+        JSON.stringify({ error: "missing_fields" }),
         { status: 400 }
       );
     }
 
-    const { error } = await supabase
+    const baseUrl =
+      process.env.NEXT_PUBLIC_SITE_URL ||
+      "https://poiseconnect.vercel.app";
+
+    const link = `${baseUrl}?resume=8&rid=${requestId}`;
+
+    // 1️⃣ Anfrage so zurücksetzen, dass Klient:in selbst neu wählen kann
+    const { error: updateError } = await supabase
       .from("anfragen")
       .update({
-        admin_therapeuten: therapists,
         status: "admin_weiterleiten",
+        wunschtherapeut: null,
+        bevorzugte_zeit: null,
+        assigned_therapist_id: null,
+        admin_therapeuten: [],
+        excluded_therapeuten: excludedTherapist
+          ? [excludedTherapist]
+          : [],
       })
       .eq("id", requestId);
 
-    if (error) {
-      console.error("DB ERROR", error);
+    if (updateError) {
+      console.error("FORWARD UPDATE ERROR:", updateError);
       return new Response(
-        JSON.stringify({ error: "db_error" }),
+        JSON.stringify({
+          error: "update_failed",
+          detail: updateError.message,
+        }),
         { status: 500 }
       );
     }
 
-    const baseUrl =
-      process.env.NEXT_PUBLIC_SITE_URL ??
-      "https://poiseconnect.vercel.app";
-
-const link =
-  baseUrl + "?resume=8&rid=" + requestId;
-    
-    const therapistListHtml = therapists
-      .map((name) => `<li><strong>${String(name)}</strong></li>`)
-      .join("");
-
-    await fetch("https://api.resend.com/emails", {
+    // 2️⃣ Mail an Klient:in
+    const mailRes = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
@@ -54,26 +64,57 @@ const link =
       body: JSON.stringify({
         from: "Poise <noreply@mypoise.de>",
         to: client,
-        subject: "Bitte wähle deine Therapeut:in",
+        subject: "Bitte wähle eine neue Begleitung 🤍",
         html: `
           <p>Hallo ${vorname || ""},</p>
-          <p>Wir haben passende Therapeut:innen für dich ausgewählt.</p>
-          <p><strong>Du kannst aus genau diesen auswählen:</strong></p>
-          <ul>${therapistListHtml}</ul>
+
           <p>
-            <a href="${link}" style="font-weight:bold;">
-              👉 Jetzt auswählen & weitermachen
+            deine ursprünglich ausgewählte Begleitung hat aktuell leider keine Kapazitäten.
+          </p>
+
+          <p>
+            Deshalb kannst du jetzt eine neue passende Begleitung aus unserem Team auswählen.
+          </p>
+
+          <p>
+            <a href="${link}" style="color:#6f4f49; font-weight:bold;">
+              👉 Neue Begleitung auswählen
             </a>
+          </p>
+
+          <p>
+            Danach kannst du deinen Prozess direkt fortsetzen.
+          </p>
+
+          <p>
+            Wenn du Fragen hast, melde dich jederzeit gerne bei uns unter
+            <a href="mailto:hallo@mypoise.de">hallo@mypoise.de</a>.
+          </p>
+
+          <p>
+            Herzliche Grüße<br />
+            dein Poise-Team 🤍
           </p>
         `,
       }),
     });
 
-    return new Response(JSON.stringify({ ok: true }), { status: 200 });
-  } catch (err) {
-    console.error("ADMIN FORWARD ERROR", err);
+    if (!mailRes.ok) {
+      const mailText = await mailRes.text();
+      console.warn("FORWARD MAIL FAILED – DB UPDATE OK:", mailText);
+    }
+
     return new Response(
-      JSON.stringify({ error: "server_error" }),
+      JSON.stringify({ ok: true }),
+      { status: 200 }
+    );
+  } catch (err) {
+    console.error("FORWARD SERVER ERROR:", err);
+    return new Response(
+      JSON.stringify({
+        error: "server_error",
+        detail: String(err),
+      }),
       { status: 500 }
     );
   }
