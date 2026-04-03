@@ -21,16 +21,33 @@ function json(data, status = 200) {
 export async function POST(request) {
   try {
     const body = await request.json();
-const { vorname, nachname, wunschtherapeut, therapist_id } = body || {};
-if (!vorname || !nachname || !wunschtherapeut || !therapist_id) {
+const {
+  vorname,
+  nachname,
+  email,
+  telefon,
+  strasse_hausnr,
+  plz_ort,
+  geburtsdatum,
+  beschaeftigungsgrad,
+  wunschtherapeut,
+  therapist_id,
+} = body || {};
+    if (!vorname || !nachname || !wunschtherapeut || !therapist_id) {
   return json({ error: "MISSING_FIELDS" }, 400);
     }
 
 const { error } = await supabase.from("anfragen").insert({
   vorname,
   nachname,
+  email: email || null,
+  telefon: telefon || null,
+  strasse_hausnr: strasse_hausnr || null,
+  plz_ort: plz_ort || null,
+  geburtsdatum: geburtsdatum || null,
+  beschaeftigungsgrad: beschaeftigungsgrad || null,
   wunschtherapeut,
-  assigned_therapist_id: therapist_id, // 🔥 DAS IST DER FIX
+  assigned_therapist_id: therapist_id,
   status: "active",
   quelle: "bestand",
 });
