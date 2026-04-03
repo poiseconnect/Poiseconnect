@@ -31,12 +31,16 @@ function safeDateString(v) {
 export async function POST(req) {
   try {
     const { requestId, proposalId } = await req.json();
+
     console.log("✅ CONFIRM PROPOSAL API HIT", { requestId, proposalId });
 
     if (!requestId || !proposalId) {
       return json({ error: "missing_data" }, 400);
     }
 
+    // ------------------------------------------------
+    // Proposal holen
+    // ------------------------------------------------
     const { data: proposal, error: pError } = await supabase
       .from("appointment_proposals")
       .select("id, anfrage_id, therapist_id, date")
@@ -59,6 +63,31 @@ export async function POST(req) {
 
     const end = new Date(start.getTime() + 60 * 60000);
 
+    // ------------------------------------------------
+    // Anfrage holen, damit wir Name / Mail / Linkdaten haben
+    // ------------------------------------------------
+    const { data: existingRequest, error: reqLoadError } = await supabase
+      .from("anfragen")
+      .select(`
+        id,
+        vorname,
+        email,
+        bevorzugte_zeit,
+        assigned_therapist_id,
+        wunschtherapeut,
+        meeting_link_override
+      `)
+      .eq("id", requestId)
+      .single();
+
+    if (reqLoadError || !existingRequest) {
+      console.error("request_load_failed", reqLoadError);
+      return json({ error: "request_not_found" }, 404);
+    }
+
+    // ------------------------------------------------
+    // Anfrage updaten
+    // ------------------------------------------------
     const { error: updateError } = await supabase
       .from("anfragen")
       .update({
@@ -73,19 +102,27 @@ export async function POST(req) {
       return json({ error: updateError.message }, 500);
     }
 
-    const { error: blockError } = await supabase.from("blocked_slots").insert({
-      anfrage_id: requestId,
-      therapist_id: proposal.therapist_id,
-      start_at: start.toISOString(),
-      end_at: end.toISOString(),
-      reason: "proposal_confirmed",
-    });
+    // ------------------------------------------------
+    // Slot blockieren
+    // ------------------------------------------------
+    const { error: blockError } = await supabase
+      .from("blocked_slots")
+      .insert({
+        anfrage_id: requestId,
+        therapist_id: proposal.therapist_id,
+        start_at: start.toISOString(),
+        end_at: end.toISOString(),
+        reason: "proposal_confirmed",
+      });
 
     if (blockError) {
       console.error("blockError", blockError);
       return json({ error: blockError.message }, 500);
     }
 
+    // ------------------------------------------------
+    // Andere Vorschläge löschen
+    // ------------------------------------------------
     const { error: delError } = await supabase
       .from("appointment_proposals")
       .delete()
@@ -96,34 +133,16 @@ export async function POST(req) {
       console.error("delError", delError);
     }
 
-    const { data: existingRequest, error: reqError } = await supabase
-      .from("anfragen")
-      .select(`
-        id,
-        vorname,
-        email,
-        bevorzugte_zeit,
-        assigned_therapist_id,
-        wunschtherapeut,
-        meeting_link_override
-      `)
-      .eq("id", requestId)
-      .single();
-
-    if (reqError || !existingRequest) {
-      console.error("request_load_failed", reqError);
-      return json({ ok: true, warning: "request_updated_but_mail_skipped" });
-    }
-
-    console.log("📨 REQUEST FOR MAIL:", existingRequest);
-
+    // ------------------------------------------------
+    // Meeting-Link laden
+    // ------------------------------------------------
     let bookingSettings = null;
 
-    if (existingRequest.assigned_therapist_id) {
+    if (proposal.therapist_id) {
       const { data: bookingData, error: bookingError } = await supabase
         .from("therapist_booking_settings")
         .select("meeting_link")
-        .eq("therapist_id", existingRequest.assigned_therapist_id)
+        .eq("therapist_id", proposal.therapist_id)
         .single();
 
       if (bookingError) {
@@ -136,9 +155,7 @@ export async function POST(req) {
     const therapistName =
       existingRequest.wunschtherapeut?.trim() || "dein Coach";
 
-    const terminText = existingRequest.bevorzugte_zeit
-      ? safeDateString(existingRequest.bevorzugte_zeit)
-      : "wird dir separat mitgeteilt";
+    const terminText = safeDateString(proposal.date);
 
     const videoLink =
       existingRequest.meeting_link_override ||
@@ -152,6 +169,9 @@ export async function POST(req) {
       videoLink,
     });
 
+    // ------------------------------------------------
+    // Mail senden
+    // ------------------------------------------------
     if (existingRequest.email) {
       const mailRes = await fetch("https://api.resend.com/emails", {
         method: "POST",
@@ -179,7 +199,7 @@ export async function POST(req) {
               videoLink
                 ? `
                 <p>
-                  <strong>Hier geht es zu eurem Video-Call:</strong><br/>
+                  <strong>Hier geht es direkt zu eurem Video-Call:</strong><br/>
                   <a href="${videoLink}" target="_blank" style="color:#8E3A4A; font-weight:600;">
                     👉 Zum Video-Call
                   </a>
@@ -206,14 +226,14 @@ export async function POST(req) {
         }),
       });
 
+      const resendText = await mailRes.text();
       console.log("📧 RESEND STATUS:", mailRes.status);
-      const mailText = await mailRes.text();
-      console.log("📧 RESEND RESPONSE:", mailText);
+      console.log("📧 RESEND RESPONSE:", resendText);
     }
 
     return json({ ok: true });
   } catch (e) {
     console.error("CONFIRM ERROR:", e);
-    return json({ error: "server_error" }, 500);
+    return json({ error: "server_error", detail: String(e) }, 500);
   }
 }
