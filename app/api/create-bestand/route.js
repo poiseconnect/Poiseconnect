@@ -21,19 +21,19 @@ function json(data, status = 200) {
 export async function POST(request) {
   try {
     const body = await request.json();
-    const { vorname, nachname, wunschtherapeut } = body || {};
-
-    if (!vorname || !nachname || !wunschtherapeut) {
-      return json({ error: "MISSING_FIELDS" }, 400);
+const { vorname, nachname, wunschtherapeut, therapist_id } = body || {};
+if (!vorname || !nachname || !wunschtherapeut || !therapist_id) {
+  return json({ error: "MISSING_FIELDS" }, 400);
     }
 
-    const { error } = await supabase.from("anfragen").insert({
-      vorname,
-      nachname,
-      wunschtherapeut,
-      status: "active",
-      quelle: "bestand",
-    });
+const { error } = await supabase.from("anfragen").insert({
+  vorname,
+  nachname,
+  wunschtherapeut,
+  assigned_therapist_id: therapist_id, // 🔥 DAS IST DER FIX
+  status: "active",
+  quelle: "bestand",
+});
 
     if (error) {
       console.error("CREATE BESTAND DB ERROR:", error);
