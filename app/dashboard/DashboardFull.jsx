@@ -3631,11 +3631,12 @@ const data = await res.json();
                 const res = await fetch("/api/create-bestand", {
                   method: "POST",
                   headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({
-                    vorname: bestandVorname,
-                    nachname: bestandNachname,
-                    wunschtherapeut: bestandTherapeut,
-                  }),
+body: JSON.stringify({
+  vorname: bestandVorname,
+  nachname: bestandNachname,
+  wunschtherapeut: bestandTherapeut,
+  therapist_id: myTeamMemberId, // 🔥 GANZ WICHTIG
+}),
                 });
 
                 if (!res.ok) {
