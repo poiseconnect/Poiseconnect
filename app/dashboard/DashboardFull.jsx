@@ -946,6 +946,12 @@ const [proposalDates, setProposalDates] = useState([
   const [bestandVorname, setBestandVorname] = useState("");
   const [bestandNachname, setBestandNachname] = useState("");
   const [bestandTherapeut, setBestandTherapeut] = useState("");
+  const [bestandEmail, setBestandEmail] = useState("");
+const [bestandTelefon, setBestandTelefon] = useState("");
+const [bestandStrasse, setBestandStrasse] = useState("");
+const [bestandPlzOrt, setBestandPlzOrt] = useState("");
+const [bestandGeburtsdatum, setBestandGeburtsdatum] = useState("");
+const [bestandBeschaeftigungsgrad, setBestandBeschaeftigungsgrad] = useState("");
   const handleLogout = async () => {
   const { error } = await supabase.auth.signOut();
 
@@ -3603,7 +3609,53 @@ const data = await res.json();
             onChange={(e) => setBestandNachname(e.target.value)}
             style={{ width: "100%", marginBottom: 8 }}
           />
+<label>E-Mail</label>
+<input
+  type="email"
+  value={bestandEmail}
+  onChange={(e) => setBestandEmail(e.target.value)}
+  style={{ width: "100%", marginBottom: 8 }}
+/>
 
+<label>Telefon</label>
+<input
+  value={bestandTelefon}
+  onChange={(e) => setBestandTelefon(e.target.value)}
+  style={{ width: "100%", marginBottom: 8 }}
+/>
+
+<label>Straße & Hausnummer</label>
+<input
+  value={bestandStrasse}
+  onChange={(e) => setBestandStrasse(e.target.value)}
+  style={{ width: "100%", marginBottom: 8 }}
+/>
+
+<label>PLZ & Ort</label>
+<input
+  value={bestandPlzOrt}
+  onChange={(e) => setBestandPlzOrt(e.target.value)}
+  style={{ width: "100%", marginBottom: 8 }}
+/>
+
+<label>Geburtsdatum</label>
+<input
+  type="date"
+  value={bestandGeburtsdatum}
+  onChange={(e) => setBestandGeburtsdatum(e.target.value)}
+  style={{ width: "100%", marginBottom: 8 }}
+/>
+
+<label>Beschäftigungsgrad</label>
+<select
+  value={bestandBeschaeftigungsgrad}
+  onChange={(e) => setBestandBeschaeftigungsgrad(e.target.value)}
+  style={{ width: "100%", marginBottom: 12 }}
+>
+  <option value="">Bitte wählen…</option>
+  <option value="berufstaetig">Berufstätig</option>
+  <option value="ausbildung">In Ausbildung</option>
+</select>
           <label>Therapeut *</label>
           <select
             value={bestandTherapeut}
@@ -3634,8 +3686,14 @@ const data = await res.json();
 body: JSON.stringify({
   vorname: bestandVorname,
   nachname: bestandNachname,
+  email: bestandEmail,
+  telefon: bestandTelefon,
+  strasse_hausnr: bestandStrasse,
+  plz_ort: bestandPlzOrt,
+  geburtsdatum: bestandGeburtsdatum,
+  beschaeftigungsgrad: bestandBeschaeftigungsgrad,
   wunschtherapeut: bestandTherapeut,
-  therapist_id: myTeamMemberId, // 🔥 GANZ WICHTIG
+  therapist_id: myTeamMemberId,
 }),
                 });
 
@@ -3644,11 +3702,17 @@ body: JSON.stringify({
                   return;
                 }
 
-                setCreateBestandOpen(false);
-                setBestandVorname("");
-                setBestandNachname("");
-                setBestandTherapeut("");
-                location.reload();
+setCreateBestandOpen(false);
+setBestandVorname("");
+setBestandNachname("");
+setBestandEmail("");
+setBestandTelefon("");
+setBestandStrasse("");
+setBestandPlzOrt("");
+setBestandGeburtsdatum("");
+setBestandBeschaeftigungsgrad("");
+setBestandTherapeut("");
+location.reload();
               }}
             >
               ✔ Anlegen
