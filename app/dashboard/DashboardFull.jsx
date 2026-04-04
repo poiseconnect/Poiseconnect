@@ -373,7 +373,7 @@ function exportBillingCSV(rows) {
     "Sitzungen",
     "Umsatz",
     "Provision Poise",
-  
+    "Auszahlung Therapeut:in",
   ];
 
   const csvRows = [
@@ -384,7 +384,7 @@ function exportBillingCSV(rows) {
         r.sessions,
         Number(r.umsatz || 0).toFixed(2),
         Number(r.provision || 0).toFixed(2),
-        Number(r.payout || 0).toFixed(2),
+        Number((r.umsatz || 0) - (r.provision || 0)).toFixed(2),
       ].join(";")
     ),
   ];
@@ -985,7 +985,7 @@ const [bestandBeschaeftigungsgrad, setBestandBeschaeftigungsgrad] = useState("")
 
  
   // ================= ABRECHNUNG FILTER =================
-const [billingMode, setBillingMode] = useState("monat");
+const [billingMode, setBillingMode] = useState("quartal");
 // "monat" | "quartal" | "jahr" | "einzeln"
 
 const now = new Date();
@@ -1901,6 +1901,41 @@ if (!map[s.anfrage_id]) {
 
   return Object.values(map);
 }, [filteredBillingSessions, invoiceSettings.default_vat_rate]);
+  const billingByTherapist = useMemo(() => {
+  const map = {};
+
+  (filteredBillingSessions || []).forEach((s) => {
+    if (!s?.therapist_id) return;
+
+    if (!map[s.therapist_id]) {
+      const therapistName =
+        teamData.find((t) => String(t.id) === String(s.therapist_id))?.name ||
+        "Unbekannt";
+
+      map[s.therapist_id] = {
+        therapist_id: s.therapist_id,
+        therapist_name: therapistName,
+        sessions: 0,
+        umsatz: 0,
+        provision: 0,
+        payout: 0,
+      };
+    }
+
+    const price = Number(s.price || 0);
+    const provision = price * 0.3;
+    const payout = price - provision;
+
+    map[s.therapist_id].sessions += 1;
+    map[s.therapist_id].umsatz += price;
+    map[s.therapist_id].provision += provision;
+    map[s.therapist_id].payout += payout;
+  });
+
+  return Object.values(map).sort((a, b) =>
+    a.therapist_name.localeCompare(b.therapist_name)
+  );
+}, [filteredBillingSessions]);
 // ================= CLIENT FILTER FÜR ABRECHNUNG =================
 const visibleBillingRows = useMemo(() => {
   if (selectedClientId === "alle") {
@@ -2439,7 +2474,19 @@ return (
       }}
     >
       <strong>Zeitraum:</strong>
-
+{isAdmin && (
+  <select
+    value={therapistFilter}
+    onChange={(e) => setTherapistFilter(e.target.value)}
+  >
+    <option value="alle">Alle Therapeut:innen</option>
+    {teamData.map((t) => (
+      <option key={t.id} value={t.id}>
+        {t.name}
+      </option>
+    ))}
+  </select>
+)}
       <select
         value={billingMode}
         onChange={(e) => setBillingMode(e.target.value)}
@@ -2704,6 +2751,47 @@ body: JSON.stringify({
           </div>
         </div>
       </details>
+      {isAdmin && (
+  <div style={{ marginBottom: 20 }}>
+    <h3>Abrechnung pro Therapeut:in</h3>
+
+    {billingByTherapist.length === 0 ? (
+      <div style={{ color: "#777" }}>
+        Keine Abrechnungsdaten für diesen Zeitraum
+      </div>
+    ) : (
+      <table
+        style={{
+          width: "100%",
+          borderCollapse: "collapse",
+          fontSize: 14,
+          marginTop: 8,
+        }}
+      >
+        <thead>
+          <tr>
+            <th align="left">Therapeut:in</th>
+            <th align="center">Sitzungen</th>
+            <th align="right">Umsatz €</th>
+            <th align="right">Provision Poise €</th>
+            <th align="right">Auszahlung €</th>
+          </tr>
+        </thead>
+        <tbody>
+          {billingByTherapist.map((row) => (
+            <tr key={row.therapist_id}>
+              <td>{row.therapist_name}</td>
+              <td align="center">{row.sessions}</td>
+              <td align="right">{row.umsatz.toFixed(2)}</td>
+              <td align="right">{row.provision.toFixed(2)}</td>
+              <td align="right">{row.payout.toFixed(2)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    )}
+  </div>
+)}
       {/* ================= ABRECHNUNG EXPORT & ÜBERSICHT ================= */}
 <div
   style={{
@@ -2721,35 +2809,46 @@ body: JSON.stringify({
       marginBottom: 12,
     }}
   >
-    <button
-      onClick={() => exportBillingCSV(billingByClient)}
-      disabled={!billingByClient.length}
-    >
-      📄 CSV exportieren
-    </button>
+<button
+  onClick={() => {
+    if (isAdmin && therapistFilter === "alle") {
+      alert("Bitte zuerst eine Therapeut:in auswählen");
+      return;
+    }
 
-    <button
-      onClick={() => {
-        if (selectedClientId === "alle") {
-          alert("Bitte zuerst einen Klienten auswählen");
-          return;
-        }
+    exportBillingCSV(billingByClient);
+  }}
+  disabled={!billingByClient.length}
+>
+  📄 CSV exportieren
+</button>
+<button
+  onClick={() => {
+    if (isAdmin && therapistFilter === "alle") {
+      alert("Bitte zuerst eine Therapeut:in auswählen");
+      return;
+    }
 
-        const clientRow = visibleBillingRows[0];
-        const clientSessions = filteredBillingSessions.filter(
-          (s) => String(s.anfrage_id) === String(selectedClientId)
-        );
+    if (selectedClientId === "alle") {
+      alert("Bitte zuerst einen Klienten auswählen");
+      return;
+    }
 
-        exportSingleClientPDF(
-          clientRow,
-          clientSessions,
-          invoiceSettings
-        );
-      }}
-      disabled={!visibleBillingRows.length}
-    >
-      🧾 PDF exportieren
-    </button>
+    const clientRow = visibleBillingRows[0];
+    const clientSessions = filteredBillingSessions.filter(
+      (s) => String(s.anfrage_id) === String(selectedClientId)
+    );
+
+    exportSingleClientPDF(
+      clientRow,
+      clientSessions,
+      invoiceSettings
+    );
+  }}
+  disabled={!visibleBillingRows.length}
+>
+  🧾 PDF exportieren
+</button>
 
     <button
       disabled={!invoiceSettings.sevdesk_token}
