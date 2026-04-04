@@ -907,14 +907,21 @@ const [access, setAccess] = useState("loading");
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState("last"); // last | name
 
-  const [detailsModal, setDetailsModal] = useState(null);
-  const [editTarif, setEditTarif] = useState("");
-  const [editEmail, setEditEmail] = useState("");
-const [editTelefon, setEditTelefon] = useState("");
-const [editStrasse, setEditStrasse] = useState("");
-const [editPlzOrt, setEditPlzOrt] = useState("");
-const [editGeburtsdatum, setEditGeburtsdatum] = useState("");
-const [editBeschaeftigungsgrad, setEditBeschaeftigungsgrad] = useState("");
+const [detailsModal, setDetailsModal] = useState(null);
+const [editClientModal, setEditClientModal] = useState(null);
+
+const [editClientForm, setEditClientForm] = useState({
+  vorname: "",
+  nachname: "",
+  email: "",
+  telefon: "",
+  strasse_hausnr: "",
+  plz_ort: "",
+  geburtsdatum: "",
+  beschaeftigungsgrad: "",
+});
+
+const [editTarif, setEditTarif] = useState("");
   const [newSessions, setNewSessions] = useState([{ date: "", duration: 60 }]);
   const [bookingSettings, setBookingSettings] = useState(null);
   const [bookingSaving, setBookingSaving] = useState(false);
@@ -1000,7 +1007,65 @@ const [invoiceSettings, setInvoiceSettings] = useState({
 const [invoiceLoading, setInvoiceLoading] = useState(false);
 
 
+function openEditClientModal(r) {
+  setEditClientModal(r);
 
+  setEditClientForm({
+    vorname: r.vorname || "",
+    nachname: r.nachname || "",
+    email: r.email || "",
+    telefon: r.telefon || "",
+    strasse_hausnr: r.strasse_hausnr || "",
+    plz_ort: r.plz_ort || "",
+    geburtsdatum: r.geburtsdatum || "",
+    beschaeftigungsgrad: r.beschaeftigungsgrad || "",
+  });
+}
+
+async function saveClientData() {
+  if (!editClientModal?.id) return;
+
+  const res = await fetch("/api/update-client-data", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      anfrageId: editClientModal.id,
+      ...editClientForm,
+    }),
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    console.error("UPDATE CLIENT DATA FAILED:", text);
+    alert("❌ Klientendaten konnten nicht gespeichert werden");
+    return;
+  }
+
+  setRequests((prev) =>
+    prev.map((x) =>
+      x.id === editClientModal.id
+        ? {
+            ...x,
+            ...editClientForm,
+          }
+        : x
+    )
+  );
+
+  if (detailsModal?.id === editClientModal.id) {
+    setDetailsModal((prev) =>
+      prev
+        ? {
+            ...prev,
+            ...editClientForm,
+          }
+        : prev
+    );
+  }
+
+  alert("✅ Klientendaten gespeichert");
+  setEditClientModal(null);
+}
 async function handleAction(action, r, sessionList = [], calendarModeParam) {
   try {
 const therapistId =
@@ -1011,7 +1076,6 @@ const therapistId =
 
 const calendarMode =
   getCalendarModeByTherapistId(therapistId);
-
 if (action === "details") {
   setDetailsModal({
     ...r,
@@ -1019,12 +1083,6 @@ if (action === "details") {
   });
   setEditTarif(r.honorar_klient || "");
   setMeetingLinkOverride(r.meeting_link_override || "");
-  setEditEmail(r.email || "");
-  setEditTelefon(r.telefon || "");
-  setEditStrasse(r.strasse_hausnr || "");
-  setEditPlzOrt(r.plz_ort || "");
-  setEditGeburtsdatum(r.geburtsdatum || "");
-  setEditBeschaeftigungsgrad(r.beschaeftigungsgrad || "");
   setNewSessions([{ date: "", duration: 60 }]);
   setOpenMenuId(null);
   return;
@@ -3043,25 +3101,30 @@ const calendarMode =
   </div>
 )}
 
-<button
-  onClick={() => {
-    setDetailsModal({
-      ...r,
-      _status: r.status,
-    });
-    setEditTarif(r.honorar_klient || "");
-    setMeetingLinkOverride(r.meeting_link_override || "");
-    setEditEmail(r.email || "");
-    setEditTelefon(r.telefon || "");
-    setEditStrasse(r.strasse_hausnr || "");
-    setEditPlzOrt(r.plz_ort || "");
-    setEditGeburtsdatum(r.geburtsdatum || "");
-    setEditBeschaeftigungsgrad(r.beschaeftigungsgrad || "");
-    setNewSessions([{ date: "", duration: 60 }]);
-  }}
->
-  🔍 Details
-</button>
+<div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 12 }}>
+  <button
+    onClick={() => {
+      setDetailsModal({
+        ...r,
+        _status: r.status,
+      });
+      setEditTarif(r.honorar_klient || "");
+      setMeetingLinkOverride(r.meeting_link_override || "");
+      setNewSessions([{ date: "", duration: 60 }]);
+    }}
+  >
+    🔍 Details
+  </button>
+
+  {filter === "aktiv" && (
+    <button
+      type="button"
+      onClick={() => openEditClientModal(r)}
+    >
+      📝 Klientendaten ändern
+    </button>
+  )}
+</div>
 
 
 
@@ -3087,112 +3150,29 @@ const calendarMode =
   normalizeStatus(detailsModal.status || detailsModal._status)
 ) && (
   <>
-    <label>E-Mail</label>
-    <input
-      type="email"
-      value={editEmail}
-      onChange={(e) => setEditEmail(e.target.value)}
-      style={{ width: "100%", marginBottom: 8 }}
-    />
+    <p>
+      <strong>E-Mail:</strong> {detailsModal.email || "–"}
+    </p>
 
-    <label>Telefon</label>
-    <input
-      value={editTelefon}
-      onChange={(e) => setEditTelefon(e.target.value)}
-      style={{ width: "100%", marginBottom: 8 }}
-    />
+    <p>
+      <strong>Telefon:</strong> {detailsModal.telefon || "–"}
+    </p>
 
-    <label>Straße & Hausnummer</label>
-    <input
-      value={editStrasse}
-      onChange={(e) => setEditStrasse(e.target.value)}
-      style={{ width: "100%", marginBottom: 8 }}
-    />
+    <p>
+      <strong>Adresse:</strong>{" "}
+      {[detailsModal.strasse_hausnr, detailsModal.plz_ort]
+        .filter(Boolean)
+        .join(", ") || "–"}
+    </p>
 
-    <label>PLZ & Ort</label>
-    <input
-      value={editPlzOrt}
-      onChange={(e) => setEditPlzOrt(e.target.value)}
-      style={{ width: "100%", marginBottom: 8 }}
-    />
+    <p>
+      <strong>Geburtsdatum:</strong> {detailsModal.geburtsdatum || "–"}
+    </p>
 
-    <label>Geburtsdatum</label>
-    <input
-      type="date"
-      value={editGeburtsdatum}
-      onChange={(e) => setEditGeburtsdatum(e.target.value)}
-      style={{ width: "100%", marginBottom: 8 }}
-    />
-
-    <label>Beschäftigungsgrad</label>
-    <select
-      value={editBeschaeftigungsgrad}
-      onChange={(e) => setEditBeschaeftigungsgrad(e.target.value)}
-      style={{ width: "100%", marginBottom: 12 }}
-    >
-      <option value="">Bitte wählen…</option>
-      <option value="berufstaetig">Berufstätig</option>
-      <option value="ausbildung">In Ausbildung</option>
-    </select>
-
-    <button
-      type="button"
-      onClick={async () => {
-        const res = await fetch("/api/update-client", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            anfrageId: detailsModal.id,
-            email: editEmail,
-            telefon: editTelefon,
-            strasse_hausnr: editStrasse,
-            plz_ort: editPlzOrt,
-            geburtsdatum: editGeburtsdatum,
-            beschaeftigungsgrad: editBeschaeftigungsgrad,
-          }),
-        });
-
-        if (!res.ok) {
-          const text = await res.text();
-          console.error("UPDATE CLIENT FAILED:", text);
-          alert("❌ Klientendaten konnten nicht gespeichert werden");
-          return;
-        }
-
-        const updated = {
-          ...detailsModal,
-          email: editEmail,
-          telefon: editTelefon,
-          strasse_hausnr: editStrasse,
-          plz_ort: editPlzOrt,
-          geburtsdatum: editGeburtsdatum,
-          beschaeftigungsgrad: editBeschaeftigungsgrad,
-        };
-
-        setDetailsModal(updated);
-
-        setRequests((prev) =>
-          prev.map((x) =>
-            x.id === detailsModal.id
-              ? {
-                  ...x,
-                  email: editEmail,
-                  telefon: editTelefon,
-                  strasse_hausnr: editStrasse,
-                  plz_ort: editPlzOrt,
-                  geburtsdatum: editGeburtsdatum,
-                  beschaeftigungsgrad: editBeschaeftigungsgrad,
-                }
-              : x
-          )
-        );
-
-        alert("✅ Klientendaten gespeichert");
-      }}
-      style={{ marginBottom: 12 }}
-    >
-      💾 Klientendaten speichern
-    </button>
+    <p>
+      <strong>Beschäftigungsgrad:</strong>{" "}
+      {detailsModal.beschaeftigungsgrad || "–"}
+    </p>
   </>
 )}
 
@@ -3886,6 +3866,148 @@ location.reload();
           </div>
         </Modal>
       )}
+  {editClientModal && (
+  <Modal onClose={() => setEditClientModal(null)}>
+    <h3>📝 Klientendaten ändern</h3>
+
+    <div style={{ display: "grid", gap: 10 }}>
+      <div>
+        <label>Vorname</label>
+        <input
+          value={editClientForm.vorname}
+          onChange={(e) =>
+            setEditClientForm((prev) => ({
+              ...prev,
+              vorname: e.target.value,
+            }))
+          }
+          style={{ width: "100%" }}
+        />
+      </div>
+
+      <div>
+        <label>Nachname</label>
+        <input
+          value={editClientForm.nachname}
+          onChange={(e) =>
+            setEditClientForm((prev) => ({
+              ...prev,
+              nachname: e.target.value,
+            }))
+          }
+          style={{ width: "100%" }}
+        />
+      </div>
+
+      <div>
+        <label>E-Mail</label>
+        <input
+          type="email"
+          value={editClientForm.email}
+          onChange={(e) =>
+            setEditClientForm((prev) => ({
+              ...prev,
+              email: e.target.value,
+            }))
+          }
+          style={{ width: "100%" }}
+        />
+      </div>
+
+      <div>
+        <label>Telefon</label>
+        <input
+          value={editClientForm.telefon}
+          onChange={(e) =>
+            setEditClientForm((prev) => ({
+              ...prev,
+              telefon: e.target.value,
+            }))
+          }
+          style={{ width: "100%" }}
+        />
+      </div>
+
+      <div>
+        <label>Straße & Hausnummer</label>
+        <input
+          value={editClientForm.strasse_hausnr}
+          onChange={(e) =>
+            setEditClientForm((prev) => ({
+              ...prev,
+              strasse_hausnr: e.target.value,
+            }))
+          }
+          style={{ width: "100%" }}
+        />
+      </div>
+
+      <div>
+        <label>PLZ & Ort</label>
+        <input
+          value={editClientForm.plz_ort}
+          onChange={(e) =>
+            setEditClientForm((prev) => ({
+              ...prev,
+              plz_ort: e.target.value,
+            }))
+          }
+          style={{ width: "100%" }}
+        />
+      </div>
+
+      <div>
+        <label>Geburtsdatum</label>
+        <input
+          type="date"
+          value={editClientForm.geburtsdatum}
+          onChange={(e) =>
+            setEditClientForm((prev) => ({
+              ...prev,
+              geburtsdatum: e.target.value,
+            }))
+          }
+          style={{ width: "100%" }}
+        />
+      </div>
+
+      <div>
+        <label>Beschäftigungsgrad</label>
+        <select
+          value={editClientForm.beschaeftigungsgrad}
+          onChange={(e) =>
+            setEditClientForm((prev) => ({
+              ...prev,
+              beschaeftigungsgrad: e.target.value,
+            }))
+          }
+          style={{ width: "100%" }}
+        >
+          <option value="">Bitte wählen…</option>
+          <option value="berufstaetig">Berufstätig</option>
+          <option value="ausbildung">In Ausbildung</option>
+        </select>
+      </div>
+    </div>
+
+    <div
+      style={{
+        marginTop: 20,
+        display: "flex",
+        justifyContent: "flex-end",
+        gap: 8,
+      }}
+    >
+      <button type="button" onClick={() => setEditClientModal(null)}>
+        Abbrechen
+      </button>
+
+      <button type="button" onClick={saveClientData}>
+        💾 Speichern
+      </button>
+    </div>
+  </Modal>
+)}
         {matchingScoresModalOpen && (
         <Modal onClose={() => setMatchingScoresModalOpen(false)}>
           <h3>Themen-Gewichtung</h3>
