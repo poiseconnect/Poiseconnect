@@ -37,6 +37,10 @@ const POISE_COLORS = {
     base: "#7BC47F",     // grün body
     active: "#F2D98D",   // beige Kreis
   },
+    controlling: {
+    base: "#B7A1F8",
+    active: "#5B3CC4",
+  },
   beendet: {
     base: "#CBE34B",     // lime
     active: "#E7A374",   // orange Kreis
@@ -191,6 +195,7 @@ erstgespraech: ["termin_bestaetigt"],
   admin_pruefen: ["admin_pruefen", "admin_weiterleiten"],
   aktiv: ["active"],
   abrechnung: ["active"],
+  controlling: ["active"],
   beendet: ["beendet"],
   papierkorb: ["papierkorb"],
   einstellungen: [],
@@ -1946,7 +1951,70 @@ const visibleBillingRows = useMemo(() => {
     (row) => String(row.anfrage_id) === String(selectedClientId)
   );
 }, [billingByClient, selectedClientId]);
+const controllingRows = useMemo(() => {
+  const map = {};
 
+  (filteredBillingSessions || []).forEach((s) => {
+    if (!s?.therapist_id) return;
+
+    const therapistId = String(s.therapist_id);
+    const therapist = teamData.find(
+      (t) => String(t.id) === therapistId
+    );
+
+    if (!map[therapistId]) {
+      map[therapistId] = {
+        therapist_id: therapistId,
+        therapist_name: therapist?.name || "Unbekannt",
+        sessions: 0,
+        clientsSet: new Set(),
+        umsatz: 0,
+        provision: 0,
+        payout: 0,
+      };
+    }
+
+    const price = Number(s.price || 0);
+    const provision = price * 0.3;
+    const payout = price - provision;
+
+    map[therapistId].sessions += 1;
+
+    if (s.anfrage_id) {
+      map[therapistId].clientsSet.add(String(s.anfrage_id));
+    }
+
+    map[therapistId].umsatz += price;
+    map[therapistId].provision += provision;
+    map[therapistId].payout += payout;
+  });
+
+  return Object.values(map)
+    .map((row) => ({
+      ...row,
+      clients: row.clientsSet.size,
+    }))
+    .sort((a, b) => b.provision - a.provision);
+}, [filteredBillingSessions]);
+  const controllingTotals = useMemo(() => {
+  return controllingRows.reduce(
+    (acc, row) => {
+      acc.sessions += Number(row.sessions || 0);
+      acc.clients += Number(row.clients || 0);
+      acc.umsatz += Number(row.umsatz || 0);
+      acc.provision += Number(row.provision || 0);
+      acc.payout += Number(row.payout || 0);
+      return acc;
+    },
+    {
+      sessions: 0,
+      clients: 0,
+      umsatz: 0,
+      provision: 0,
+      payout: 0,
+    }
+  );
+}, [controllingRows]);
 if (!user) {
   return <div style={{ padding: 40 }}>Lade Benutzer…</div>;
 }
@@ -2114,7 +2182,15 @@ return (
     onClick={setFilter}
     color={POISE_COLORS.abrechnung}
   />
-
+  {isAdmin && (
+    <DashboardTab
+      label="Controlling"
+      value="controlling"
+      active={filter === "controlling"}
+      onClick={setFilter}
+      color={POISE_COLORS.controlling}
+    />
+  )}
   <DashboardTab
     label="Beendet"
     value="beendet"
@@ -2140,7 +2216,7 @@ return (
   />
 </div>
 
-{isAdmin && (
+{isAdmin && filter !== "controlling" && (
   <div style={{ marginBottom: 16 }}>
     <select
       value={therapistFilter}
@@ -2163,6 +2239,7 @@ return (
 )}
 
 {filter !== "abrechnung" &&
+  filter !== "controlling" &&
   filter !== "einstellungen" &&
   sortedRequests.length === 0 && (
     <div
@@ -2955,6 +3032,212 @@ body: JSON.stringify({
 </section>
 </>
 )}
+  {/* ================= CONTROLLING ================= */}
+{filter === "controlling" && isAdmin && (
+  <>
+    <div style={{ marginBottom: 10 }}>
+      <h2 style={{ margin: 0 }}>Controlling</h2>
+      <div style={{ fontSize: 12, color: "#666" }}>
+        Übersicht aller Coaches im gewählten Zeitraum
+      </div>
+    </div>
+
+    <div
+      style={{
+        display: "flex",
+        gap: 8,
+        marginBottom: 14,
+        flexWrap: "wrap",
+        alignItems: "center",
+      }}
+    >
+      <strong>Zeitraum:</strong>
+
+      <select
+        value={billingMode}
+        onChange={(e) => setBillingMode(e.target.value)}
+      >
+        <option value="monat">Monat</option>
+        <option value="quartal">Quartal</option>
+        <option value="jahr">Jahr</option>
+        <option value="einzeln">Einzelne Sitzung</option>
+      </select>
+
+      {(billingMode === "monat" ||
+        billingMode === "quartal" ||
+        billingMode === "jahr") && (
+        <select
+          value={billingYear}
+          onChange={(e) => setBillingYear(Number(e.target.value))}
+        >
+          {[2023, 2024, 2025, 2026, 2027].map((y) => (
+            <option key={y} value={y}>
+              {y}
+            </option>
+          ))}
+        </select>
+      )}
+
+      {billingMode === "monat" && (
+        <select
+          value={billingMonth}
+          onChange={(e) => setBillingMonth(Number(e.target.value))}
+        >
+          {[...Array(12)].map((_, i) => (
+            <option key={i + 1} value={i + 1}>
+              {i + 1}
+            </option>
+          ))}
+        </select>
+      )}
+
+      {billingMode === "quartal" && (
+        <select
+          value={billingQuarter}
+          onChange={(e) => setBillingQuarter(Number(e.target.value))}
+        >
+          <option value={1}>Q1</option>
+          <option value={2}>Q2</option>
+          <option value={3}>Q3</option>
+          <option value={4}>Q4</option>
+        </select>
+      )}
+
+      {billingMode === "einzeln" && (
+        <input
+          type="date"
+          value={billingDate}
+          onChange={(e) => setBillingDate(e.target.value)}
+        />
+      )}
+    </div>
+
+    <section
+      style={{
+        border: "1px solid #ddd",
+        borderRadius: 12,
+        padding: 16,
+        background: "#fff",
+      }}
+    >
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(5, minmax(140px, 1fr))",
+          gap: 12,
+          marginBottom: 20,
+        }}
+      >
+        <div
+          style={{
+            padding: 14,
+            borderRadius: 12,
+            background: "#F7F3FF",
+            border: "1px solid #E2D9FF",
+          }}
+        >
+          <div style={{ fontSize: 12, color: "#666" }}>Sitzungen</div>
+          <div style={{ fontSize: 24, fontWeight: 800 }}>
+            {controllingTotals.sessions}
+          </div>
+        </div>
+
+        <div
+          style={{
+            padding: 14,
+            borderRadius: 12,
+            background: "#F7F3FF",
+            border: "1px solid #E2D9FF",
+          }}
+        >
+          <div style={{ fontSize: 12, color: "#666" }}>Klient:innen</div>
+          <div style={{ fontSize: 24, fontWeight: 800 }}>
+            {controllingTotals.clients}
+          </div>
+        </div>
+
+        <div
+          style={{
+            padding: 14,
+            borderRadius: 12,
+            background: "#F7F3FF",
+            border: "1px solid #E2D9FF",
+          }}
+        >
+          <div style={{ fontSize: 12, color: "#666" }}>Umsatz</div>
+          <div style={{ fontSize: 24, fontWeight: 800 }}>
+            {controllingTotals.umsatz.toFixed(2)} €
+          </div>
+        </div>
+
+        <div
+          style={{
+            padding: 14,
+            borderRadius: 12,
+            background: "#F7F3FF",
+            border: "1px solid #E2D9FF",
+          }}
+        >
+          <div style={{ fontSize: 12, color: "#666" }}>Provision Poise</div>
+          <div style={{ fontSize: 24, fontWeight: 800 }}>
+            {controllingTotals.provision.toFixed(2)} €
+          </div>
+        </div>
+
+        <div
+          style={{
+            padding: 14,
+            borderRadius: 12,
+            background: "#F7F3FF",
+            border: "1px solid #E2D9FF",
+          }}
+        >
+          <div style={{ fontSize: 12, color: "#666" }}>Auszahlung Coaches</div>
+          <div style={{ fontSize: 24, fontWeight: 800 }}>
+            {controllingTotals.payout.toFixed(2)} €
+          </div>
+        </div>
+      </div>
+
+      {controllingRows.length === 0 ? (
+        <div style={{ color: "#777" }}>
+          Keine Controlling-Daten für diesen Zeitraum
+        </div>
+      ) : (
+        <table
+          style={{
+            width: "100%",
+            borderCollapse: "collapse",
+            fontSize: 14,
+          }}
+        >
+          <thead>
+            <tr>
+              <th align="left">Coach</th>
+              <th align="center">Klient:innen</th>
+              <th align="center">Coachings</th>
+              <th align="right">Umsatz €</th>
+              <th align="right">Provision €</th>
+              <th align="right">Auszahlung €</th>
+            </tr>
+          </thead>
+          <tbody>
+            {controllingRows.map((row) => (
+              <tr key={row.therapist_id}>
+                <td>{row.therapist_name}</td>
+                <td align="center">{row.clients}</td>
+                <td align="center">{row.sessions}</td>
+                <td align="right">{row.umsatz.toFixed(2)}</td>
+                <td align="right">{row.provision.toFixed(2)}</td>
+                <td align="right">{row.payout.toFixed(2)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </section>
+  </>
+)}
 {openMenuId && (
   <div
     onClick={() => setOpenMenuId(null)}
@@ -2968,6 +3251,7 @@ body: JSON.stringify({
 )}
       {/* KARTEN */}
 {filter !== "abrechnung" &&
+  filter !== "controlling" &&
   filter !== "einstellungen" &&
   therapistFilteredRequests.map((r) => {
           const sessionList = sessionsByRequest[String(r.id)] || [];
