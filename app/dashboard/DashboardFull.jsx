@@ -1819,12 +1819,13 @@ const filteredBillingSessions = useMemo(() => {
     const d = new Date(s.date); // ✅ DAS HAT GEFEHLT
 
     // 👤 Therapeut:innen-Filter
-    if (
-      therapistFilter !== "alle" &&
-      String(s.therapist_id) !== String(therapistFilter)
-    ) {
-      return false;
-    }
+ if (
+  filter === "abrechnung" &&
+  therapistFilter !== "alle" &&
+  String(s.therapist_id) !== String(therapistFilter)
+) {
+  return false;
+}
 
     if (billingMode === "jahr") {
       return d.getFullYear() === billingYear;
@@ -3123,8 +3124,10 @@ body: JSON.stringify({
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: "repeat(5, minmax(140px, 1fr))",
-          gap: 12,
+gridTemplateColumns:
+  typeof window !== "undefined" && window.innerWidth < 768
+    ? "1fr 1fr"
+    : "repeat(5, minmax(140px, 1fr))",          gap: 12,
           marginBottom: 20,
         }}
       >
