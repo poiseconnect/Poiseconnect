@@ -20,6 +20,8 @@ export async function POST(request) {
 
     const {
       anfrageId,
+      vorname,
+      nachname,
       email,
       telefon,
       strasse_hausnr,
@@ -35,6 +37,8 @@ export async function POST(request) {
     const { error } = await supabase
       .from("anfragen")
       .update({
+        vorname: vorname || null,
+        nachname: nachname || null,
         email: email || null,
         telefon: telefon || null,
         strasse_hausnr: strasse_hausnr || null,
@@ -47,7 +51,10 @@ export async function POST(request) {
     if (error) {
       console.error("UPDATE CLIENT DB ERROR:", error);
       return json(
-        { error: "DB_ERROR", detail: error.message },
+        {
+          error: "DB_ERROR",
+          detail: error.message,
+        },
         500
       );
     }
@@ -56,7 +63,10 @@ export async function POST(request) {
   } catch (err) {
     console.error("UPDATE CLIENT SERVER ERROR:", err);
     return json(
-      { error: "SERVER_ERROR", detail: String(err) },
+      {
+        error: "SERVER_ERROR",
+        detail: String(err),
+      },
       500
     );
   }
