@@ -3112,7 +3112,22 @@ const calendarMode =
 )}
 
 
-
+<div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 12 }}>
+  <button
+    type="button"
+    onClick={() => {
+      setDetailsModal({
+        ...r,
+        _status: r._status,
+      });
+      setEditTarif(r.honorar_klient || "");
+      setMeetingLinkOverride(r.meeting_link_override || "");
+      setNewSessions([{ date: "", duration: 60 }]);
+    }}
+  >
+    🔍 Details
+  </button>
+</div>
 
             </article>
           );
