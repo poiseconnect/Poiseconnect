@@ -788,24 +788,29 @@ function getActionsForRequest(r, sessionList = []) {
     return actions;
   }
 
-  if (status === "active") {
-    const actions = [
-      {
-        key: "details",
-        label: "🔍 Details",
-        hint: "Sitzungen, Tarif und Verlauf ansehen",
-      },
-      {
-        key: "finish",
-        label: "🔴 Coaching beenden",
-        hint: "Klient:in in beendet verschieben",
-      },
-      {
-        key: "reassign",
-        label: "👥 Therapeut wechseln",
-        hint: "An Admin zur Neuverteilung geben",
-      },
-    ];
+ if (status === "active") {
+  const actions = [
+    {
+      key: "details",
+      label: "🔍 Details",
+      hint: "Sitzungen, Tarif und Verlauf ansehen",
+    },
+    {
+      key: "edit_client",
+      label: "📝 Klientendaten ändern",
+      hint: "Kontaktdaten und Stammdaten bearbeiten",
+    },
+    {
+      key: "finish",
+      label: "🔴 Coaching beenden",
+      hint: "Klient:in in beendet verschieben",
+    },
+    {
+      key: "reassign",
+      label: "👥 Therapeut wechseln",
+      hint: "An Admin zur Neuverteilung geben",
+    },
+  ];
 
     if (calendarMode === "booking") {
       actions.push({
@@ -1084,6 +1089,11 @@ if (action === "details") {
   setEditTarif(r.honorar_klient || "");
   setMeetingLinkOverride(r.meeting_link_override || "");
   setNewSessions([{ date: "", duration: 60 }]);
+  setOpenMenuId(null);
+  return;
+}
+    if (action === "edit_client") {
+  openEditClientModal(r);
   setOpenMenuId(null);
   return;
 }
@@ -3100,32 +3110,6 @@ const calendarMode =
     </button>
   </div>
 )}
-
-<div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 12 }}>
-  <button
-    onClick={() => {
-      setDetailsModal({
-        ...r,
-        _status: r.status,
-      });
-      setEditTarif(r.honorar_klient || "");
-      setMeetingLinkOverride(r.meeting_link_override || "");
-      setNewSessions([{ date: "", duration: 60 }]);
-    }}
-  >
-    🔍 Details
-  </button>
-
-  {filter === "aktiv" && (
-    <button
-      type="button"
-      onClick={() => openEditClientModal(r)}
-    >
-      📝 Klientendaten ändern
-    </button>
-  )}
-</div>
-
 
 
 
