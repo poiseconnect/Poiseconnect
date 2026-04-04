@@ -909,6 +909,12 @@ const [access, setAccess] = useState("loading");
 
   const [detailsModal, setDetailsModal] = useState(null);
   const [editTarif, setEditTarif] = useState("");
+  const [editEmail, setEditEmail] = useState("");
+const [editTelefon, setEditTelefon] = useState("");
+const [editStrasse, setEditStrasse] = useState("");
+const [editPlzOrt, setEditPlzOrt] = useState("");
+const [editGeburtsdatum, setEditGeburtsdatum] = useState("");
+const [editBeschaeftigungsgrad, setEditBeschaeftigungsgrad] = useState("");
   const [newSessions, setNewSessions] = useState([{ date: "", duration: 60 }]);
   const [bookingSettings, setBookingSettings] = useState(null);
   const [bookingSaving, setBookingSaving] = useState(false);
@@ -1013,6 +1019,12 @@ if (action === "details") {
   });
   setEditTarif(r.honorar_klient || "");
   setMeetingLinkOverride(r.meeting_link_override || "");
+  setEditEmail(r.email || "");
+  setEditTelefon(r.telefon || "");
+  setEditStrasse(r.strasse_hausnr || "");
+  setEditPlzOrt(r.plz_ort || "");
+  setEditGeburtsdatum(r.geburtsdatum || "");
+  setEditBeschaeftigungsgrad(r.beschaeftigungsgrad || "");
   setNewSessions([{ date: "", duration: 60 }]);
   setOpenMenuId(null);
   return;
@@ -3039,6 +3051,12 @@ const calendarMode =
     });
     setEditTarif(r.honorar_klient || "");
     setMeetingLinkOverride(r.meeting_link_override || "");
+    setEditEmail(r.email || "");
+    setEditTelefon(r.telefon || "");
+    setEditStrasse(r.strasse_hausnr || "");
+    setEditPlzOrt(r.plz_ort || "");
+    setEditGeburtsdatum(r.geburtsdatum || "");
+    setEditBeschaeftigungsgrad(r.beschaeftigungsgrad || "");
     setNewSessions([{ date: "", duration: 60 }]);
   }}
 >
@@ -3065,28 +3083,118 @@ const calendarMode =
      {/* ================= FORMULARDATEN ================= */}
 <section>
   {/* Kontaktdaten – NUR nach Terminbestätigung sichtbar */}
- {["termin_bestaetigt", "active", "beendet", "termin_neu"].includes(
+{["termin_bestaetigt", "active", "beendet", "termin_neu"].includes(
   normalizeStatus(detailsModal.status || detailsModal._status)
 ) && (
-    <>
-      <p>
-        <strong>E-Mail:</strong>{" "}
-        {detailsModal.email || "–"}
-      </p>
+  <>
+    <label>E-Mail</label>
+    <input
+      type="email"
+      value={editEmail}
+      onChange={(e) => setEditEmail(e.target.value)}
+      style={{ width: "100%", marginBottom: 8 }}
+    />
 
-      <p>
-        <strong>Telefon:</strong>{" "}
-        {detailsModal.telefon || "–"}
-      </p>
+    <label>Telefon</label>
+    <input
+      value={editTelefon}
+      onChange={(e) => setEditTelefon(e.target.value)}
+      style={{ width: "100%", marginBottom: 8 }}
+    />
 
-      <p>
-        <strong>Adresse:</strong>{" "}
-        {[detailsModal.strasse_hausnr, detailsModal.plz_ort]
-          .filter(Boolean)
-          .join(", ") || "–"}
-      </p>
-    </>
-  )}
+    <label>Straße & Hausnummer</label>
+    <input
+      value={editStrasse}
+      onChange={(e) => setEditStrasse(e.target.value)}
+      style={{ width: "100%", marginBottom: 8 }}
+    />
+
+    <label>PLZ & Ort</label>
+    <input
+      value={editPlzOrt}
+      onChange={(e) => setEditPlzOrt(e.target.value)}
+      style={{ width: "100%", marginBottom: 8 }}
+    />
+
+    <label>Geburtsdatum</label>
+    <input
+      type="date"
+      value={editGeburtsdatum}
+      onChange={(e) => setEditGeburtsdatum(e.target.value)}
+      style={{ width: "100%", marginBottom: 8 }}
+    />
+
+    <label>Beschäftigungsgrad</label>
+    <select
+      value={editBeschaeftigungsgrad}
+      onChange={(e) => setEditBeschaeftigungsgrad(e.target.value)}
+      style={{ width: "100%", marginBottom: 12 }}
+    >
+      <option value="">Bitte wählen…</option>
+      <option value="berufstaetig">Berufstätig</option>
+      <option value="ausbildung">In Ausbildung</option>
+    </select>
+
+    <button
+      type="button"
+      onClick={async () => {
+        const res = await fetch("/api/update-client", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            anfrageId: detailsModal.id,
+            email: editEmail,
+            telefon: editTelefon,
+            strasse_hausnr: editStrasse,
+            plz_ort: editPlzOrt,
+            geburtsdatum: editGeburtsdatum,
+            beschaeftigungsgrad: editBeschaeftigungsgrad,
+          }),
+        });
+
+        if (!res.ok) {
+          const text = await res.text();
+          console.error("UPDATE CLIENT FAILED:", text);
+          alert("❌ Klientendaten konnten nicht gespeichert werden");
+          return;
+        }
+
+        const updated = {
+          ...detailsModal,
+          email: editEmail,
+          telefon: editTelefon,
+          strasse_hausnr: editStrasse,
+          plz_ort: editPlzOrt,
+          geburtsdatum: editGeburtsdatum,
+          beschaeftigungsgrad: editBeschaeftigungsgrad,
+        };
+
+        setDetailsModal(updated);
+
+        setRequests((prev) =>
+          prev.map((x) =>
+            x.id === detailsModal.id
+              ? {
+                  ...x,
+                  email: editEmail,
+                  telefon: editTelefon,
+                  strasse_hausnr: editStrasse,
+                  plz_ort: editPlzOrt,
+                  geburtsdatum: editGeburtsdatum,
+                  beschaeftigungsgrad: editBeschaeftigungsgrad,
+                }
+              : x
+          )
+        );
+
+        alert("✅ Klientendaten gespeichert");
+      }}
+      style={{ marginBottom: 12 }}
+    >
+      💾 Klientendaten speichern
+    </button>
+  </>
+)}
 
   <p>
     <strong>Alter:</strong>{" "}
