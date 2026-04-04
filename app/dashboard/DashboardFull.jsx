@@ -1025,8 +1025,8 @@ function openEditClientModal(r) {
 async function saveClientData() {
   if (!editClientModal?.id) return;
 
-  const res = await fetch("/api/update-client-data", {
-    method: "POST",
+const res = await fetch("/api/update-client", {
+  method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       anfrageId: editClientModal.id,
