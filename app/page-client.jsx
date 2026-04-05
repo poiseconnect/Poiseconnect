@@ -342,9 +342,23 @@ const [savingDraft, setSavingDraft] = useState(false);
   // 🔑 NEU: ausgewählte Therapeut:innen-ID (DB)
 const [assignedTherapistId, setAssignedTherapistId] = useState(null);
 const calendarMode = useMemo(() => {
-  if (!assignedTherapistId) return "proposal";
+  const therapistId = assignedTherapistId || null;
 
-  const t = teamData.find((x) => x.id === assignedTherapistId);
+  if (!therapistId) {
+    console.warn("⚠️ calendarMode fallback: keine assignedTherapistId");
+    return "proposal";
+  }
+
+  const t = teamData.find(
+    (x) => String(x.id) === String(therapistId)
+  );
+
+  console.log("🧪 CALENDAR MODE CHECK", {
+    assignedTherapistId: therapistId,
+    foundTherapist: t?.name,
+    foundMode: t?.calendar_mode,
+  });
+
   return t?.calendar_mode || "proposal";
 }, [assignedTherapistId]);
   const [form, setForm] = useState({
@@ -1009,9 +1023,18 @@ body: JSON.stringify({
       return false;
     }
 
-    setDraftRequestId(json.id);
-    setBookingToken(json.booking_token);
-    setAssignedTherapistId(json.assigned_therapist_id);
+setDraftRequestId(json.id);
+setBookingToken(json.booking_token);
+setAssignedTherapistId(
+  json.assigned_therapist_id || selectedMember.id
+);
+
+console.log("✅ DRAFT RESPONSE", {
+  id: json.id,
+  booking_token: json.booking_token,
+  assigned_therapist_id: json.assigned_therapist_id,
+  fallback_member_id: selectedMember.id,
+});
 
     return true;
   } catch (err) {
@@ -1592,8 +1615,10 @@ color: "#000", // ✅ FIX: Text IMMER schwarz
 <TeamCarousel
   members={step8Members}
   onSelect={async (member) => {
-    // 🔒 verhindert doppelklick
     if (savingDraft) return;
+
+    // ✅ sofort lokal setzen
+    setAssignedTherapistId(member.id);
 
     const ok = await createOrUpdateDraft(member);
     if (!ok) return;
