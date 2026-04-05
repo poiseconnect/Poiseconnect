@@ -318,8 +318,9 @@ export default function PageClient() {
     email: t.email,
   })));
   const today = new Date();
-  const searchParams = useSearchParams();
+const searchParams = useSearchParams();
 const resumeMode = searchParams.get("resume");
+const therapistFromUrl = searchParams.get("therapist") || "";
 
 // ✅ Admin-Flow, wenn:
 // - resume=admin (dein Admin-Link)
@@ -371,25 +372,45 @@ const calendarMode = useMemo(() => {
   const therapistId =
     assignedTherapistId || form.assigned_therapist_id || null;
 
-  if (!therapistId) {
-    console.warn("⚠️ calendarMode fallback: keine assignedTherapistId");
-    return "proposal";
+  let therapist = null;
+
+  // 1) zuerst über echte ID
+  if (therapistId) {
+    therapist = teamData.find(
+      (x) => String(x.id) === String(therapistId)
+    );
   }
 
-  const therapist = teamData.find(
-    (x) => String(x.id) === String(therapistId)
-  );
+  // 2) fallback über URL-Parameter ?therapist=Name
+  if (!therapist && therapistFromUrl) {
+    therapist = teamData.find(
+      (x) => String(x.name).trim() === String(therapistFromUrl).trim()
+    );
+  }
+
+  // 3) fallback über Formularname
+  if (!therapist && form.wunschtherapeut) {
+    therapist = teamData.find(
+      (x) => String(x.name).trim() === String(form.wunschtherapeut).trim()
+    );
+  }
 
   console.log("🧪 CALENDAR MODE CHECK", {
     assignedTherapistId,
     formAssignedTherapistId: form.assigned_therapist_id,
-    effectiveTherapistId: therapistId,
+    therapistFromUrl,
+    formWunschtherapeut: form.wunschtherapeut,
     foundTherapist: therapist?.name,
     foundMode: therapist?.calendar_mode,
   });
 
   return therapist?.calendar_mode || "proposal";
-}, [assignedTherapistId, form.assigned_therapist_id]);
+}, [
+  assignedTherapistId,
+  form.assigned_therapist_id,
+  form.wunschtherapeut,
+  therapistFromUrl,
+]);
   const isAdminResume =
   resumeMode === "admin" ||
   resumeMode === "5" ||
@@ -691,9 +712,17 @@ setForm((prev) => ({
   admin_therapeuten: adminTherapeuten,
 }));
 
-      setDraftRequestId(data.id || null);
-      setBookingToken(data.booking_token || null);
-      setAssignedTherapistId(data.assigned_therapist_id || null);
+setDraftRequestId(data.id || null);
+setBookingToken(data.booking_token || null);
+
+const fallbackTherapistId =
+  data.assigned_therapist_id ||
+  teamData.find(
+    (t) => String(t.name).trim() === String(therapistFromUrl).trim()
+  )?.id ||
+  null;
+
+setAssignedTherapistId(fallbackTherapistId);
 
       if (resume === "admin") {
         setStep(8);
@@ -738,7 +767,7 @@ setForm((prev) => ({
   return () => {
     isMounted = false;
   };
-}, [anfrageId]);
+}, [anfrageId, therapistFromUrl]);
 // -------------------------------------
 // Resume-Flow (NUR STEP STEUERN, KEINE DATEN ÄNDERN)
 // -------------------------------------
