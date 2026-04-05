@@ -391,7 +391,7 @@ const [loadingSlots, setLoadingSlots] = useState(false);
 const [slotsError, setSlotsError] = useState("");
 const [selectedDay, setSelectedDay] = useState(null);
 const [blockedOldTerminISO, setBlockedOldTerminISO] = useState("");
-const [bookingWindowDays, setBookingWindowDays] = useState(90);
+  const [bookingWindowDays, setBookingWindowDays] = useState(21);
 const [dbMatchingScores, setDbMatchingScores] = useState({});
   // -------------------------------------
   // Matching – Team-Sortierung nach Tags
@@ -896,7 +896,7 @@ const from = new Date().toISOString();
 const res = await fetch(
   `/api/booking/free-slots?token=${encodeURIComponent(
     bookingToken
-  )}&from=${encodeURIComponent(from)}&days=90`,
+  )}&from=${encodeURIComponent(from)}`,
   { cache: "no-store" }
 );
 
