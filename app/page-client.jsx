@@ -391,7 +391,7 @@ const [loadingSlots, setLoadingSlots] = useState(false);
 const [slotsError, setSlotsError] = useState("");
 const [selectedDay, setSelectedDay] = useState(null);
 const [blockedOldTerminISO, setBlockedOldTerminISO] = useState("");
-  const [bookingWindowDays, setBookingWindowDays] = useState(21);
+const [bookingWindowDays, setBookingWindowDays] = useState(90);
 const [dbMatchingScores, setDbMatchingScores] = useState({});
   // -------------------------------------
   // Matching – Team-Sortierung nach Tags
