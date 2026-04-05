@@ -233,8 +233,8 @@ const MATCHING_THEMEN = [
 ];
 // ================= CALENDAR MODE HELPER =================
 function getCalendarModeByTherapistId(id) {
-  const t = teamData.find((x) => x.id === id);
-  return t?.calendar_mode || "booking"; // fallback = alter flow
+  const t = teamData.find((x) => String(x.id) === String(id));
+  return t?.calendar_mode || "booking";
 }
 function getCardStyleByFilter(filter) {
   const c = POISE_COLORS[filter] || POISE_COLORS.alle;
@@ -1190,43 +1190,80 @@ if (action === "no_match") {
       );
     }
 
-    if (action === "new_appointment") {
-      const therapistName =
-        r.wunschtherapeut || sessionList?.[0]?.therapist;
+if (action === "new_appointment") {
+  const therapistName =
+    r.wunschtherapeut ||
+    sessionList?.[0]?.therapist ||
+    teamData.find((t) => String(t.id) === String(r.assigned_therapist_id))?.name ||
+    "";
 
-      if (!therapistName && calendarMode === "booking") {
-        alert("❌ Keine Therapeut:in gefunden");
-        setOpenMenuId(null);
-        return;
-      }
+  const therapistId =
+    r.assigned_therapist_id ||
+    sessionList?.[0]?.therapist_id ||
+    teamData.find((t) => t.name === r.wunschtherapeut)?.id ||
+    null;
 
-      if (calendarMode === "booking") {
-        const res = await fetch("/api/new-appointment", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            requestId: r.id,
-            client: r.email,
-            vorname: r.vorname,
-            therapistName,
-            oldSlot: r.bevorzugte_zeit,
-          }),
-        });
+  if (calendarMode === "booking") {
+    if (!therapistName || !therapistId) {
+      console.error("❌ NEW APPOINTMENT: therapist missing", {
+        requestId: r.id,
+        therapistName,
+        therapistId,
+        assigned_therapist_id: r.assigned_therapist_id,
+        sessionTherapistId: sessionList?.[0]?.therapist_id,
+        wunschtherapeut: r.wunschtherapeut,
+      });
 
-        if (!res.ok) {
-          const t = await res.text();
-          console.error("NEW APPOINTMENT FAILED:", t);
-          alert("Fehler beim Senden");
-          setOpenMenuId(null);
-          return;
-        }
-
-        alert("📧 Neue Terminauswahl gesendet");
-      } else {
-        setProposalModal(r);
-        setProposalDates([{ date: "" }, { date: "" }, { date: "" }]);
-      }
+      alert("❌ Therapeut:in konnte nicht eindeutig zugeordnet werden");
+      setOpenMenuId(null);
+      return;
     }
+
+    const oldSlot =
+      r.terminISO ||
+      r.termin_iso ||
+      r.terminISO_erstgespraech ||
+      r.bevorzugte_zeit ||
+      null;
+
+    if (!oldSlot) {
+      console.error("❌ NEW APPOINTMENT: oldSlot missing", {
+        requestId: r.id,
+        request: r,
+      });
+
+      alert("❌ Alter Termin fehlt");
+      setOpenMenuId(null);
+      return;
+    }
+
+    const res = await fetch("/api/new-appointment", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        requestId: r.id,
+        client: r.email,
+        vorname: r.vorname,
+        therapistName,
+        therapistId,
+        oldSlot,
+      }),
+    });
+
+    if (!res.ok) {
+      const t = await res.text();
+      console.error("NEW APPOINTMENT FAILED:", t);
+      alert("Fehler beim Senden");
+      setOpenMenuId(null);
+      return;
+    }
+
+    alert("📧 Neue Terminauswahl gesendet");
+  } else {
+    setProposalModal(r);
+    setProposalDates([{ date: "" }, { date: "" }, { date: "" }]);
+  }
+}
 
     if (action === "proposal_send") {
       setProposalModal(r);
