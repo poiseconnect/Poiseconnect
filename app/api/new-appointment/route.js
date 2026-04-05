@@ -24,84 +24,75 @@ export async function POST(req) {
       client,
       therapistName,
       vorname,
-      oldSlot, // ⬅️ WICHTIG
+      oldSlot,
     } = body || {};
 
-if (!requestId || !client) {
-  return json({ error: "missing_fields" }, 400);
-}
+    /* ===============================
+       VALIDATION
+    =============================== */
 
-if (!therapistName) {
-  return json(
-    {
-      error: "missing_therapist",
-      hint: "therapistName fehlt im Request-Body",
-    },
-    400
-  );
-}
+    if (!requestId || !client) {
+      return json({ error: "missing_fields" }, 400);
+    }
+
+    if (!therapistName) {
+      return json(
+        {
+          error: "missing_therapist",
+          hint: "therapistName fehlt im Request-Body",
+        },
+        400
+      );
+    }
 
     const baseUrl =
       process.env.NEXT_PUBLIC_SITE_URL ||
       "https://poiseconnect.vercel.app";
 
     /* ===============================
-       1️⃣ Alten Termin blockieren
-       =============================== */
+       1️⃣ ALTEN SLOT BLOCKIEREN
+    =============================== */
 
-    const start = new Date(oldSlot);
-    if (isNaN(start.getTime())) {
-      return json({ error: "invalid_oldSlot" }, 400);
+    if (oldSlot) {
+      const start = new Date(oldSlot);
+
+      if (!isNaN(start.getTime())) {
+        const end = new Date(start.getTime() + 60 * 60 * 1000);
+
+        const { error: blockError } = await supabase
+          .from("blocked_slots")
+          .insert({
+            anfrage_id: requestId,
+            therapist_name: therapistName,
+            start_at: start.toISOString(),
+            end_at: end.toISOString(),
+            reason: "client_reschedule",
+          });
+
+        if (blockError) {
+          console.error("❌ BLOCK SLOT ERROR:", blockError);
+        } else {
+          console.log("✅ SLOT BLOCKED:", start.toISOString());
+        }
+      }
     }
 
-    const end = new Date(start.getTime() + 60 * 60 * 1000); // ✅ 60 Minuten
-
-    const { error: blockError } = await supabase
-      .from("blocked_slots")
-      .insert({
-        anfrage_id: requestId,
-        therapist_name: therapistName,
-        start_at: start.toISOString(),
-        end_at: end.toISOString(),
-        reason: "client_reschedule",
-      });
-
-    if (blockError) {
-      console.error("❌ BLOCK SLOT ERROR:", blockError);
-      return json(
-        { error: "block_failed", detail: blockError.message },
-        500
-      );
-    }
-const { error: updateError } = await supabase
-  .from("anfragen")
-  .update({
-    status: "papierkorb", // ✅ WICHTIG
-    match_state: "reschedule", // optional, aber sehr sauber
-    bevorzugte_zeit: null,
-  })
-  .eq("id", requestId);
     /* ===============================
-       2️⃣ Anfrage zurücksetzen
-       =============================== */
+       2️⃣ ANFRAGE AKTUALISIEREN (🔥 KRITISCH)
+    =============================== */
 
-const { data: requestData } = await supabase
-  .from("anfragen")
-  .select("bevorzugte_zeit")
-  .eq("id", requestId)
-  .single();
+    const { error: updateError } = await supabase
+      .from("anfragen")
+      .update({
+        status: "termin_neu", // ✅ WICHTIG (NICHT papierkorb!)
+        match_state: "reschedule",
+        bevorzugte_zeit: null,
 
-if (requestData?.bevorzugte_zeit) {
-  await supabase.from("blocked_slots").insert({
-    anfrage_id: requestId,
-    therapist_name: therapistName,
-    start_at: new Date(requestData.bevorzugte_zeit).toISOString(),
-    end_at: new Date(
-      new Date(requestData.bevorzugte_zeit).getTime() + 60 * 60 * 1000
-    ).toISOString(),
-    reason: "previous_selection",
-  });
-}
+        // 🔥 DAS IST DER ENTSCHEIDENDE FIX
+        wunschtherapeut: therapistName,
+      })
+      .eq("id", requestId);
+
     if (updateError) {
       console.error("❌ UPDATE REQUEST ERROR:", updateError);
       return json(
@@ -110,9 +101,17 @@ if (requestData?.bevorzugte_zeit) {
       );
     }
 
+    console.log("✅ REQUEST UPDATED");
+
     /* ===============================
-       3️⃣ Mail mit neuem Auswahl-Link
-       =============================== */
+       3️⃣ MAIL SENDEN
+    =============================== */
+
+    const link = `${baseUrl}?resume=10&anfrageId=${requestId}&therapist=${encodeURIComponent(
+      therapistName
+    )}`;
+
+    console.log("🔗 RESCHEDULE LINK:", link);
 
     const mailRes = await fetch("https://api.resend.com/emails", {
       method: "POST",
@@ -124,53 +123,47 @@ if (requestData?.bevorzugte_zeit) {
         from: "Poise <noreply@mypoise.de>",
         to: client,
         subject: "Bitte neuen Termin auswählen 🤍",
-       html: `
-  <p>Hallo ${vorname || ""},</p>
+        html: `
+          <p>Hallo ${vorname || ""},</p>
 
-  <p>
-    dein ursprünglich geplanter Termin kann so leider nicht stattfinden.
-  </p>
+          <p>
+            dein Termin wurde geändert – bitte wähle hier einen neuen:
+          </p>
 
-  <p>
-    Bitte wähle hier ganz einfach einen neuen Termin aus:
-  </p>
+          <p>
+            <a 
+              href="${link}"
+              target="_blank"
+              style="color:#8E3A4A; font-weight:600;"
+            >
+              👉 Neuen Termin auswählen
+            </a>
+          </p>
 
-  <p>
-    <a 
-      href="${baseUrl}?resume=10&anfrageId=${requestId}&therapist=${encodeURIComponent(therapistName)}"
-      target="_blank"
-      style="color:#8E3A4A; font-weight:600;"
-    >
-      👉 Neuen Termin auswählen
-    </a>
-  </p>
+          <p>
+            Falls etwas nicht funktioniert, melde dich jederzeit unter
+            <strong>hallo@mypoise.de</strong>.
+          </p>
 
-  <p>
-    Sobald du einen neuen Termin gewählt hast, kümmern wir uns direkt um alles Weitere.
-  </p>
+          <br />
 
-  <p>
-    Falls du Fragen hast oder Unterstützung brauchst, melde dich jederzeit gerne unter
-    <strong>hallo@mypoise.de</strong>.
-  </p>
-
-  <br />
-
-  <p>
-    Alles Liebe<br/>
-    ${therapistName || "Dein Coach"} 🤍
-  </p>
-`,
+          <p>
+            Alles Liebe<br/>
+            ${therapistName} 🤍
+          </p>
+        `,
       }),
     });
 
     if (!mailRes.ok) {
       console.warn("⚠️ MAIL FAILED – DB OK");
+    } else {
+      console.log("📧 MAIL SENT");
     }
 
     return json({ ok: true });
   } catch (err) {
-    console.error("🔥 NEW APPOINTMENT SERVER ERROR:", err);
+    console.error("🔥 SERVER ERROR:", err);
     return json(
       { error: "server_error", detail: String(err) },
       500
