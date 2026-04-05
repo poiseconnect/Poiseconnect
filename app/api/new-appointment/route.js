@@ -23,23 +23,20 @@ export async function POST(req) {
       requestId,
       client,
       therapistName,
+      therapistId,
       vorname,
       oldSlot,
     } = body || {};
-
-    /* ===============================
-       VALIDATION
-    =============================== */
 
     if (!requestId || !client) {
       return json({ error: "missing_fields" }, 400);
     }
 
-    if (!therapistName) {
+    if (!therapistName || !therapistId) {
       return json(
         {
           error: "missing_therapist",
-          hint: "therapistName fehlt im Request-Body",
+          hint: "therapistName oder therapistId fehlt im Request-Body",
         },
         400
       );
@@ -50,9 +47,8 @@ export async function POST(req) {
       "https://poiseconnect.vercel.app";
 
     /* ===============================
-       1️⃣ ALTEN SLOT BLOCKIEREN
+       1️⃣ Alten Slot blockieren
     =============================== */
-
     if (oldSlot) {
       const start = new Date(oldSlot);
 
@@ -78,17 +74,21 @@ export async function POST(req) {
     }
 
     /* ===============================
-       2️⃣ ANFRAGE AKTUALISIEREN (🔥 KRITISCH)
+       2️⃣ Anfrage sauber zurücksetzen
     =============================== */
-
     const { error: updateError } = await supabase
       .from("anfragen")
       .update({
-        status: "termin_neu", // ✅ WICHTIG (NICHT papierkorb!)
+        status: "termin_neu",
         match_state: "reschedule",
         bevorzugte_zeit: null,
+        terminISO: null,
+        termin_iso: null,
+        terminISO_erstgespraech: null,
+        booking_token: null,
 
-        // 🔥 DAS IST DER ENTSCHEIDENDE FIX
+        // 🔥 ENTSCHEIDEND:
+        assigned_therapist_id: therapistId,
         wunschtherapeut: therapistName,
       })
       .eq("id", requestId);
@@ -101,18 +101,36 @@ export async function POST(req) {
       );
     }
 
-    console.log("✅ REQUEST UPDATED");
+    console.log("✅ REQUEST UPDATED", {
+      requestId,
+      therapistName,
+      therapistId,
+    });
 
     /* ===============================
-       3️⃣ MAIL SENDEN
+       3️⃣ Optional: neuen Draft + booking_token erzeugen
     =============================== */
+    const { data: draftData, error: draftError } = await supabase
+      .from("anfragen")
+      .select("id, booking_token")
+      .eq("id", requestId)
+      .single();
 
-    const link = `${baseUrl}?resume=10&anfrageId=${requestId}&therapist=${encodeURIComponent(
-      therapistName
-    )}`;
+    if (draftError) {
+      console.error("❌ LOAD UPDATED REQUEST ERROR:", draftError);
+      return json(
+        { error: "reload_failed", detail: draftError.message },
+        500
+      );
+    }
+
+    const link = `${baseUrl}?resume=10&anfrageId=${requestId}`;
 
     console.log("🔗 RESCHEDULE LINK:", link);
 
+    /* ===============================
+       4️⃣ Mail senden
+    =============================== */
     const mailRes = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: {
@@ -156,12 +174,19 @@ export async function POST(req) {
     });
 
     if (!mailRes.ok) {
-      console.warn("⚠️ MAIL FAILED – DB OK");
+      const mailText = await mailRes.text().catch(() => "");
+      console.warn("⚠️ MAIL FAILED – DB OK", mailText);
     } else {
       console.log("📧 MAIL SENT");
     }
 
-    return json({ ok: true });
+    return json({
+      ok: true,
+      requestId,
+      therapistName,
+      therapistId,
+      booking_token: draftData?.booking_token || null,
+    });
   } catch (err) {
     console.error("🔥 SERVER ERROR:", err);
     return json(
