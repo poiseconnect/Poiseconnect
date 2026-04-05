@@ -338,35 +338,36 @@ const [draftRequestId, setDraftRequestId] = useState(null);
 const [bookingToken, setBookingToken] = useState(null);
 const [savingDraft, setSavingDraft] = useState(false);
 
-  // Formular-Daten
-  // 🔑 NEU: ausgewählte Therapeut:innen-ID (DB)
+// 🔑 WICHTIG: dieser State hat gefehlt
+const [assignedTherapistId, setAssignedTherapistId] = useState(null);
 
-  const [form, setForm] = useState({
-admin_therapeuten: [],
+const [form, setForm] = useState({
+  admin_therapeuten: [],
   themen: [],
-    anliegen: "",
-    leidensdruck: "",
-    verlauf: "",
-    diagnose: "",
-    ziel: "",
-    wunschtherapeut: "",
-    vorname: "",
-    nachname: "",
-    email: "",
-    telefon: "",
-    adresse: "",
-    plz_ort: "",
-strasse_hausnr: "",
-    geburtsdatum: "",
-    beschaeftigungsgrad: "",
-    check_datenschutz: false,
-    check_online_setting: false,
-    check_gesundheit: false,
-    terminISO: "",
-    terminDisplay: "",
-    
-  });
- const calendarMode = useMemo(() => {
+  anliegen: "",
+  leidensdruck: "",
+  verlauf: "",
+  diagnose: "",
+  ziel: "",
+  wunschtherapeut: "",
+  vorname: "",
+  nachname: "",
+  email: "",
+  telefon: "",
+  adresse: "",
+  plz_ort: "",
+  strasse_hausnr: "",
+  geburtsdatum: "",
+  beschaeftigungsgrad: "",
+  check_datenschutz: false,
+  check_online_setting: false,
+  check_gesundheit: false,
+  terminISO: "",
+  terminDisplay: "",
+  assigned_therapist_id: null,
+});
+
+const calendarMode = useMemo(() => {
   const therapistId =
     assignedTherapistId || form.assigned_therapist_id || null;
 
