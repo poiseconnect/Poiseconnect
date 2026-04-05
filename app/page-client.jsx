@@ -342,7 +342,7 @@ const [savingDraft, setSavingDraft] = useState(false);
   // 🔑 NEU: ausgewählte Therapeut:innen-ID (DB)
 const [assignedTherapistId, setAssignedTherapistId] = useState(null);
 const calendarMode = useMemo(() => {
-  const therapistId = assignedTherapistId || null;
+  const therapistId = assignedTherapistId || form.assigned_therapist_id || null;
 
   if (!therapistId) {
     console.warn("⚠️ calendarMode fallback: keine assignedTherapistId");
@@ -360,7 +360,7 @@ const calendarMode = useMemo(() => {
   });
 
   return t?.calendar_mode || "proposal";
-}, [assignedTherapistId]);
+}, [assignedTherapistId, form.assigned_therapist_id]);
   const [form, setForm] = useState({
 admin_therapeuten: [],
   themen: [],
@@ -680,12 +680,12 @@ useEffect(() => {
         }
       }
       if (!Array.isArray(adminTherapeuten)) adminTherapeuten = [];
-
-      setForm((prev) => ({
-        ...prev,
-        ...data,
-        admin_therapeuten: adminTherapeuten,
-      }));
+setForm((prev) => ({
+  ...prev,
+  ...data,
+  assigned_therapist_id: data.assigned_therapist_id || null,
+  admin_therapeuten: adminTherapeuten,
+}));
 
       setDraftRequestId(data.id || null);
       setBookingToken(data.booking_token || null);
@@ -1611,13 +1611,11 @@ color: "#000", // ✅ FIX: Text IMMER schwarz
           Es werden ausschließlich Therapeut:innen angezeigt,
           die aktuell freie Termine haben.
         </p>
-
 <TeamCarousel
   members={step8Members}
   onSelect={async (member) => {
     if (savingDraft) return;
 
-    // ✅ sofort lokal setzen
     setAssignedTherapistId(member.id);
 
     const ok = await createOrUpdateDraft(member);
@@ -1629,6 +1627,7 @@ color: "#000", // ✅ FIX: Text IMMER schwarz
     setForm((prev) => ({
       ...prev,
       wunschtherapeut: member.name,
+      assigned_therapist_id: member.id,
       terminISO: "",
       terminDisplay: "",
     }));
