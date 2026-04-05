@@ -340,27 +340,7 @@ const [savingDraft, setSavingDraft] = useState(false);
 
   // Formular-Daten
   // 🔑 NEU: ausgewählte Therapeut:innen-ID (DB)
-const [assignedTherapistId, setAssignedTherapistId] = useState(null);
-const calendarMode = useMemo(() => {
-  const therapistId = assignedTherapistId || form.assigned_therapist_id || null;
 
-  if (!therapistId) {
-    console.warn("⚠️ calendarMode fallback: keine assignedTherapistId");
-    return "proposal";
-  }
-
-  const t = teamData.find(
-    (x) => String(x.id) === String(therapistId)
-  );
-
-  console.log("🧪 CALENDAR MODE CHECK", {
-    assignedTherapistId: therapistId,
-    foundTherapist: t?.name,
-    foundMode: t?.calendar_mode,
-  });
-
-  return t?.calendar_mode || "proposal";
-}, [assignedTherapistId, form.assigned_therapist_id]);
   const [form, setForm] = useState({
 admin_therapeuten: [],
   themen: [],
@@ -386,6 +366,29 @@ strasse_hausnr: "",
     terminDisplay: "",
     
   });
+ const calendarMode = useMemo(() => {
+  const therapistId =
+    assignedTherapistId || form.assigned_therapist_id || null;
+
+  if (!therapistId) {
+    console.warn("⚠️ calendarMode fallback: keine assignedTherapistId");
+    return "proposal";
+  }
+
+  const therapist = teamData.find(
+    (x) => String(x.id) === String(therapistId)
+  );
+
+  console.log("🧪 CALENDAR MODE CHECK", {
+    assignedTherapistId,
+    formAssignedTherapistId: form.assigned_therapist_id,
+    effectiveTherapistId: therapistId,
+    foundTherapist: therapist?.name,
+    foundMode: therapist?.calendar_mode,
+  });
+
+  return therapist?.calendar_mode || "proposal";
+}, [assignedTherapistId, form.assigned_therapist_id]);
   const isAdminResume =
   resumeMode === "admin" ||
   resumeMode === "5" ||
