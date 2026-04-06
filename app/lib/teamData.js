@@ -349,11 +349,11 @@ scores: {
 },
 {
     id: "64699791-6203-416e-bab9-6abe043ac454",
-  name: "Gerhard",
+  name: "Test PROPOSAL MODE",
   calendar_mode: "proposal",
   role: "Coach, systemischer Berater, Mediator",
   qualificationLevel: 6,
-  image: "https://mypoise.de/wp-content/uploads/2025/04/Frontfoto-1024x1024.jpg",
+  image: "https://mypoise.de/wp-content/uploads/2024/07/cropped-Bildschirmfoto-2024-07-21-um-18.54.26-1.png",
   video: "https://youtu.be/sEhRwOirFZ0",
   email: "kicseb@yahoo.de",
   short:
