@@ -321,7 +321,10 @@ export default function PageClient() {
 const searchParams = useSearchParams();
 const resumeMode = searchParams.get("resume");
 const therapistFromUrl = searchParams.get("therapist") || "";
-
+const therapistIdFromUrl =
+  teamData.find(
+    (t) => String(t.name).trim() === String(therapistFromUrl).trim()
+  )?.id || null;
 // ✅ Admin-Flow, wenn:
 // - resume=admin (dein Admin-Link)
 // - resume=5 oder resume=8 (deine bestehenden Buttons/Links)
@@ -340,8 +343,9 @@ const [bookingToken, setBookingToken] = useState(null);
 const [savingDraft, setSavingDraft] = useState(false);
 
 // 🔑 WICHTIG: dieser State hat gefehlt
-const [assignedTherapistId, setAssignedTherapistId] = useState(null);
-
+const [assignedTherapistId, setAssignedTherapistId] = useState(
+  therapistIdFromUrl || null
+);
 const [form, setForm] = useState({
   admin_therapeuten: [],
   themen: [],
@@ -367,39 +371,40 @@ const [form, setForm] = useState({
   terminDisplay: "",
   assigned_therapist_id: null,
 });
-
 const calendarMode = useMemo(() => {
-  const therapistId =
-    assignedTherapistId || form.assigned_therapist_id || null;
+  const effectiveTherapistId =
+    assignedTherapistId ||
+    form.assigned_therapist_id ||
+    therapistIdFromUrl ||
+    null;
 
   let therapist = null;
 
-  // 1) zuerst über echte ID
-  if (therapistId) {
+  if (effectiveTherapistId) {
     therapist = teamData.find(
-      (x) => String(x.id) === String(therapistId)
+      (x) => String(x.id) === String(effectiveTherapistId)
     );
   }
 
-  // 2) fallback über URL-Parameter ?therapist=Name
-  if (!therapist && therapistFromUrl) {
-    therapist = teamData.find(
-      (x) => String(x.name).trim() === String(therapistFromUrl).trim()
-    );
-  }
-
-  // 3) fallback über Formularname
   if (!therapist && form.wunschtherapeut) {
     therapist = teamData.find(
       (x) => String(x.name).trim() === String(form.wunschtherapeut).trim()
     );
   }
 
+  if (!therapist && therapistFromUrl) {
+    therapist = teamData.find(
+      (x) => String(x.name).trim() === String(therapistFromUrl).trim()
+    );
+  }
+
   console.log("🧪 CALENDAR MODE CHECK", {
     assignedTherapistId,
     formAssignedTherapistId: form.assigned_therapist_id,
+    therapistIdFromUrl,
     therapistFromUrl,
     formWunschtherapeut: form.wunschtherapeut,
+    effectiveTherapistId,
     foundTherapist: therapist?.name,
     foundMode: therapist?.calendar_mode,
   });
@@ -409,6 +414,7 @@ const calendarMode = useMemo(() => {
   assignedTherapistId,
   form.assigned_therapist_id,
   form.wunschtherapeut,
+  therapistIdFromUrl,
   therapistFromUrl,
 ]);
   const isAdminResume =
@@ -717,8 +723,9 @@ setBookingToken(data.booking_token || null);
 
 const fallbackTherapistId =
   data.assigned_therapist_id ||
+  therapistIdFromUrl ||
   teamData.find(
-    (t) => String(t.name).trim() === String(therapistFromUrl).trim()
+    (t) => String(t.name).trim() === String(data.wunschtherapeut || "").trim()
   )?.id ||
   null;
 
@@ -767,8 +774,8 @@ setAssignedTherapistId(fallbackTherapistId);
   return () => {
     isMounted = false;
   };
-}, [anfrageId, therapistFromUrl]);
-// -------------------------------------
+}, [anfrageId, therapistFromUrl, therapistIdFromUrl]);
+ // -------------------------------------
 // Resume-Flow (NUR STEP STEUERN, KEINE DATEN ÄNDERN)
 // -------------------------------------
 useEffect(() => {
@@ -782,19 +789,19 @@ useEffect(() => {
   const n = parseInt(resume, 10);
 
   if (!Number.isNaN(n)) {
-    if (n === 5) targetStep = 8;   // Admin-Weiterleitung
-    else if (n === 10) targetStep = 10; // Terminwahl
+    if (n === 5) targetStep = 8;
+    else if (n === 10) targetStep = 10;
     else targetStep = n;
+  } else if (resume === "admin") {
+    targetStep = 8;
   }
 
   if (targetStep === null) return;
 
-  // ❗ KEIN setForm MEHR HIER
   setSelectedDay(null);
   setStep(targetStep);
 
-  // URL aufräumen
-  window.history.replaceState({}, "", window.location.pathname);
+  // ❌ URL HIER NICHT mehr aufräumen
 }, []);
 
   // -------------------------------------
