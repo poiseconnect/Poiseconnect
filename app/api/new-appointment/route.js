@@ -76,15 +76,13 @@ export async function POST(req) {
     /* ===============================
        2️⃣ Anfrage sauber zurücksetzen
     =============================== */
-    const updatePayload = {
-      status: "termin_neu",
-      match_state: "reschedule",
-      bevorzugte_zeit: null,
-      booking_token: null,
-      assigned_therapist_id: therapistId,
-      wunschtherapeut: therapistName,
-    };
-
+const updatePayload = {
+  status: "termin_neu",
+  match_state: "reschedule",
+  bevorzugte_zeit: null,
+  assigned_therapist_id: therapistId,
+  wunschtherapeut: therapistName,
+};
     const { error: updateError } = await supabase
       .from("anfragen")
       .update(updatePayload)
