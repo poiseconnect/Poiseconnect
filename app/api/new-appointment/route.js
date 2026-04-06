@@ -76,21 +76,18 @@ export async function POST(req) {
     /* ===============================
        2️⃣ Anfrage sauber zurücksetzen
     =============================== */
+    const updatePayload = {
+      status: "termin_neu",
+      match_state: "reschedule",
+      bevorzugte_zeit: null,
+      booking_token: null,
+      assigned_therapist_id: therapistId,
+      wunschtherapeut: therapistName,
+    };
+
     const { error: updateError } = await supabase
       .from("anfragen")
-      .update({
-        status: "termin_neu",
-        match_state: "reschedule",
-        bevorzugte_zeit: null,
-        terminISO: null,
-        termin_iso: null,
-        terminISO_erstgespraech: null,
-        booking_token: null,
-
-        // 🔥 ENTSCHEIDEND:
-        assigned_therapist_id: therapistId,
-        wunschtherapeut: therapistName,
-      })
+      .update(updatePayload)
       .eq("id", requestId);
 
     if (updateError) {
@@ -107,29 +104,14 @@ export async function POST(req) {
       therapistId,
     });
 
-    /* ===============================
-       3️⃣ Optional: neuen Draft + booking_token erzeugen
-    =============================== */
-    const { data: draftData, error: draftError } = await supabase
-      .from("anfragen")
-      .select("id, booking_token")
-      .eq("id", requestId)
-      .single();
-
-    if (draftError) {
-      console.error("❌ LOAD UPDATED REQUEST ERROR:", draftError);
-      return json(
-        { error: "reload_failed", detail: draftError.message },
-        500
-      );
-    }
-
-    const link = `${baseUrl}?resume=10&anfrageId=${requestId}`;
+    const link = `${baseUrl}?resume=10&anfrageId=${requestId}&therapist=${encodeURIComponent(
+      therapistName
+    )}`;
 
     console.log("🔗 RESCHEDULE LINK:", link);
 
     /* ===============================
-       4️⃣ Mail senden
+       3️⃣ Mail senden
     =============================== */
     const mailRes = await fetch("https://api.resend.com/emails", {
       method: "POST",
@@ -185,7 +167,6 @@ export async function POST(req) {
       requestId,
       therapistName,
       therapistId,
-      booking_token: draftData?.booking_token || null,
     });
   } catch (err) {
     console.error("🔥 SERVER ERROR:", err);
