@@ -1659,9 +1659,14 @@ useEffect(() => {
     try {
       setProfileLoading(true);
 
-      const res = await fetch("/api/team-members/profile", {
-        cache: "no-store",
-      });
+const token = await getAccessToken();
+
+const res = await fetch("/api/team-members/profile", {
+  headers: {
+    Authorization: `Bearer ${token}`,
+  },
+  cache: "no-store",
+});
 
       const json = await res.json();
 
