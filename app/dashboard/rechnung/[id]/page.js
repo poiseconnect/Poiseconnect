@@ -137,8 +137,12 @@ async function loadData() {
   }
 }
 
-  const vatRate = useMemo(() => Number(settings?.default_vat_rate || 0), [settings]);
+const invoiceWithVat = anfrage?.invoice_with_vat === true;
 
+const vatRate = useMemo(() => {
+  return invoiceWithVat ? Number(settings?.default_vat_rate || 20) : 0;
+}, [settings, invoiceWithVat]);
+  
   const lineItems = useMemo(() => {
     return (sessions || []).map((s) => {
       const qty = Number(quantities[s.id] ?? 1);
@@ -155,12 +159,29 @@ async function loadData() {
     });
   }, [sessions, descriptions, quantities, unitPrices]);
 
-  const totals = useMemo(() => {
-    const net = lineItems.reduce((sum, li) => sum + Number(li.total || 0), 0);
-    const vat = vatRate > 0 ? net * (vatRate / 100) : 0;
-    const gross = net + vat;
-    return { net, vat, gross };
-  }, [lineItems, vatRate]);
+const totals = useMemo(() => {
+  let net = 0;
+  let vat = 0;
+  let gross = 0;
+
+  lineItems.forEach((li) => {
+    const amount = Number(li.total || 0);
+
+    if (invoiceWithVat) {
+      const netPart = amount / 1.2;
+      const vatPart = amount - netPart;
+
+      net += netPart;
+      vat += vatPart;
+      gross += amount;
+    } else {
+      net += amount;
+      gross += amount;
+    }
+  });
+
+  return { net, vat, gross };
+}, [lineItems, invoiceWithVat]);
 
   async function saveInvoice() {
     try {
@@ -291,27 +312,28 @@ Poise`
   function exportPDF() {
     try {
       const doc = new jsPDF("p", "mm", "a4");
-      buildPdf({
-        doc,
-        settings,
-        invoiceNumber,
-        invoiceDate,
-        servicePeriod,
-        customerNumber,
-        contactPerson,
-        clientName,
-        clientStreet,
-        clientZipCity,
-        clientCountry,
-        clientEmail,
-        salutation,
-        introText,
-        paymentTerms,
-        closingText,
-        vatRate,
-        lineItems,
-        totals,
-      });
+buildPdf({
+  doc,
+  settings,
+  invoiceNumber,
+  invoiceDate,
+  servicePeriod,
+  customerNumber,
+  contactPerson,
+  clientName,
+  clientStreet,
+  clientZipCity,
+  clientCountry,
+  clientEmail,
+  salutation,
+  introText,
+  paymentTerms,
+  closingText,
+  vatRate,
+  invoiceWithVat,
+  lineItems,
+  totals,
+});
 
       const safeName = (clientName || "Klient").replaceAll(" ", "_");
       doc.save(`Rechnung_${invoiceNumber}_${safeName}.pdf`);
@@ -485,11 +507,17 @@ Poise`
         </div>
 
         {/* TITLE LINE like "Rechnung Nr. ..." */}
-        <div style={{ marginTop: 26 }}>
-          <div style={{ fontSize: 14, fontWeight: 700 }}>
-            Rechnung Nr. {invoiceNumber}
-          </div>
-        </div>
+<div style={{ marginTop: 26 }}>
+  <div style={{ fontSize: 14, fontWeight: 700 }}>
+    Rechnung Nr. {invoiceNumber}
+  </div>
+
+  <div style={{ fontSize: 11, color: "#666", marginTop: 4 }}>
+    {invoiceWithVat
+      ? `Rechnung inkl. ${vatRate}% Umsatzsteuer`
+      : "Rechnung ohne Umsatzsteuer"}
+  </div>
+</div>
 
         {/* TEXTS */}
         <div style={{ marginTop: 18, ...small }}>
@@ -590,16 +618,16 @@ Poise`
                 </td>
               </tr>
 
-              {vatRate > 0 ? (
-                <tr>
-                  <td colSpan={4} style={{ padding: "10px 6px", textAlign: "right", fontWeight: 600, background: "#fafafa" }}>
-                    zzgl. Umsatzsteuer {vatRate}%
-                  </td>
-                  <td style={{ padding: "10px 6px", textAlign: "right", background: "#fafafa" }}>
-                    {totals.vat.toFixed(2)} EUR
-                  </td>
-                </tr>
-              ) : null}
+{invoiceWithVat ? (
+  <tr>
+    <td colSpan={4} style={{ padding: "10px 6px", textAlign: "right", fontWeight: 600, background: "#fafafa" }}>
+      zzgl. Umsatzsteuer {vatRate}%
+    </td>
+    <td style={{ padding: "10px 6px", textAlign: "right", background: "#fafafa" }}>
+      {totals.vat.toFixed(2)} EUR
+    </td>
+  </tr>
+) : null}
 
               <tr>
                 <td colSpan={4} style={{ padding: "10px 6px", textAlign: "right", fontWeight: 700, background: "#f0f0f0" }}>
@@ -789,6 +817,7 @@ function buildPdf({
   paymentTerms,
   closingText,
   vatRate,
+  invoiceWithVat,
   lineItems,
   totals,
 }) {
@@ -907,23 +936,28 @@ function buildPdf({
 
   fy += 6;
 
-  if (vatRate > 0) {
-    doc.setFont("helvetica", "bold");
-    doc.text(`zzgl. Umsatzsteuer ${vatRate}%`, pageWidth - marginX - 70, fy);
-    doc.setFont("helvetica", "normal");
-    doc.text(`${totals.vat.toFixed(2)} EUR`, pageWidth - marginX, fy, { align: "right" });
-    fy += 6;
-  }
-
+if (invoiceWithVat) {
   doc.setFont("helvetica", "bold");
-  doc.text("Gesamtbetrag brutto", pageWidth - marginX - 70, fy);
-  doc.text(`${totals.gross.toFixed(2)} EUR`, pageWidth - marginX, fy, { align: "right" });
+  doc.text(`zzgl. Umsatzsteuer ${vatRate}%`, pageWidth - marginX - 70, fy);
   doc.setFont("helvetica", "normal");
+  doc.text(`${totals.vat.toFixed(2)} EUR`, pageWidth - marginX, fy, { align: "right" });
+  fy += 6;
+}
+doc.setFont("helvetica", "bold");
+doc.text("Gesamtbetrag brutto", pageWidth - marginX - 70, fy);
+doc.text(`${totals.gross.toFixed(2)} EUR`, pageWidth - marginX, fy, { align: "right" });
+doc.setFont("helvetica", "normal");
 
-  fy += 10;
+fy += 10;
 
-  // Payment + closing
-  const payLines = doc.splitTextToSize(String(paymentTerms || ""), pageWidth - 2 * marginX);
+if (!invoiceWithVat) {
+  doc.setFontSize(9);
+  doc.text("Diese Rechnung wird ohne Umsatzsteuer ausgestellt.", marginX, fy);
+  fy += 8;
+}
+
+// Payment + closing
+const payLines = doc.splitTextToSize(String(paymentTerms || ""), pageWidth - 2 * marginX);
   doc.text(payLines, marginX, fy);
   fy += payLines.length * 5 + 4;
 
