@@ -311,19 +311,27 @@ function toggleThema(key, setForm) {
 // PAGE COMPONENT
 // --------------------------------------------------
 export default function PageClient() {
-console.log("BROWSER TEAMDATA", teamMembers.map((t) => ({    name: t.name,
-    id: t.id,
-    calendar_mode: t.calendar_mode,
-    email: t.email,
-  })));
   const today = new Date();
-const searchParams = useSearchParams();
-const resumeMode = searchParams.get("resume");
-const therapistFromUrl = searchParams.get("therapist") || "";
-const therapistIdFromUrl =
-  teamData.find(
-    (t) => String(t.name).trim() === String(therapistFromUrl).trim()
-  )?.id || null;
+  const searchParams = useSearchParams();
+  const resumeMode = searchParams.get("resume");
+  const therapistFromUrl = searchParams.get("therapist") || "";
+
+  const [teamMembers, setTeamMembers] = useState(teamData);
+
+  const therapistIdFromUrl =
+    teamMembers.find(
+      (t) => String(t.name).trim() === String(therapistFromUrl).trim()
+    )?.id || null;
+
+  console.log(
+    "BROWSER TEAMDATA",
+    teamMembers.map((t) => ({
+      name: t.name,
+      id: t.id,
+      calendar_mode: t.calendar_mode,
+      email: t.email,
+    }))
+  );
 // ✅ Admin-Flow, wenn:
 // - resume=admin (dein Admin-Link)
 // - resume=5 oder resume=8 (deine bestehenden Buttons/Links)
@@ -345,7 +353,7 @@ const [savingDraft, setSavingDraft] = useState(false);
 const [assignedTherapistId, setAssignedTherapistId] = useState(
   therapistIdFromUrl || null
 );
- const [teamMembers, setTeamMembers] = useState(teamData);
+
 const [form, setForm] = useState({
   admin_therapeuten: [],
   themen: [],
@@ -753,7 +761,7 @@ setBookingToken(data.booking_token || null);
 const fallbackTherapistId =
   data.assigned_therapist_id ||
   therapistIdFromUrl ||
-  teamData.find(
+  teamMembers.find(
     (t) => String(t.name).trim() === String(data.wunschtherapeut || "").trim()
   )?.id ||
   null;
