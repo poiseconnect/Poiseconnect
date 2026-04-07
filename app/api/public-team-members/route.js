@@ -1,7 +1,7 @@
 export const dynamic = "force-dynamic";
 
 import { createClient } from "@supabase/supabase-js";
-import { teamData } from "@/app/lib/teamData";
+import { teamData } from "../../lib/teamData";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
