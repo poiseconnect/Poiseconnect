@@ -953,6 +953,17 @@ const [matchingScores, setMatchingScores] = useState({
   trauer: 0,
 });
 const [matchingScoresSaving, setMatchingScoresSaving] = useState(false);
+  const [profileLoading, setProfileLoading] = useState(false);
+const [profileSaving, setProfileSaving] = useState(false);
+const [profileForm, setProfileForm] = useState({
+  profile_name: "",
+  profile_role: "",
+  profile_calendar_mode: "booking",
+  profile_short: "",
+  profile_keywords: "",
+  profile_preis_std: "",
+  profile_preis_ermaessigt: "",
+});
 
   // ================= PROPOSALS =================
 const [proposalModal, setProposalModal] = useState(null);
@@ -1598,7 +1609,57 @@ useEffect(() => {
           Authorization: `Bearer ${token}`,
         },
       });
+useEffect(() => {
+  if (!user?.email) return;
+  if (role !== "therapist") return;
 
+  let mounted = true;
+
+  (async () => {
+    try {
+      setProfileLoading(true);
+
+      const res = await fetch("/api/team-members/profile", {
+        cache: "no-store",
+      });
+
+      const json = await res.json();
+
+      if (!res.ok) {
+        console.error("PROFILE LOAD ERROR:", json);
+        return;
+      }
+
+      const m = json.member || {};
+
+      if (!mounted) return;
+
+      setProfileForm({
+        profile_name: m.profile_name || "",
+        profile_role: m.profile_role || "",
+        profile_calendar_mode: m.profile_calendar_mode || "booking",
+        profile_short: m.profile_short || "",
+        profile_keywords: Array.isArray(m.profile_keywords)
+          ? m.profile_keywords.join(", ")
+          : "",
+        profile_preis_std:
+          m.profile_preis_std != null ? String(m.profile_preis_std) : "",
+        profile_preis_ermaessigt:
+          m.profile_preis_ermaessigt != null
+            ? String(m.profile_preis_ermaessigt)
+            : "",
+      });
+    } catch (err) {
+      console.error("PROFILE LOAD ERROR:", err);
+    } finally {
+      if (mounted) setProfileLoading(false);
+    }
+  })();
+
+  return () => {
+    mounted = false;
+  };
+}, [user, role]);
       const json = await res.json();
 
       if (!res.ok) {
@@ -1641,7 +1702,43 @@ async function loadBookingSettings() {
     }
   );
 }
+async function saveProfileSettings() {
+  try {
+    setProfileSaving(true);
 
+    const res = await fetch("/api/team-members/profile", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        profile_name: profileForm.profile_name,
+        profile_role: profileForm.profile_role,
+        profile_calendar_mode: profileForm.profile_calendar_mode,
+        profile_short: profileForm.profile_short,
+        profile_keywords: profileForm.profile_keywords
+          .split(",")
+          .map((x) => x.trim())
+          .filter(Boolean),
+        profile_preis_std: profileForm.profile_preis_std,
+        profile_preis_ermaessigt: profileForm.profile_preis_ermaessigt,
+      }),
+    });
+
+    const json = await res.json();
+
+    if (!res.ok) {
+      console.error("PROFILE SAVE ERROR:", json);
+      alert("Fehler beim Speichern des Profils");
+      return;
+    }
+
+    alert("✅ Profil gespeichert");
+  } catch (err) {
+    console.error("PROFILE SAVE ERROR:", err);
+    alert("Fehler beim Speichern des Profils");
+  } finally {
+    setProfileSaving(false);
+  }
+}
 
 async function loadMyAvailability() {
   try {
@@ -2520,7 +2617,169 @@ return (
             </button>
           </div>
            )}
+<div
+  style={{
+    marginBottom: 16,
+    border: "1px solid #eee",
+    borderRadius: 10,
+    background: "#FAFAFA",
+    padding: 12,
+  }}
+>
+  <div style={{ fontWeight: 600, marginBottom: 8 }}>
+    👤 Öffentliches Profil
+  </div>
 
+  <div style={{ fontSize: 12, color: "#666", marginBottom: 10 }}>
+    Diese Angaben überschreiben teamData und werden im Formular verwendet.
+    Wenn ein Feld leer bleibt, greift automatisch der Fallback aus teamData.
+  </div>
+
+  {profileLoading && (
+    <div style={{ fontSize: 12, color: "#666", marginBottom: 10 }}>
+      Lade Profil…
+    </div>
+  )}
+
+  <div
+    style={{
+      display: "grid",
+      gap: 10,
+    }}
+  >
+    <div>
+      <label>Name</label>
+      <input
+        value={profileForm.profile_name}
+        onChange={(e) =>
+          setProfileForm((prev) => ({
+            ...prev,
+            profile_name: e.target.value,
+          }))
+        }
+        placeholder="z.B. Ann"
+        style={{ width: "100%" }}
+      />
+    </div>
+
+    <div>
+      <label>Rolle</label>
+      <input
+        value={profileForm.profile_role}
+        onChange={(e) =>
+          setProfileForm((prev) => ({
+            ...prev,
+            profile_role: e.target.value,
+          }))
+        }
+        placeholder="z.B. Coach, Heilpraktikerin für Psychotherapie"
+        style={{ width: "100%" }}
+      />
+    </div>
+
+    <div>
+      <label>Kalender-Modus</label>
+      <select
+        value={profileForm.profile_calendar_mode}
+        onChange={(e) =>
+          setProfileForm((prev) => ({
+            ...prev,
+            profile_calendar_mode: e.target.value,
+          }))
+        }
+        style={{ width: "100%" }}
+      >
+        <option value="booking">booking</option>
+        <option value="proposal">proposal</option>
+        <option value="ics">ics</option>
+      </select>
+    </div>
+
+    <div>
+      <label>Kurzbeschreibung</label>
+      <textarea
+        value={profileForm.profile_short}
+        onChange={(e) =>
+          setProfileForm((prev) => ({
+            ...prev,
+            profile_short: e.target.value,
+          }))
+        }
+        rows={5}
+        placeholder="Kurzer Profiltext"
+        style={{ width: "100%" }}
+      />
+    </div>
+
+    <div>
+      <label>Keywords</label>
+      <textarea
+        value={profileForm.profile_keywords}
+        onChange={(e) =>
+          setProfileForm((prev) => ({
+            ...prev,
+            profile_keywords: e.target.value,
+          }))
+        }
+        rows={4}
+        placeholder="selbstwert, stress, burnout, angst"
+        style={{ width: "100%" }}
+      />
+      <div style={{ fontSize: 12, color: "#666", marginTop: 4 }}>
+        Bitte mit Komma trennen.
+      </div>
+    </div>
+
+    <div
+      style={{
+        display: "grid",
+        gridTemplateColumns: "1fr 1fr",
+        gap: 10,
+      }}
+    >
+      <div>
+        <label>Preis Standard</label>
+        <input
+          type="number"
+          value={profileForm.profile_preis_std}
+          onChange={(e) =>
+            setProfileForm((prev) => ({
+              ...prev,
+              profile_preis_std: e.target.value,
+            }))
+          }
+          placeholder="150"
+          style={{ width: "100%" }}
+        />
+      </div>
+
+      <div>
+        <label>Preis ermäßigt</label>
+        <input
+          type="number"
+          value={profileForm.profile_preis_ermaessigt}
+          onChange={(e) =>
+            setProfileForm((prev) => ({
+              ...prev,
+              profile_preis_ermaessigt: e.target.value,
+            }))
+          }
+          placeholder="120"
+          style={{ width: "100%" }}
+        />
+      </div>
+    </div>
+  </div>
+
+  <button
+    type="button"
+    onClick={saveProfileSettings}
+    disabled={profileSaving}
+    style={{ marginTop: 12 }}
+  >
+    {profileSaving ? "Speichere..." : "💾 Profil speichern"}
+  </button>
+</div>
         <div
           style={{
             marginBottom: 16,
