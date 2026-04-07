@@ -954,6 +954,7 @@ if (!invoiceWithVat) {
   doc.setFontSize(9);
   doc.text("Diese Rechnung wird ohne Umsatzsteuer ausgestellt.", marginX, fy);
   fy += 8;
+  doc.setFontSize(10);
 }
 
 // Payment + closing
