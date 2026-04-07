@@ -1450,13 +1450,13 @@ body: JSON.stringify({ therapist_id: myTeamMemberId }),
 
 useEffect(() => {
   if (!user?.email) return;
-  if (!role) return;
+  if (role !== "therapist") return;
 
   (async () => {
     try {
       const token = await getAccessToken();
 
-      const res = await fetch("/api/dashboard/requests", {
+      const res = await fetch("/api/team-members/matching-scores", {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -1465,37 +1465,77 @@ useEffect(() => {
       const json = await res.json();
 
       if (!res.ok) {
-        console.error("🔥 Fehler beim Laden der Anfragen:", json);
-        setRequests([]);
+        console.error("MATCHING SCORES LOAD ERROR:", json);
         return;
       }
 
-      setRequests(
-        (json.requests || []).map((r) => {
-          const normalized = normalizeStatus(r.status);
-
-          let adminTher = r.admin_therapeuten;
-
-          if (typeof adminTher === "string") {
-            adminTher = adminTher.trim() ? [adminTher] : [];
-          }
-          if (!Array.isArray(adminTher)) adminTher = [];
-
-          return {
-            ...r,
-            admin_therapeuten: adminTher,
-            _status: normalized || "neu",
-          };
-        })
-      );
-
-      if (json.role) setRole(json.role);
-      if (json.myTeamMemberId) setMyTeamMemberId(json.myTeamMemberId);
+      if (json?.matching_scores) {
+        setMatchingScores((prev) => ({
+          ...prev,
+          ...json.matching_scores,
+        }));
+      }
     } catch (err) {
-      console.error("🔥 REQUEST LOAD FAILED:", err);
-      setRequests([]);
+      console.error("MATCHING SCORES LOAD ERROR:", err);
     }
   })();
+}, [user, role]);
+
+useEffect(() => {
+  if (!user?.email) return;
+  if (role !== "therapist") return;
+
+  let mounted = true;
+
+  (async () => {
+    try {
+      setProfileLoading(true);
+
+      const token = await getAccessToken();
+
+      const res = await fetch("/api/team-members/profile", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        cache: "no-store",
+      });
+
+      const json = await res.json();
+
+      if (!res.ok) {
+        console.error("PROFILE LOAD ERROR:", json);
+        return;
+      }
+
+      const m = json.member || {};
+
+      if (!mounted) return;
+
+      setProfileForm({
+        profile_name: m.profile_name || "",
+        profile_role: m.profile_role || "",
+        profile_calendar_mode: m.profile_calendar_mode || "booking",
+        profile_short: m.profile_short || "",
+        profile_keywords: Array.isArray(m.profile_keywords)
+          ? m.profile_keywords.join(", ")
+          : "",
+        profile_preis_std:
+          m.profile_preis_std != null ? String(m.profile_preis_std) : "",
+        profile_preis_ermaessigt:
+          m.profile_preis_ermaessigt != null
+            ? String(m.profile_preis_ermaessigt)
+            : "",
+      });
+    } catch (err) {
+      console.error("PROFILE LOAD ERROR:", err);
+    } finally {
+      if (mounted) setProfileLoading(false);
+    }
+  })();
+
+  return () => {
+    mounted = false;
+  };
 }, [user, role]);
 /* ---------- LOAD SESSIONS (ADMIN API – STABIL) ---------- */
 useEffect(() => {
@@ -1706,9 +1746,14 @@ async function saveProfileSettings() {
   try {
     setProfileSaving(true);
 
+    const token = await getAccessToken();
+
     const res = await fetch("/api/team-members/profile", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
       body: JSON.stringify({
         profile_name: profileForm.profile_name,
         profile_role: profileForm.profile_role,
@@ -1718,8 +1763,14 @@ async function saveProfileSettings() {
           .split(",")
           .map((x) => x.trim())
           .filter(Boolean),
-        profile_preis_std: profileForm.profile_preis_std,
-        profile_preis_ermaessigt: profileForm.profile_preis_ermaessigt,
+        profile_preis_std:
+          profileForm.profile_preis_std === ""
+            ? null
+            : Number(profileForm.profile_preis_std),
+        profile_preis_ermaessigt:
+          profileForm.profile_preis_ermaessigt === ""
+            ? null
+            : Number(profileForm.profile_preis_ermaessigt),
       }),
     });
 
