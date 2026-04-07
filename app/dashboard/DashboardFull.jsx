@@ -1972,16 +1972,15 @@ const filteredBillingSessions = useMemo(() => {
   return sessionsSafe.filter((s) => {
     if (!s?.date) return false;
 
-    const d = new Date(s.date); // ✅ DAS HAT GEFEHLT
+    const d = new Date(s.date);
 
-    // 👤 Therapeut:innen-Filter
- if (
-  filter === "abrechnung" &&
-  therapistFilter !== "alle" &&
-  String(s.therapist_id) !== String(therapistFilter)
-) {
-  return false;
-}
+    // Coach-Filter im Admin
+    if (
+      therapistFilter !== "alle" &&
+      String(s.therapist_id) !== String(therapistFilter)
+    ) {
+      return false;
+    }
 
     if (billingMode === "jahr") {
       return d.getFullYear() === billingYear;
@@ -2014,7 +2013,68 @@ const filteredBillingSessions = useMemo(() => {
   billingQuarter,
   billingDate,
 ]);
+const billingSessionsWithVat = useMemo(() => {
+  return filteredBillingSessions.filter((s) => {
+    return s?.anfragen?.invoice_with_vat === true || s?.invoice_with_vat === true;
+  });
+}, [filteredBillingSessions]);
 
+const billingSessionsWithoutVat = useMemo(() => {
+  return filteredBillingSessions.filter((s) => {
+    return s?.anfragen?.invoice_with_vat !== true && s?.invoice_with_vat !== true;
+  });
+}, [filteredBillingSessions]);
+
+const adminCoachInvoiceWithVat = useMemo(() => {
+  let grossClientRevenue = 0;
+  let netClientRevenue = 0;
+  let poiseProvisionNet = 0;
+
+  billingSessionsWithVat.forEach((s) => {
+    const gross = Number(s.price || 0);
+    const net = gross / 1.2; // Klient zahlt inkl. 20% USt
+    const provisionNet = net * 0.3;
+
+    grossClientRevenue += gross;
+    netClientRevenue += net;
+    poiseProvisionNet += provisionNet;
+  });
+
+  return {
+    sessions: billingSessionsWithVat.length,
+    grossClientRevenue,
+    netClientRevenue,
+    provisionNet: poiseProvisionNet,
+    vat: 0,
+    total: poiseProvisionNet,
+    mode: "reverse_charge",
+  };
+}, [billingSessionsWithVat]);
+
+const adminCoachInvoiceWithoutVat = useMemo(() => {
+  let clientRevenue = 0;
+  let poiseProvisionNet = 0;
+  let vat = 0;
+
+  billingSessionsWithoutVat.forEach((s) => {
+    const amount = Number(s.price || 0); // ohne USt beim Klienten
+    const provisionNet = amount * 0.3;
+    const vatAmount = provisionNet * 0.2;
+
+    clientRevenue += amount;
+    poiseProvisionNet += provisionNet;
+    vat += vatAmount;
+  });
+
+  return {
+    sessions: billingSessionsWithoutVat.length,
+    clientRevenue,
+    provisionNet: poiseProvisionNet,
+    vat,
+    total: poiseProvisionNet + vat,
+    mode: "normal_ust",
+  };
+}, [billingSessionsWithoutVat]);
 
 
 
@@ -2063,7 +2123,7 @@ if (!map[s.anfrage_id]) {
 
   return Object.values(map);
 }, [filteredBillingSessions, invoiceSettings.default_vat_rate]);
-  const billingByTherapist = useMemo(() => {
+ const billingByTherapist = useMemo(() => {
   const map = {};
 
   (filteredBillingSessions || []).forEach((s) => {
@@ -2085,7 +2145,18 @@ if (!map[s.anfrage_id]) {
     }
 
     const price = Number(s.price || 0);
-    const provision = price * 0.3;
+    const invoiceWithVat =
+      s?.anfragen?.invoice_with_vat === true || s?.invoice_with_vat === true;
+
+    let provision = 0;
+
+    if (invoiceWithVat) {
+      const net = price / 1.2;
+      provision = net * 0.3;
+    } else {
+      provision = price * 0.3;
+    }
+
     const payout = price - provision;
 
     map[s.therapist_id].sessions += 1;
@@ -3186,6 +3257,78 @@ body: JSON.stringify({
         </tbody>
       </table>
     )}
+  </div>
+)}
+      {isAdmin && therapistFilter !== "alle" && (
+  <div
+    style={{
+      marginBottom: 20,
+      padding: 16,
+      borderRadius: 12,
+      border: "1px solid #ddd",
+      background: "#fff",
+    }}
+  >
+    <h3 style={{ marginTop: 0 }}>Admin-Rechnungen an Coach</h3>
+
+    {adminCoachInvoiceWithVat.sessions > 0 && (
+      <div
+        style={{
+          marginBottom: 16,
+          padding: 12,
+          border: "1px solid #E6E6E6",
+          borderRadius: 10,
+          background: "#F8FAFF",
+        }}
+      >
+        <div style={{ fontWeight: 700, marginBottom: 8 }}>
+          Reverse-Charge-Rechnung
+        </div>
+
+        <div>Sitzungen: {adminCoachInvoiceWithVat.sessions}</div>
+        <div>Klientenumsatz brutto: {adminCoachInvoiceWithVat.grossClientRevenue.toFixed(2)} €</div>
+        <div>Klientenumsatz netto: {adminCoachInvoiceWithVat.netClientRevenue.toFixed(2)} €</div>
+        <div>Provision netto (30%): {adminCoachInvoiceWithVat.provisionNet.toFixed(2)} €</div>
+        <div>USt: 0,00 €</div>
+        <div style={{ fontWeight: 700, marginTop: 8 }}>
+          Gesamt: {adminCoachInvoiceWithVat.total.toFixed(2)} €
+        </div>
+
+        <div style={{ fontSize: 12, color: "#666", marginTop: 8 }}>
+          Hinweis: Reverse Charge – Leistungsempfänger schuldet die Umsatzsteuer.
+        </div>
+      </div>
+    )}
+
+    {adminCoachInvoiceWithoutVat.sessions > 0 && (
+      <div
+        style={{
+          padding: 12,
+          border: "1px solid #E6E6E6",
+          borderRadius: 10,
+          background: "#FFFDF7",
+        }}
+      >
+        <div style={{ fontWeight: 700, marginBottom: 8 }}>
+          Rechnung mit 20% Umsatzsteuer
+        </div>
+
+        <div>Sitzungen: {adminCoachInvoiceWithoutVat.sessions}</div>
+        <div>Klientenumsatz: {adminCoachInvoiceWithoutVat.clientRevenue.toFixed(2)} €</div>
+        <div>Provision netto (30%): {adminCoachInvoiceWithoutVat.provisionNet.toFixed(2)} €</div>
+        <div>+ 20% USt: {adminCoachInvoiceWithoutVat.vat.toFixed(2)} €</div>
+        <div style={{ fontWeight: 700, marginTop: 8 }}>
+          Gesamt: {adminCoachInvoiceWithoutVat.total.toFixed(2)} €
+        </div>
+      </div>
+    )}
+
+    {adminCoachInvoiceWithVat.sessions === 0 &&
+      adminCoachInvoiceWithoutVat.sessions === 0 && (
+        <div style={{ color: "#777" }}>
+          Keine Rechnungsdaten für den gewählten Coach in diesem Zeitraum.
+        </div>
+      )}
   </div>
 )}
       {/* ================= ABRECHNUNG EXPORT & ÜBERSICHT ================= */}
