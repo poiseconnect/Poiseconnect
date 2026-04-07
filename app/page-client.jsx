@@ -311,8 +311,7 @@ function toggleThema(key, setForm) {
 // PAGE COMPONENT
 // --------------------------------------------------
 export default function PageClient() {
-  console.log("BROWSER TEAMDATA", teamData.map((t) => ({
-    name: t.name,
+console.log("BROWSER TEAMDATA", teamMembers.map((t) => ({    name: t.name,
     id: t.id,
     calendar_mode: t.calendar_mode,
     email: t.email,
@@ -346,6 +345,7 @@ const [savingDraft, setSavingDraft] = useState(false);
 const [assignedTherapistId, setAssignedTherapistId] = useState(
   therapistIdFromUrl || null
 );
+ const [teamMembers, setTeamMembers] = useState(teamData);
 const [form, setForm] = useState({
   admin_therapeuten: [],
   themen: [],
@@ -381,20 +381,20 @@ const calendarMode = useMemo(() => {
   let therapist = null;
 
   if (effectiveTherapistId) {
-    therapist = teamData.find(
-      (x) => String(x.id) === String(effectiveTherapistId)
+therapist = teamMembers.find(
+ (x) => String(x.id) === String(effectiveTherapistId)
     );
   }
 
   if (!therapist && form.wunschtherapeut) {
-    therapist = teamData.find(
-      (x) => String(x.name).trim() === String(form.wunschtherapeut).trim()
+therapist = teamMembers.find(
+ (x) => String(x.name).trim() === String(form.wunschtherapeut).trim()
     );
   }
 
   if (!therapist && therapistFromUrl) {
-    therapist = teamData.find(
-      (x) => String(x.name).trim() === String(therapistFromUrl).trim()
+therapist = teamMembers.find(
+ (x) => String(x.name).trim() === String(therapistFromUrl).trim()
     );
   }
 
@@ -438,19 +438,49 @@ const [selectedDay, setSelectedDay] = useState(null);
 const [blockedOldTerminISO, setBlockedOldTerminISO] = useState("");
   const [bookingWindowDays, setBookingWindowDays] = useState(21);
 const [dbMatchingScores, setDbMatchingScores] = useState({});
+ useEffect(() => {
+  let isMounted = true;
+
+  async function loadPublicTeamMembers() {
+    try {
+      const res = await fetch("/api/public-team-members", {
+        cache: "no-store",
+      });
+
+      const json = await res.json();
+
+      if (!res.ok) {
+        console.error("PUBLIC TEAM MEMBERS LOAD ERROR:", json);
+        return;
+      }
+
+      if (isMounted && Array.isArray(json.members)) {
+        setTeamMembers(json.members);
+      }
+    } catch (err) {
+      console.error("PUBLIC TEAM MEMBERS LOAD ERROR:", err);
+    }
+  }
+
+  loadPublicTeamMembers();
+
+  return () => {
+    isMounted = false;
+  };
+}, []);
   // -------------------------------------
   // Matching – Team-Sortierung nach Tags
   // -------------------------------------
   const sortedTeam = useMemo(() => {
-    if (!form.anliegen) return teamData || [];
-
+if (!form.anliegen) return teamMembers || [];
+   
     const words = form.anliegen
       .toLowerCase()
       .split(/[\s,.;!?]+/)
       .filter(Boolean);
 
-    return [...teamData].sort((a, b) => {
-      const score = (member) =>
+return [...teamMembers].sort((a, b) => {
+ const score = (member) =>
         member.tags?.reduce((sum, tag) => {
           tag = tag.toLowerCase();
           const matches = words.some((w) => tag.includes(w));
@@ -461,8 +491,8 @@ const [dbMatchingScores, setDbMatchingScores] = useState({});
 
       return score(b) - score(a);
     });
-  }, [form.anliegen]);
-
+}, [form.anliegen, teamMembers]);
+ 
   // Volljährigkeit
   const isAdult = (d) => {
     const birth = new Date(d);
@@ -513,8 +543,8 @@ const AUSBILDUNGS_BONUS = {
 };
 
 const matchedTeam = useMemo(() => {
-  return [...teamData]
-    .map((m) => {
+return [...teamMembers]
+ .map((m) => {
       let score = 0;
 
       const dbScores = dbMatchingScores[String(m.id)] || {};
@@ -539,8 +569,7 @@ const matchedTeam = useMemo(() => {
       };
     })
     .sort((a, b) => b._score - a._score);
-}, [form.themen, dbMatchingScores]);
-
+}, [form.themen, dbMatchingScores, teamMembers]);
 
 
 
@@ -859,8 +888,8 @@ if (isMounted) {
         ])
       );
 
-      for (const therapist of teamData) {
-        if (!therapist.id) continue;
+for (const therapist of teamMembers) {
+ if (!therapist.id) continue;
 
         const dbMember = membersMap.get(String(therapist.id)) || null;
 
@@ -909,8 +938,8 @@ if (isMounted) {
       console.log("FINAL AVAILABLE IDS", result);
       console.log(
         "FINAL AVAILABLE NAMES",
-        teamData
-          .filter((t) => result.includes(String(t.id)))
+        teamMembers
+  .filter((t) => result.includes(String(t.id)))
           .map((t) => t.name)
       );
 
@@ -930,8 +959,8 @@ if (isMounted) {
   return () => {
     isMounted = false;
   };
-}, []);
-// STEP 10 – ICS + Supabase (blocked_slots)
+}, [teamMembers]);
+ // STEP 10 – ICS + Supabase (blocked_slots)
 // -------------------------------------
 useEffect(() => {
   if (step !== 10) return;
@@ -1690,8 +1719,9 @@ color: "#000", // ✅ FIX: Text IMMER schwarz
       {/* STEP 9 – Story / Infos zum Ablauf */}
       {step === 9 &&
         (() => {
-          const t = getTherapistInfo(form.wunschtherapeut);
-
+const t =
+  teamMembers.find((x) => x.name === form.wunschtherapeut) || {};
+         
           const slides = [
             {
               title: "Schön, dass du da bist 🤍",
