@@ -2214,12 +2214,12 @@ const therapistFilteredRequests = useMemo(() => {
   if (filter !== "aktiv") return sortedRequests;
   if (therapistFilter === "alle") return sortedRequests;
 
-  return sortedRequests.filter((r) => {
-    if (r.wunschtherapeut === therapistFilter) return true;
+return sortedRequests.filter((r) => {
+  if (String(r.assigned_therapist_id) === String(therapistFilter)) return true;
 
-    const sessions = sessionsByRequest[String(r.id)] || [];
-    return sessions.some((s) => s.therapist === therapistFilter);
-  });
+  const sessions = sessionsByRequest[String(r.id)] || [];
+  return sessions.some((s) => String(s.therapist_id) === String(therapistFilter));
+});
 }, [sortedRequests, therapistFilter, filter, sessionsByRequest]);
 
 
@@ -3516,18 +3516,6 @@ return (
   </div>
 )}
     
-      {isAdmin && therapistFilter !== "alle" && (
-  <div
-    style={{
-      marginBottom: 20,
-      padding: 16,
-      borderRadius: 12,
-      border: "1px solid #ddd",
-      background: "#fff",
-    }}
-  >
-    <h3 style={{ marginTop: 0 }}>Admin-Rechnungen an Coach</h3>
-
    {isAdmin && therapistFilter !== "alle" && (
   <div
     style={{
