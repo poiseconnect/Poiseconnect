@@ -2379,13 +2379,17 @@ const visibleBillingRows = useMemo(() => {
     (row) => String(row.anfrage_id) === String(selectedClientId)
   );
 }, [billingByClient, selectedClientId]);
-  const adminSelectedCoach = useMemo(() => {
+
+const adminSelectedCoach = useMemo(() => {
   if (!isAdmin) return null;
   if (therapistFilter === "alle") return null;
 
-  return teamData.find((t) => String(t.id) === String(therapistFilter)) || null;
+  return (
+    teamData.find((t) => String(t.id) === String(therapistFilter)) || null
+  );
 }, [isAdmin, therapistFilter]);
-  const adminCoachInvoiceBundles = useMemo(() => {
+
+const adminCoachInvoiceBundles = useMemo(() => {
   if (!isAdmin) return [];
   if (filter !== "abrechnung") return [];
   if (therapistFilter === "alle") return [];
@@ -2405,7 +2409,8 @@ const visibleBillingRows = useMemo(() => {
   filteredBillingSessions,
   invoiceSettings,
 ]);
-  const adminPeriodLabel = useMemo(() => {
+
+const adminPeriodLabel = useMemo(() => {
   return getBillingPeriodLabel({
     billingMode,
     billingYear,
@@ -2414,10 +2419,7 @@ const visibleBillingRows = useMemo(() => {
     billingDate,
   });
 }, [billingMode, billingYear, billingMonth, billingQuarter, billingDate]);
-  return billingByClient.filter(
-    (row) => String(row.anfrage_id) === String(selectedClientId)
-  );
-}, [billingByClient, selectedClientId]);
+
 const controllingRows = useMemo(() => {
   const map = {};
 
@@ -2463,7 +2465,8 @@ const controllingRows = useMemo(() => {
     }))
     .sort((a, b) => b.provision - a.provision);
 }, [filteredBillingSessions]);
-  const controllingTotals = useMemo(() => {
+
+const controllingTotals = useMemo(() => {
   return controllingRows.reduce(
     (acc, row) => {
       acc.sessions += Number(row.sessions || 0);
@@ -2482,6 +2485,7 @@ const controllingRows = useMemo(() => {
     }
   );
 }, [controllingRows]);
+
 if (!user) {
   return <div style={{ padding: 40 }}>Lade Benutzer…</div>;
 }
@@ -2532,6 +2536,9 @@ return (
         : "linear-gradient(180deg,#F7FFF9 0%, #FFFFFF 60%)",
   }}
 >
+
+     
+
      
 
       
