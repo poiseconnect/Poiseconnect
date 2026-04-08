@@ -3528,64 +3528,144 @@ return (
   >
     <h3 style={{ marginTop: 0 }}>Admin-Rechnungen an Coach</h3>
 
-    {adminCoachInvoiceWithVat.sessions > 0 && (
-      <div
-        style={{
-          marginBottom: 16,
-          padding: 12,
-          border: "1px solid #E6E6E6",
-          borderRadius: 10,
-          background: "#F8FAFF",
-        }}
-      >
-        <div style={{ fontWeight: 700, marginBottom: 8 }}>
-          Reverse-Charge-Rechnung
-        </div>
+   {isAdmin && therapistFilter !== "alle" && (
+  <div
+    style={{
+      marginBottom: 20,
+      border: "1px solid #ddd",
+      borderRadius: 12,
+      padding: 16,
+      background: "#fff",
+    }}
+  >
+    <h3 style={{ marginTop: 0 }}>Quartalsrechnung an Coach</h3>
 
-        <div>Sitzungen: {adminCoachInvoiceWithVat.sessions}</div>
-        <div>Klientenumsatz brutto: {adminCoachInvoiceWithVat.grossClientRevenue.toFixed(2)} €</div>
-        <div>Klientenumsatz netto: {adminCoachInvoiceWithVat.netClientRevenue.toFixed(2)} €</div>
-        <div>Provision netto (30%): {adminCoachInvoiceWithVat.provisionNet.toFixed(2)} €</div>
-        <div>USt: 0,00 €</div>
-        <div style={{ fontWeight: 700, marginTop: 8 }}>
-          Gesamt: {adminCoachInvoiceWithVat.total.toFixed(2)} €
-        </div>
+    <div style={{ fontSize: 13, color: "#666", marginBottom: 12 }}>
+      Coach: <strong>{adminSelectedCoach?.name || "–"}</strong> · Zeitraum:{" "}
+      <strong>{adminPeriodLabel}</strong>
+    </div>
 
-        <div style={{ fontSize: 12, color: "#666", marginTop: 8 }}>
-          Hinweis: Reverse Charge – Leistungsempfänger schuldet die Umsatzsteuer.
-        </div>
+    {adminCoachInvoiceBundles.length === 0 ? (
+      <div style={{ color: "#777" }}>
+        Keine Rechnungsdaten für diesen Coach / Zeitraum
       </div>
+    ) : (
+      adminCoachInvoiceBundles.map((bundle) => (
+        <div
+          key={bundle.key}
+          style={{
+            border: "1px solid #eee",
+            borderRadius: 10,
+            padding: 12,
+            marginBottom: 12,
+            background: "#FAFAFA",
+          }}
+        >
+          <div style={{ fontWeight: 700, marginBottom: 8 }}>
+            {bundle.key === "reverse_charge"
+              ? "Reverse Charge Rechnung"
+              : "Normale Rechnung + 20% USt"}
+          </div>
+
+          <table
+            style={{
+              width: "100%",
+              borderCollapse: "collapse",
+              fontSize: 14,
+              marginBottom: 10,
+            }}
+          >
+            <thead>
+              <tr>
+                <th align="left">Kategorie</th>
+                <th align="center">Menge</th>
+                <th align="right">Provision / Einheit (netto)</th>
+                <th align="right">Gesamt netto</th>
+              </tr>
+            </thead>
+            <tbody>
+              {bundle.rows.map((row, idx) => (
+                <tr key={idx}>
+                  <td>{row.label}</td>
+                  <td align="center">{row.qty}</td>
+                  <td align="right">
+                    {Number(row.unit_price_net || 0).toFixed(2)} €
+                  </td>
+                  <td align="right">
+                    {Number(row.total_net || 0).toFixed(2)} €
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+
+          <div style={{ fontSize: 14, marginBottom: 10 }}>
+            <div>
+              Netto:{" "}
+              <strong>
+                {Number(bundle.subtotal_net || 0).toFixed(2)} €
+              </strong>
+            </div>
+
+            {bundle.vat_rate > 0 && (
+              <div>
+                USt {bundle.vat_rate}%:{" "}
+                <strong>
+                  {Number(bundle.vat_amount || 0).toFixed(2)} €
+                </strong>
+              </div>
+            )}
+
+            <div>
+              Gesamt:{" "}
+              <strong>
+                {Number(bundle.total_gross || 0).toFixed(2)} €
+              </strong>
+            </div>
+          </div>
+
+          <div style={{ display: "flex", gap: 8 }}>
+            <button
+              onClick={() =>
+                exportAdminCoachQuarterInvoicePDF({
+                  coach: adminSelectedCoach,
+                  coachInvoiceSettings: invoiceSettings,
+                  invoiceBundle: bundle,
+                  periodLabel: adminPeriodLabel,
+                })
+              }
+            >
+              🧾 PDF exportieren
+            </button>
+
+            <button
+              onClick={async () => {
+                const res = await fetch("/api/sevdesk-export-coach-quarterly", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    coach: adminSelectedCoach,
+                    coachInvoiceSettings: invoiceSettings,
+                    poiseSettings: POISE_ADMIN_SETTINGS,
+                    invoiceBundle: bundle,
+                    periodLabel: adminPeriodLabel,
+                  }),
+                });
+
+                if (!res.ok) {
+                  alert("sevDesk Export fehlgeschlagen");
+                  return;
+                }
+
+                alert("An sevDesk gesendet");
+              }}
+            >
+              📤 sevDesk Export
+            </button>
+          </div>
+        </div>
+      ))
     )}
-
-    {adminCoachInvoiceWithoutVat.sessions > 0 && (
-      <div
-        style={{
-          padding: 12,
-          border: "1px solid #E6E6E6",
-          borderRadius: 10,
-          background: "#FFFDF7",
-        }}
-      >
-        <div style={{ fontWeight: 700, marginBottom: 8 }}>
-          Rechnung mit 20% Umsatzsteuer
-        </div>
-
-        <div>Sitzungen: {adminCoachInvoiceWithoutVat.sessions}</div>
-        <div>Klientenumsatz: {adminCoachInvoiceWithoutVat.clientRevenue.toFixed(2)} €</div>
-        <div>Provision netto (30%): {adminCoachInvoiceWithoutVat.provisionNet.toFixed(2)} €</div>
-        <div>+ 20% USt: {adminCoachInvoiceWithoutVat.vat.toFixed(2)} €</div>
-        <div style={{ fontWeight: 700, marginTop: 8 }}>
-          Gesamt: {adminCoachInvoiceWithoutVat.total.toFixed(2)} €
-        </div>
-      </div>
-    )}
-
-    {adminCoachInvoiceWithVat.sessions === 0 &&
-      adminCoachInvoiceWithoutVat.sessions === 0 && (
-        <div style={{ color: "#777" }}>
-          Keine Rechnungsdaten für den gewählten Coach in diesem Zeitraum.
-        </div>
-      )}
   </div>
 )}
       {/* ================= ABRECHNUNG EXPORT & ÜBERSICHT ================= */}
