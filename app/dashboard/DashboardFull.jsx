@@ -58,6 +58,16 @@ const POISE_COLORS = {
     active: "#2C3E50",
   },
 };
+const POISE_ADMIN_SETTINGS = {
+  company_name: "Poise by Linda Leinweber GmbH",
+  address: "HIER DEINE POISE ADRESSE EINTRAGEN",
+  iban: "HIER DEINE POISE IBAN",
+  bic: "HIER DEIN POISE BIC",
+  vat_number: "HIER DEINE POISE UID",
+  tax_number: "HIER DEINE POISE STEUERNUMMER",
+};
+
+const POISE_ADMIN_VAT_RATE = 20;
 function DashboardTab({ label, value, active, onClick, color }) {
   const textColor = value === "einstellungen" ? "#000" : "#fff";
 
@@ -647,6 +657,244 @@ function exportBillingPDF(rows, invoiceSettings, periodLabel = "") {
   doc.text(`BIC: ${invoiceSettings.bic || "-"}`, 14, 290);
 
   doc.save(`Rechnung_${today.toISOString().slice(0, 10)}.pdf`);
+}
+function getBillingPeriodLabel({
+  billingMode,
+  billingYear,
+  billingMonth,
+  billingQuarter,
+  billingDate,
+}) {
+  if (billingMode === "quartal") return `Q${billingQuarter} ${billingYear}`;
+  if (billingMode === "monat") return `${billingMonth}/${billingYear}`;
+  if (billingMode === "jahr") return `${billingYear}`;
+  if (billingMode === "einzeln") return billingDate || "";
+  return "";
+}
+
+function getCoachClientVatRate(invoiceSettings) {
+  const n = Number(invoiceSettings?.default_vat_rate || 0);
+  return Number.isFinite(n) && n > 0 ? n : 20;
+}
+
+function buildAdminCoachQuarterInvoices({
+  sessions,
+  coachInvoiceSettings,
+}) {
+  const coachClientVatRate = getCoachClientVatRate(coachInvoiceSettings);
+
+  const buckets = {
+    reverse_charge: {
+      key: "reverse_charge",
+      title: "Provision Reverse Charge",
+      invoice_with_vat: true,
+      vat_rate: 0,
+      rowsMap: {},
+      subtotal_net: 0,
+    },
+    normal_ust: {
+      key: "normal_ust",
+      title: "Provision zzgl. 20% USt",
+      invoice_with_vat: false,
+      vat_rate: POISE_ADMIN_VAT_RATE,
+      rowsMap: {},
+      subtotal_net: 0,
+    },
+  };
+
+  (sessions || []).forEach((s) => {
+    const req = s.anfragen || {};
+    const invoiceWithVat = req.invoice_with_vat === true;
+
+    const bucket = invoiceWithVat
+      ? buckets.reverse_charge
+      : buckets.normal_ust;
+
+    const price = Number(s.price || 0);
+    if (!Number.isFinite(price) || price <= 0) return;
+
+    const clientNet = invoiceWithVat
+      ? price / (1 + coachClientVatRate / 100)
+      : price;
+
+    const provisionNet = clientNet * 0.3;
+
+    const groupLabel =
+      req.beschaeftigungsgrad === "ausbildung"
+        ? "Ausbildung"
+        : "Berufstätig";
+
+    const unitKey = `${groupLabel}__${provisionNet.toFixed(2)}`;
+
+    if (!bucket.rowsMap[unitKey]) {
+      bucket.rowsMap[unitKey] = {
+        label: groupLabel,
+        qty: 0,
+        unit_price_net: provisionNet,
+        total_net: 0,
+      };
+    }
+
+    bucket.rowsMap[unitKey].qty += 1;
+    bucket.rowsMap[unitKey].total_net += provisionNet;
+    bucket.subtotal_net += provisionNet;
+  });
+
+  return Object.values(buckets)
+    .map((bucket) => {
+      const rows = Object.values(bucket.rowsMap).sort((a, b) =>
+        a.label.localeCompare(b.label)
+      );
+
+      const vat_amount = bucket.subtotal_net * (bucket.vat_rate / 100);
+      const total_gross = bucket.subtotal_net + vat_amount;
+
+      return {
+        ...bucket,
+        rows,
+        vat_amount,
+        total_gross,
+      };
+    })
+    .filter((bucket) => bucket.rows.length > 0);
+}
+
+function exportAdminCoachQuarterInvoicePDF({
+  coach,
+  coachInvoiceSettings,
+  invoiceBundle,
+  periodLabel,
+}) {
+  const doc = new jsPDF();
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const today = new Date();
+
+  const recipientName =
+    coachInvoiceSettings?.company_name ||
+    coach?.name ||
+    "Coach";
+
+  const recipientAddress =
+    coachInvoiceSettings?.address || "";
+
+  const invoiceNumber =
+    `POISE-${invoiceBundle.key}-${today.toISOString().slice(0, 10)}`;
+
+  doc.setFontSize(10);
+  doc.text(POISE_ADMIN_SETTINGS.company_name || "", 14, 15);
+  doc.text(POISE_ADMIN_SETTINGS.address || "", 14, 21);
+
+  if (POISE_ADMIN_SETTINGS.vat_number) {
+    doc.text(`UID: ${POISE_ADMIN_SETTINGS.vat_number}`, 14, 27);
+  }
+
+  if (POISE_ADMIN_SETTINGS.tax_number) {
+    doc.text(`Steuernr: ${POISE_ADMIN_SETTINGS.tax_number}`, 14, 33);
+  }
+
+  doc.setFontSize(11);
+  doc.text("Rechnung an:", 14, 45);
+  doc.text(recipientName, 14, 51);
+
+  if (recipientAddress) {
+    const lines = String(recipientAddress).split("\n");
+    let yy = 57;
+    lines.forEach((line) => {
+      doc.text(line, 14, yy);
+      yy += 6;
+    });
+  }
+
+  doc.setFontSize(16);
+  doc.text("Provision Rechnung", pageWidth - 14, 20, { align: "right" });
+
+  doc.setFontSize(10);
+  doc.text(`Rechnungs-Nr.: ${invoiceNumber}`, pageWidth - 14, 28, { align: "right" });
+  doc.text(`Rechnungsdatum: ${today.toLocaleDateString("de-AT")}`, pageWidth - 14, 34, { align: "right" });
+  doc.text(`Zeitraum: ${periodLabel}`, pageWidth - 14, 40, { align: "right" });
+
+  let introY = 85;
+  doc.setFontSize(11);
+  doc.text(
+    invoiceBundle.key === "reverse_charge"
+      ? "Provision für Sessions, die vom Coach an Klient:innen inkl. USt fakturiert wurden."
+      : "Provision für Sessions, die vom Coach an Klient:innen ohne USt fakturiert wurden.",
+    14,
+    introY
+  );
+
+  if (invoiceBundle.key === "reverse_charge") {
+    introY += 8;
+    doc.setFontSize(10);
+    doc.text(
+      "Abrechnung im Reverse-Charge-Verfahren. Steuerschuld geht auf den Leistungsempfänger über.",
+      14,
+      introY
+    );
+  }
+
+  doc.autoTable({
+    startY: introY + 12,
+    head: [["Kategorie", "Menge", "Einzelpreis Provision netto", "Gesamt netto"]],
+    body: invoiceBundle.rows.map((row) => [
+      row.label,
+      row.qty,
+      `${Number(row.unit_price_net || 0).toFixed(2)} €`,
+      `${Number(row.total_net || 0).toFixed(2)} €`,
+    ]),
+    styles: { fontSize: 10 },
+    headStyles: {
+      fillColor: [240, 240, 240],
+      textColor: 20,
+    },
+  });
+
+  const fy = doc.lastAutoTable.finalY + 10;
+
+  doc.setFontSize(11);
+  doc.text(
+    `Gesamt netto: ${Number(invoiceBundle.subtotal_net || 0).toFixed(2)} €`,
+    pageWidth - 14,
+    fy,
+    { align: "right" }
+  );
+
+  if (invoiceBundle.vat_rate > 0) {
+    doc.text(
+      `zzgl. USt ${invoiceBundle.vat_rate}%: ${Number(invoiceBundle.vat_amount || 0).toFixed(2)} €`,
+      pageWidth - 14,
+      fy + 7,
+      { align: "right" }
+    );
+    doc.text(
+      `Gesamt brutto: ${Number(invoiceBundle.total_gross || 0).toFixed(2)} €`,
+      pageWidth - 14,
+      fy + 14,
+      { align: "right" }
+    );
+  } else {
+    doc.text(
+      `Gesamtbetrag: ${Number(invoiceBundle.total_gross || 0).toFixed(2)} €`,
+      pageWidth - 14,
+      fy + 7,
+      { align: "right" }
+    );
+    doc.setFontSize(9);
+    doc.text(
+      "Reverse Charge – Steuerschuld geht auf den Leistungsempfänger über.",
+      14,
+      fy + 16
+    );
+  }
+
+  doc.setFontSize(9);
+  doc.text(POISE_ADMIN_SETTINGS.company_name || "", 14, 280);
+  doc.text(`IBAN: ${POISE_ADMIN_SETTINGS.iban || "-"}`, 14, 285);
+  doc.text(`BIC: ${POISE_ADMIN_SETTINGS.bic || "-"}`, 14, 290);
+
+  doc.save(
+    `Poise_Provision_${coach?.name || "Coach"}_${invoiceBundle.key}_${periodLabel.replace(/\s/g, "_")}.pdf`
+  );
 }
 // ================= PAPIERKORB ACTIONS =================
 
@@ -1418,9 +1666,16 @@ useEffect(() => {
 
 
 
- useEffect(() => {
+useEffect(() => {
   if (!user?.email) return;
   if (filter !== "abrechnung") return;
+
+  const selectedTherapistId =
+    isAdmin
+      ? (therapistFilter !== "alle" ? therapistFilter : null)
+      : myTeamMemberId;
+
+  if (!selectedTherapistId) return;
 
   let mounted = true;
 
@@ -1430,7 +1685,9 @@ useEffect(() => {
     const res = await fetch("/api/invoice-settings", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-body: JSON.stringify({ therapist_id: myTeamMemberId }),
+      body: JSON.stringify({
+        therapist_id: selectedTherapistId,
+      }),
     });
 
     if (res.ok) {
@@ -1446,7 +1703,9 @@ body: JSON.stringify({ therapist_id: myTeamMemberId }),
   return () => {
     mounted = false;
   };
-}, [user, filter]);
+}, [user, filter, isAdmin, therapistFilter, myTeamMemberId]);
+
+
 
 useEffect(() => {
   if (!user?.email) return;
@@ -1975,12 +2234,13 @@ const filteredBillingSessions = useMemo(() => {
     const d = new Date(s.date);
 
     // Coach-Filter im Admin
-    if (
-      therapistFilter !== "alle" &&
-      String(s.therapist_id) !== String(therapistFilter)
-    ) {
-      return false;
-    }
+   if (
+  isAdmin &&
+  therapistFilter !== "alle" &&
+  String(s.therapist_id) !== String(therapistFilter)
+) {
+  return false;
+}
 
     if (billingMode === "jahr") {
       return d.getFullYear() === billingYear;
@@ -2012,69 +2272,9 @@ const filteredBillingSessions = useMemo(() => {
   billingMonth,
   billingQuarter,
   billingDate,
+  isAdmin,
 ]);
-const billingSessionsWithVat = useMemo(() => {
-  return filteredBillingSessions.filter((s) => {
-    return s?.anfragen?.invoice_with_vat === true || s?.invoice_with_vat === true;
-  });
-}, [filteredBillingSessions]);
 
-const billingSessionsWithoutVat = useMemo(() => {
-  return filteredBillingSessions.filter((s) => {
-    return s?.anfragen?.invoice_with_vat !== true && s?.invoice_with_vat !== true;
-  });
-}, [filteredBillingSessions]);
-
-const adminCoachInvoiceWithVat = useMemo(() => {
-  let grossClientRevenue = 0;
-  let netClientRevenue = 0;
-  let poiseProvisionNet = 0;
-
-  billingSessionsWithVat.forEach((s) => {
-    const gross = Number(s.price || 0);
-    const net = gross / 1.2; // Klient zahlt inkl. 20% USt
-    const provisionNet = net * 0.3;
-
-    grossClientRevenue += gross;
-    netClientRevenue += net;
-    poiseProvisionNet += provisionNet;
-  });
-
-  return {
-    sessions: billingSessionsWithVat.length,
-    grossClientRevenue,
-    netClientRevenue,
-    provisionNet: poiseProvisionNet,
-    vat: 0,
-    total: poiseProvisionNet,
-    mode: "reverse_charge",
-  };
-}, [billingSessionsWithVat]);
-
-const adminCoachInvoiceWithoutVat = useMemo(() => {
-  let clientRevenue = 0;
-  let poiseProvisionNet = 0;
-  let vat = 0;
-
-  billingSessionsWithoutVat.forEach((s) => {
-    const amount = Number(s.price || 0); // ohne USt beim Klienten
-    const provisionNet = amount * 0.3;
-    const vatAmount = provisionNet * 0.2;
-
-    clientRevenue += amount;
-    poiseProvisionNet += provisionNet;
-    vat += vatAmount;
-  });
-
-  return {
-    sessions: billingSessionsWithoutVat.length,
-    clientRevenue,
-    provisionNet: poiseProvisionNet,
-    vat,
-    total: poiseProvisionNet + vat,
-    mode: "normal_ust",
-  };
-}, [billingSessionsWithoutVat]);
 
 
 
@@ -2157,8 +2357,8 @@ if (!map[s.anfrage_id]) {
       provision = price * 0.3;
     }
 
-    const payout = price - provision;
-
+const payout = 0;
+    
     map[s.therapist_id].sessions += 1;
     map[s.therapist_id].umsatz += price;
     map[s.therapist_id].provision += provision;
@@ -2175,6 +2375,45 @@ const visibleBillingRows = useMemo(() => {
     return billingByClient;
   }
 
+  return billingByClient.filter(
+    (row) => String(row.anfrage_id) === String(selectedClientId)
+  );
+}, [billingByClient, selectedClientId]);
+  const adminSelectedCoach = useMemo(() => {
+  if (!isAdmin) return null;
+  if (therapistFilter === "alle") return null;
+
+  return teamData.find((t) => String(t.id) === String(therapistFilter)) || null;
+}, [isAdmin, therapistFilter]);
+  const adminCoachInvoiceBundles = useMemo(() => {
+  if (!isAdmin) return [];
+  if (filter !== "abrechnung") return [];
+  if (therapistFilter === "alle") return [];
+
+  const coachSessions = (filteredBillingSessions || []).filter(
+    (s) => String(s.therapist_id) === String(therapistFilter)
+  );
+
+  return buildAdminCoachQuarterInvoices({
+    sessions: coachSessions,
+    coachInvoiceSettings: invoiceSettings,
+  });
+}, [
+  isAdmin,
+  filter,
+  therapistFilter,
+  filteredBillingSessions,
+  invoiceSettings,
+]);
+  const adminPeriodLabel = useMemo(() => {
+  return getBillingPeriodLabel({
+    billingMode,
+    billingYear,
+    billingMonth,
+    billingQuarter,
+    billingDate,
+  });
+}, [billingMode, billingYear, billingMonth, billingQuarter, billingDate]);
   return billingByClient.filter(
     (row) => String(row.anfrage_id) === String(selectedClientId)
   );
@@ -3193,17 +3432,38 @@ return (
               justifyContent: "flex-end",
             }}
           >
-            <button
-              type="button"
-              onClick={async () => {
-const res = await fetch("/api/accounting-settings", {
-  method: "POST",
-  headers: { "Content-Type": "application/json" },
-body: JSON.stringify({
-  ...invoiceSettings,
-  therapist_id: myTeamMemberId,
-}),
-});
+<button
+  type="button"
+  onClick={async () => {
+    const targetTherapistId =
+      isAdmin
+        ? (therapistFilter !== "alle" ? therapistFilter : null)
+        : myTeamMemberId;
+
+    if (!targetTherapistId) {
+      alert("Bitte zuerst eine Therapeut:in auswählen");
+      return;
+    }
+
+    const res = await fetch("/api/accounting-settings", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        ...invoiceSettings,
+        therapist_id: targetTherapistId,
+      }),
+    });
+
+    if (!res.ok) {
+      alert("Fehler beim Speichern der Rechnungsdaten");
+      return;
+    }
+
+    alert("Rechnungsdaten gespeichert");
+  }}
+>
+  💾 Rechnungsdaten speichern
+</button>
 
                 if (!res.ok) {
                   alert("Fehler beim Speichern der Rechnungsdaten");
@@ -3259,6 +3519,7 @@ body: JSON.stringify({
     )}
   </div>
 )}
+    
       {isAdmin && therapistFilter !== "alle" && (
   <div
     style={{
