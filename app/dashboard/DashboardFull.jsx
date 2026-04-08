@@ -3432,58 +3432,46 @@ return (
           </div>
 
           {/* SAVE BUTTON */}
-          <div
-            style={{
-              marginTop: 12,
-              display: "flex",
-              justifyContent: "flex-end",
-            }}
-          >
-<button
-  type="button"
-  onClick={async () => {
-    const targetTherapistId =
-      isAdmin
-        ? (therapistFilter !== "alle" ? therapistFilter : null)
-        : myTeamMemberId;
-
-    if (!targetTherapistId) {
-      alert("Bitte zuerst eine Therapeut:in auswählen");
-      return;
-    }
-
-    const res = await fetch("/api/accounting-settings", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        ...invoiceSettings,
-        therapist_id: targetTherapistId,
-      }),
-    });
-
-    if (!res.ok) {
-      alert("Fehler beim Speichern der Rechnungsdaten");
-      return;
-    }
-
-    alert("Rechnungsdaten gespeichert");
+<div
+  style={{
+    marginTop: 12,
+    display: "flex",
+    justifyContent: "flex-end",
   }}
 >
-  💾 Rechnungsdaten speichern
-</button>
+  <button
+    type="button"
+    onClick={async () => {
+      const targetTherapistId =
+        isAdmin
+          ? (therapistFilter !== "alle" ? therapistFilter : null)
+          : myTeamMemberId;
 
-                if (!res.ok) {
-                  alert("Fehler beim Speichern der Rechnungsdaten");
-                  return;
-                }
+      if (!targetTherapistId) {
+        alert("Bitte zuerst eine Therapeut:in auswählen");
+        return;
+      }
 
-                alert("Rechnungsdaten gespeichert");
-              }}
-            >
-              💾 Rechnungsdaten speichern
-            </button>
-          </div>
-        </div>
+      const res = await fetch("/api/accounting-settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...invoiceSettings,
+          therapist_id: targetTherapistId,
+        }),
+      });
+
+      if (!res.ok) {
+        alert("Fehler beim Speichern der Rechnungsdaten");
+        return;
+      }
+
+      alert("Rechnungsdaten gespeichert");
+    }}
+  >
+    💾 Rechnungsdaten speichern
+  </button>
+</div>
       </details>
       {isAdmin && (
   <div style={{ marginBottom: 20 }}>
