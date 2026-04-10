@@ -43,17 +43,18 @@ export async function GET(req) {
 
     const { data: member, error } = await supabase
       .from("team_members")
-      .select(`
-        id,
-        email,
-        profile_name,
-        profile_role,
-        profile_calendar_mode,
-        profile_short,
-        profile_keywords,
-        profile_preis_std,
-        profile_preis_ermaessigt
-      `)
+.select(`
+  id,
+  email,
+  profile_name,
+  profile_role,
+  profile_calendar_mode,
+  profile_short,
+  profile_keywords,
+  profile_preis_std,
+  profile_preis_ermaessigt,
+  sevdesk_contact_id
+`)
       .eq("email", user.email)
       .single();
 
@@ -79,40 +80,45 @@ export async function POST(req) {
 
     const body = await req.json();
 
-    const payload = {
-      profile_name: body.profile_name || null,
-      profile_role: body.profile_role || null,
-      profile_calendar_mode: body.profile_calendar_mode || null,
-      profile_short: body.profile_short || null,
-      profile_keywords: Array.isArray(body.profile_keywords)
-        ? body.profile_keywords
-        : null,
-      profile_preis_std:
-        body.profile_preis_std === null || body.profile_preis_std === ""
-          ? null
-          : Number(body.profile_preis_std),
-      profile_preis_ermaessigt:
-        body.profile_preis_ermaessigt === null ||
-        body.profile_preis_ermaessigt === ""
-          ? null
-          : Number(body.profile_preis_ermaessigt),
-    };
+const payload = {
+  profile_name: body.profile_name || null,
+  profile_role: body.profile_role || null,
+  profile_calendar_mode: body.profile_calendar_mode || null,
+  profile_short: body.profile_short || null,
+  profile_keywords: Array.isArray(body.profile_keywords)
+    ? body.profile_keywords
+    : null,
+  profile_preis_std:
+    body.profile_preis_std === null || body.profile_preis_std === ""
+      ? null
+      : Number(body.profile_preis_std),
+  profile_preis_ermaessigt:
+    body.profile_preis_ermaessigt === null ||
+    body.profile_preis_ermaessigt === ""
+      ? null
+      : Number(body.profile_preis_ermaessigt),
+  sevdesk_contact_id:
+    body.sevdesk_contact_id === null || body.sevdesk_contact_id === ""
+      ? null
+      : String(body.sevdesk_contact_id).trim(),
+};
 
     const { data: member, error } = await supabase
       .from("team_members")
       .update(payload)
       .eq("email", user.email)
-      .select(`
-        id,
-        email,
-        profile_name,
-        profile_role,
-        profile_calendar_mode,
-        profile_short,
-        profile_keywords,
-        profile_preis_std,
-        profile_preis_ermaessigt
-      `)
+.select(`
+  id,
+  email,
+  profile_name,
+  profile_role,
+  profile_calendar_mode,
+  profile_short,
+  profile_keywords,
+  profile_preis_std,
+  profile_preis_ermaessigt,
+  sevdesk_contact_id
+`)
       .single();
 
     if (error) {
