@@ -3652,17 +3652,22 @@ return (
 
             <button
               onClick={async () => {
-                const res = await fetch("/api/sevdesk-export-coach-quarterly", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({
-                    coach: adminSelectedCoach,
-                    coachInvoiceSettings: invoiceSettings,
-                    poiseSettings: POISE_ADMIN_SETTINGS,
-                    invoiceBundle: bundle,
-                    periodLabel: adminPeriodLabel,
-                  }),
-                });
+const token = await getAccessToken();
+
+const res = await fetch("/api/sevdesk-export-coach-quarterly", {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${token}`,
+  },
+  body: JSON.stringify({
+    coach: adminSelectedCoach,
+    coachInvoiceSettings: invoiceSettings,
+    poiseSettings: POISE_ADMIN_SETTINGS,
+    invoiceBundle: bundle,
+    periodLabel: adminPeriodLabel,
+  }),
+});
 
                 if (!res.ok) {
                   alert("sevDesk Export fehlgeschlagen");
