@@ -3815,6 +3815,10 @@ return (
     )}
   </div>
 )}
+          </section>
+  </>
+)}
+
       
   {/* ================= CONTROLLING ================= */}
 {filter === "controlling" && isAdmin && (
