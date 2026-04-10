@@ -76,11 +76,11 @@ export async function POST(req) {
       return json({ error: "missing_invoice_bundle" }, 400);
     }
 
-    const { data: coachMember, error: coachError } = await supabase
-      .from("team_members")
-      .select("id, email, profile_name, sevdesk_contact_id")
-      .eq("id", coach.id)
-      .single();
+const { data: coachMember, error: coachError } = await supabase
+  .from("team_members")
+  .select("id, profile_name, sevdesk_contact_id")
+  .eq("id", String(coach.id))
+  .single();
 
     if (coachError || !coachMember) {
       console.error("COACH LOAD ERROR:", coachError);
@@ -231,14 +231,14 @@ export async function POST(req) {
       }
     }
 
-    return json({
-      ok: true,
-      invoiceId,
-      coach: coachMember.profile_name || coach.name || coachMember.email,
-      sevdesk_contact_id: coachMember.sevdesk_contact_id,
-      periodLabel,
-      created_at: formatDateDE(invoiceDate),
-    });
+return json({
+  ok: true,
+  invoiceId,
+  coach: coachMember.profile_name || coach.name || "Coach",
+  sevdesk_contact_id: coachMember.sevdesk_contact_id,
+  periodLabel,
+  created_at: formatDateDE(invoiceDate),
+});
   } catch (err) {
     console.error("SEVDESK EXPORT COACH QUARTERLY ERROR:", err);
     return json(
