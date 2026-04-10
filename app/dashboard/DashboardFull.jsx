@@ -60,9 +60,11 @@ const POISE_COLORS = {
 };
 const POISE_ADMIN_SETTINGS = {
   company_name: "Poise by Linda Leinweber GmbH",
-  address: "Hamberg21, 4813 Altmünster",
+  address: "Hamberg 21\n4813 Altmünster\nÖsterreich",
   iban: "AT04 3451 0000 0206 1224",
+  bic: "RZOOAT2L510",
   vat_number: "ATU78817327",
+  tax_number: "53 317 6657",
 };
 
 const POISE_ADMIN_VAT_RATE = 20;
