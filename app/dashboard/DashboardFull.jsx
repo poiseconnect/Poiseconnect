@@ -60,11 +60,9 @@ const POISE_COLORS = {
 };
 const POISE_ADMIN_SETTINGS = {
   company_name: "Poise by Linda Leinweber GmbH",
-  address: "HIER DEINE POISE ADRESSE EINTRAGEN",
-  iban: "HIER DEINE POISE IBAN",
-  bic: "HIER DEIN POISE BIC",
-  vat_number: "HIER DEINE POISE UID",
-  tax_number: "HIER DEINE POISE STEUERNUMMER",
+  address: "Hamberg21, 4813 Altmünster",
+  iban: "AT04 3451 0000 0206 1224",
+  vat_number: "ATU78817327",
 };
 
 const POISE_ADMIN_VAT_RATE = 20;
@@ -3656,14 +3654,15 @@ return (
     )}
   </div>
 )}
-      {/* ================= ABRECHNUNG EXPORT & ÜBERSICHT ================= */}
-<div
-  style={{
-    borderTop: "1px solid #eee",
-    paddingTop: 16,
-    marginTop: 16,
-  }}
->
+{/* ================= ABRECHNUNG EXPORT & ÜBERSICHT ================= */}
+{!isAdmin && (
+  <div
+    style={{
+      borderTop: "1px solid #eee",
+      paddingTop: 16,
+      marginTop: 16,
+    }}
+  >
   <div
     style={{
       display: "flex",
@@ -3815,10 +3814,9 @@ return (
   </table>
 )}
 
-</div>  {/* ABRECHNUNG EXPORT & ÜBERSICHT */}
-</section>
-</>
-)}
+</div>
+)} {/* ABRECHNUNG EXPORT & ÜBERSICHT */}
+      
   {/* ================= CONTROLLING ================= */}
 {filter === "controlling" && isAdmin && (
   <>
