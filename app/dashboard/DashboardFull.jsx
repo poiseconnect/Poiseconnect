@@ -3663,159 +3663,158 @@ return (
       marginTop: 16,
     }}
   >
-  <div
-    style={{
-      display: "flex",
-      gap: 8,
-      flexWrap: "wrap",
-      justifyContent: "flex-end",
-      marginBottom: 12,
-    }}
-  >
-<button
-  onClick={() => {
-    if (isAdmin && therapistFilter === "alle") {
-      alert("Bitte zuerst eine Therapeut:in auswählen");
-      return;
-    }
-
-    exportBillingCSV(billingByClient);
-  }}
-  disabled={!billingByClient.length}
->
-  📄 CSV exportieren
-</button>
-<button
-  onClick={() => {
-    if (isAdmin && therapistFilter === "alle") {
-      alert("Bitte zuerst eine Therapeut:in auswählen");
-      return;
-    }
-
-    if (selectedClientId === "alle") {
-      alert("Bitte zuerst einen Klienten auswählen");
-      return;
-    }
-
-    const clientRow = visibleBillingRows[0];
-    const clientSessions = filteredBillingSessions.filter(
-      (s) => String(s.anfrage_id) === String(selectedClientId)
-    );
-
-    exportSingleClientPDF(
-      clientRow,
-      clientSessions,
-      invoiceSettings
-    );
-  }}
-  disabled={!visibleBillingRows.length}
->
-  🧾 PDF exportieren
-</button>
-
-    <button
-      disabled={!invoiceSettings.sevdesk_token}
-      onClick={async () => {
-        const res = await fetch("/api/sevdesk-export", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            rows: billingByClient,
-            invoiceSettings,
-            period: {
-              billingMode,
-              billingYear,
-              billingMonth,
-              billingQuarter,
-            },
-          }),
-        });
-
-        if (!res.ok) {
-          alert("Fehler beim sevDesk Export");
-          return;
-        }
-
-        alert("Rechnungen erfolgreich an sevDesk übertragen");
+    <div
+      style={{
+        display: "flex",
+        gap: 8,
+        flexWrap: "wrap",
+        justifyContent: "flex-end",
+        marginBottom: 12,
       }}
     >
-      📤 sevDesk Export
-    </button>
-  </div>
+      <button
+        onClick={() => {
+          if (isAdmin && therapistFilter === "alle") {
+            alert("Bitte zuerst eine Therapeut:in auswählen");
+            return;
+          }
 
-  {/* CLIENT AUSWAHL */}
-<div style={{ marginBottom: 12 }}>
-  <strong>Klient:in:</strong>{" "}
-  <select
-    value={selectedClientId}
-    onChange={(e) => setSelectedClientId(e.target.value)}
-  >
-    <option value="alle">Alle</option>
+          exportBillingCSV(billingByClient);
+        }}
+        disabled={!billingByClient.length}
+      >
+        📄 CSV exportieren
+      </button>
 
-    {billingByClient.map((c) => (
-      <option key={c.anfrage_id} value={c.anfrage_id}>
-        {c.klient}
-      </option>
-    ))}
-  </select>
-</div>
-{/* TABELLE */}
-{visibleBillingRows.length === 0 ? (
-  <div style={{ color: "#777" }}>
-    – Keine Abrechnungsdaten für diesen Zeitraum
-  </div>
-) : (
-  <table
-    style={{
-      width: "100%",
-      borderCollapse: "collapse",
-      fontSize: 14,
-    }}
-  >
-    <thead>
-      <tr>
-        <th align="left">Klient</th>
-        <th align="left">Therapeut</th>
-        <th>Sitzungen</th>
-        <th align="right">Umsatz €</th>
-        <th align="right">Provision €</th>
-        <th></th>
-      </tr>
-    </thead>
+      <button
+        onClick={() => {
+          if (isAdmin && therapistFilter === "alle") {
+            alert("Bitte zuerst eine Therapeut:in auswählen");
+            return;
+          }
 
-    <tbody>
-      {visibleBillingRows.map((r, i) => {
-        const therapistName =
-          teamData.find((t) => t.id === r.therapist_id)?.name || "–";
+          if (selectedClientId === "alle") {
+            alert("Bitte zuerst einen Klienten auswählen");
+            return;
+          }
 
-        return (
-          <tr key={i}>
-            <td>{r.klient}</td>
-            <td>{therapistName}</td>
-            <td align="center">{r.sessions}</td>
-            <td align="right">{r.umsatz.toFixed(2)}</td>
-            <td align="right">{r.provision.toFixed(2)}</td>
-            <td align="right">
-              <button
-                onClick={() => {
- window.open(
-  `/dashboard/rechnung/${r.anfrage_id}`,
-  "_blank"
-);
-                }}
-              >
-                🧾 Rechnung öffnen
-              </button>
-            </td>
+          const clientRow = visibleBillingRows[0];
+          const clientSessions = filteredBillingSessions.filter(
+            (s) => String(s.anfrage_id) === String(selectedClientId)
+          );
+
+          exportSingleClientPDF(
+            clientRow,
+            clientSessions,
+            invoiceSettings
+          );
+        }}
+        disabled={!visibleBillingRows.length}
+      >
+        🧾 PDF exportieren
+      </button>
+
+      <button
+        disabled={!invoiceSettings.sevdesk_token}
+        onClick={async () => {
+          const res = await fetch("/api/sevdesk-export", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              rows: billingByClient,
+              invoiceSettings,
+              period: {
+                billingMode,
+                billingYear,
+                billingMonth,
+                billingQuarter,
+              },
+            }),
+          });
+
+          if (!res.ok) {
+            alert("Fehler beim sevDesk Export");
+            return;
+          }
+
+          alert("Rechnungen erfolgreich an sevDesk übertragen");
+        }}
+      >
+        📤 sevDesk Export
+      </button>
+    </div>
+
+    <div style={{ marginBottom: 12 }}>
+      <strong>Klient:in:</strong>{" "}
+      <select
+        value={selectedClientId}
+        onChange={(e) => setSelectedClientId(e.target.value)}
+      >
+        <option value="alle">Alle</option>
+
+        {billingByClient.map((c) => (
+          <option key={c.anfrage_id} value={c.anfrage_id}>
+            {c.klient}
+          </option>
+        ))}
+      </select>
+    </div>
+
+    {visibleBillingRows.length === 0 ? (
+      <div style={{ color: "#777" }}>
+        – Keine Abrechnungsdaten für diesen Zeitraum
+      </div>
+    ) : (
+      <table
+        style={{
+          width: "100%",
+          borderCollapse: "collapse",
+          fontSize: 14,
+        }}
+      >
+        <thead>
+          <tr>
+            <th align="left">Klient</th>
+            <th align="left">Therapeut</th>
+            <th>Sitzungen</th>
+            <th align="right">Umsatz €</th>
+            <th align="right">Provision €</th>
+            <th></th>
           </tr>
-        );
-      })}
-    </tbody>
-  </table>
-)}
+        </thead>
 
-</div>
-)} {/* ABRECHNUNG EXPORT & ÜBERSICHT */}
+        <tbody>
+          {visibleBillingRows.map((r, i) => {
+            const therapistName =
+              teamData.find((t) => t.id === r.therapist_id)?.name || "–";
+
+            return (
+              <tr key={i}>
+                <td>{r.klient}</td>
+                <td>{therapistName}</td>
+                <td align="center">{r.sessions}</td>
+                <td align="right">{r.umsatz.toFixed(2)}</td>
+                <td align="right">{r.provision.toFixed(2)}</td>
+                <td align="right">
+                  <button
+                    onClick={() => {
+                      window.open(
+                        `/dashboard/rechnung/${r.anfrage_id}`,
+                        "_blank"
+                      );
+                    }}
+                  >
+                    🧾 Rechnung öffnen
+                  </button>
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    )}
+  </div>
+)}
       
   {/* ================= CONTROLLING ================= */}
 {filter === "controlling" && isAdmin && (
