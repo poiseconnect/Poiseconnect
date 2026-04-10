@@ -1,178 +1,252 @@
-import { NextResponse } from "next/server";
+export const dynamic = "force-dynamic";
 
-const SEVDESK_API_BASE = "https://my.sevdesk.de/api/v1";
+import { createClient } from "@supabase/supabase-js";
 
-function getApiToken() {
-  const token = process.env.SEVDESK_API_TOKEN;
-  if (!token) {
-    throw new Error("SEVDESK_API_TOKEN fehlt");
-  }
-  return token;
-}
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY
+);
 
-async function sevdeskFetch(path, options = {}) {
-  const token = getApiToken();
-
-  const res = await fetch(`${SEVDESK_API_BASE}${path}`, {
-    ...options,
-    headers: {
-      Authorization: token,
-      "Content-Type": "application/json",
-      ...(options.headers || {}),
-    },
-    cache: "no-store",
+function json(data, status = 200) {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: { "Content-Type": "application/json" },
   });
-
-  const text = await res.text();
-
-  let json = null;
-  try {
-    json = text ? JSON.parse(text) : null;
-  } catch {
-    json = { raw: text };
-  }
-
-  if (!res.ok) {
-    console.error("SEVDESK ERROR", path, json);
-    throw new Error(
-      `sevDesk API Fehler bei ${path}: ${JSON.stringify(json)}`
-    );
-  }
-
-  return json;
 }
 
-async function findContactByName(name) {
-  if (!name) return null;
+async function getUserFromBearer(req) {
+  const authHeader = req.headers.get("authorization") || "";
+  const token = authHeader.replace("Bearer ", "").trim();
 
-  const encoded = encodeURIComponent(name);
+  if (!token) return null;
 
-  const json = await sevdeskFetch(`/Contact?name=${encoded}`);
+  const {
+    data: { user },
+    error,
+  } = await supabase.auth.getUser(token);
 
-  const contacts = json?.objects || json?.data || [];
-
-  if (!Array.isArray(contacts) || contacts.length === 0) {
+  if (error || !user) {
+    console.error("GET USER FROM TOKEN ERROR:", error);
     return null;
   }
 
-  // exakter Treffer bevorzugt
-  const exact =
-    contacts.find(
-      (c) =>
-        String(c.name || "").trim().toLowerCase() ===
-        String(name).trim().toLowerCase()
-    ) || contacts[0];
-
-  return exact;
+  return user;
 }
 
-function buildInvoicePositions(invoiceBundle) {
-  return (invoiceBundle?.rows || []).map((row, index) => ({
-    id: null,
-    objectName: "InvoicePos",
-    mapAll: true,
-    quantity: Number(row.qty || 0),
-    price: Number(row.unit_price_net || 0),
-    name: `${row.label} – Provision`,
-    unity: {
-      id: 1,
-      objectName: "Unity",
-    },
-    positionNumber: index + 1,
-    text: `${row.label}, ${Number(row.qty || 0)} Sitzung(en), Provision netto pro Einheit`,
-    discount: 0,
-    optional: false,
-    taxRate: Number(invoiceBundle?.vat_rate || 0),
-  }));
+async function requireAdmin(req) {
+  const user = await getUserFromBearer(req);
+  if (!user) return { error: json({ error: "unauthorized" }, 401) };
+
+  const { data: member, error } = await supabase
+    .from("team_members")
+    .select("id, email, role, active")
+    .eq("email", user.email)
+    .single();
+
+  if (error || !member || member.active !== true || member.role !== "admin") {
+    return { error: json({ error: "forbidden" }, 403) };
+  }
+
+  return { user, member };
+}
+
+function formatDateDE(dateLike) {
+  const d = new Date(dateLike);
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toLocaleDateString("de-AT");
 }
 
 export async function POST(req) {
   try {
+    const auth = await requireAdmin(req);
+    if (auth.error) return auth.error;
+
     const body = await req.json();
 
     const coach = body?.coach || null;
-    const coachInvoiceSettings = body?.coachInvoiceSettings || {};
-    const poiseSettings = body?.poiseSettings || {};
     const invoiceBundle = body?.invoiceBundle || null;
     const periodLabel = body?.periodLabel || "";
+    const poiseSettings = body?.poiseSettings || null;
 
-    if (!coach || !invoiceBundle) {
-      return NextResponse.json(
-        { error: "coach oder invoiceBundle fehlt" },
-        { status: 400 }
-      );
+    if (!coach?.id) {
+      return json({ error: "missing_coach" }, 400);
     }
 
-    const contactSearchName =
-      coachInvoiceSettings.company_name ||
-      coach.name ||
-      "";
+    if (!invoiceBundle || !Array.isArray(invoiceBundle.rows) || !invoiceBundle.rows.length) {
+      return json({ error: "missing_invoice_bundle" }, 400);
+    }
 
-    const contact = await findContactByName(contactSearchName);
+    const { data: coachMember, error: coachError } = await supabase
+      .from("team_members")
+      .select("id, email, profile_name, sevdesk_contact_id")
+      .eq("id", coach.id)
+      .single();
 
-    if (!contact?.id) {
-      return NextResponse.json(
+    if (coachError || !coachMember) {
+      console.error("COACH LOAD ERROR:", coachError);
+      return json({ error: "coach_not_found", detail: coachError?.message }, 404);
+    }
+
+    if (!coachMember.sevdesk_contact_id) {
+      return json(
         {
-          error: `Kein sevDesk-Kontakt gefunden für: ${contactSearchName}`,
+          error: "missing_sevdesk_contact_id",
+          detail: "Für diesen Coach ist keine sevdesk_contact_id in team_members hinterlegt.",
         },
-        { status: 404 }
+        400
       );
     }
 
-    const today = new Date().toISOString().slice(0, 10);
-
-    const invoicePositions = buildInvoicePositions(invoiceBundle);
-
-    if (!invoicePositions.length) {
-      return NextResponse.json(
-        { error: "Keine Rechnungspositionen vorhanden" },
-        { status: 400 }
+    const apiToken = process.env.SEVDESK_API_TOKEN;
+    if (!apiToken) {
+      return json(
+        {
+          error: "missing_env",
+          detail: "SEVDESK_API_TOKEN fehlt in den Environment Variables.",
+        },
+        500
       );
     }
 
-    const invoicePayload = {
+    const invoiceDate = new Date();
+    const invoiceDateStr = invoiceDate.toISOString().slice(0, 10);
+
+    const invoiceType =
+      invoiceBundle.key === "reverse_charge" ? "RE" : "RE";
+
+    const invoiceName =
+      invoiceBundle.key === "reverse_charge"
+        ? `Poise Provision ${periodLabel} Reverse Charge`
+        : `Poise Provision ${periodLabel}`;
+
+    const invoiceHeader = {
       contact: {
-        id: contact.id,
+        id: String(coachMember.sevdesk_contact_id),
         objectName: "Contact",
       },
-      invoiceDate: today,
-      header: `Provision ${periodLabel}`,
-      headText: `Rechnung von ${poiseSettings.company_name || "Poise by Linda Leinweber GmbH"}`,
+      invoiceDate: invoiceDateStr,
+      header: invoiceName,
+      headText:
+        invoiceBundle.key === "reverse_charge"
+          ? `Provision für ${periodLabel}. Reverse-Charge-Verfahren.`
+          : `Provision für ${periodLabel}.`,
       footText:
         invoiceBundle.key === "reverse_charge"
           ? "Reverse Charge – Steuerschuld geht auf den Leistungsempfänger über."
           : "",
       timeToPay: 14,
-      discountTime: 0,
       discount: 0,
+      address:
+        poiseSettings?.address || "",
       taxRate: Number(invoiceBundle.vat_rate || 0),
       taxText:
         invoiceBundle.key === "reverse_charge"
           ? "Reverse Charge"
-          : `${Number(invoiceBundle.vat_rate || 0)}% Umsatzsteuer`,
-      invoiceType: "RE",
-      status: "100",
+          : `${Number(invoiceBundle.vat_rate || 0)}% USt`,
+      status: "DRAFT",
       smallSettlement: 0,
-      invoicePosSave: invoicePositions,
+      currency: "EUR",
+      objectName: "Invoice",
     };
 
-    const result = await sevdeskFetch("/Invoice/Factory/saveInvoice", {
+    const createInvoiceRes = await fetch("https://my.sevdesk.de/api/v1/Invoice", {
       method: "POST",
-      body: JSON.stringify(invoicePayload),
+      headers: {
+        Authorization: apiToken,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(invoiceHeader),
     });
 
-    return NextResponse.json({
+    const createInvoiceJson = await createInvoiceRes.json();
+
+    if (!createInvoiceRes.ok) {
+      console.error("SEVDESK CREATE INVOICE ERROR:", createInvoiceJson);
+      return json(
+        {
+          error: "sevdesk_create_invoice_failed",
+          detail: createInvoiceJson,
+        },
+        500
+      );
+    }
+
+    const invoiceId =
+      createInvoiceJson?.objects?.id ||
+      createInvoiceJson?.object?.id ||
+      createInvoiceJson?.id;
+
+    if (!invoiceId) {
+      return json(
+        {
+          error: "missing_invoice_id",
+          detail: createInvoiceJson,
+        },
+        500
+      );
+    }
+
+    for (let i = 0; i < invoiceBundle.rows.length; i++) {
+      const row = invoiceBundle.rows[i];
+
+      const positionPayload = {
+        invoice: {
+          id: String(invoiceId),
+          objectName: "Invoice",
+        },
+        name: `${row.label} – ${periodLabel}`,
+        text: `${row.qty} x ${Number(row.unit_price_net || 0).toFixed(2)} € netto`,
+        quantity: Number(row.qty || 0),
+        price: Number(row.unit_price_net || 0),
+        unity: {
+          id: "1",
+          objectName: "Unity",
+        },
+        taxRate: Number(invoiceBundle.vat_rate || 0),
+        positionNumber: i + 1,
+        objectName: "InvoicePos",
+      };
+
+      const posRes = await fetch("https://my.sevdesk.de/api/v1/InvoicePos", {
+        method: "POST",
+        headers: {
+          Authorization: apiToken,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(positionPayload),
+      });
+
+      const posJson = await posRes.json();
+
+      if (!posRes.ok) {
+        console.error("SEVDESK POSITION ERROR:", posJson);
+        return json(
+          {
+            error: "sevdesk_position_failed",
+            invoiceId,
+            detail: posJson,
+          },
+          500
+        );
+      }
+    }
+
+    return json({
       ok: true,
-      contactId: contact.id,
-      invoiceResult: result,
+      invoiceId,
+      coach: coachMember.profile_name || coach.name || coachMember.email,
+      sevdesk_contact_id: coachMember.sevdesk_contact_id,
+      periodLabel,
+      created_at: formatDateDE(invoiceDate),
     });
-  } catch (error) {
-    console.error("sevdesk-export-coach-quarterly failed:", error);
-    return NextResponse.json(
+  } catch (err) {
+    console.error("SEVDESK EXPORT COACH QUARTERLY ERROR:", err);
+    return json(
       {
-        error: error.message || "Unbekannter Fehler",
+        error: "server_error",
+        detail: String(err),
       },
-      { status: 500 }
+      500
     );
   }
 }
