@@ -1211,6 +1211,8 @@ const [profileForm, setProfileForm] = useState({
   profile_keywords: "",
   profile_preis_std: "",
   profile_preis_ermaessigt: "",
+  sevdsek_contact_id: "",
+  
 });
 
   // ================= PROPOSALS =================
@@ -1770,21 +1772,22 @@ useEffect(() => {
 
       if (!mounted) return;
 
-      setProfileForm({
-        profile_name: m.profile_name || "",
-        profile_role: m.profile_role || "",
-        profile_calendar_mode: m.profile_calendar_mode || "booking",
-        profile_short: m.profile_short || "",
-        profile_keywords: Array.isArray(m.profile_keywords)
-          ? m.profile_keywords.join(", ")
-          : "",
-        profile_preis_std:
-          m.profile_preis_std != null ? String(m.profile_preis_std) : "",
-        profile_preis_ermaessigt:
-          m.profile_preis_ermaessigt != null
-            ? String(m.profile_preis_ermaessigt)
-            : "",
-      });
+setProfileForm({
+  profile_name: m.profile_name || "",
+  profile_role: m.profile_role || "",
+  profile_calendar_mode: m.profile_calendar_mode || "booking",
+  profile_short: m.profile_short || "",
+  profile_keywords: Array.isArray(m.profile_keywords)
+    ? m.profile_keywords.join(", ")
+    : "",
+  profile_preis_std:
+    m.profile_preis_std != null ? String(m.profile_preis_std) : "",
+  profile_preis_ermaessigt:
+    m.profile_preis_ermaessigt != null
+      ? String(m.profile_preis_ermaessigt)
+      : "",
+  sevdesk_contact_id: m.sevdesk_contact_id || "",
+});
     } catch (err) {
       console.error("PROFILE LOAD ERROR:", err);
     } finally {
@@ -1984,24 +1987,28 @@ async function saveProfileSettings() {
         "Content-Type": "application/json",
         Authorization: `Bearer ${token}`,
       },
-      body: JSON.stringify({
-        profile_name: profileForm.profile_name,
-        profile_role: profileForm.profile_role,
-        profile_calendar_mode: profileForm.profile_calendar_mode,
-        profile_short: profileForm.profile_short,
-        profile_keywords: profileForm.profile_keywords
-          .split(",")
-          .map((x) => x.trim())
-          .filter(Boolean),
-        profile_preis_std:
-          profileForm.profile_preis_std === ""
-            ? null
-            : Number(profileForm.profile_preis_std),
-        profile_preis_ermaessigt:
-          profileForm.profile_preis_ermaessigt === ""
-            ? null
-            : Number(profileForm.profile_preis_ermaessigt),
-      }),
+body: JSON.stringify({
+  profile_name: profileForm.profile_name,
+  profile_role: profileForm.profile_role,
+  profile_calendar_mode: profileForm.profile_calendar_mode,
+  profile_short: profileForm.profile_short,
+  profile_keywords: profileForm.profile_keywords
+    .split(",")
+    .map((x) => x.trim())
+    .filter(Boolean),
+  profile_preis_std:
+    profileForm.profile_preis_std === ""
+      ? null
+      : Number(profileForm.profile_preis_std),
+  profile_preis_ermaessigt:
+    profileForm.profile_preis_ermaessigt === ""
+      ? null
+      : Number(profileForm.profile_preis_ermaessigt),
+  sevdesk_contact_id:
+    profileForm.sevdesk_contact_id === ""
+      ? null
+      : profileForm.sevdesk_contact_id,
+}),
     });
 
     const json = await res.json();
@@ -3108,6 +3115,23 @@ return (
         />
       </div>
     </div>
+    <div>
+  <label>sevdesk Contact ID</label>
+  <input
+    value={profileForm.sevdesk_contact_id}
+    onChange={(e) =>
+      setProfileForm((prev) => ({
+        ...prev,
+        sevdesk_contact_id: e.target.value,
+      }))
+    }
+    placeholder="z.B. 12345678"
+    style={{ width: "100%" }}
+  />
+  <div style={{ fontSize: 12, color: "#666", marginTop: 4 }}>
+    Die Kontakt-ID aus sevdesk für diese Therapeut:in.
+  </div>
+</div>
   </div>
 
   <button
