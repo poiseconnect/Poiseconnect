@@ -193,9 +193,9 @@ const invoiceHeader = {
     // CREATE INVOICE
     // =========================
 
-    const createInvoiceRes = await fetch(
-      "https://my.sevdesk.de/api/v1/Invoice",
-      {
+const createInvoiceRes = await fetch(
+  "https://my.sevdesk.de/api/v1/Invoice/Factory/saveInvoice",
+  {
         method: "POST",
         headers: {
           Authorization: apiToken,
