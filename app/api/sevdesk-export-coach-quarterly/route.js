@@ -178,7 +178,7 @@ const invoiceHeader = {
     invoiceBundle.key === "reverse_charge"
       ? "Reverse Charge"
       : `${Number(invoiceBundle.vat_rate || 0)}% USt`,
-  status: "DRAFT",
+  status: 100,
   smallSettlement: 0,
   currency: "EUR",
   objectName: "Invoice",
