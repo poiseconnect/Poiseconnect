@@ -14,6 +14,10 @@ function json(data, status = 200) {
   });
 }
 
+// =========================
+// AUTH
+// =========================
+
 async function getUserFromBearer(req) {
   const authHeader = req.headers.get("authorization") || "";
   const token = authHeader.replace("Bearer ", "").trim();
@@ -50,11 +54,19 @@ async function requireAdmin(req) {
   return { user, member };
 }
 
+// =========================
+// HELPERS
+// =========================
+
 function formatDateDE(dateLike) {
   const d = new Date(dateLike);
   if (Number.isNaN(d.getTime())) return "";
   return d.toLocaleDateString("de-AT");
 }
+
+// =========================
+// MAIN
+// =========================
 
 export async function POST(req) {
   try {
@@ -62,11 +74,16 @@ export async function POST(req) {
     if (auth.error) return auth.error;
 
     const body = await req.json();
+    console.log("SEVDESK EXPORT BODY:", JSON.stringify(body, null, 2));
 
     const coach = body?.coach || null;
     const invoiceBundle = body?.invoiceBundle || null;
     const periodLabel = body?.periodLabel || "";
     const poiseSettings = body?.poiseSettings || null;
+
+    // =========================
+    // VALIDATION
+    // =========================
 
     if (!coach?.id) {
       return json({ error: "missing_coach_id" }, 400);
@@ -79,6 +96,10 @@ export async function POST(req) {
     ) {
       return json({ error: "missing_invoice_bundle" }, 400);
     }
+
+    // =========================
+    // LOAD COACH (BY ID ✅)
+    // =========================
 
     const { data: coachMember, error: coachError } = await supabase
       .from("team_members")
@@ -99,22 +120,31 @@ export async function POST(req) {
         {
           error: "missing_sevdesk_contact_id",
           detail:
-            "Für diesen Coach ist keine sevdesk_contact_id in team_members hinterlegt.",
+            "Für diesen Coach ist keine sevdesk_contact_id hinterlegt.",
         },
         400
       );
     }
 
+    // =========================
+    // ENV
+    // =========================
+
     const apiToken = process.env.SEVDESK_API_TOKEN;
+
     if (!apiToken) {
       return json(
         {
           error: "missing_env",
-          detail: "SEVDESK_API_TOKEN fehlt in den Environment Variables.",
+          detail: "SEVDESK_API_TOKEN fehlt.",
         },
         500
       );
     }
+
+    // =========================
+    // INVOICE HEADER
+    // =========================
 
     const invoiceDate = new Date();
     const invoiceDateStr = invoiceDate.toISOString().slice(0, 10);
@@ -147,25 +177,39 @@ export async function POST(req) {
         invoiceBundle.key === "reverse_charge"
           ? "Reverse Charge"
           : `${Number(invoiceBundle.vat_rate || 0)}% USt`,
-      status: "DRAFT",
-      smallSettlement: 0,
       currency: "EUR",
       objectName: "Invoice",
     };
 
-    const createInvoiceRes = await fetch("https://my.sevdesk.de/api/v1/Invoice", {
-      method: "POST",
-      headers: {
-        Authorization: apiToken,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(invoiceHeader),
-    });
+    console.log(
+      "SEVDESK INVOICE HEADER:",
+      JSON.stringify(invoiceHeader, null, 2)
+    );
+
+    // =========================
+    // CREATE INVOICE
+    // =========================
+
+    const createInvoiceRes = await fetch(
+      "https://my.sevdesk.de/api/v1/Invoice",
+      {
+        method: "POST",
+        headers: {
+          Authorization: apiToken,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(invoiceHeader),
+      }
+    );
 
     const createInvoiceJson = await createInvoiceRes.json();
 
+    console.log(
+      "SEVDESK CREATE INVOICE RESPONSE:",
+      createInvoiceJson
+    );
+
     if (!createInvoiceRes.ok) {
-      console.error("SEVDESK CREATE INVOICE ERROR:", createInvoiceJson);
       return json(
         {
           error: "sevdesk_create_invoice_failed",
@@ -190,6 +234,10 @@ export async function POST(req) {
       );
     }
 
+    // =========================
+    // CREATE POSITIONS
+    // =========================
+
     for (let i = 0; i < invoiceBundle.rows.length; i++) {
       const row = invoiceBundle.rows[i];
 
@@ -199,31 +247,38 @@ export async function POST(req) {
           objectName: "Invoice",
         },
         name: `${row.label} – ${periodLabel}`,
-        text: `${row.qty} x ${Number(row.unit_price_net || 0).toFixed(2)} € netto`,
+        text: `${row.qty} x ${Number(
+          row.unit_price_net || 0
+        ).toFixed(2)} € netto`,
         quantity: Number(row.qty || 0),
         price: Number(row.unit_price_net || 0),
-        unity: {
-          id: "1",
-          objectName: "Unity",
-        },
         taxRate: Number(invoiceBundle.vat_rate || 0),
         positionNumber: i + 1,
         objectName: "InvoicePos",
       };
 
-      const posRes = await fetch("https://my.sevdesk.de/api/v1/InvoicePos", {
-        method: "POST",
-        headers: {
-          Authorization: apiToken,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(positionPayload),
-      });
+      console.log(
+        "SEVDESK POSITION PAYLOAD:",
+        JSON.stringify(positionPayload, null, 2)
+      );
+
+      const posRes = await fetch(
+        "https://my.sevdesk.de/api/v1/InvoicePos",
+        {
+          method: "POST",
+          headers: {
+            Authorization: apiToken,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(positionPayload),
+        }
+      );
 
       const posJson = await posRes.json();
 
+      console.log("SEVDESK POSITION RESPONSE:", posJson);
+
       if (!posRes.ok) {
-        console.error("SEVDESK POSITION ERROR:", posJson);
         return json(
           {
             error: "sevdesk_position_failed",
@@ -235,16 +290,21 @@ export async function POST(req) {
       }
     }
 
+    // =========================
+    // SUCCESS
+    // =========================
+
     return json({
       ok: true,
       invoiceId,
-      coach: coachMember.profile_name || coach.id,
+      coach: coachMember.profile_name || coachMember.id,
       sevdesk_contact_id: coachMember.sevdesk_contact_id,
       periodLabel,
       created_at: formatDateDE(invoiceDate),
     });
   } catch (err) {
-    console.error("SEVDESK EXPORT COACH QUARTERLY ERROR:", err);
+    console.error("SEVDESK EXPORT ERROR:", err);
+
     return json(
       {
         error: "server_error",
