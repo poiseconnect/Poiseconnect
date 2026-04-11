@@ -3668,12 +3668,15 @@ const res = await fetch("/api/sevdesk-export-coach-quarterly", {
     periodLabel: adminPeriodLabel,
   }),
 });
-
-                if (!res.ok) {
-                  alert("sevDesk Export fehlgeschlagen");
-                  return;
-                }
-
+if (!res.ok) {
+  const err = await res.json().catch(() => null);
+  console.error("SEVDESK EXPORT FEHLER:", err);
+  alert(
+    "sevDesk Export fehlgeschlagen:\n\n" +
+      JSON.stringify(err, null, 2)
+  );
+  return;
+}
                 alert("An sevDesk gesendet");
               }}
             >
