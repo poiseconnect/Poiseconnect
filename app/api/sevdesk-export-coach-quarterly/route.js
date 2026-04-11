@@ -14,6 +14,17 @@ function json(data, status = 200) {
   });
 }
 
+function buildFormBody(obj) {
+  const params = new URLSearchParams();
+
+  Object.entries(obj).forEach(([key, value]) => {
+    if (value === null || value === undefined || value === "") return;
+    params.append(key, String(value));
+  });
+
+  return params.toString();
+}
+
 async function getUserFromBearer(req) {
   const authHeader = req.headers.get("authorization") || "";
   const token = authHeader.replace("Bearer ", "").trim();
@@ -56,17 +67,6 @@ function formatDateDE(dateLike) {
   return d.toLocaleDateString("de-AT");
 }
 
-function buildFormBody(obj) {
-  const params = new URLSearchParams();
-
-  Object.entries(obj).forEach(([key, value]) => {
-    if (value === null || value === undefined || value === "") return;
-    params.append(key, String(value));
-  });
-
-  return params.toString();
-}
-
 async function createInvoiceDraft({
   apiToken,
   contactId,
@@ -79,32 +79,34 @@ async function createInvoiceDraft({
   const invoiceDateStr = invoiceDate.toISOString().slice(0, 10);
 
   const formBody = buildFormBody({
-    header: invoiceName,
-    invoiceType: "RE",
-    invoiceDate: invoiceDateStr,
-    status: 100,
-    "contact[id]": String(contactId),
-    "contact[objectName]": "Contact",
-    timeToPay: 14,
-    discount: 0,
-    address: poiseSettings?.address || "",
-    taxRate: Number(invoiceBundle.vat_rate || 0),
-    taxText:
+    "invoice[header]": invoiceName,
+    "invoice[invoiceType]": "RE",
+    "invoice[invoiceDate]": invoiceDateStr,
+    "invoice[status]": 100,
+
+    "invoice[contact][id]": String(contactId),
+    "invoice[contact][objectName]": "Contact",
+
+    "invoice[timeToPay]": 14,
+    "invoice[discount]": 0,
+    "invoice[address]": poiseSettings?.address || "",
+    "invoice[taxRate]": Number(invoiceBundle.vat_rate || 0),
+    "invoice[taxText]":
       invoiceBundle.key === "reverse_charge"
         ? "Reverse Charge"
         : `${Number(invoiceBundle.vat_rate || 0)}% USt`,
-    currency: "EUR",
-    headText:
+    "invoice[currency]": "EUR",
+    "invoice[headText]":
       invoiceBundle.key === "reverse_charge"
         ? `Provision für ${periodLabel}. Reverse-Charge-Verfahren.`
         : `Provision für ${periodLabel}.`,
-    footText:
+    "invoice[footText]":
       invoiceBundle.key === "reverse_charge"
         ? "Reverse Charge – Steuerschuld geht auf den Leistungsempfänger über."
         : "",
+    "invoice[objectName]": "Invoice",
   });
 
-  // kleiner Retry, weil sevdesk bei Rechnungsnummern gelegentlich timeoutet
   let lastJson = null;
   let lastStatus = 500;
 
@@ -153,7 +155,6 @@ async function createInvoiceDraft({
 
     const message = responseJson?.error?.message || "";
 
-    // nur bei Timeout nochmal probieren
     if (!message.toLowerCase().includes("timeout") || attempt === 3) {
       break;
     }
@@ -289,7 +290,7 @@ export async function POST(req) {
         ? `Poise Provision ${periodLabel} Reverse Charge`
         : `Poise Provision ${periodLabel}`;
 
-    const draftResult = await createInvoiceDraft({
+    const invoiceResult = await createInvoiceDraft({
       apiToken,
       contactId: coachMember.sevdesk_contact_id,
       invoiceName,
@@ -298,11 +299,11 @@ export async function POST(req) {
       invoiceBundle,
     });
 
-    if (!draftResult.ok) {
-      return json(draftResult.body, draftResult.status);
+    if (!invoiceResult.ok) {
+      return json(invoiceResult.body, invoiceResult.status || 500);
     }
 
-    const invoiceId = draftResult.invoiceId;
+    const { invoiceId, invoiceDate } = invoiceResult;
 
     for (let i = 0; i < invoiceBundle.rows.length; i++) {
       const row = invoiceBundle.rows[i];
@@ -317,7 +318,7 @@ export async function POST(req) {
       });
 
       if (!posResult.ok) {
-        return json(posResult.body, posResult.status);
+        return json(posResult.body, posResult.status || 500);
       }
     }
 
@@ -327,7 +328,7 @@ export async function POST(req) {
       coach: coachMember.profile_name || "Coach",
       sevdesk_contact_id: coachMember.sevdesk_contact_id,
       periodLabel,
-      created_at: formatDateDE(draftResult.invoiceDate),
+      created_at: formatDateDE(invoiceDate),
     });
   } catch (err) {
     console.error("SEVDESK EXPORT COACH QUARTERLY ERROR:", err);
