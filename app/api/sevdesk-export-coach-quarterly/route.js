@@ -154,32 +154,35 @@ export async function POST(req) {
         ? `Poise Provision ${periodLabel} Reverse Charge`
         : `Poise Provision ${periodLabel}`;
 
-    const invoiceHeader = {
-      contact: {
-        id: String(coachMember.sevdesk_contact_id),
-        objectName: "Contact",
-      },
-      invoiceDate: invoiceDateStr,
-      header: invoiceName,
-      headText:
-        invoiceBundle.key === "reverse_charge"
-          ? `Provision für ${periodLabel}. Reverse-Charge-Verfahren.`
-          : `Provision für ${periodLabel}.`,
-      footText:
-        invoiceBundle.key === "reverse_charge"
-          ? "Reverse Charge – Steuerschuld geht auf den Leistungsempfänger über."
-          : "",
-      timeToPay: 14,
-      discount: 0,
-      address: poiseSettings?.address || "",
-      taxRate: Number(invoiceBundle.vat_rate || 0),
-      taxText:
-        invoiceBundle.key === "reverse_charge"
-          ? "Reverse Charge"
-          : `${Number(invoiceBundle.vat_rate || 0)}% USt`,
-      currency: "EUR",
-      objectName: "Invoice",
-    };
+const invoiceHeader = {
+  contact: {
+    id: String(coachMember.sevdesk_contact_id),
+    objectName: "Contact",
+  },
+  invoiceDate: invoiceDateStr,
+  invoiceType: "RE",
+  header: invoiceName,
+  headText:
+    invoiceBundle.key === "reverse_charge"
+      ? `Provision für ${periodLabel}. Reverse-Charge-Verfahren.`
+      : `Provision für ${periodLabel}.`,
+  footText:
+    invoiceBundle.key === "reverse_charge"
+      ? "Reverse Charge – Steuerschuld geht auf den Leistungsempfänger über."
+      : "",
+  timeToPay: 14,
+  discount: 0,
+  address: poiseSettings?.address || "",
+  taxRate: Number(invoiceBundle.vat_rate || 0),
+  taxText:
+    invoiceBundle.key === "reverse_charge"
+      ? "Reverse Charge"
+      : `${Number(invoiceBundle.vat_rate || 0)}% USt`,
+  status: "DRAFT",
+  smallSettlement: 0,
+  currency: "EUR",
+  objectName: "Invoice",
+};
 
     console.log(
       "SEVDESK INVOICE HEADER:",
