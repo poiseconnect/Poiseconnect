@@ -124,7 +124,8 @@ export async function POST(req) {
         ? `Poise Provision ${periodLabel} Reverse Charge`
         : `Poise Provision ${periodLabel}`;
 
-    const invoice = {
+    // 1) RECHNUNG ALS DRAFT ANLEGEN
+    const invoicePayload = {
       contact: {
         id: String(coachMember.sevdesk_contact_id),
         objectName: "Contact",
@@ -153,36 +154,14 @@ export async function POST(req) {
       objectName: "Invoice",
     };
 
-    const invoicePosSave = invoiceBundle.rows.map((row, i) => ({
-      name: `${row.label} – ${periodLabel}`,
-      text: `${Number(row.qty || 0)} x ${Number(row.unit_price_net || 0).toFixed(2)} € netto`,
-      quantity: Number(row.qty || 0),
-      price: Number(row.unit_price_net || 0),
-      taxRate: Number(invoiceBundle.vat_rate || 0),
-      positionNumber: i + 1,
-      unity: {
-        id: "1",
-        objectName: "Unity",
+    const createInvoiceRes = await fetch("https://my.sevdesk.de/api/v1/Invoice", {
+      method: "POST",
+      headers: {
+        Authorization: apiToken,
+        "Content-Type": "application/json",
       },
-      objectName: "InvoicePos",
-    }));
-
-    const saveInvoicePayload = {
-      invoice,
-      invoicePosSave,
-    };
-
-    const createInvoiceRes = await fetch(
-      "https://my.sevdesk.de/api/v1/Invoice/Factory/saveInvoice",
-      {
-        method: "POST",
-        headers: {
-          Authorization: apiToken,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(saveInvoicePayload),
-      }
-    );
+      body: JSON.stringify(invoicePayload),
+    });
 
     const createInvoiceJson = await createInvoiceRes.json();
 
@@ -192,7 +171,7 @@ export async function POST(req) {
         {
           error: "sevdesk_create_invoice_failed",
           detail: createInvoiceJson,
-          sent_payload: saveInvoicePayload,
+          sent_payload: invoicePayload,
         },
         500
       );
@@ -202,8 +181,6 @@ export async function POST(req) {
       createInvoiceJson?.objects?.id ||
       createInvoiceJson?.object?.id ||
       createInvoiceJson?.id ||
-      createInvoiceJson?.objects?.invoice?.id ||
-      createInvoiceJson?.object?.invoice?.id ||
       null;
 
     if (!invoiceId) {
@@ -216,6 +193,53 @@ export async function POST(req) {
       );
     }
 
+    // 2) POSITIONEN EINZELN ANLEGEN
+    for (let i = 0; i < invoiceBundle.rows.length; i++) {
+      const row = invoiceBundle.rows[i];
+
+      const positionPayload = {
+        invoice: {
+          id: String(invoiceId),
+          objectName: "Invoice",
+        },
+        name: `${row.label} – ${periodLabel}`,
+        text: `${Number(row.qty || 0)} x ${Number(row.unit_price_net || 0).toFixed(2)} € netto`,
+        quantity: Number(row.qty || 0),
+        price: Number(row.unit_price_net || 0),
+        taxRate: Number(invoiceBundle.vat_rate || 0),
+        positionNumber: i + 1,
+        unity: {
+          id: "1",
+          objectName: "Unity",
+        },
+        objectName: "InvoicePos",
+      };
+
+      const posRes = await fetch("https://my.sevdesk.de/api/v1/InvoicePos", {
+        method: "POST",
+        headers: {
+          Authorization: apiToken,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(positionPayload),
+      });
+
+      const posJson = await posRes.json();
+
+      if (!posRes.ok) {
+        console.error("SEVDESK POSITION ERROR:", posJson);
+        return json(
+          {
+            error: "sevdesk_position_failed",
+            invoiceId,
+            detail: posJson,
+            sent_payload: positionPayload,
+          },
+          500
+        );
+      }
+    }
+
     return json({
       ok: true,
       invoiceId,
@@ -223,7 +247,6 @@ export async function POST(req) {
       sevdesk_contact_id: coachMember.sevdesk_contact_id,
       periodLabel,
       created_at: formatDateDE(invoiceDate),
-      sevdesk_response: createInvoiceJson,
     });
   } catch (err) {
     console.error("SEVDESK EXPORT COACH QUARTERLY ERROR:", err);
