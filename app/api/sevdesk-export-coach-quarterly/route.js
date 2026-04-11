@@ -143,7 +143,7 @@ export async function POST(req) {
       discount: 0,
       address: poiseSettings?.address || "",
       taxRate: Number(invoiceBundle.vat_rate || 0),
-      taxText:
-        invoiceBundle.key === "reverse_charge"
-          ? "Reverse Charge"
-          : `${Number(invoiceBundle.vat_rate || 0)}% USt
+    taxText:
+  invoiceBundle.key === "reverse_charge"
+    ? "Reverse Charge"
+    : `${Number(invoiceBundle.vat_rate || 0)}% USt`,
