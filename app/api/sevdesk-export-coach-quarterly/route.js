@@ -7,10 +7,7 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
-// ✅ sevDesk Produkt-/Part-ID für "Provision"
 const SEVDESK_PART_ID = "55040478";
-
-// ✅ Standard-Einheit in sevDesk
 const SEVDESK_UNITY_ID = "1";
 
 function json(data, status = 200) {
@@ -62,13 +59,7 @@ function formatDateDE(dateLike) {
   return d.toLocaleDateString("de-AT");
 }
 
-function buildInvoiceHeader({
-  coachMember,
-  invoiceBundle,
-  periodLabel,
-  poiseSettings,
-  invoiceDateStr,
-}) {
+function buildInvoiceHeader({ invoiceBundle, periodLabel, invoiceDateStr }) {
   const isReverseCharge = invoiceBundle.key === "reverse_charge";
   const vatRate = Number(invoiceBundle.vat_rate || 0);
 
@@ -77,13 +68,9 @@ function buildInvoiceHeader({
     : `Poise Provision ${periodLabel}`;
 
   return {
-    contact: {
-      id: String(coachMember.sevdesk_contact_id),
-      objectName: "Contact",
-    },
     invoiceDate: invoiceDateStr,
     invoiceType: "RE",
-    status: 100, // Entwurf
+    status: 100,
     header,
     headText: isReverseCharge
       ? `Provision für ${periodLabel}. Reverse-Charge-Verfahren.`
@@ -93,11 +80,9 @@ function buildInvoiceHeader({
       : "",
     timeToPay: 14,
     discount: 0,
-    address: poiseSettings?.address || "",
     taxRate: vatRate,
     taxText: isReverseCharge ? "Reverse Charge" : `${vatRate}% USt`,
     currency: "EUR",
-    objectName: "Invoice",
   };
 }
 
@@ -129,7 +114,6 @@ function buildPositionPayload({
       objectName: "Unity",
     },
     positionNumber: index + 1,
-    objectName: "InvoicePos",
   };
 }
 
@@ -146,8 +130,8 @@ async function sevdeskFetch(url, apiToken, payload) {
   let data = null;
   try {
     data = await res.json();
-  } catch {
-    data = null;
+  } catch (err) {
+    console.error("SEVDESK JSON PARSE ERROR:", err);
   }
 
   return { res, data };
@@ -174,7 +158,6 @@ export async function POST(req) {
     const coach = body?.coach || null;
     const invoiceBundle = body?.invoiceBundle || null;
     const periodLabel = body?.periodLabel || "";
-    const poiseSettings = body?.poiseSettings || null;
 
     if (!coach?.id) {
       return json({ error: "missing_coach_id" }, 400);
@@ -230,12 +213,10 @@ export async function POST(req) {
     const invoiceDate = new Date();
     const invoiceDateStr = invoiceDate.toISOString().slice(0, 10);
 
-    // 1) Rechnung anlegen
+    // 1) Rechnung minimal anlegen
     const invoicePayload = buildInvoiceHeader({
-      coachMember,
       invoiceBundle,
       periodLabel,
-      poiseSettings,
       invoiceDateStr,
     });
 
@@ -269,7 +250,35 @@ export async function POST(req) {
       );
     }
 
-    // 2) Positionen separat anlegen
+    // 2) Kontakt auf die erzeugte Rechnung setzen
+    const contactPatchPayload = {
+      id: String(invoiceId),
+      contact: {
+        id: String(coachMember.sevdesk_contact_id),
+        objectName: "Contact",
+      },
+    };
+
+    const { res: contactRes, data: contactJson } = await sevdeskFetch(
+      `https://my.sevdesk.de/api/v1/Invoice/${invoiceId}`,
+      apiToken,
+      contactPatchPayload
+    );
+
+    if (!contactRes.ok) {
+      console.error("SEVDESK SET CONTACT ERROR:", contactJson);
+      return json(
+        {
+          error: "sevdesk_set_contact_failed",
+          invoiceId,
+          detail: contactJson,
+          sent_payload: contactPatchPayload,
+        },
+        500
+      );
+    }
+
+    // 3) Positionen separat anlegen
     const createdPositions = [];
 
     for (let i = 0; i < invoiceBundle.rows.length; i++) {
@@ -291,7 +300,6 @@ export async function POST(req) {
 
       if (!posRes.ok) {
         console.error("SEVDESK CREATE POSITION ERROR:", posJson);
-
         return json(
           {
             error: "sevdesk_create_position_failed",
@@ -317,7 +325,6 @@ export async function POST(req) {
     });
   } catch (err) {
     console.error("SEVDESK EXPORT COACH QUARTERLY ERROR:", err);
-
     return json(
       {
         error: "server_error",
