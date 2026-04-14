@@ -7,8 +7,9 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
-const SEVDESK_PART_ID = "55040478";
-const SEVDESK_UNITY_ID = "1";
+// Optional per ENV überschreibbar
+const SEVDESK_PART_ID = process.env.SEVDESK_PART_ID || "55040478";
+const SEVDESK_UNITY_ID = process.env.SEVDESK_UNITY_ID || "1";
 
 function json(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -19,6 +20,61 @@ function json(data, status = 200) {
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function toDateOnly(value = new Date()) {
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return new Date().toISOString().slice(0, 10);
+  return d.toISOString().slice(0, 10);
+}
+
+function addDays(dateStr, days) {
+  const d = new Date(dateStr);
+  if (Number.isNaN(d.getTime())) return dateStr;
+  d.setDate(d.getDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
+function formatDateDE(dateLike) {
+  const d = new Date(dateLike);
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toLocaleDateString("de-AT");
+}
+
+function safeNumber(value, fallback = 0) {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : fallback;
+}
+
+function extractId(apiResponse) {
+  return (
+    apiResponse?.objects?.id ||
+    apiResponse?.object?.id ||
+    apiResponse?.objects?.[0]?.id ||
+    apiResponse?.object?.[0]?.id ||
+    apiResponse?.id ||
+    null
+  );
+}
+
+async function sevdeskFetch(url, apiToken, payload, method = "POST") {
+  const res = await fetch(url, {
+    method,
+    headers: {
+      Authorization: apiToken,
+      "Content-Type": "application/json",
+    },
+    body: payload ? JSON.stringify(payload) : undefined,
+  });
+
+  let data = null;
+  try {
+    data = await res.json();
+  } catch {
+    data = null;
+  }
+
+  return { res, data };
 }
 
 async function getUserFromBearer(req) {
@@ -57,30 +113,82 @@ async function requireAdmin(req) {
   return { user, member };
 }
 
-function formatDateDE(dateLike) {
-  const d = new Date(dateLike);
-  if (Number.isNaN(d.getTime())) return "";
-  return d.toLocaleDateString("de-AT");
+function buildHeadText({ periodLabel, invoiceBundle }) {
+  const isReverseCharge = invoiceBundle?.key === "reverse_charge";
+
+  const lines = [
+    "Projekt: Klienten-Vermittlung für psychologische Beratung und Mental Coaching",
+    "",
+  ];
+
+  for (const row of invoiceBundle?.rows || []) {
+    lines.push(`Anzahl der vermittelten Sitzungen ${row.label}: ${safeNumber(row.qty, 0)}`);
+  }
+
+  lines.push("");
+  lines.push("Sehr geehrte Frau xxx,");
+  lines.push("");
+  lines.push("liebe xxx,");
+  lines.push("");
+  lines.push("Für unsere Unterstützung stellen wir wie vereinbart in Rechnung:");
+
+  if (isReverseCharge) {
+    lines.push("");
+    lines.push("Abrechnung im Reverse-Charge-Verfahren.");
+  }
+
+  return lines.join("\n");
+}
+
+function buildFootText() {
+  return [
+    "zahlbar: 14 Tage nach Rechnungseingang ohne Abzug.",
+    "",
+    "Herzlichen Dank für Dein Engagement und die angenehme Zusammenarbeit!",
+    "",
+    "Liebe Grüße",
+    "",
+    "Sebastian Kickinger Poise by Linda Leinweber GmbH",
+  ].join("\n");
 }
 
 function buildInvoiceHeader({
   coachMember,
   periodLabel,
   invoiceDateStr,
+  invoiceBundle,
+  poiseSettings,
 }) {
+  const paymentDueDate = addDays(invoiceDateStr, 14);
+
   return {
     contact: {
       id: String(coachMember.sevdesk_contact_id),
       objectName: "Contact",
     },
+
     invoiceDate: invoiceDateStr,
-    invoiceType: "RE",
-    status: 100,
-    header: `Poise Provision ${periodLabel}`,
-    headText: `Provision für ${periodLabel}.`,
+    deliveryDate: invoiceDateStr,
     timeToPay: 14,
-    discount: 0,
+    // Manche sevDesk-Setups reagieren besser, wenn beides da ist
+    dueDate: paymentDueDate,
+
+    invoiceType: "RE",
+    status: 100, // Entwurf
+    header: `Poise Provision ${periodLabel}`,
+    headText: buildHeadText({ periodLabel, invoiceBundle }),
+    footText: buildFootText(),
+
+    address: poiseSettings?.address || "Hamberg 21\n4813 Altmünster\nÖsterreich",
     currency: "EUR",
+    discount: 0,
+
+    // an deinen Screens orientiert
+    taxRate: safeNumber(invoiceBundle?.vat_rate, 0),
+    taxText:
+      invoiceBundle?.key === "reverse_charge"
+        ? "Reverse Charge"
+        : `${safeNumber(invoiceBundle?.vat_rate, 0)}% USt`,
   };
 }
 
@@ -91,6 +199,15 @@ function buildPositionPayload({
   periodLabel,
   invoiceBundle,
 }) {
+  const qty = safeNumber(row.qty, 0);
+  const unitPrice = safeNumber(row.unit_price_net, 0);
+  const vatRate = safeNumber(invoiceBundle?.vat_rate, 0);
+
+  const isReverseCharge = invoiceBundle?.key === "reverse_charge";
+  const positionName = isReverseCharge
+    ? `Provision ${row.label} – ${periodLabel} (Reverse Charge)`
+    : `Provision ${row.label} – ${periodLabel}`;
+
   return {
     invoice: {
       id: String(invoiceId),
@@ -100,50 +217,17 @@ function buildPositionPayload({
       id: String(SEVDESK_PART_ID),
       objectName: "Part",
     },
-    name: `${row.label} – ${periodLabel}`,
-    text: `${Number(row.qty || 0)} x ${Number(row.unit_price_net || 0).toFixed(
-      2
-    )} € netto`,
-    quantity: Number(row.qty || 0),
-    price: Number(row.unit_price_net || 0),
-    taxRate: Number(invoiceBundle.vat_rate || 0),
+    name: positionName,
+    text: `${qty} x ${unitPrice.toFixed(2)} € netto`,
+    quantity: qty,
+    price: unitPrice,
+    taxRate: vatRate,
     unity: {
       id: String(SEVDESK_UNITY_ID),
       objectName: "Unity",
     },
     positionNumber: index + 1,
   };
-}
-
-async function sevdeskFetch(url, apiToken, payload) {
-  const res = await fetch(url, {
-    method: "POST",
-    headers: {
-      Authorization: apiToken,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(payload),
-  });
-
-  let data = null;
-  try {
-    data = await res.json();
-  } catch (err) {
-    console.error("SEVDESK JSON PARSE ERROR:", err);
-  }
-
-  return { res, data };
-}
-
-function extractId(apiResponse) {
-  return (
-    apiResponse?.objects?.id ||
-    apiResponse?.object?.id ||
-    apiResponse?.objects?.[0]?.id ||
-    apiResponse?.object?.[0]?.id ||
-    apiResponse?.id ||
-    null
-  );
 }
 
 export async function POST(req) {
@@ -156,6 +240,7 @@ export async function POST(req) {
     const coach = body?.coach || null;
     const invoiceBundle = body?.invoiceBundle || null;
     const periodLabel = body?.periodLabel || "";
+    const poiseSettings = body?.poiseSettings || {};
 
     if (!coach?.id) {
       return json({ error: "missing_coach_id" }, 400);
@@ -208,16 +293,18 @@ export async function POST(req) {
       );
     }
 
-    const invoiceDate = new Date();
-    const invoiceDateStr = invoiceDate.toISOString().slice(0, 10);
+    const invoiceDateStr = toDateOnly(new Date());
 
+    // 1) Rechnungskopf anlegen
     const invoicePayload = buildInvoiceHeader({
       coachMember,
       periodLabel,
       invoiceDateStr,
+      invoiceBundle,
+      poiseSettings,
     });
 
-    await sleep(500);
+    await sleep(400);
 
     const { res: invoiceRes, data: invoiceJson } = await sevdeskFetch(
       "https://my.sevdesk.de/api/v1/Invoice",
@@ -249,8 +336,9 @@ export async function POST(req) {
       );
     }
 
-    await sleep(300);
+    await sleep(350);
 
+    // 2) Positionen anlegen
     const createdPositions = [];
 
     for (let i = 0; i < invoiceBundle.rows.length; i++) {
@@ -284,7 +372,7 @@ export async function POST(req) {
       }
 
       createdPositions.push(posJson);
-      await sleep(300);
+      await sleep(250);
     }
 
     return json({
@@ -293,11 +381,12 @@ export async function POST(req) {
       coach: coachMember.profile_name || "Coach",
       sevdesk_contact_id: coachMember.sevdesk_contact_id,
       periodLabel,
-      created_at: formatDateDE(invoiceDate),
+      created_at: formatDateDE(invoiceDateStr),
       positions_created: createdPositions.length,
     });
   } catch (err) {
     console.error("SEVDESK EXPORT COACH QUARTERLY ERROR:", err);
+
     return json(
       {
         error: "server_error",
