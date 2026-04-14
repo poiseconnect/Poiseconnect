@@ -65,13 +65,9 @@ function formatDateDE(dateLike) {
 
 function buildInvoiceHeader({
   coachMember,
-  invoiceBundle,
   periodLabel,
   invoiceDateStr,
 }) {
-  const isReverseCharge = invoiceBundle.key === "reverse_charge";
-  const vatRate = Number(invoiceBundle.vat_rate || 0);
-
   return {
     contact: {
       id: String(coachMember.sevdesk_contact_id),
@@ -81,16 +77,9 @@ function buildInvoiceHeader({
     invoiceType: "RE",
     status: 100,
     header: `Poise Provision ${periodLabel}`,
-    headText: isReverseCharge
-      ? `Provision für ${periodLabel}. Reverse-Charge-Verfahren.`
-      : `Provision für ${periodLabel}.`,
-    footText: isReverseCharge
-      ? "Reverse Charge – Steuerschuld geht auf den Leistungsempfänger über."
-      : "",
+    headText: `Provision für ${periodLabel}.`,
     timeToPay: 14,
     discount: 0,
-    taxRate: vatRate,
-    taxText: isReverseCharge ? "Reverse Charge" : `${vatRate}% USt`,
     currency: "EUR",
   };
 }
@@ -224,12 +213,10 @@ export async function POST(req) {
 
     const invoicePayload = buildInvoiceHeader({
       coachMember,
-      invoiceBundle,
       periodLabel,
       invoiceDateStr,
     });
 
-    // kleiner Delay vor Invoice-Create
     await sleep(500);
 
     const { res: invoiceRes, data: invoiceJson } = await sevdeskFetch(
@@ -297,7 +284,6 @@ export async function POST(req) {
       }
 
       createdPositions.push(posJson);
-
       await sleep(300);
     }
 
