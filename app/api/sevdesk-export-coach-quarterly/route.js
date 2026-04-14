@@ -133,7 +133,7 @@ export async function POST(req) {
     // POSITIONEN
     // =========================
     invoiceBundle.rows.forEach((row, i) => {
-      params.append(`invoicePosSave[${i}][part][id]`, "1");
+      params.append(`invoicePosSave[${i}][part][id]`, "55040478");
       params.append(`invoicePosSave[${i}][part][objectName]`, "Part");
 
       params.append(
