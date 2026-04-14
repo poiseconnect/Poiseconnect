@@ -4952,17 +4952,17 @@ const data = await res.json();
 </select>
           <label>Therapeut *</label>
           <select
-            value={bestandTherapeut}
-            onChange={(e) => setBestandTherapeut(e.target.value)}
-            style={{ width: "100%", marginBottom: 12 }}
-          >
-            <option value="">Bitte wählen…</option>
-            {teamData.map((t) => (
-              <option key={t.name} value={t.name}>
-                {t.name}
-              </option>
-            ))}
-          </select>
+  value={bestandTherapeut}
+  onChange={(e) => setBestandTherapeut(e.target.value)}
+  style={{ width: "100%", marginBottom: 12 }}
+>
+  <option value="">Bitte wählen…</option>
+  {teamData.map((t) => (
+    <option key={t.id} value={t.id}>
+      {t.name}
+    </option>
+  ))}
+</select>
 
           <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
             <button onClick={() => setCreateBestandOpen(false)}>Abbrechen</button>
@@ -4986,8 +4986,8 @@ body: JSON.stringify({
   plz_ort: bestandPlzOrt,
   geburtsdatum: bestandGeburtsdatum,
   beschaeftigungsgrad: bestandBeschaeftigungsgrad,
-  wunschtherapeut: bestandTherapeut,
-  therapist_id: myTeamMemberId,
+  wunschtherapeut: selectedTherapist?.name || "",
+  assigned_therapist_id: selectedTherapist?.id || null,
 }),
                 });
 
