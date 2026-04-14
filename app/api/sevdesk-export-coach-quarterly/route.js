@@ -27,13 +27,6 @@ function toDateOnly(value = new Date()) {
   return d.toISOString().slice(0, 10);
 }
 
-function addDays(dateStr, days) {
-  const d = new Date(dateStr);
-  if (Number.isNaN(d.getTime())) return dateStr;
-  d.setDate(d.getDate() + days);
-  return d.toISOString().slice(0, 10);
-}
-
 function formatDateDE(dateLike) {
   const d = new Date(dateLike);
   if (Number.isNaN(d.getTime())) return "";
@@ -113,67 +106,19 @@ async function requireAdmin(req) {
   return { user, member };
 }
 
-function buildHeadText({ periodLabel, invoiceBundle }) {
-  const lines = [
-    "Projekt: Klienten-Vermittlung für psychologische Beratung und Mental Coaching",
-    "",
-  ];
+function buildOrderPayload({ coachMember, periodLabel, orderDateStr }) {
+  const [y, m, d] = String(orderDateStr).split("-");
+  const sevDate = `${d}.${m}.${y}`;
 
-  for (const row of invoiceBundle?.rows || []) {
-    lines.push(`Anzahl der vermittelten Sitzungen ${row.label}: ${safeNumber(row.qty, 0)}`);
-  }
-
-  lines.push("");
-  lines.push("Sehr geehrte Frau xxx,");
-  lines.push("");
-  lines.push("liebe xxx,");
-  lines.push("");
-  lines.push("Für unsere Unterstützung stellen wir wie vereinbart in Rechnung:");
-
-  return lines.join("\n");
-}
-
-function buildFootText() {
-  return [
-    "zahlbar: 14 Tage nach Rechnungseingang ohne Abzug.",
-    "",
-    "Herzlichen Dank für Dein Engagement und die angenehme Zusammenarbeit!",
-    "",
-    "Liebe Grüße",
-    "",
-    "Sebastian Kickinger Poise by Linda Leinweber GmbH",
-  ].join("\n");
-}
-
-function buildOrderPayload({
-  coachMember,
-  periodLabel,
-  orderDateStr,
-  dueDateStr,
-  invoiceBundle,
-  poiseSettings,
-}) {
   return {
+    orderDate: sevDate,
+    status: 100,
+    header: `Poise Provision ${periodLabel}`,
+    headText: `Provision für ${periodLabel}.`,
     contact: {
       id: String(coachMember.sevdesk_contact_id),
       objectName: "Contact",
     },
-    orderDate: orderDateStr,
-    deliveryDate: orderDateStr,
-    status: 100, // Entwurf
-    header: `Poise Provision ${periodLabel}`,
-    headText: buildHeadText({ periodLabel, invoiceBundle }),
-    footText: buildFootText(),
-    address: poiseSettings?.address || "Hamberg 21\n4813 Altmünster\nÖsterreich",
-    timeToPay: 14,
-    dueDate: dueDateStr,
-    discount: 0,
-    currency: "EUR",
-    taxRate: safeNumber(invoiceBundle?.vat_rate, 0),
-    taxText:
-      invoiceBundle?.key === "reverse_charge"
-        ? "Reverse Charge"
-        : `${safeNumber(invoiceBundle?.vat_rate, 0)}% USt`,
   };
 }
 
@@ -235,7 +180,6 @@ export async function POST(req) {
     const coach = body?.coach || null;
     const invoiceBundle = body?.invoiceBundle || null;
     const periodLabel = body?.periodLabel || "";
-    const poiseSettings = body?.poiseSettings || {};
 
     if (!coach?.id) {
       return json({ error: "missing_coach_id" }, 400);
@@ -289,16 +233,12 @@ export async function POST(req) {
     }
 
     const orderDateStr = toDateOnly(new Date());
-    const dueDateStr = addDays(orderDateStr, 14);
 
-    // 1) Auftrag anlegen
+    // 1) Auftrag ultraminimal anlegen
     const orderPayload = buildOrderPayload({
       coachMember,
       periodLabel,
       orderDateStr,
-      dueDateStr,
-      invoiceBundle,
-      poiseSettings,
     });
 
     await sleep(300);
