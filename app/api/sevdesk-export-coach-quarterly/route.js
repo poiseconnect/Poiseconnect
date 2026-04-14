@@ -14,17 +14,6 @@ function json(data, status = 200) {
   });
 }
 
-function buildFormBody(obj) {
-  const params = new URLSearchParams();
-
-  Object.entries(obj).forEach(([key, value]) => {
-    if (value === null || value === undefined || value === "") return;
-    params.append(key, String(value));
-  });
-
-  return params.toString();
-}
-
 async function getUserFromBearer(req) {
   const authHeader = req.headers.get("authorization") || "";
   const token = authHeader.replace("Bearer ", "").trim();
@@ -67,162 +56,14 @@ function formatDateDE(dateLike) {
   return d.toLocaleDateString("de-AT");
 }
 
-async function createInvoiceDraft({
-  apiToken,
-  contactId,
-  invoiceName,
-  periodLabel,
-  poiseSettings,
-  invoiceBundle,
-}) {
-  const invoiceDate = new Date();
-  const invoiceDateStr = invoiceDate.toISOString().slice(0, 10);
-
-  const formBody = buildFormBody({
-    "invoice[header]": invoiceName,
-    "invoice[invoiceType]": "RE",
-    "invoice[invoiceDate]": invoiceDateStr,
-    "invoice[status]": 100,
-
-    "invoice[contact][id]": String(contactId),
-    "invoice[contact][objectName]": "Contact",
-
-    "invoice[timeToPay]": 14,
-    "invoice[discount]": 0,
-    "invoice[address]": poiseSettings?.address || "",
-    "invoice[taxRate]": Number(invoiceBundle.vat_rate || 0),
-    "invoice[taxText]":
-      invoiceBundle.key === "reverse_charge"
-        ? "Reverse Charge"
-        : `${Number(invoiceBundle.vat_rate || 0)}% USt`,
-    "invoice[currency]": "EUR",
-    "invoice[headText]":
-      invoiceBundle.key === "reverse_charge"
-        ? `Provision für ${periodLabel}. Reverse-Charge-Verfahren.`
-        : `Provision für ${periodLabel}.`,
-    "invoice[footText]":
-      invoiceBundle.key === "reverse_charge"
-        ? "Reverse Charge – Steuerschuld geht auf den Leistungsempfänger über."
-        : "",
-    "invoice[objectName]": "Invoice",
-  });
-
-  let lastJson = null;
-  let lastStatus = 500;
-
-  for (let attempt = 1; attempt <= 3; attempt++) {
-    const res = await fetch("https://my.sevdesk.de/api/v1/Invoice/Factory/saveInvoice", {
-      method: "POST",
-      headers: {
-        Authorization: apiToken,
-        "Content-Type": "application/x-www-form-urlencoded",
-        Accept: "application/json",
-      },
-      body: formBody,
-    });
-
-    const responseJson = await res.json().catch(() => null);
-    lastJson = responseJson;
-    lastStatus = res.status;
-
-    if (res.ok) {
-      const invoiceId =
-        responseJson?.objects?.id ||
-        responseJson?.object?.id ||
-        responseJson?.id ||
-        null;
-
-      if (!invoiceId) {
-        return {
-          ok: false,
-          status: 500,
-          body: {
-            error: "missing_invoice_id",
-            detail: responseJson,
-            sent_payload: formBody,
-          },
-        };
-      }
-
-      return {
-        ok: true,
-        invoiceId,
-        invoiceDate,
-        invoiceDateStr,
-        raw: responseJson,
-      };
-    }
-
-    const message = responseJson?.error?.message || "";
-
-    if (!message.toLowerCase().includes("timeout") || attempt === 3) {
-      break;
-    }
-
-    await new Promise((resolve) => setTimeout(resolve, 1200 * attempt));
-  }
-
-  return {
-    ok: false,
-    status: lastStatus || 500,
-    body: {
-      error: "sevdesk_create_invoice_failed",
-      detail: lastJson,
-      sent_payload: formBody,
-    },
-  };
-}
-
-async function createInvoicePosition({
-  apiToken,
-  invoiceId,
-  row,
-  periodLabel,
-  vatRate,
-  positionNumber,
-}) {
-  const formBody = buildFormBody({
-    "invoice[id]": String(invoiceId),
-    "invoice[objectName]": "Invoice",
-    name: `${row.label} – ${periodLabel}`,
-    text: `${Number(row.qty || 0)} x ${Number(row.unit_price_net || 0).toFixed(2)} € netto`,
-    quantity: Number(row.qty || 0),
-    price: Number(row.unit_price_net || 0),
-    taxRate: Number(vatRate || 0),
-    positionNumber: Number(positionNumber || 1),
-    "unity[id]": "1",
-    "unity[objectName]": "Unity",
-  });
-
-  const res = await fetch("https://my.sevdesk.de/api/v1/InvoicePos", {
-    method: "POST",
-    headers: {
-      Authorization: apiToken,
-      "Content-Type": "application/x-www-form-urlencoded",
-      Accept: "application/json",
-    },
-    body: formBody,
-  });
-
-  const responseJson = await res.json().catch(() => null);
-
-  if (!res.ok) {
-    return {
-      ok: false,
-      status: res.status,
-      body: {
-        error: "sevdesk_position_failed",
-        detail: responseJson,
-        sent_payload: formBody,
-        invoiceId,
-      },
-    };
-  }
-
-  return {
-    ok: true,
-    raw: responseJson,
-  };
+function pickIdFromSevdeskResponse(data) {
+  return (
+    data?.objects?.id ||
+    data?.objects?.[0]?.id ||
+    data?.object?.id ||
+    data?.id ||
+    null
+  );
 }
 
 export async function POST(req) {
@@ -285,46 +126,137 @@ export async function POST(req) {
       );
     }
 
+    const invoiceDate = new Date();
+    const invoiceDateStr = invoiceDate.toISOString().slice(0, 10);
+
     const invoiceName =
       invoiceBundle.key === "reverse_charge"
         ? `Poise Provision ${periodLabel} Reverse Charge`
         : `Poise Provision ${periodLabel}`;
 
-    const invoiceResult = await createInvoiceDraft({
-      apiToken,
-      contactId: coachMember.sevdesk_contact_id,
-      invoiceName,
-      periodLabel,
-      poiseSettings,
-      invoiceBundle,
+    // 1) RECHNUNG ANLEGEN
+    // WICHTIG:
+    // - KEIN "invoice: {...}" Wrapper
+    // - KEIN URLSearchParams
+    // - DIREKTES JSON schicken
+    const invoicePayload = {
+      contact: {
+        id: String(coachMember.sevdesk_contact_id),
+        objectName: "Contact",
+      },
+      invoiceDate: invoiceDateStr,
+      invoiceType: "RE",
+      status: 100,
+      header: invoiceName,
+      headText:
+        invoiceBundle.key === "reverse_charge"
+          ? `Provision für ${periodLabel}. Reverse-Charge-Verfahren.`
+          : `Provision für ${periodLabel}.`,
+      footText:
+        invoiceBundle.key === "reverse_charge"
+          ? "Reverse Charge – Steuerschuld geht auf den Leistungsempfänger über."
+          : "",
+      timeToPay: 14,
+      discount: 0,
+      address: poiseSettings?.address || "",
+      taxRate: Number(invoiceBundle.vat_rate || 0),
+      taxText:
+        invoiceBundle.key === "reverse_charge"
+          ? "Reverse Charge"
+          : `${Number(invoiceBundle.vat_rate || 0)}% USt`,
+      currency: "EUR",
+      objectName: "Invoice",
+    };
+
+    const createInvoiceRes = await fetch("https://my.sevdesk.de/api/v1/Invoice", {
+      method: "POST",
+      headers: {
+        Authorization: apiToken,
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+      body: JSON.stringify(invoicePayload),
     });
 
-    if (!invoiceResult.ok) {
-      return json(invoiceResult.body, invoiceResult.status || 500);
+    const createInvoiceJson = await createInvoiceRes.json();
+
+    if (!createInvoiceRes.ok) {
+      console.error("SEVDESK CREATE INVOICE ERROR:", createInvoiceJson);
+      return json(
+        {
+          error: "sevdesk_create_invoice_failed",
+          detail: createInvoiceJson,
+          sent_payload: invoicePayload,
+        },
+        500
+      );
     }
 
-    const { invoiceId, invoiceDate } = invoiceResult;
+    const invoiceId = pickIdFromSevdeskResponse(createInvoiceJson);
 
+    if (!invoiceId) {
+      return json(
+        {
+          error: "missing_invoice_id",
+          detail: createInvoiceJson,
+        },
+        500
+      );
+    }
+
+    // 2) POSITIONEN EINZELN HINZUFÜGEN
     for (let i = 0; i < invoiceBundle.rows.length; i++) {
       const row = invoiceBundle.rows[i];
 
-      const posResult = await createInvoicePosition({
-        apiToken,
-        invoiceId,
-        row,
-        periodLabel,
-        vatRate: invoiceBundle.vat_rate,
+      const positionPayload = {
+        invoice: {
+          id: String(invoiceId),
+          objectName: "Invoice",
+        },
+        name: `${row.label} – ${periodLabel}`,
+        text: `${Number(row.qty || 0)} x ${Number(
+          row.unit_price_net || 0
+        ).toFixed(2)} € netto`,
+        quantity: Number(row.qty || 0),
+        price: Number(row.unit_price_net || 0),
+        taxRate: Number(invoiceBundle.vat_rate || 0),
         positionNumber: i + 1,
+        unity: {
+          id: "1",
+          objectName: "Unity",
+        },
+        objectName: "InvoicePos",
+      };
+
+      const posRes = await fetch("https://my.sevdesk.de/api/v1/InvoicePos", {
+        method: "POST",
+        headers: {
+          Authorization: apiToken,
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify(positionPayload),
       });
 
-      if (!posResult.ok) {
-        return json(posResult.body, posResult.status || 500);
+      const posJson = await posRes.json();
+
+      if (!posRes.ok) {
+        console.error("SEVDESK POSITION ERROR:", posJson);
+        return json(
+          {
+            error: "sevdesk_position_failed",
+            invoiceId,
+            detail: posJson,
+            sent_payload: positionPayload,
+          },
+          500
+        );
       }
     }
 
     return json({
       ok: true,
-      invoiceId,
+      invoiceId: String(invoiceId),
       coach: coachMember.profile_name || "Coach",
       sevdesk_contact_id: coachMember.sevdesk_contact_id,
       periodLabel,
