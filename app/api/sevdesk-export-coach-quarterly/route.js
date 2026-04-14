@@ -17,6 +17,10 @@ function json(data, status = 200) {
   });
 }
 
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 async function getUserFromBearer(req) {
   const authHeader = req.headers.get("authorization") || "";
   const token = authHeader.replace("Bearer ", "").trim();
@@ -59,19 +63,24 @@ function formatDateDE(dateLike) {
   return d.toLocaleDateString("de-AT");
 }
 
-function buildInvoiceHeader({ invoiceBundle, periodLabel, invoiceDateStr }) {
+function buildInvoiceHeader({
+  coachMember,
+  invoiceBundle,
+  periodLabel,
+  invoiceDateStr,
+}) {
   const isReverseCharge = invoiceBundle.key === "reverse_charge";
   const vatRate = Number(invoiceBundle.vat_rate || 0);
 
-  const header = isReverseCharge
-    ? `Poise Provision ${periodLabel} Reverse Charge`
-    : `Poise Provision ${periodLabel}`;
-
   return {
+    contact: {
+      id: String(coachMember.sevdesk_contact_id),
+      objectName: "Contact",
+    },
     invoiceDate: invoiceDateStr,
     invoiceType: "RE",
     status: 100,
-    header,
+    header: `Poise Provision ${periodLabel}`,
     headText: isReverseCharge
       ? `Provision für ${periodLabel}. Reverse-Charge-Verfahren.`
       : `Provision für ${periodLabel}.`,
@@ -213,12 +222,15 @@ export async function POST(req) {
     const invoiceDate = new Date();
     const invoiceDateStr = invoiceDate.toISOString().slice(0, 10);
 
-    // 1) Rechnung minimal anlegen
     const invoicePayload = buildInvoiceHeader({
+      coachMember,
       invoiceBundle,
       periodLabel,
       invoiceDateStr,
     });
+
+    // kleiner Delay vor Invoice-Create
+    await sleep(500);
 
     const { res: invoiceRes, data: invoiceJson } = await sevdeskFetch(
       "https://my.sevdesk.de/api/v1/Invoice",
@@ -250,35 +262,8 @@ export async function POST(req) {
       );
     }
 
-    // 2) Kontakt auf die erzeugte Rechnung setzen
-    const contactPatchPayload = {
-      id: String(invoiceId),
-      contact: {
-        id: String(coachMember.sevdesk_contact_id),
-        objectName: "Contact",
-      },
-    };
+    await sleep(300);
 
-    const { res: contactRes, data: contactJson } = await sevdeskFetch(
-      `https://my.sevdesk.de/api/v1/Invoice/${invoiceId}`,
-      apiToken,
-      contactPatchPayload
-    );
-
-    if (!contactRes.ok) {
-      console.error("SEVDESK SET CONTACT ERROR:", contactJson);
-      return json(
-        {
-          error: "sevdesk_set_contact_failed",
-          invoiceId,
-          detail: contactJson,
-          sent_payload: contactPatchPayload,
-        },
-        500
-      );
-    }
-
-    // 3) Positionen separat anlegen
     const createdPositions = [];
 
     for (let i = 0; i < invoiceBundle.rows.length; i++) {
@@ -312,6 +297,8 @@ export async function POST(req) {
       }
 
       createdPositions.push(posJson);
+
+      await sleep(300);
     }
 
     return json({
