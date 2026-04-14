@@ -7,7 +7,6 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
-// Optional per ENV überschreibbar
 const SEVDESK_PART_ID = process.env.SEVDESK_PART_ID || "55040478";
 const SEVDESK_UNITY_ID = process.env.SEVDESK_UNITY_ID || "1";
 
@@ -65,6 +64,7 @@ async function sevdeskFetch(url, apiToken, payload, method = "POST") {
       "Content-Type": "application/json",
     },
     body: payload ? JSON.stringify(payload) : undefined,
+    cache: "no-store",
   });
 
   let data = null;
@@ -114,8 +114,6 @@ async function requireAdmin(req) {
 }
 
 function buildHeadText({ periodLabel, invoiceBundle }) {
-  const isReverseCharge = invoiceBundle?.key === "reverse_charge";
-
   const lines = [
     "Projekt: Klienten-Vermittlung für psychologische Beratung und Mental Coaching",
     "",
@@ -132,11 +130,6 @@ function buildHeadText({ periodLabel, invoiceBundle }) {
   lines.push("");
   lines.push("Für unsere Unterstützung stellen wir wie vereinbart in Rechnung:");
 
-  if (isReverseCharge) {
-    lines.push("");
-    lines.push("Abrechnung im Reverse-Charge-Verfahren.");
-  }
-
   return lines.join("\n");
 }
 
@@ -152,38 +145,30 @@ function buildFootText() {
   ].join("\n");
 }
 
-function buildInvoiceHeader({
+function buildOrderPayload({
   coachMember,
   periodLabel,
-  invoiceDateStr,
+  orderDateStr,
+  dueDateStr,
   invoiceBundle,
   poiseSettings,
 }) {
-  const paymentDueDate = addDays(invoiceDateStr, 14);
-
   return {
     contact: {
       id: String(coachMember.sevdesk_contact_id),
       objectName: "Contact",
     },
-
-    invoiceDate: invoiceDateStr,
-    deliveryDate: invoiceDateStr,
-    timeToPay: 14,
-    // Manche sevDesk-Setups reagieren besser, wenn beides da ist
-    dueDate: paymentDueDate,
-
-    invoiceType: "RE",
+    orderDate: orderDateStr,
+    deliveryDate: orderDateStr,
     status: 100, // Entwurf
     header: `Poise Provision ${periodLabel}`,
     headText: buildHeadText({ periodLabel, invoiceBundle }),
     footText: buildFootText(),
-
     address: poiseSettings?.address || "Hamberg 21\n4813 Altmünster\nÖsterreich",
-    currency: "EUR",
+    timeToPay: 14,
+    dueDate: dueDateStr,
     discount: 0,
-
-    // an deinen Screens orientiert
+    currency: "EUR",
     taxRate: safeNumber(invoiceBundle?.vat_rate, 0),
     taxText:
       invoiceBundle?.key === "reverse_charge"
@@ -192,8 +177,8 @@ function buildInvoiceHeader({
   };
 }
 
-function buildPositionPayload({
-  invoiceId,
+function buildOrderPosPayload({
+  orderId,
   row,
   index,
   periodLabel,
@@ -203,21 +188,16 @@ function buildPositionPayload({
   const unitPrice = safeNumber(row.unit_price_net, 0);
   const vatRate = safeNumber(invoiceBundle?.vat_rate, 0);
 
-  const isReverseCharge = invoiceBundle?.key === "reverse_charge";
-  const positionName = isReverseCharge
-    ? `Provision ${row.label} – ${periodLabel} (Reverse Charge)`
-    : `Provision ${row.label} – ${periodLabel}`;
-
   return {
-    invoice: {
-      id: String(invoiceId),
-      objectName: "Invoice",
+    order: {
+      id: String(orderId),
+      objectName: "Order",
     },
     part: {
       id: String(SEVDESK_PART_ID),
       objectName: "Part",
     },
-    name: positionName,
+    name: `Provision ${row.label} – ${periodLabel}`,
     text: `${qty} x ${unitPrice.toFixed(2)} € netto`,
     quantity: qty,
     price: unitPrice,
@@ -227,6 +207,21 @@ function buildPositionPayload({
       objectName: "Unity",
     },
     positionNumber: index + 1,
+  };
+}
+
+function buildCreateInvoiceFromOrderPayload({
+  orderId,
+  invoiceDateStr,
+}) {
+  return {
+    order: {
+      id: String(orderId),
+      objectName: "Order",
+    },
+    invoiceDate: invoiceDateStr,
+    status: 100,
+    invoiceType: "RE",
   };
 }
 
@@ -293,59 +288,61 @@ export async function POST(req) {
       );
     }
 
-    const invoiceDateStr = toDateOnly(new Date());
+    const orderDateStr = toDateOnly(new Date());
+    const dueDateStr = addDays(orderDateStr, 14);
 
-    // 1) Rechnungskopf anlegen
-    const invoicePayload = buildInvoiceHeader({
+    // 1) Auftrag anlegen
+    const orderPayload = buildOrderPayload({
       coachMember,
       periodLabel,
-      invoiceDateStr,
+      orderDateStr,
+      dueDateStr,
       invoiceBundle,
       poiseSettings,
     });
 
-    await sleep(400);
+    await sleep(300);
 
-    const { res: invoiceRes, data: invoiceJson } = await sevdeskFetch(
-      "https://my.sevdesk.de/api/v1/Invoice",
+    const { res: orderRes, data: orderJson } = await sevdeskFetch(
+      "https://my.sevdesk.de/api/v1/Order",
       apiToken,
-      invoicePayload
+      orderPayload
     );
 
-    if (!invoiceRes.ok) {
-      console.error("SEVDESK CREATE INVOICE ERROR:", invoiceJson);
+    if (!orderRes.ok) {
+      console.error("SEVDESK CREATE ORDER ERROR:", orderJson);
       return json(
         {
-          error: "sevdesk_create_invoice_failed",
-          detail: invoiceJson,
-          sent_payload: invoicePayload,
+          error: "sevdesk_create_order_failed",
+          detail: orderJson,
+          sent_payload: orderPayload,
         },
         500
       );
     }
 
-    const invoiceId = extractId(invoiceJson);
+    const orderId = extractId(orderJson);
 
-    if (!invoiceId) {
+    if (!orderId) {
       return json(
         {
-          error: "missing_invoice_id",
-          detail: invoiceJson,
+          error: "missing_order_id",
+          detail: orderJson,
         },
         500
       );
     }
 
-    await sleep(350);
+    await sleep(300);
 
-    // 2) Positionen anlegen
+    // 2) Auftragspositionen anlegen
     const createdPositions = [];
 
     for (let i = 0; i < invoiceBundle.rows.length; i++) {
       const row = invoiceBundle.rows[i];
 
-      const positionPayload = buildPositionPayload({
-        invoiceId,
+      const orderPosPayload = buildOrderPosPayload({
+        orderId,
         row,
         index: i,
         periodLabel,
@@ -353,19 +350,19 @@ export async function POST(req) {
       });
 
       const { res: posRes, data: posJson } = await sevdeskFetch(
-        "https://my.sevdesk.de/api/v1/InvoicePos",
+        "https://my.sevdesk.de/api/v1/OrderPos",
         apiToken,
-        positionPayload
+        orderPosPayload
       );
 
       if (!posRes.ok) {
-        console.error("SEVDESK CREATE POSITION ERROR:", posJson);
+        console.error("SEVDESK CREATE ORDER POSITION ERROR:", posJson);
         return json(
           {
-            error: "sevdesk_create_position_failed",
-            invoiceId,
+            error: "sevdesk_create_order_position_failed",
+            orderId,
             detail: posJson,
-            sent_payload: positionPayload,
+            sent_payload: orderPosPayload,
           },
           500
         );
@@ -375,18 +372,47 @@ export async function POST(req) {
       await sleep(250);
     }
 
+    await sleep(500);
+
+    // 3) Rechnung aus Auftrag erzeugen
+    const createInvoicePayload = buildCreateInvoiceFromOrderPayload({
+      orderId,
+      invoiceDateStr: orderDateStr,
+    });
+
+    const { res: invoiceRes, data: invoiceJson } = await sevdeskFetch(
+      "https://my.sevdesk.de/api/v1/Invoice/Factory/createInvoiceFromOrder",
+      apiToken,
+      createInvoicePayload
+    );
+
+    if (!invoiceRes.ok) {
+      console.error("SEVDESK CREATE INVOICE FROM ORDER ERROR:", invoiceJson);
+      return json(
+        {
+          error: "sevdesk_create_invoice_from_order_failed",
+          orderId,
+          detail: invoiceJson,
+          sent_payload: createInvoicePayload,
+        },
+        500
+      );
+    }
+
+    const invoiceId = extractId(invoiceJson);
+
     return json({
       ok: true,
-      invoiceId: String(invoiceId),
+      orderId: String(orderId),
+      invoiceId: invoiceId ? String(invoiceId) : null,
       coach: coachMember.profile_name || "Coach",
       sevdesk_contact_id: coachMember.sevdesk_contact_id,
       periodLabel,
-      created_at: formatDateDE(invoiceDateStr),
+      created_at: formatDateDE(orderDateStr),
       positions_created: createdPositions.length,
     });
   } catch (err) {
     console.error("SEVDESK EXPORT COACH QUARTERLY ERROR:", err);
-
     return json(
       {
         error: "server_error",
