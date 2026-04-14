@@ -56,14 +56,9 @@ function formatDateDE(dateLike) {
   return d.toLocaleDateString("de-AT");
 }
 
-function pickIdFromSevdeskResponse(data) {
-  return (
-    data?.objects?.id ||
-    data?.objects?.[0]?.id ||
-    data?.object?.id ||
-    data?.id ||
-    null
-  );
+function addParam(params, key, value) {
+  if (value === null || value === undefined || value === "") return;
+  params.append(key, String(value));
 }
 
 export async function POST(req) {
@@ -134,133 +129,173 @@ export async function POST(req) {
         ? `Poise Provision ${periodLabel} Reverse Charge`
         : `Poise Provision ${periodLabel}`;
 
-    // 1) RECHNUNG ANLEGEN
     // WICHTIG:
-    // - KEIN "invoice: {...}" Wrapper
-    // - KEIN URLSearchParams
-    // - DIREKTES JSON schicken
-    const invoicePayload = {
-      contact: {
-        id: String(coachMember.sevdesk_contact_id),
-        objectName: "Contact",
-      },
-      invoiceDate: invoiceDateStr,
-      invoiceType: "RE",
-      status: 100,
-      header: invoiceName,
-      headText:
-        invoiceBundle.key === "reverse_charge"
-          ? `Provision für ${periodLabel}. Reverse-Charge-Verfahren.`
-          : `Provision für ${periodLabel}.`,
-      footText:
-        invoiceBundle.key === "reverse_charge"
-          ? "Reverse Charge – Steuerschuld geht auf den Leistungsempfänger über."
-          : "",
-      timeToPay: 14,
-      discount: 0,
-      address: poiseSettings?.address || "",
-      taxRate: Number(invoiceBundle.vat_rate || 0),
-      taxText:
-        invoiceBundle.key === "reverse_charge"
-          ? "Reverse Charge"
-          : `${Number(invoiceBundle.vat_rate || 0)}% USt`,
-      currency: "EUR",
-      objectName: "Invoice",
-    };
+    // saveInvoice erwartet application/x-www-form-urlencoded
+    // mit invoice[...] und invoicePosSave[...]
+    const params = new URLSearchParams();
 
-    const createInvoiceRes = await fetch("https://my.sevdesk.de/api/v1/Invoice", {
-      method: "POST",
-      headers: {
-        Authorization: apiToken,
-        "Content-Type": "application/json",
-        Accept: "application/json",
-      },
-      body: JSON.stringify(invoicePayload),
+    // ===== invoice[...] =====
+    addParam(params, "invoice[header]", invoiceName);
+    addParam(params, "invoice[invoiceType]", "RE");
+    addParam(params, "invoice[invoiceDate]", invoiceDateStr);
+    addParam(params, "invoice[status]", 100);
+
+    addParam(
+      params,
+      "invoice[headText]",
+      invoiceBundle.key === "reverse_charge"
+        ? `Provision für ${periodLabel}. Reverse-Charge-Verfahren.`
+        : `Provision für ${periodLabel}.`
+    );
+
+    addParam(
+      params,
+      "invoice[footText]",
+      invoiceBundle.key === "reverse_charge"
+        ? "Reverse Charge – Steuerschuld geht auf den Leistungsempfänger über."
+        : ""
+    );
+
+    addParam(params, "invoice[timeToPay]", 14);
+    addParam(params, "invoice[discount]", 0);
+    addParam(params, "invoice[address]", poiseSettings?.address || "");
+    addParam(params, "invoice[taxRate]", Number(invoiceBundle.vat_rate || 0));
+    addParam(
+      params,
+      "invoice[taxText]",
+      invoiceBundle.key === "reverse_charge"
+        ? "Reverse Charge"
+        : `${Number(invoiceBundle.vat_rate || 0)}% USt`
+    );
+    addParam(params, "invoice[currency]", "EUR");
+    addParam(params, "invoice[objectName]", "Invoice");
+
+    addParam(
+      params,
+      "invoice[contact][id]",
+      String(coachMember.sevdesk_contact_id)
+    );
+    addParam(params, "invoice[contact][objectName]", "Contact");
+
+    // ===== invoicePosSave[...] =====
+    // Laut sevDesk quick reference sind part + unity + objectName + mapAll nötig.
+    // Wir verwenden eine freie Textposition über einen Standard-Part.
+    // Falls deine sevDesk-Instanz damit meckert, muss als Nächstes die echte Part-ID
+    // aus deiner sevDesk-Installation verwendet werden.
+    invoiceBundle.rows.forEach((row, i) => {
+      const qty = Number(row.qty || 0);
+      const unitPrice = Number(row.unit_price_net || 0);
+      const taxRate = Number(invoiceBundle.vat_rate || 0);
+
+      addParam(
+        params,
+        `invoicePosSave[${i}][part][id]`,
+        1
+      );
+      addParam(
+        params,
+        `invoicePosSave[${i}][part][objectName]`,
+        "Part"
+      );
+
+      addParam(
+        params,
+        `invoicePosSave[${i}][name]`,
+        `${row.label} – ${periodLabel}`
+      );
+      addParam(
+        params,
+        `invoicePosSave[${i}][text]`,
+        `${qty} x ${unitPrice.toFixed(2)} € netto`
+      );
+      addParam(
+        params,
+        `invoicePosSave[${i}][quantity]`,
+        qty
+      );
+      addParam(
+        params,
+        `invoicePosSave[${i}][price]`,
+        unitPrice
+      );
+      addParam(
+        params,
+        `invoicePosSave[${i}][taxRate]`,
+        taxRate
+      );
+
+      addParam(
+        params,
+        `invoicePosSave[${i}][unity][id]`,
+        1
+      );
+      addParam(
+        params,
+        `invoicePosSave[${i}][unity][objectName]`,
+        "Unity"
+      );
+
+      addParam(
+        params,
+        `invoicePosSave[${i}][positionNumber]`,
+        i + 1
+      );
+      addParam(
+        params,
+        `invoicePosSave[${i}][mapAll]`,
+        true
+      );
+      addParam(
+        params,
+        `invoicePosSave[${i}][objectName]`,
+        "InvoicePos"
+      );
     });
 
-    const createInvoiceJson = await createInvoiceRes.json();
+    // sevDesk expects this key to exist in many factory calls
+    addParam(params, "invoicePosDelete", "null");
 
-    if (!createInvoiceRes.ok) {
-      console.error("SEVDESK CREATE INVOICE ERROR:", createInvoiceJson);
-      return json(
-        {
-          error: "sevdesk_create_invoice_failed",
-          detail: createInvoiceJson,
-          sent_payload: invoicePayload,
-        },
-        500
-      );
-    }
-
-    const invoiceId = pickIdFromSevdeskResponse(createInvoiceJson);
-
-    if (!invoiceId) {
-      return json(
-        {
-          error: "missing_invoice_id",
-          detail: createInvoiceJson,
-        },
-        500
-      );
-    }
-
-    // 2) POSITIONEN EINZELN HINZUFÜGEN
-    for (let i = 0; i < invoiceBundle.rows.length; i++) {
-      const row = invoiceBundle.rows[i];
-
-      const positionPayload = {
-        invoice: {
-          id: String(invoiceId),
-          objectName: "Invoice",
-        },
-        name: `${row.label} – ${periodLabel}`,
-        text: `${Number(row.qty || 0)} x ${Number(
-          row.unit_price_net || 0
-        ).toFixed(2)} € netto`,
-        quantity: Number(row.qty || 0),
-        price: Number(row.unit_price_net || 0),
-        taxRate: Number(invoiceBundle.vat_rate || 0),
-        positionNumber: i + 1,
-        unity: {
-          id: "1",
-          objectName: "Unity",
-        },
-        objectName: "InvoicePos",
-      };
-
-      const posRes = await fetch("https://my.sevdesk.de/api/v1/InvoicePos", {
+    const sevdeskRes = await fetch(
+      "https://my.sevdesk.de/api/v1/Invoice/Factory/saveInvoice",
+      {
         method: "POST",
         headers: {
           Authorization: apiToken,
-          "Content-Type": "application/json",
+          "Content-Type": "application/x-www-form-urlencoded",
           Accept: "application/json",
         },
-        body: JSON.stringify(positionPayload),
-      });
-
-      const posJson = await posRes.json();
-
-      if (!posRes.ok) {
-        console.error("SEVDESK POSITION ERROR:", posJson);
-        return json(
-          {
-            error: "sevdesk_position_failed",
-            invoiceId,
-            detail: posJson,
-            sent_payload: positionPayload,
-          },
-          500
-        );
+        body: params.toString(),
       }
+    );
+
+    const sevdeskJson = await sevdeskRes.json();
+
+    if (!sevdeskRes.ok) {
+      console.error("SEVDESK CREATE INVOICE ERROR:", sevdeskJson);
+      return json(
+        {
+          error: "sevdesk_create_invoice_failed",
+          detail: sevdeskJson,
+          sent_payload: params.toString(),
+        },
+        500
+      );
     }
+
+    const invoiceId =
+      sevdeskJson?.objects?.id ||
+      sevdeskJson?.object?.id ||
+      sevdeskJson?.id ||
+      null;
 
     return json({
       ok: true,
-      invoiceId: String(invoiceId),
+      invoiceId,
       coach: coachMember.profile_name || "Coach",
       sevdesk_contact_id: coachMember.sevdesk_contact_id,
       periodLabel,
       created_at: formatDateDE(invoiceDate),
+      sevdesk_response: sevdeskJson,
     });
   } catch (err) {
     console.error("SEVDESK EXPORT COACH QUARTERLY ERROR:", err);
