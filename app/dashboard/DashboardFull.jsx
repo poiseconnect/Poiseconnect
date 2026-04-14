@@ -4967,50 +4967,68 @@ const data = await res.json();
           <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
             <button onClick={() => setCreateBestandOpen(false)}>Abbrechen</button>
 
-            <button
-              onClick={async () => {
-                if (!bestandVorname || !bestandNachname || !bestandTherapeut) {
-                  alert("Bitte alle Pflichtfelder ausfüllen");
-                  return;
-                }
+<button
+  onClick={async () => {
+    if (!bestandVorname || !bestandNachname || !bestandTherapeut) {
+      alert("Bitte alle Pflichtfelder ausfüllen");
+      return;
+    }
 
-                const res = await fetch("/api/create-bestand", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-body: JSON.stringify({
-  vorname: bestandVorname,
-  nachname: bestandNachname,
-  email: bestandEmail,
-  telefon: bestandTelefon,
-  strasse_hausnr: bestandStrasse,
-  plz_ort: bestandPlzOrt,
-  geburtsdatum: bestandGeburtsdatum,
-  beschaeftigungsgrad: bestandBeschaeftigungsgrad,
-  wunschtherapeut: selectedTherapist?.name || "",
-  assigned_therapist_id: selectedTherapist?.id || null,
-}),
-                });
+    // 🔥 HIER definieren
+    const selectedTherapist = teamData.find(
+      (t) => String(t.id) === String(bestandTherapeut)
+    );
 
-                if (!res.ok) {
-                  alert("Fehler beim Anlegen");
-                  return;
-                }
+    if (!selectedTherapist) {
+      console.error("Therapeut nicht gefunden:", bestandTherapeut);
+      alert("Bitte gültige Therapeut:in wählen");
+      return;
+    }
 
-setCreateBestandOpen(false);
-setBestandVorname("");
-setBestandNachname("");
-setBestandEmail("");
-setBestandTelefon("");
-setBestandStrasse("");
-setBestandPlzOrt("");
-setBestandGeburtsdatum("");
-setBestandBeschaeftigungsgrad("");
-setBestandTherapeut("");
-location.reload();
-              }}
-            >
-              ✔ Anlegen
-            </button>
+    const res = await fetch("/api/create-bestand", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        vorname: bestandVorname,
+        nachname: bestandNachname,
+        email: bestandEmail,
+        telefon: bestandTelefon,
+        strasse_hausnr: bestandStrasse,
+        plz_ort: bestandPlzOrt,
+        geburtsdatum: bestandGeburtsdatum,
+        beschaeftigungsgrad: bestandBeschaeftigungsgrad,
+
+        // ✅ wichtig
+        wunschtherapeut: selectedTherapist.name,
+        therapist_id: selectedTherapist.id,
+      }),
+    });
+
+    if (!res.ok) {
+      const text = await res.text();
+      console.error("CREATE BESTAND FAILED:", text);
+      alert("Fehler beim Anlegen");
+      return;
+    }
+
+    // reset
+    setCreateBestandOpen(false);
+    setBestandVorname("");
+    setBestandNachname("");
+    setBestandEmail("");
+    setBestandTelefon("");
+    setBestandStrasse("");
+    setBestandPlzOrt("");
+    setBestandGeburtsdatum("");
+    setBestandBeschaeftigungsgrad("");
+    setBestandTherapeut("");
+
+    location.reload();
+  }}
+>
+  ✔ Anlegen
+</button>
+
           </div>
         </Modal>
       )}
