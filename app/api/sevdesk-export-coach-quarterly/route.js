@@ -134,12 +134,18 @@ function buildOrderFormPayload({ coachMember, periodLabel, orderDateStr }) {
   const sevDate = `${d}.${m}.${y}`;
 
   const params = new URLSearchParams();
+
+  // top-level
+  params.set("currency", "EUR");
+
+  // order fields
   params.set("order[objectName]", "Order");
   params.set("order[orderDate]", sevDate);
   params.set("order[status]", "100");
   params.set("order[header]", `Poise Provision ${periodLabel}`);
   params.set("order[headText]", `Provision für ${periodLabel}.`);
-  params.set("order[currency]", "EUR");
+
+  // contact
   params.set("order[contact][id]", String(coachMember.sevdesk_contact_id));
   params.set("order[contact][objectName]", "Contact");
 
@@ -255,7 +261,7 @@ export async function POST(req) {
 
     const orderDateStr = toDateOnly(new Date());
 
-    // 1) Auftrag als form-urlencoded anlegen
+    // 1) Auftrag anlegen
     const orderForm = buildOrderFormPayload({
       coachMember,
       periodLabel,
