@@ -135,19 +135,20 @@ function buildOrderFormPayload({ coachMember, periodLabel, orderDateStr }) {
 
   const params = new URLSearchParams();
 
-  // top-level
+  // WICHTIG: flache Order-Syntax gemäß sevDesk-Doku
+  params.set("orderType", "AN");
+  params.set("orderDate", sevDate);
+  params.set("status", "100");
+  params.set("header", `Poise Provision ${periodLabel}`);
+  params.set("headText", `Provision für ${periodLabel}.`);
   params.set("currency", "EUR");
+  params.set("taxType", "default");
+  params.set("taxRate", "20");
+  params.set("taxText", "20% USt");
+  params.set("version", "1");
 
-  // order fields
-  params.set("order[objectName]", "Order");
-  params.set("order[orderDate]", sevDate);
-  params.set("order[status]", "100");
-  params.set("order[header]", `Poise Provision ${periodLabel}`);
-  params.set("order[headText]", `Provision für ${periodLabel}.`);
-
-  // contact
-  params.set("order[contact][id]", String(coachMember.sevdesk_contact_id));
-  params.set("order[contact][objectName]", "Contact");
+  params.set("contact[id]", String(coachMember.sevdesk_contact_id));
+  params.set("contact[objectName]", "Contact");
 
   return params;
 }
