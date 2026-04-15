@@ -776,20 +776,22 @@ function exportAdminCoachQuarterInvoicePDF({
     coach?.name ||
     "Coach";
 
-  const recipientAddress =
-    coachInvoiceSettings?.address || "";
+  const recipientAddress = coachInvoiceSettings?.address || "";
 
   const vatRate = Number(invoiceBundle.vat_rate || 0);
   const subtotalNet = Number(invoiceBundle.subtotal_net || 0);
   const vatAmount = Number(invoiceBundle.vat_amount || 0);
   const totalGross = Number(invoiceBundle.total_gross || 0);
 
+  const safePeriodLabel = String(periodLabel || "Zeitraum")
+    .replace(/\s+/g, "_")
+    .replace(/\//g, "-");
+
   const invoiceNumber = `POISE-${invoiceBundle.key}-${today
     .toISOString()
     .slice(0, 10)}`;
 
-  // ================= HEADER =================
-
+  // HEADER
   doc.setFontSize(9);
   doc.text(POISE_ADMIN_SETTINGS.company_name || "", 14, 15);
   doc.text(POISE_ADMIN_SETTINGS.address || "", 14, 20);
@@ -802,11 +804,10 @@ function exportAdminCoachQuarterInvoicePDF({
     doc.text(`Steuernr: ${POISE_ADMIN_SETTINGS.tax_number}`, 14, 30);
   }
 
-  // ================= EMPFÄNGER =================
-
+  // EMPFÄNGER
   doc.setFontSize(11);
   doc.text("Rechnung an:", 14, 40);
-  doc.text(recipientName || "", 14, 46);
+  doc.text(recipientName, 14, 46);
 
   if (recipientAddress) {
     const lines = String(recipientAddress).split("\n");
@@ -825,8 +826,7 @@ function exportAdminCoachQuarterInvoicePDF({
     doc.text(`Steuernr: ${coachInvoiceSettings.tax_number}`, 14, 76);
   }
 
-  // ================= RECHNUNGSINFO RECHTS =================
-
+  // RECHNUNGSINFO
   doc.setFontSize(11);
   doc.text("Rechnung", pageWidth - 60, 30);
 
@@ -839,8 +839,7 @@ function exportAdminCoachQuarterInvoicePDF({
   doc.text(`Rechnungs-Nr.: ${invoiceNumber}`, pageWidth - 60, 42);
   doc.text(`Leistungszeitraum: ${periodLabel || "–"}`, pageWidth - 60, 48);
 
-  // ================= INTRO =================
-
+  // INTRO
   doc.setFontSize(12);
   doc.text(`Sehr geehrte/r ${recipientName},`, 14, 92);
 
@@ -853,15 +852,10 @@ function exportAdminCoachQuarterInvoicePDF({
 
   if (invoiceBundle.key === "reverse_charge") {
     doc.setFontSize(10);
-    doc.text(
-      "Abrechnung im Reverse-Charge-Verfahren.",
-      14,
-      110
-    );
+    doc.text("Abrechnung im Reverse-Charge-Verfahren.", 14, 110);
   }
 
-  // ================= TABLE =================
-
+  // TABLE
   const body = invoiceBundle.rows.map((row, i) => [
     i + 1,
     row.label,
@@ -884,16 +878,11 @@ function exportAdminCoachQuarterInvoicePDF({
     },
   });
 
-  // ================= TOTALS =================
-
+  // TOTALS
   const finalY = doc.lastAutoTable.finalY + 10;
 
   doc.setFontSize(11);
-  doc.text(
-    `Gesamt netto: ${subtotalNet.toFixed(2)} €`,
-    pageWidth - 80,
-    finalY
-  );
+  doc.text(`Gesamt netto: ${subtotalNet.toFixed(2)} €`, pageWidth - 80, finalY);
 
   if (vatRate > 0) {
     doc.text(
@@ -901,7 +890,6 @@ function exportAdminCoachQuarterInvoicePDF({
       pageWidth - 80,
       finalY + 6
     );
-
     doc.text(
       `Gesamtbetrag brutto: ${totalGross.toFixed(2)} €`,
       pageWidth - 80,
@@ -913,7 +901,6 @@ function exportAdminCoachQuarterInvoicePDF({
       pageWidth - 80,
       finalY + 6
     );
-
     doc.setFontSize(9);
     doc.text(
       "Reverse Charge – Steuerschuld geht auf den Leistungsempfänger über.",
@@ -922,8 +909,7 @@ function exportAdminCoachQuarterInvoicePDF({
     );
   }
 
-  // ================= FOOTER =================
-
+  // FOOTER
   doc.setFontSize(9);
   doc.text(POISE_ADMIN_SETTINGS.company_name || "", 14, 275);
   doc.text(`IBAN: ${POISE_ADMIN_SETTINGS.iban || "-"}`, 14, 280);
@@ -937,143 +923,11 @@ function exportAdminCoachQuarterInvoicePDF({
     doc.text(`UID: ${POISE_ADMIN_SETTINGS.vat_number}`, 100, 285);
   }
 
-  // ================= SAVE =================
-
+  // SAVE
   doc.save(
-    `Rechnung_${recipientName}_${periodLabel
-      .replace(/\s+/g, "_")
-      .replace(/\//g, "-")}_${today.toISOString().slice(0, 10)}.pdf`
-  );
-}
-  const doc = new jsPDF();
-  const pageWidth = doc.internal.pageSize.getWidth();
-  const today = new Date();
-
-  const recipientName =
-    coachInvoiceSettings?.company_name ||
-    coach?.name ||
-    "Coach";
-
-  const recipientAddress =
-    coachInvoiceSettings?.address || "";
-
-  const invoiceNumber =
-    `POISE-${invoiceBundle.key}-${today.toISOString().slice(0, 10)}`;
-
-  doc.setFontSize(10);
-  doc.text(POISE_ADMIN_SETTINGS.company_name || "", 14, 15);
-  doc.text(POISE_ADMIN_SETTINGS.address || "", 14, 21);
-
-  if (POISE_ADMIN_SETTINGS.vat_number) {
-    doc.text(`UID: ${POISE_ADMIN_SETTINGS.vat_number}`, 14, 27);
-  }
-
-  if (POISE_ADMIN_SETTINGS.tax_number) {
-    doc.text(`Steuernr: ${POISE_ADMIN_SETTINGS.tax_number}`, 14, 33);
-  }
-
-  doc.setFontSize(11);
-  doc.text("Rechnung an:", 14, 45);
-  doc.text(recipientName, 14, 51);
-
-  if (recipientAddress) {
-    const lines = String(recipientAddress).split("\n");
-    let yy = 57;
-    lines.forEach((line) => {
-      doc.text(line, 14, yy);
-      yy += 6;
-    });
-  }
-
-  doc.setFontSize(16);
-  doc.text("Provision Rechnung", pageWidth - 14, 20, { align: "right" });
-
-  doc.setFontSize(10);
-  doc.text(`Rechnungs-Nr.: ${invoiceNumber}`, pageWidth - 14, 28, { align: "right" });
-  doc.text(`Rechnungsdatum: ${today.toLocaleDateString("de-AT")}`, pageWidth - 14, 34, { align: "right" });
-  doc.text(`Zeitraum: ${periodLabel}`, pageWidth - 14, 40, { align: "right" });
-
-  let introY = 85;
-  doc.setFontSize(11);
-  doc.text(
-    invoiceBundle.key === "reverse_charge"
-      ? "Provision für Sessions, die vom Coach an Klient:innen inkl. USt fakturiert wurden."
-      : "Provision für Sessions, die vom Coach an Klient:innen ohne USt fakturiert wurden.",
-    14,
-    introY
-  );
-
-  if (invoiceBundle.key === "reverse_charge") {
-    introY += 8;
-    doc.setFontSize(10);
-    doc.text(
-      "Abrechnung im Reverse-Charge-Verfahren. Steuerschuld geht auf den Leistungsempfänger über.",
-      14,
-      introY
-    );
-  }
-
-  doc.autoTable({
-    startY: introY + 12,
-    head: [["Kategorie", "Menge", "Einzelpreis Provision netto", "Gesamt netto"]],
-    body: invoiceBundle.rows.map((row) => [
-      row.label,
-      row.qty,
-      `${Number(row.unit_price_net || 0).toFixed(2)} €`,
-      `${Number(row.total_net || 0).toFixed(2)} €`,
-    ]),
-    styles: { fontSize: 10 },
-    headStyles: {
-      fillColor: [240, 240, 240],
-      textColor: 20,
-    },
-  });
-
-  const fy = doc.lastAutoTable.finalY + 10;
-
-  doc.setFontSize(11);
-  doc.text(
-    `Gesamt netto: ${Number(invoiceBundle.subtotal_net || 0).toFixed(2)} €`,
-    pageWidth - 14,
-    fy,
-    { align: "right" }
-  );
-
-  if (invoiceBundle.vat_rate > 0) {
-    doc.text(
-      `zzgl. USt ${invoiceBundle.vat_rate}%: ${Number(invoiceBundle.vat_amount || 0).toFixed(2)} €`,
-      pageWidth - 14,
-      fy + 7,
-      { align: "right" }
-    );
-    doc.text(
-      `Gesamt brutto: ${Number(invoiceBundle.total_gross || 0).toFixed(2)} €`,
-      pageWidth - 14,
-      fy + 14,
-      { align: "right" }
-    );
-  } else {
-    doc.text(
-      `Gesamtbetrag: ${Number(invoiceBundle.total_gross || 0).toFixed(2)} €`,
-      pageWidth - 14,
-      fy + 7,
-      { align: "right" }
-    );
-    doc.setFontSize(9);
-    doc.text(
-      "Reverse Charge – Steuerschuld geht auf den Leistungsempfänger über.",
-      14,
-      fy + 16
-    );
-  }
-
-  doc.setFontSize(9);
-  doc.text(POISE_ADMIN_SETTINGS.company_name || "", 14, 280);
-  doc.text(`IBAN: ${POISE_ADMIN_SETTINGS.iban || "-"}`, 14, 285);
-  doc.text(`BIC: ${POISE_ADMIN_SETTINGS.bic || "-"}`, 14, 290);
-
-  doc.save(
-    `Poise_Provision_${coach?.name || "Coach"}_${invoiceBundle.key}_${periodLabel.replace(/\s/g, "_")}.pdf`
+    `Rechnung_${recipientName}_${safePeriodLabel}_${today
+      .toISOString()
+      .slice(0, 10)}.pdf`
   );
 }
 // ================= PAPIERKORB ACTIONS =================
