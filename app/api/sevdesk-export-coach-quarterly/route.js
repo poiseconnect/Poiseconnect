@@ -49,27 +49,6 @@ function extractId(apiResponse) {
   );
 }
 
-async function sevdeskFetch(url, apiToken, payload, method = "POST") {
-  const res = await fetch(url, {
-    method,
-    headers: {
-      Authorization: apiToken,
-      "Content-Type": "application/json",
-    },
-    body: payload ? JSON.stringify(payload) : undefined,
-    cache: "no-store",
-  });
-
-  let data = null;
-  try {
-    data = await res.json();
-  } catch {
-    data = null;
-  }
-
-  return { res, data };
-}
-
 async function getUserFromBearer(req) {
   const authHeader = req.headers.get("authorization") || "";
   const token = authHeader.replace("Bearer ", "").trim();
@@ -106,21 +85,65 @@ async function requireAdmin(req) {
   return { user, member };
 }
 
-function buildOrderPayload({ coachMember, periodLabel, orderDateStr }) {
+async function sevdeskJsonPost(url, apiToken, payload) {
+  const res = await fetch(url, {
+    method: "POST",
+    headers: {
+      Authorization: apiToken,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+    cache: "no-store",
+  });
+
+  let data = null;
+  try {
+    data = await res.json();
+  } catch {
+    data = null;
+  }
+
+  return { res, data };
+}
+
+async function sevdeskFormPost(url, apiToken, params) {
+  const body = new URLSearchParams(params);
+
+  const res = await fetch(url, {
+    method: "POST",
+    headers: {
+      Authorization: apiToken,
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body: body.toString(),
+    cache: "no-store",
+  });
+
+  let data = null;
+  try {
+    data = await res.json();
+  } catch {
+    data = null;
+  }
+
+  return { res, data, sent: body.toString() };
+}
+
+function buildOrderFormPayload({ coachMember, periodLabel, orderDateStr }) {
   const [y, m, d] = String(orderDateStr).split("-");
   const sevDate = `${d}.${m}.${y}`;
 
-  return {
-    orderDate: sevDate,
-    status: 100,
-    header: `Poise Provision ${periodLabel}`,
-    headText: `Provision für ${periodLabel}.`,
-    currency: "EUR",
-    contact: {
-      id: String(coachMember.sevdesk_contact_id),
-      objectName: "Contact",
-    },
-  };
+  const params = new URLSearchParams();
+  params.set("order[objectName]", "Order");
+  params.set("order[orderDate]", sevDate);
+  params.set("order[status]", "100");
+  params.set("order[header]", `Poise Provision ${periodLabel}`);
+  params.set("order[headText]", `Provision für ${periodLabel}.`);
+  params.set("order[currency]", "EUR");
+  params.set("order[contact][id]", String(coachMember.sevdesk_contact_id));
+  params.set("order[contact][objectName]", "Contact");
+
+  return params;
 }
 
 function buildOrderPosPayload({
@@ -156,10 +179,7 @@ function buildOrderPosPayload({
   };
 }
 
-function buildCreateInvoiceFromOrderPayload({
-  orderId,
-  invoiceDateStr,
-}) {
+function buildCreateInvoiceFromOrderPayload({ orderId, invoiceDateStr }) {
   return {
     order: {
       id: String(orderId),
@@ -235,8 +255,8 @@ export async function POST(req) {
 
     const orderDateStr = toDateOnly(new Date());
 
-    // 1) Auftrag anlegen
-    const orderPayload = buildOrderPayload({
+    // 1) Auftrag als form-urlencoded anlegen
+    const orderForm = buildOrderFormPayload({
       coachMember,
       periodLabel,
       orderDateStr,
@@ -244,10 +264,10 @@ export async function POST(req) {
 
     await sleep(300);
 
-    const { res: orderRes, data: orderJson } = await sevdeskFetch(
+    const { res: orderRes, data: orderJson, sent } = await sevdeskFormPost(
       "https://my.sevdesk.de/api/v1/Order",
       apiToken,
-      orderPayload
+      orderForm
     );
 
     if (!orderRes.ok) {
@@ -256,7 +276,7 @@ export async function POST(req) {
         {
           error: "sevdesk_create_order_failed",
           detail: orderJson,
-          sent_payload: orderPayload,
+          sent_payload: sent,
         },
         500
       );
@@ -290,7 +310,7 @@ export async function POST(req) {
         invoiceBundle,
       });
 
-      const { res: posRes, data: posJson } = await sevdeskFetch(
+      const { res: posRes, data: posJson } = await sevdeskJsonPost(
         "https://my.sevdesk.de/api/v1/OrderPos",
         apiToken,
         orderPosPayload
@@ -321,7 +341,7 @@ export async function POST(req) {
       invoiceDateStr: orderDateStr,
     });
 
-    const { res: invoiceRes, data: invoiceJson } = await sevdeskFetch(
+    const { res: invoiceRes, data: invoiceJson } = await sevdeskJsonPost(
       "https://my.sevdesk.de/api/v1/Invoice/Factory/createInvoiceFromOrder",
       apiToken,
       createInvoicePayload
