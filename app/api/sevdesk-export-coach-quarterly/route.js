@@ -135,17 +135,12 @@ function buildOrderFormPayload({ coachMember, periodLabel, orderDateStr }) {
 
   const params = new URLSearchParams();
 
-  // WICHTIG: flache Order-Syntax gemäß sevDesk-Doku
-  params.set("orderType", "AN");
+  // Nur flache, sichere Felder
   params.set("orderDate", sevDate);
   params.set("status", "100");
   params.set("header", `Poise Provision ${periodLabel}`);
   params.set("headText", `Provision für ${periodLabel}.`);
   params.set("currency", "EUR");
-  params.set("taxType", "default");
-  params.set("taxRate", "20");
-  params.set("taxText", "20% USt");
-  params.set("version", "1");
 
   params.set("contact[id]", String(coachMember.sevdesk_contact_id));
   params.set("contact[objectName]", "Contact");
@@ -262,7 +257,6 @@ export async function POST(req) {
 
     const orderDateStr = toDateOnly(new Date());
 
-    // 1) Auftrag anlegen
     const orderForm = buildOrderFormPayload({
       coachMember,
       periodLabel,
@@ -303,7 +297,6 @@ export async function POST(req) {
 
     await sleep(300);
 
-    // 2) Auftragspositionen anlegen
     const createdPositions = [];
 
     for (let i = 0; i < invoiceBundle.rows.length; i++) {
@@ -342,7 +335,6 @@ export async function POST(req) {
 
     await sleep(500);
 
-    // 3) Rechnung aus Auftrag erzeugen
     const createInvoicePayload = buildCreateInvoiceFromOrderPayload({
       orderId,
       invoiceDateStr: orderDateStr,
