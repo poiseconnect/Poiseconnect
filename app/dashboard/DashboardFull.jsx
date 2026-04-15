@@ -765,6 +765,186 @@ function exportAdminCoachQuarterInvoicePDF({
   invoiceBundle,
   periodLabel,
 }) {
+  if (!invoiceBundle || !invoiceBundle.rows?.length) return;
+
+  const doc = new jsPDF();
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const today = new Date();
+
+  const recipientName =
+    coachInvoiceSettings?.company_name ||
+    coach?.name ||
+    "Coach";
+
+  const recipientAddress =
+    coachInvoiceSettings?.address || "";
+
+  const vatRate = Number(invoiceBundle.vat_rate || 0);
+  const subtotalNet = Number(invoiceBundle.subtotal_net || 0);
+  const vatAmount = Number(invoiceBundle.vat_amount || 0);
+  const totalGross = Number(invoiceBundle.total_gross || 0);
+
+  const invoiceNumber = `POISE-${invoiceBundle.key}-${today
+    .toISOString()
+    .slice(0, 10)}`;
+
+  // ================= HEADER =================
+
+  doc.setFontSize(9);
+  doc.text(POISE_ADMIN_SETTINGS.company_name || "", 14, 15);
+  doc.text(POISE_ADMIN_SETTINGS.address || "", 14, 20);
+
+  if (POISE_ADMIN_SETTINGS.vat_number) {
+    doc.text(`UID: ${POISE_ADMIN_SETTINGS.vat_number}`, 14, 25);
+  }
+
+  if (POISE_ADMIN_SETTINGS.tax_number) {
+    doc.text(`Steuernr: ${POISE_ADMIN_SETTINGS.tax_number}`, 14, 30);
+  }
+
+  // ================= EMPFÄNGER =================
+
+  doc.setFontSize(11);
+  doc.text("Rechnung an:", 14, 40);
+  doc.text(recipientName || "", 14, 46);
+
+  if (recipientAddress) {
+    const lines = String(recipientAddress).split("\n");
+    let yy = 52;
+    lines.forEach((line) => {
+      doc.text(line, 14, yy);
+      yy += 6;
+    });
+  }
+
+  if (coachInvoiceSettings?.vat_number) {
+    doc.text(`UID: ${coachInvoiceSettings.vat_number}`, 14, 70);
+  }
+
+  if (coachInvoiceSettings?.tax_number) {
+    doc.text(`Steuernr: ${coachInvoiceSettings.tax_number}`, 14, 76);
+  }
+
+  // ================= RECHNUNGSINFO RECHTS =================
+
+  doc.setFontSize(11);
+  doc.text("Rechnung", pageWidth - 60, 30);
+
+  doc.setFontSize(10);
+  doc.text(
+    `Rechnungsdatum: ${today.toLocaleDateString("de-AT")}`,
+    pageWidth - 60,
+    36
+  );
+  doc.text(`Rechnungs-Nr.: ${invoiceNumber}`, pageWidth - 60, 42);
+  doc.text(`Leistungszeitraum: ${periodLabel || "–"}`, pageWidth - 60, 48);
+
+  // ================= INTRO =================
+
+  doc.setFontSize(12);
+  doc.text(`Sehr geehrte/r ${recipientName},`, 14, 92);
+
+  doc.setFontSize(11);
+  doc.text(
+    "Für unsere Unterstützung stellen wir wie vereinbart in Rechnung:",
+    14,
+    102
+  );
+
+  if (invoiceBundle.key === "reverse_charge") {
+    doc.setFontSize(10);
+    doc.text(
+      "Abrechnung im Reverse-Charge-Verfahren.",
+      14,
+      110
+    );
+  }
+
+  // ================= TABLE =================
+
+  const body = invoiceBundle.rows.map((row, i) => [
+    i + 1,
+    row.label,
+    row.qty,
+    `${Number(row.unit_price_net || 0).toFixed(2)} €`,
+    `${Number(row.total_net || 0).toFixed(2)} €`,
+  ]);
+
+  doc.autoTable({
+    startY: invoiceBundle.key === "reverse_charge" ? 118 : 112,
+    head: [["Pos.", "Kategorie", "Menge", "Einzelpreis", "Gesamt"]],
+    body,
+    headStyles: {
+      fillColor: [46, 139, 201],
+      textColor: 255,
+      halign: "left",
+    },
+    styles: {
+      fontSize: 10,
+    },
+  });
+
+  // ================= TOTALS =================
+
+  const finalY = doc.lastAutoTable.finalY + 10;
+
+  doc.setFontSize(11);
+  doc.text(
+    `Gesamt netto: ${subtotalNet.toFixed(2)} €`,
+    pageWidth - 80,
+    finalY
+  );
+
+  if (vatRate > 0) {
+    doc.text(
+      `zzgl. Umsatzsteuer ${vatRate}%: ${vatAmount.toFixed(2)} €`,
+      pageWidth - 80,
+      finalY + 6
+    );
+
+    doc.text(
+      `Gesamtbetrag brutto: ${totalGross.toFixed(2)} €`,
+      pageWidth - 80,
+      finalY + 12
+    );
+  } else {
+    doc.text(
+      `Gesamtbetrag: ${totalGross.toFixed(2)} €`,
+      pageWidth - 80,
+      finalY + 6
+    );
+
+    doc.setFontSize(9);
+    doc.text(
+      "Reverse Charge – Steuerschuld geht auf den Leistungsempfänger über.",
+      14,
+      finalY + 16
+    );
+  }
+
+  // ================= FOOTER =================
+
+  doc.setFontSize(9);
+  doc.text(POISE_ADMIN_SETTINGS.company_name || "", 14, 275);
+  doc.text(`IBAN: ${POISE_ADMIN_SETTINGS.iban || "-"}`, 14, 280);
+  doc.text(`BIC: ${POISE_ADMIN_SETTINGS.bic || "-"}`, 14, 285);
+
+  if (POISE_ADMIN_SETTINGS.tax_number) {
+    doc.text(`Steuernummer: ${POISE_ADMIN_SETTINGS.tax_number}`, 100, 280);
+  }
+
+  if (POISE_ADMIN_SETTINGS.vat_number) {
+    doc.text(`UID: ${POISE_ADMIN_SETTINGS.vat_number}`, 100, 285);
+  }
+
+  // ================= SAVE =================
+
+  doc.save(
+    `Rechnung_${recipientName}_${periodLabel
+      .replace(/\s+/g, "_")
+      .replace(/\//g, "-")}_${today.toISOString().slice(0, 10)}.pdf`
+  );
+}
   const doc = new jsPDF();
   const pageWidth = doc.internal.pageSize.getWidth();
   const today = new Date();
