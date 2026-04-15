@@ -115,6 +115,7 @@ function buildOrderPayload({ coachMember, periodLabel, orderDateStr }) {
     status: 100,
     header: `Poise Provision ${periodLabel}`,
     headText: `Provision für ${periodLabel}.`,
+    currency: "EUR",
     contact: {
       id: String(coachMember.sevdesk_contact_id),
       objectName: "Contact",
@@ -234,7 +235,7 @@ export async function POST(req) {
 
     const orderDateStr = toDateOnly(new Date());
 
-    // 1) Auftrag ultraminimal anlegen
+    // 1) Auftrag anlegen
     const orderPayload = buildOrderPayload({
       coachMember,
       periodLabel,
