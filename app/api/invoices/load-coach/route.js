@@ -69,12 +69,23 @@ function safeNumber(value, fallback = 0) {
   return Number.isFinite(n) ? n : fallback;
 }
 
+function nullableNumber(value) {
+  if (value === null || value === undefined || value === "") return null;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+}
+
 function getCoachClientVatRate(invoiceSettings) {
   const n = Number(invoiceSettings?.default_vat_rate || 0);
   return Number.isFinite(n) && n > 0 ? n : 20;
 }
 
-function buildPeriodRange({ billingMode, billingYear, billingQuarter, billingMonth }) {
+function buildPeriodRange({
+  billingMode,
+  billingYear,
+  billingQuarter,
+  billingMonth,
+}) {
   const now = new Date();
   const year = safeNumber(billingYear, now.getFullYear());
 
@@ -86,7 +97,10 @@ function buildPeriodRange({ billingMode, billingYear, billingQuarter, billingMon
   }
 
   if (billingMode === "monat") {
-    const month = Math.min(Math.max(safeNumber(billingMonth, now.getMonth() + 1), 1), 12);
+    const month = Math.min(
+      Math.max(safeNumber(billingMonth, now.getMonth() + 1), 1),
+      12
+    );
     const start = new Date(Date.UTC(year, month - 1, 1, 0, 0, 0, 0));
     const end = new Date(Date.UTC(year, month, 1, 0, 0, 0, 0));
     return {
@@ -97,7 +111,10 @@ function buildPeriodRange({ billingMode, billingYear, billingQuarter, billingMon
 
   if (billingMode === "quartal") {
     const quarter = Math.min(
-      Math.max(safeNumber(billingQuarter, Math.floor(now.getMonth() / 3) + 1), 1),
+      Math.max(
+        safeNumber(billingQuarter, Math.floor(now.getMonth() / 3) + 1),
+        1
+      ),
       4
     );
     const startMonth = (quarter - 1) * 3;
@@ -115,7 +132,12 @@ function buildPeriodRange({ billingMode, billingYear, billingQuarter, billingMon
   };
 }
 
-function buildServicePeriodLabel({ billingMode, billingYear, billingQuarter, billingMonth }) {
+function buildServicePeriodLabel({
+  billingMode,
+  billingYear,
+  billingQuarter,
+  billingMonth,
+}) {
   if (billingMode === "quartal") return `Q${billingQuarter} ${billingYear}`;
   if (billingMode === "monat") return `${billingMonth}/${billingYear}`;
   if (billingMode === "jahr") return `${billingYear}`;
@@ -208,11 +230,17 @@ export async function GET(req) {
     const { searchParams } = new URL(req.url);
 
     const coachId = String(searchParams.get("coachId") || "").trim();
-    const billingMode = String(searchParams.get("billingMode") || "quartal").trim();
+    const billingMode = String(
+      searchParams.get("billingMode") || "quartal"
+    ).trim();
     const billingYear = String(searchParams.get("billingYear") || "").trim();
-    const billingQuarter = String(searchParams.get("billingQuarter") || "").trim();
+    const billingQuarter = String(
+      searchParams.get("billingQuarter") || ""
+    ).trim();
     const billingMonth = String(searchParams.get("billingMonth") || "").trim();
-    const bundleKey = String(searchParams.get("bundleKey") || "normal_ust").trim();
+    const bundleKey = String(
+      searchParams.get("bundleKey") || "normal_ust"
+    ).trim();
 
     if (!coachId) {
       return json({ error: "missing_coach_id" }, 400);
@@ -235,14 +263,14 @@ export async function GET(req) {
       );
     }
 
-const { data: coachInvoiceSettings, error: settingsError } = await supabase
-  .from(ACCOUNTING_SETTINGS_TABLE)
-  .select("*")
-  .eq("therapist_id", coachId)
-  .maybeSingle();
+    const { data: coachInvoiceSettings, error: settingsError } = await supabase
+      .from(ACCOUNTING_SETTINGS_TABLE)
+      .select("*")
+      .eq("therapist_id", coachId)
+      .maybeSingle();
 
     if (settingsError) {
-      console.error("LOAD COACH ACCOUNTING SETTINGS ERROR:", settingsError);
+      console.error("LOAD COACH INVOICE SETTINGS ERROR:", settingsError);
       return json(
         {
           error: "settings_load_failed",
@@ -252,31 +280,27 @@ const { data: coachInvoiceSettings, error: settingsError } = await supabase
       );
     }
 
-    // =========================================================
-    // 1) ZUERST PRÜFEN: GIBT ES SCHON EINE GESPEICHERTE RECHNUNG?
-    // =========================================================
     const uniqueMatch = {
       coach_id: coachId,
       billing_mode: billingMode,
-      billing_year:
-        billingYear === "" || billingYear == null ? null : safeNumber(billingYear, null),
-      billing_quarter:
-        billingQuarter === "" || billingQuarter == null
-          ? null
-          : safeNumber(billingQuarter, null),
-      billing_month:
-        billingMonth === "" || billingMonth == null ? null : safeNumber(billingMonth, null),
+      billing_year: nullableNumber(billingYear),
+      billing_quarter: nullableNumber(billingQuarter),
+      billing_month: nullableNumber(billingMonth),
       bundle_key: bundleKey,
     };
 
-    const { data: existingInvoice, error: existingInvoiceError } = await supabase
-      .from(COACH_INVOICES_TABLE)
-      .select("*")
-      .match(uniqueMatch)
-      .maybeSingle();
+    const { data: existingInvoice, error: existingInvoiceError } =
+      await supabase
+        .from(COACH_INVOICES_TABLE)
+        .select("*")
+        .match(uniqueMatch)
+        .maybeSingle();
 
     if (existingInvoiceError) {
-      console.error("LOAD EXISTING COACH INVOICE ERROR:", existingInvoiceError);
+      console.error(
+        "LOAD EXISTING COACH INVOICE ERROR:",
+        existingInvoiceError
+      );
       return json(
         {
           error: "existing_invoice_load_failed",
@@ -305,7 +329,8 @@ const { data: coachInvoiceSettings, error: settingsError } = await supabase
         service_period: existingInvoice.service_period || "",
         customer_number: existingInvoice.customer_number || "",
         contact_person: existingInvoice.contact_person || "",
-        salutation: existingInvoice.salutation || "Sehr geehrte Damen und Herren,",
+        salutation:
+          existingInvoice.salutation || "Sehr geehrte Damen und Herren,",
         intro_text:
           existingInvoice.intro_text ||
           "Für unsere Unterstützung stellen wir wie vereinbart in Rechnung:",
@@ -338,9 +363,6 @@ const { data: coachInvoiceSettings, error: settingsError } = await supabase
       });
     }
 
-    // =========================================================
-    // 2) WENN NICHT: RECHNUNG FRISCH AUS SESSIONS AUFBAUEN
-    // =========================================================
     const periodRange = buildPeriodRange({
       billingMode,
       billingYear,
@@ -446,7 +468,8 @@ const { data: coachInvoiceSettings, error: settingsError } = await supabase
       vat_rate: Number(selectedBundle.vat_rate || 0),
       service_period: servicePeriod,
       salutation: "Sehr geehrte Damen und Herren,",
-      intro_text: "Für unsere Unterstützung stellen wir wie vereinbart in Rechnung:",
+      intro_text:
+        "Für unsere Unterstützung stellen wir wie vereinbart in Rechnung:",
       payment_terms:
         "Zahlungsbedingungen: Zahlung innerhalb von 14 Tagen ab Rechnungseingang ohne Abzüge.",
       closing_text:
