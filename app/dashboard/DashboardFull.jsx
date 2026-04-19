@@ -3637,18 +3637,29 @@ return (
           </div>
 
           <div style={{ display: "flex", gap: 8 }}>
-            <button
-              onClick={() =>
-                exportAdminCoachQuarterInvoicePDF({
-                  coach: adminSelectedCoach,
-                  coachInvoiceSettings: invoiceSettings,
-                  invoiceBundle: bundle,
-                  periodLabel: adminPeriodLabel,
-                })
-              }
-            >
-              🧾 PDF exportieren
-            </button>
+<button
+  onClick={() => {
+    if (!adminSelectedCoach?.id) {
+      alert("Bitte zuerst einen Coach auswählen");
+      return;
+    }
+
+    const qs = new URLSearchParams({
+      billingMode: String(billingMode || "quartal"),
+      billingYear: String(billingYear || ""),
+      billingQuarter: String(billingQuarter || ""),
+      billingMonth: String(billingMonth || ""),
+      bundleKey: String(bundle.key || "normal_ust"),
+    });
+
+    window.open(
+      `/dashboard/rechnung-coach/${adminSelectedCoach.id}?${qs.toString()}`,
+      "_blank"
+    );
+  }}
+>
+  🧾 Rechnung öffnen
+</button>
 
             <button
               onClick={async () => {
