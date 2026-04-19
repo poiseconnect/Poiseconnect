@@ -7,7 +7,7 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
-const ACCOUNTING_SETTINGS_TABLE = "accounting_settings";
+const ACCOUNTING_SETTINGS_TABLE = "therapist_invoice_settings";
 const COACH_INVOICES_TABLE = "coach_invoices";
 
 const POISE_ADMIN_SETTINGS = {
@@ -235,23 +235,11 @@ export async function GET(req) {
       );
     }
 
-    const { data: coachInvoiceSettings, error: settingsError } = await supabase
-      .from(ACCOUNTING_SETTINGS_TABLE)
-      .select(`
-        therapist_id,
-        company_name,
-        address,
-        iban,
-        bic,
-        logo_url,
-        tax_number,
-        vat_number,
-        default_vat_country,
-        default_vat_rate,
-        sevdesk_token
-      `)
-      .eq("therapist_id", coachId)
-      .maybeSingle();
+const { data: coachInvoiceSettings, error: settingsError } = await supabase
+  .from(ACCOUNTING_SETTINGS_TABLE)
+  .select("*")
+  .eq("therapist_id", coachId)
+  .maybeSingle();
 
     if (settingsError) {
       console.error("LOAD COACH ACCOUNTING SETTINGS ERROR:", settingsError);
