@@ -8,6 +8,7 @@ const supabase = createClient(
 );
 
 const ACCOUNTING_SETTINGS_TABLE = "accounting_settings";
+const COACH_INVOICES_TABLE = "coach_invoices";
 
 const POISE_ADMIN_SETTINGS = {
   company_name: "Poise by Linda Leinweber GmbH",
@@ -95,7 +96,10 @@ function buildPeriodRange({ billingMode, billingYear, billingQuarter, billingMon
   }
 
   if (billingMode === "quartal") {
-    const quarter = Math.min(Math.max(safeNumber(billingQuarter, Math.floor(now.getMonth() / 3) + 1), 1), 4);
+    const quarter = Math.min(
+      Math.max(safeNumber(billingQuarter, Math.floor(now.getMonth() / 3) + 1), 1),
+      4
+    );
     const startMonth = (quarter - 1) * 3;
     const start = new Date(Date.UTC(year, startMonth, 1, 0, 0, 0, 0));
     const end = new Date(Date.UTC(year, startMonth + 3, 1, 0, 0, 0, 0));
@@ -260,6 +264,95 @@ export async function GET(req) {
       );
     }
 
+    // =========================================================
+    // 1) ZUERST PRÜFEN: GIBT ES SCHON EINE GESPEICHERTE RECHNUNG?
+    // =========================================================
+    const uniqueMatch = {
+      coach_id: coachId,
+      billing_mode: billingMode,
+      billing_year:
+        billingYear === "" || billingYear == null ? null : safeNumber(billingYear, null),
+      billing_quarter:
+        billingQuarter === "" || billingQuarter == null
+          ? null
+          : safeNumber(billingQuarter, null),
+      billing_month:
+        billingMonth === "" || billingMonth == null ? null : safeNumber(billingMonth, null),
+      bundle_key: bundleKey,
+    };
+
+    const { data: existingInvoice, error: existingInvoiceError } = await supabase
+      .from(COACH_INVOICES_TABLE)
+      .select("*")
+      .match(uniqueMatch)
+      .maybeSingle();
+
+    if (existingInvoiceError) {
+      console.error("LOAD EXISTING COACH INVOICE ERROR:", existingInvoiceError);
+      return json(
+        {
+          error: "existing_invoice_load_failed",
+          detail: existingInvoiceError.message,
+        },
+        500
+      );
+    }
+
+    if (existingInvoice) {
+      return json({
+        coach: {
+          id: coach.id,
+          name: coach.profile_name || "Coach",
+          email: coach.email || "",
+        },
+        poiseSettings: POISE_ADMIN_SETTINGS,
+        coachInvoiceSettings: coachInvoiceSettings || {},
+        from_saved_invoice: true,
+        invoice_id: existingInvoice.id,
+        bundle_key: existingInvoice.bundle_key,
+        invoice_with_vat: existingInvoice.invoice_with_vat === true,
+        vat_rate: Number(existingInvoice.vat_rate || 0),
+        invoice_number: existingInvoice.invoice_number || "",
+        invoice_date: existingInvoice.invoice_date || "",
+        service_period: existingInvoice.service_period || "",
+        customer_number: existingInvoice.customer_number || "",
+        contact_person: existingInvoice.contact_person || "",
+        salutation: existingInvoice.salutation || "Sehr geehrte Damen und Herren,",
+        intro_text:
+          existingInvoice.intro_text ||
+          "Für unsere Unterstützung stellen wir wie vereinbart in Rechnung:",
+        payment_terms:
+          existingInvoice.payment_terms ||
+          "Zahlungsbedingungen: Zahlung innerhalb von 14 Tagen ab Rechnungseingang ohne Abzüge.",
+        closing_text:
+          existingInvoice.closing_text ||
+          "Herzlichen Dank für Dein Engagement und die angenehme Zusammenarbeit!\n\nLiebe Grüße\n\nSebastian Kickinger\nPoise by Linda Leinweber GmbH",
+        client_name: existingInvoice.client_name || "",
+        client_street: existingInvoice.client_street || "",
+        client_city: existingInvoice.client_city || "",
+        client_country: existingInvoice.client_country || "",
+        client_email: existingInvoice.client_email || "",
+        lineItems: Array.isArray(existingInvoice.line_items)
+          ? existingInvoice.line_items.map((item, idx) => ({
+              id: item.id || `${idx + 1}`,
+              description: item.description || "Provision",
+              qty: Number(item.qty || 0),
+              unit_price: Number(item.unit_price || 0),
+              unit: Number(item.unit_price || 0),
+              total: Number(item.total || 0),
+            }))
+          : [],
+        totals: {
+          net: Number(existingInvoice.total_net || 0),
+          vat: Number(existingInvoice.vat_amount || 0),
+          gross: Number(existingInvoice.total_gross || 0),
+        },
+      });
+    }
+
+    // =========================================================
+    // 2) WENN NICHT: RECHNUNG FRISCH AUS SESSIONS AUFBAUEN
+    // =========================================================
     const periodRange = buildPeriodRange({
       billingMode,
       billingYear,
@@ -359,6 +452,7 @@ export async function GET(req) {
       },
       poiseSettings: POISE_ADMIN_SETTINGS,
       coachInvoiceSettings: coachInvoiceSettings || {},
+      from_saved_invoice: false,
       bundle_key: selectedBundle.key,
       invoice_with_vat: Number(selectedBundle.vat_rate || 0) > 0,
       vat_rate: Number(selectedBundle.vat_rate || 0),
