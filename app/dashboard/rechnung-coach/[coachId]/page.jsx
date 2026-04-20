@@ -22,8 +22,11 @@ export default function RechnungCoachPage({ params, searchParams }) {
   const billingMonth = searchParams?.billingMonth || "";
   const billingMode = searchParams?.billingMode || "quartal";
   const bundleKey = searchParams?.bundleKey || "normal_ust";
+  
 
   const [loading, setLoading] = useState(true);
+  const [savedCoachInvoiceId, setSavedCoachInvoiceId] = useState(null);
+const [sevdeskInvoiceId, setSevdeskInvoiceId] = useState("");
 
   // geladene Daten
   const [coach, setCoach] = useState(null);
