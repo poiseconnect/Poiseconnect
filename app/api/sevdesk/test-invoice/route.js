@@ -13,7 +13,7 @@ async function sevdeskFetch(path, options = {}) {
   const apiToken = process.env.SEVDESK_API_TOKEN;
 
   if (!apiToken) {
-    throw new Error("SEVDESK_API_TOKEN fehlt in Vercel Environment Variables");
+    throw new Error("SEVDESK_API_TOKEN fehlt in den Environment Variables");
   }
 
   const res = await fetch(`${SEVDESK_API_URL}${path}`, {
@@ -47,68 +47,86 @@ function extractId(payload) {
   );
 }
 
+async function runTestInvoice() {
+  const contactId = "129257609";
+
+  const invoicePayload = {
+    contact: {
+      id: String(contactId),
+      objectName: "Contact",
+    },
+    invoiceDate: new Date().toISOString().slice(0, 10),
+    invoiceType: "RE",
+    status: 100,
+    header: "TEST Rechnung Poise API",
+    headText: "Dies ist eine automatisch erzeugte Testrechnung aus Poise.",
+    footText: "Bitte nicht buchen oder versenden. Nur API-Test.",
+    timeToPay: 14,
+    discount: 0,
+    currency: "EUR",
+    taxRate: 20,
+    taxText: "20% USt",
+    invoicePosSave: [
+      {
+        name: "API Testposition",
+        quantity: 1,
+        price: 10,
+        taxRate: 20,
+        positionNumber: 1,
+        unity: {
+          id: "1",
+          objectName: "Unity",
+        },
+        objectName: "InvoicePos",
+      },
+    ],
+  };
+
+  const { res, data } = await sevdeskFetch("/Invoice", {
+    method: "POST",
+    body: JSON.stringify(invoicePayload),
+  });
+
+  if (!res.ok) {
+    return json(
+      {
+        ok: false,
+        error: "sevdesk_create_invoice_failed",
+        detail: data,
+        sent_payload: invoicePayload,
+      },
+      500
+    );
+  }
+
+  const invoiceId = extractId(data);
+
+  return json({
+    ok: true,
+    message: "Testrechnung in sevDesk angelegt",
+    sevdesk_invoice_id: invoiceId,
+    raw: data,
+  });
+}
+
+export async function GET() {
+  try {
+    return await runTestInvoice();
+  } catch (err) {
+    return json(
+      {
+        ok: false,
+        error: "server_error",
+        detail: String(err),
+      },
+      500
+    );
+  }
+}
+
 export async function POST() {
   try {
-    // Dein Test-Contact aus dem Screenshot:
-    const contactId = "129257609";
-
-    const invoicePayload = {
-      contact: {
-        id: contactId,
-        objectName: "Contact",
-      },
-      invoiceDate: new Date().toISOString().slice(0, 10),
-      invoiceType: "RE",
-      status: 100,
-      header: "TEST Rechnung Poise API",
-      headText: "Dies ist eine automatisch erzeugte Testrechnung aus Poise.",
-      footText: "Bitte nicht buchen oder versenden. Nur API-Test.",
-      timeToPay: 14,
-      discount: 0,
-      currency: "EUR",
-      taxRate: 20,
-      taxText: "20% USt",
-      invoicePosSave: [
-        {
-          name: "API Testposition",
-          quantity: 1,
-          price: 10,
-          taxRate: 20,
-          positionNumber: 1,
-          unity: {
-            id: "1",
-            objectName: "Unity",
-          },
-          objectName: "InvoicePos",
-        },
-      ],
-    };
-
-    const { res, data } = await sevdeskFetch("/Invoice", {
-      method: "POST",
-      body: JSON.stringify(invoicePayload),
-    });
-
-    if (!res.ok) {
-      return json(
-        {
-          ok: false,
-          error: "sevdesk_create_invoice_failed",
-          detail: data,
-          sent_payload: invoicePayload,
-        },
-        500
-      );
-    }
-
-    const invoiceId = extractId(data);
-
-    return json({
-      ok: true,
-      message: "Testrechnung in sevDesk angelegt",
-      sevdesk_invoice_id: invoiceId,
-      raw: data,
-    });
+    return await runTestInvoice();
   } catch (err) {
     return json(
       {
