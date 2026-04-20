@@ -2,8 +2,8 @@ export const dynamic = "force-dynamic";
 
 const SEVDESK_API_URL = "https://my.sevdesk.de/api/v1";
 
-// HIER deine vorhandene sevDesk-Rechnungs-ID eintragen
-const TEST_INVOICE_ID = "122135458";
+// HIER DEINE ECHTE sevDesk Invoice-ID EINTRAGEN
+const TEST_INVOICE_ID = "DEINE_ECHTE_INVOICE_ID";
 
 function json(data, status = 200) {
   return new Response(JSON.stringify(data, null, 2), {
@@ -40,7 +40,10 @@ async function sevdeskFetch(path, options = {}) {
 }
 
 async function runTest() {
-  if (!TEST_INVOICE_ID || TEST_INVOICE_ID === "HIER_DEINE_INVOICE_ID") {
+  if (
+    !TEST_INVOICE_ID ||
+    TEST_INVOICE_ID === "DEINE_ECHTE_INVOICE_ID"
+  ) {
     return json(
       {
         ok: false,
@@ -55,36 +58,10 @@ async function runTest() {
     invoice: {
       id: String(TEST_INVOICE_ID),
       objectName: "Invoice",
+      header: "UPDATED VIA API",
+      headText: "Test Update funktioniert",
+      footText: "API Test ohne invoicePosSave",
     },
-    invoicePosSave: [
-      {
-        name: "API Testposition 1",
-        text: "1 x 10.00 EUR netto",
-        quantity: 1,
-        price: 10,
-        taxRate: 20,
-        positionNumber: 1,
-        unity: {
-          id: "1",
-          objectName: "Unity",
-        },
-        objectName: "InvoicePos",
-      },
-      {
-        name: "API Testposition 2",
-        text: "2 x 5.00 EUR netto",
-        quantity: 2,
-        price: 5,
-        taxRate: 20,
-        positionNumber: 2,
-        unity: {
-          id: "1",
-          objectName: "Unity",
-        },
-        objectName: "InvoicePos",
-      },
-    ],
-    invoicePosDelete: null,
   };
 
   const { res, data } = await sevdeskFetch("/Invoice/Factory/saveInvoice", {
