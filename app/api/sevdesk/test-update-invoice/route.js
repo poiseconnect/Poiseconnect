@@ -3,7 +3,7 @@ export const dynamic = "force-dynamic";
 const SEVDESK_API_URL = "https://my.sevdesk.de/api/v1";
 
 // HIER deine vorhandene sevDesk-Rechnungs-ID eintragen
-const TEST_INVOICE_ID = "142946459";
+const TEST_INVOICE_ID = "122135458";
 
 function json(data, status = 200) {
   return new Response(JSON.stringify(data, null, 2), {
