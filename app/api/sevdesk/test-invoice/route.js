@@ -57,7 +57,7 @@ async function runTestInvoice() {
     },
     invoiceDate: new Date().toISOString().slice(0, 10),
     invoiceType: "RE",
-    status: 100,
+    status: 50,
     header: "TEST Rechnung Poise API",
     headText: "Dies ist eine automatisch erzeugte Testrechnung aus Poise.",
     footText: "Bitte nicht buchen oder versenden. Nur API-Test.",
