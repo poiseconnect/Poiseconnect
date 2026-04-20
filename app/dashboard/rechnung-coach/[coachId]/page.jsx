@@ -25,6 +25,7 @@ export default function RechnungCoachPage({ params, searchParams }) {
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [updatingSevdesk, setUpdatingSevdesk] = useState(false);
 
   const [savedCoachInvoiceId, setSavedCoachInvoiceId] = useState(null);
   const [sevdeskInvoiceId, setSevdeskInvoiceId] = useState("");
@@ -296,6 +297,53 @@ export default function RechnungCoachPage({ params, searchParams }) {
     }
   }
 
+  async function updateInvoiceInSevdesk() {
+    try {
+      if (!savedCoachInvoiceId) {
+        alert("Bitte die Rechnung zuerst speichern");
+        return;
+      }
+
+      if (!sevdeskInvoiceId) {
+        alert("Bitte zuerst eine sevDesk Invoice ID eintragen und speichern");
+        return;
+      }
+
+      setUpdatingSevdesk(true);
+
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      const res = await fetch("/api/sevdesk/update-coach-invoice", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session?.access_token}`,
+        },
+        body: JSON.stringify({
+          coachInvoiceId: savedCoachInvoiceId,
+        }),
+      });
+
+      const json = await res.json();
+
+      if (!res.ok) {
+        console.error("UPDATE SEVDESK INVOICE ERROR:", json);
+        alert(
+          "sevDesk Update fehlgeschlagen:\n\n" +
+            JSON.stringify(json, null, 2)
+        );
+        return;
+      }
+
+      alert("sevDesk-Rechnung aktualisiert");
+      await loadData();
+    } finally {
+      setUpdatingSevdesk(false);
+    }
+  }
+
   function exportPDF() {
     try {
       const doc = new jsPDF("p", "mm", "a4");
@@ -339,8 +387,9 @@ export default function RechnungCoachPage({ params, searchParams }) {
 
   if (loading) return <div style={{ padding: 40 }}>Lade…</div>;
   if (!coach) return <div style={{ padding: 40 }}>Kein Coach gefunden</div>;
-  if (!poiseSettings)
+  if (!poiseSettings) {
     return <div style={{ padding: 40 }}>Keine Poise-Rechnungsdaten gefunden</div>;
+  }
 
   const pageBg = {
     background: "#f0f0f0",
@@ -400,6 +449,29 @@ export default function RechnungCoachPage({ params, searchParams }) {
           }}
         >
           {saving ? "Speichere…" : "Rechnung speichern"}
+        </button>
+
+        <button
+          onClick={updateInvoiceInSevdesk}
+          disabled={updatingSevdesk || !savedCoachInvoiceId || !sevdeskInvoiceId}
+          style={{
+            background: "#0B6E4F",
+            color: "#fff",
+            border: "none",
+            padding: "10px 16px",
+            cursor:
+              updatingSevdesk || !savedCoachInvoiceId || !sevdeskInvoiceId
+                ? "not-allowed"
+                : "pointer",
+            fontSize: 13,
+            borderRadius: 6,
+            opacity:
+              updatingSevdesk || !savedCoachInvoiceId || !sevdeskInvoiceId
+                ? 0.7
+                : 1,
+          }}
+        >
+          {updatingSevdesk ? "Aktualisiere sevDesk…" : "sevDesk aktualisieren"}
         </button>
 
         <button
@@ -564,7 +636,12 @@ export default function RechnungCoachPage({ params, searchParams }) {
               <div style={rightMetaLabel}>Poise Save ID</div>
               <div style={rightMetaValue}>
                 <input
-                  style={{ ...inputBase, width: 140, textAlign: "right", color: "#777" }}
+                  style={{
+                    ...inputBase,
+                    width: 140,
+                    textAlign: "right",
+                    color: "#777",
+                  }}
                   value={savedCoachInvoiceId || ""}
                   readOnly
                   placeholder="wird nach Speichern gesetzt"
