@@ -22,32 +22,29 @@ export default function RechnungCoachPage({ params, searchParams }) {
   const billingMonth = searchParams?.billingMonth || "";
   const billingMode = searchParams?.billingMode || "quartal";
   const bundleKey = searchParams?.bundleKey || "normal_ust";
-  
 
   const [loading, setLoading] = useState(true);
-  const [savedCoachInvoiceId, setSavedCoachInvoiceId] = useState(null);
-const [sevdeskInvoiceId, setSevdeskInvoiceId] = useState("");
+  const [saving, setSaving] = useState(false);
 
-  // geladene Daten
+  const [savedCoachInvoiceId, setSavedCoachInvoiceId] = useState(null);
+  const [sevdeskInvoiceId, setSevdeskInvoiceId] = useState("");
+
   const [coach, setCoach] = useState(null);
   const [poiseSettings, setPoiseSettings] = useState(POISE_ADMIN_SETTINGS);
   const [coachInvoiceSettings, setCoachInvoiceSettings] = useState(null);
 
-  // editierbare Rechnungsdaten
   const [invoiceNumber, setInvoiceNumber] = useState("");
   const [invoiceDate, setInvoiceDate] = useState("");
   const [servicePeriod, setServicePeriod] = useState("");
   const [customerNumber, setCustomerNumber] = useState("");
   const [contactPerson, setContactPerson] = useState("");
 
-  // Empfänger
   const [clientName, setClientName] = useState("");
   const [clientStreet, setClientStreet] = useState("");
   const [clientZipCity, setClientZipCity] = useState("");
   const [clientCountry, setClientCountry] = useState("");
   const [clientEmail, setClientEmail] = useState("");
 
-  // Texte
   const [salutation, setSalutation] = useState("Sehr geehrte Damen und Herren,");
   const [introText, setIntroText] = useState(
     "Für unsere Unterstützung stellen wir wie vereinbart in Rechnung:"
@@ -59,13 +56,9 @@ const [sevdeskInvoiceId, setSevdeskInvoiceId] = useState("");
     "Herzlichen Dank für Dein Engagement und die angenehme Zusammenarbeit!\n\nLiebe Grüße\n\nSebastian Kickinger\nPoise by Linda Leinweber GmbH"
   );
 
-  // Positionen
   const [lineItemsState, setLineItemsState] = useState([]);
-
-  // Steuer / Save
   const [invoiceWithVat, setInvoiceWithVat] = useState(true);
   const [vatRate, setVatRate] = useState(20);
-  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -115,14 +108,25 @@ const [sevdeskInvoiceId, setSevdeskInvoiceId] = useState("");
       setInvoiceWithVat(json.invoice_with_vat === true);
       setVatRate(Number(json.vat_rate ?? 20));
 
+      if (json.invoice_id) {
+        setSavedCoachInvoiceId(json.invoice_id);
+      } else {
+        setSavedCoachInvoiceId(null);
+      }
+
+      setSevdeskInvoiceId(json.sevdesk_invoice_id || "");
+
       const now = new Date();
+
       setInvoiceNumber(
         json.invoice_number ||
           `POISE-${bundleKey}-${billingYear || now.getFullYear()}-${Date.now()
             .toString()
             .slice(-5)}`
       );
+
       setInvoiceDate(json.invoice_date || now.toISOString().slice(0, 10));
+
       setServicePeriod(
         json.service_period ||
           buildCoachServicePeriod({
@@ -143,11 +147,11 @@ const [sevdeskInvoiceId, setSevdeskInvoiceId] = useState("");
         .split("\n")
         .filter(Boolean);
 
-      setClientName(recipientName);
-      setClientStreet(addressLines[0] || "");
-      setClientZipCity(addressLines.slice(1).join(" ") || "");
-      setClientCountry("");
-      setClientEmail(coachData?.email || "");
+      setClientName(json.client_name || recipientName);
+      setClientStreet(json.client_street || addressLines[0] || "");
+      setClientZipCity(json.client_city || addressLines.slice(1).join(" ") || "");
+      setClientCountry(json.client_country || "");
+      setClientEmail(json.client_email || coachData?.email || "");
 
       setContactPerson(json.contact_person || "");
       setCustomerNumber(json.customer_number || "");
@@ -251,6 +255,10 @@ const [sevdeskInvoiceId, setSevdeskInvoiceId] = useState("");
           unit_price: li.unit,
           total: li.total,
         })),
+
+        sevdesk_invoice_id: sevdeskInvoiceId || null,
+        sevdesk_invoice_number: null,
+        sevdesk_synced_at: null,
       };
 
       const {
@@ -272,6 +280,14 @@ const [sevdeskInvoiceId, setSevdeskInvoiceId] = useState("");
         console.error("SAVE COACH INVOICE ERROR:", result);
         alert("Fehler beim Speichern");
         return;
+      }
+
+      if (result?.data?.id) {
+        setSavedCoachInvoiceId(result.data.id);
+      }
+
+      if (result?.data?.sevdesk_invoice_id) {
+        setSevdeskInvoiceId(result.data.sevdesk_invoice_id);
       }
 
       alert("Coach-Rechnung gespeichert");
@@ -323,9 +339,15 @@ const [sevdeskInvoiceId, setSevdeskInvoiceId] = useState("");
 
   if (loading) return <div style={{ padding: 40 }}>Lade…</div>;
   if (!coach) return <div style={{ padding: 40 }}>Kein Coach gefunden</div>;
-  if (!poiseSettings) return <div style={{ padding: 40 }}>Keine Poise-Rechnungsdaten gefunden</div>;
+  if (!poiseSettings)
+    return <div style={{ padding: 40 }}>Keine Poise-Rechnungsdaten gefunden</div>;
 
-  const pageBg = { background: "#f0f0f0", minHeight: "100vh", padding: "50px 0" };
+  const pageBg = {
+    background: "#f0f0f0",
+    minHeight: "100vh",
+    padding: "50px 0",
+  };
+
   const paper = {
     background: "#fff",
     width: 900,
@@ -397,7 +419,13 @@ const [sevdeskInvoiceId, setSevdeskInvoiceId] = useState("");
       </div>
 
       <div style={paper}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "flex-start",
+          }}
+        >
           <div style={{ ...small, maxWidth: 520 }}>
             <div style={{ fontWeight: 700 }}>{poiseSettings.company_name}</div>
             <div style={{ whiteSpace: "pre-line" }}>{poiseSettings.address}</div>
@@ -414,18 +442,36 @@ const [sevdeskInvoiceId, setSevdeskInvoiceId] = useState("");
           </div>
         </div>
 
-        <div style={{ display: "flex", justifyContent: "space-between", marginTop: 30 }}>
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            marginTop: 30,
+          }}
+        >
           <div style={{ ...small }}>
             <div style={{ fontWeight: 700, marginBottom: 4 }}>Rechnung an</div>
 
             <div>
-              <input style={{ ...inputBase, width: 360 }} value={clientName} onChange={(e) => setClientName(e.target.value)} />
+              <input
+                style={{ ...inputBase, width: 360 }}
+                value={clientName}
+                onChange={(e) => setClientName(e.target.value)}
+              />
             </div>
             <div>
-              <input style={{ ...inputBase, width: 360 }} value={clientStreet} onChange={(e) => setClientStreet(e.target.value)} />
+              <input
+                style={{ ...inputBase, width: 360 }}
+                value={clientStreet}
+                onChange={(e) => setClientStreet(e.target.value)}
+              />
             </div>
             <div>
-              <input style={{ ...inputBase, width: 360 }} value={clientZipCity} onChange={(e) => setClientZipCity(e.target.value)} />
+              <input
+                style={{ ...inputBase, width: 360 }}
+                value={clientZipCity}
+                onChange={(e) => setClientZipCity(e.target.value)}
+              />
             </div>
             <div>
               <input
@@ -437,7 +483,11 @@ const [sevdeskInvoiceId, setSevdeskInvoiceId] = useState("");
             </div>
 
             <div style={{ marginTop: 8 }}>
-              <input style={{ ...inputBase, width: 360 }} value={clientEmail} onChange={(e) => setClientEmail(e.target.value)} />
+              <input
+                style={{ ...inputBase, width: 360 }}
+                value={clientEmail}
+                onChange={(e) => setClientEmail(e.target.value)}
+              />
             </div>
           </div>
 
@@ -446,7 +496,13 @@ const [sevdeskInvoiceId, setSevdeskInvoiceId] = useState("");
               <div style={hTitle}>Rechnung</div>
             </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "140px 1fr", gap: "6px 10px" }}>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "140px 1fr",
+                gap: "6px 10px",
+              }}
+            >
               <div style={rightMetaLabel}>Rechnungs-Nr.</div>
               <div style={rightMetaValue}>
                 <input
@@ -492,6 +548,26 @@ const [sevdeskInvoiceId, setSevdeskInvoiceId] = useState("");
                   value={contactPerson}
                   onChange={(e) => setContactPerson(e.target.value)}
                   placeholder="optional"
+                />
+              </div>
+
+              <div style={rightMetaLabel}>sevDesk Invoice ID</div>
+              <div style={rightMetaValue}>
+                <input
+                  style={{ ...inputBase, width: 140, textAlign: "right" }}
+                  value={sevdeskInvoiceId}
+                  onChange={(e) => setSevdeskInvoiceId(e.target.value)}
+                  placeholder="z.B. 142946459"
+                />
+              </div>
+
+              <div style={rightMetaLabel}>Poise Save ID</div>
+              <div style={rightMetaValue}>
+                <input
+                  style={{ ...inputBase, width: 140, textAlign: "right", color: "#777" }}
+                  value={savedCoachInvoiceId || ""}
+                  readOnly
+                  placeholder="wird nach Speichern gesetzt"
                 />
               </div>
             </div>
@@ -549,12 +625,16 @@ const [sevdeskInvoiceId, setSevdeskInvoiceId] = useState("");
             <tbody>
               {lineItems.map((li, idx) => (
                 <tr key={li.id} style={{ borderBottom: "1px solid #f0f0f0" }}>
-                  <td style={{ padding: "10px 6px", verticalAlign: "top" }}>{idx + 1}.</td>
+                  <td style={{ padding: "10px 6px", verticalAlign: "top" }}>
+                    {idx + 1}.
+                  </td>
 
                   <td style={{ padding: "10px 6px" }}>
                     <input
                       value={li.description}
-                      onChange={(e) => updateLineItem(idx, { description: e.target.value })}
+                      onChange={(e) =>
+                        updateLineItem(idx, { description: e.target.value })
+                      }
                       style={{
                         border: "none",
                         borderBottom: "1px solid #eee",
@@ -571,7 +651,11 @@ const [sevdeskInvoiceId, setSevdeskInvoiceId] = useState("");
                       min="0"
                       step="1"
                       value={li.qty}
-                      onChange={(e) => updateLineItem(idx, { qty: Number(e.target.value || 0) })}
+                      onChange={(e) =>
+                        updateLineItem(idx, {
+                          qty: Number(e.target.value || 0),
+                        })
+                      }
                       style={{ ...inputBase, width: 60, textAlign: "right" }}
                     />
                   </td>
@@ -582,7 +666,11 @@ const [sevdeskInvoiceId, setSevdeskInvoiceId] = useState("");
                       min="0"
                       step="0.01"
                       value={li.unit}
-                      onChange={(e) => updateLineItem(idx, { unit: Number(e.target.value || 0) })}
+                      onChange={(e) =>
+                        updateLineItem(idx, {
+                          unit: Number(e.target.value || 0),
+                        })
+                      }
                       style={{ ...inputBase, width: 90, textAlign: "right" }}
                     />{" "}
                     EUR
@@ -606,7 +694,13 @@ const [sevdeskInvoiceId, setSevdeskInvoiceId] = useState("");
                 >
                   Gesamtbetrag netto
                 </td>
-                <td style={{ padding: "10px 6px", textAlign: "right", background: "#fafafa" }}>
+                <td
+                  style={{
+                    padding: "10px 6px",
+                    textAlign: "right",
+                    background: "#fafafa",
+                  }}
+                >
                   {totals.net.toFixed(2)} EUR
                 </td>
               </tr>
@@ -624,7 +718,13 @@ const [sevdeskInvoiceId, setSevdeskInvoiceId] = useState("");
                   >
                     zzgl. Umsatzsteuer {vatRate}%
                   </td>
-                  <td style={{ padding: "10px 6px", textAlign: "right", background: "#fafafa" }}>
+                  <td
+                    style={{
+                      padding: "10px 6px",
+                      textAlign: "right",
+                      background: "#fafafa",
+                    }}
+                  >
                     {totals.vat.toFixed(2)} EUR
                   </td>
                 </tr>
@@ -781,21 +881,32 @@ function buildCoachPdf({
   doc.setFontSize(10);
   const metaY = 32;
   doc.text("Rechnungs-Nr.:", pageWidth - marginX - 70, metaY);
-  doc.text(String(invoiceNumber || ""), pageWidth - marginX, metaY, { align: "right" });
+  doc.text(String(invoiceNumber || ""), pageWidth - marginX, metaY, {
+    align: "right",
+  });
 
   doc.text("Rechnungsdatum:", pageWidth - marginX - 70, metaY + 6);
-  doc.text(String(invoiceDate || ""), pageWidth - marginX, metaY + 6, { align: "right" });
+  doc.text(String(invoiceDate || ""), pageWidth - marginX, metaY + 6, {
+    align: "right",
+  });
 
   doc.text("Leistungszeitraum:", pageWidth - marginX - 70, metaY + 12);
-  doc.text(String(servicePeriod || ""), pageWidth - marginX, metaY + 12, { align: "right" });
+  doc.text(String(servicePeriod || ""), pageWidth - marginX, metaY + 12, {
+    align: "right",
+  });
 
   if (customerNumber) {
     doc.text("Kundennummer:", pageWidth - marginX - 70, metaY + 18);
-    doc.text(String(customerNumber), pageWidth - marginX, metaY + 18, { align: "right" });
+    doc.text(String(customerNumber), pageWidth - marginX, metaY + 18, {
+      align: "right",
+    });
   }
+
   if (contactPerson) {
     doc.text("Ansprechpartner:", pageWidth - marginX - 70, metaY + 24);
-    doc.text(String(contactPerson), pageWidth - marginX, metaY + 24, { align: "right" });
+    doc.text(String(contactPerson), pageWidth - marginX, metaY + 24, {
+      align: "right",
+    });
   }
 
   let ry = 50;
@@ -808,10 +919,12 @@ function buildCoachPdf({
   ry += 5;
   doc.text(String(clientZipCity || ""), marginX, ry);
   ry += 5;
+
   if (clientCountry) {
     doc.text(String(clientCountry), marginX, ry);
     ry += 5;
   }
+
   if (clientEmail) {
     doc.text(String(clientEmail), marginX, ry);
     ry += 5;
@@ -827,7 +940,10 @@ function buildCoachPdf({
   doc.text(String(salutation || ""), marginX, ry);
   ry += 6;
 
-  const introLines = doc.splitTextToSize(String(introText || ""), pageWidth - 2 * marginX);
+  const introLines = doc.splitTextToSize(
+    String(introText || ""),
+    pageWidth - 2 * marginX
+  );
   doc.text(introLines, marginX, ry);
   ry += introLines.length * 5 + 4;
 
@@ -844,7 +960,12 @@ function buildCoachPdf({
     head: [["Pos.", "Beschreibung", "Menge", "Einzelpreis", "Gesamtpreis"]],
     body,
     styles: { font: "helvetica", fontSize: 9, cellPadding: 2 },
-    headStyles: { fillColor: [255, 255, 255], textColor: 20, lineWidth: 0.1, lineColor: 200 },
+    headStyles: {
+      fillColor: [255, 255, 255],
+      textColor: 20,
+      lineWidth: 0.1,
+      lineColor: 200,
+    },
     tableLineWidth: 0.1,
     tableLineColor: 200,
     columnStyles: {
@@ -861,7 +982,9 @@ function buildCoachPdf({
   doc.setFont("helvetica", "bold");
   doc.text("Gesamtbetrag netto", pageWidth - marginX - 70, fy);
   doc.setFont("helvetica", "normal");
-  doc.text(`${totals.net.toFixed(2)} EUR`, pageWidth - marginX, fy, { align: "right" });
+  doc.text(`${totals.net.toFixed(2)} EUR`, pageWidth - marginX, fy, {
+    align: "right",
+  });
 
   fy += 6;
 
@@ -886,16 +1009,26 @@ function buildCoachPdf({
 
   if (!invoiceWithVat) {
     doc.setFontSize(9);
-    doc.text("Reverse Charge – Steuerschuld geht auf den Leistungsempfänger über.", marginX, fy);
+    doc.text(
+      "Reverse Charge – Steuerschuld geht auf den Leistungsempfänger über.",
+      marginX,
+      fy
+    );
     fy += 8;
     doc.setFontSize(10);
   }
 
-  const payLines = doc.splitTextToSize(String(paymentTerms || ""), pageWidth - 2 * marginX);
+  const payLines = doc.splitTextToSize(
+    String(paymentTerms || ""),
+    pageWidth - 2 * marginX
+  );
   doc.text(payLines, marginX, fy);
   fy += payLines.length * 5 + 4;
 
-  const closeLines = doc.splitTextToSize(String(closingText || ""), pageWidth - 2 * marginX);
+  const closeLines = doc.splitTextToSize(
+    String(closingText || ""),
+    pageWidth - 2 * marginX
+  );
   doc.text(closeLines, marginX, fy);
 
   const pageCount = doc.internal.getNumberOfPages();
@@ -915,7 +1048,12 @@ function buildCoachPdf({
 
     doc.setDrawColor(220);
     doc.setLineWidth(0.5);
-    doc.line(footerMarginX, footerTopY - 8, pageWidthInner - footerMarginX, footerTopY - 8);
+    doc.line(
+      footerMarginX,
+      footerTopY - 8,
+      pageWidthInner - footerMarginX,
+      footerTopY - 8
+    );
 
     doc.setFontSize(9);
 
