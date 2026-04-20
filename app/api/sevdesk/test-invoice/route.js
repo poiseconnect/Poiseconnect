@@ -50,25 +50,29 @@ function extractId(payload) {
 async function runTestInvoice() {
   const contactId = "129257609";
 
-  const invoicePayload = {
-    contact: {
-      id: String(contactId),
-      objectName: "Contact",
+  const payload = {
+    invoice: {
+      contact: {
+        id: String(contactId),
+        objectName: "Contact",
+      },
+      invoiceDate: new Date().toISOString().slice(0, 10),
+      invoiceType: "RE",
+      status: 100,
+      header: "TEST Rechnung Poise API",
+      headText: "Dies ist eine automatisch erzeugte Testrechnung aus Poise.",
+      footText: "Bitte nicht buchen oder versenden. Nur API-Test.",
+      timeToPay: 14,
+      discount: 0,
+      taxRate: 20,
+      taxText: "20% USt",
+      currency: "EUR",
+      objectName: "Invoice",
     },
-    invoiceDate: new Date().toISOString().slice(0, 10),
-    invoiceType: "RE",
-    status: 50,
-    header: "TEST Rechnung Poise API",
-    headText: "Dies ist eine automatisch erzeugte Testrechnung aus Poise.",
-    footText: "Bitte nicht buchen oder versenden. Nur API-Test.",
-    timeToPay: 14,
-    discount: 0,
-    currency: "EUR",
-    taxRate: 20,
-    taxText: "20% USt",
     invoicePosSave: [
       {
         name: "API Testposition",
+        text: "1 x 10.00 € netto",
         quantity: 1,
         price: 10,
         taxRate: 20,
@@ -80,31 +84,30 @@ async function runTestInvoice() {
         objectName: "InvoicePos",
       },
     ],
+    invoicePosDelete: null,
   };
 
-  const { res, data } = await sevdeskFetch("/Invoice", {
+  const { res, data } = await sevdeskFetch("/Invoice/Factory/saveInvoice", {
     method: "POST",
-    body: JSON.stringify(invoicePayload),
+    body: JSON.stringify(payload),
   });
 
   if (!res.ok) {
     return json(
       {
         ok: false,
-        error: "sevdesk_create_invoice_failed",
+        error: "sevdesk_save_invoice_failed",
         detail: data,
-        sent_payload: invoicePayload,
+        sent_payload: payload,
       },
       500
     );
   }
 
-  const invoiceId = extractId(data);
-
   return json({
     ok: true,
     message: "Testrechnung in sevDesk angelegt",
-    sevdesk_invoice_id: invoiceId,
+    sevdesk_invoice_id: extractId(data),
     raw: data,
   });
 }
