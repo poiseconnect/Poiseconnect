@@ -63,6 +63,13 @@ function normalizeString(value) {
   return s === "" ? null : s;
 }
 
+function normalizeIntegerOrNull(value) {
+  if (value === null || value === undefined || value === "") return null;
+  const n = Number(value);
+  if (!Number.isFinite(n)) return null;
+  return Math.trunc(n);
+}
+
 export async function POST(req) {
   try {
     const auth = await requireAdmin(req);
@@ -72,18 +79,9 @@ export async function POST(req) {
 
     const coachId = normalizeString(body.coach_id);
     const billingMode = normalizeString(body.billing_mode);
-    const billingYear =
-      body.billing_year === null || body.billing_year === undefined || body.billing_year === ""
-        ? null
-        : safeNumber(body.billing_year, null);
-    const billingQuarter =
-      body.billing_quarter === null || body.billing_quarter === undefined || body.billing_quarter === ""
-        ? null
-        : safeNumber(body.billing_quarter, null);
-    const billingMonth =
-      body.billing_month === null || body.billing_month === undefined || body.billing_month === ""
-        ? null
-        : safeNumber(body.billing_month, null);
+    const billingYear = normalizeIntegerOrNull(body.billing_year);
+    const billingQuarter = normalizeIntegerOrNull(body.billing_quarter);
+    const billingMonth = normalizeIntegerOrNull(body.billing_month);
     const bundleKey = normalizeString(body.bundle_key);
 
     if (!coachId) {
@@ -133,12 +131,17 @@ export async function POST(req) {
       total_gross: safeNumber(body.total_gross, 0),
 
       line_items: lineItems.map((item, idx) => ({
+        id: normalizeString(item.id) || `${idx + 1}`,
         pos: safeNumber(item.pos, idx + 1),
         description: normalizeString(item.description) || "Provision",
         qty: safeNumber(item.qty, 0),
         unit_price: safeNumber(item.unit_price, 0),
         total: safeNumber(item.total, 0),
       })),
+
+      sevdesk_invoice_id: normalizeString(body.sevdesk_invoice_id),
+      sevdesk_invoice_number: normalizeString(body.sevdesk_invoice_number),
+      sevdesk_synced_at: body.sevdesk_synced_at || null,
 
       updated_by: auth.member.id,
       updated_at: new Date().toISOString(),
