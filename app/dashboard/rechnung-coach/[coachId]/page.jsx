@@ -60,6 +60,7 @@ export default function RechnungCoachPage({ params, searchParams }) {
   const [lineItemsState, setLineItemsState] = useState([]);
   const [invoiceWithVat, setInvoiceWithVat] = useState(true);
   const [vatRate, setVatRate] = useState(20);
+  const [syncingPositions, setSyncingPositions] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -349,7 +350,55 @@ async function updateInvoiceInSevdesk() {
     setUpdatingSevdesk(false);
   }
 }
+async function syncInvoicePositionsToSevdesk() {
+  try {
+    if (!savedCoachInvoiceId) {
+      alert("Bitte die Rechnung zuerst speichern");
+      return;
+    }
 
+    if (!sevdeskInvoiceId) {
+      alert("Bitte zuerst eine sevDesk Invoice ID eintragen und speichern");
+      return;
+    }
+
+    setSyncingPositions(true);
+
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+
+    const res = await fetch("/api/sevdesk/sync-coach-invoice-positions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${session?.access_token}`,
+      },
+      body: JSON.stringify({
+        coachInvoiceId: savedCoachInvoiceId,
+      }),
+    });
+
+    const json = await res.json().catch(() => null);
+
+    if (!res.ok) {
+      console.error("SYNC POSITIONS ERROR:", json);
+      alert(
+        "sevDesk Positions-Sync fehlgeschlagen:\n\n" +
+          JSON.stringify(json, null, 2)
+      );
+      return;
+    }
+
+    alert("sevDesk-Positionen synchronisiert");
+    await loadData();
+  } catch (err) {
+    console.error("SYNC POSITIONS FATAL ERROR:", err);
+    alert("sevDesk Positions-Sync fehlgeschlagen");
+  } finally {
+    setSyncingPositions(false);
+  }
+}
   function exportPDF() {
     try {
       const doc = new jsPDF("p", "mm", "a4");
@@ -479,7 +528,30 @@ async function updateInvoiceInSevdesk() {
         >
           {updatingSevdesk ? "Aktualisiere sevDesk…" : "sevDesk aktualisieren"}
         </button>
-
+        
+<button
+  onClick={syncInvoicePositionsToSevdesk}
+  disabled={syncingPositions || !savedCoachInvoiceId || !sevdeskInvoiceId}
+  style={{
+    background: "#1B4D8C",
+    color: "#fff",
+    border: "none",
+    padding: "10px 16px",
+    cursor:
+      syncingPositions || !savedCoachInvoiceId || !sevdeskInvoiceId
+        ? "not-allowed"
+        : "pointer",
+    fontSize: 13,
+    borderRadius: 6,
+    opacity:
+      syncingPositions || !savedCoachInvoiceId || !sevdeskInvoiceId
+        ? 0.7
+        : 1,
+  }}
+>
+  {syncingPositions ? "Synchronisiere Positionen…" : "Positionen zu sevDesk"}
+</button>
+        
         <button
           onClick={exportPDF}
           style={{
