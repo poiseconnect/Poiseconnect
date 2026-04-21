@@ -213,136 +213,142 @@ export default function RechnungCoachPage({ params, searchParams }) {
     return { net, vat, gross };
   }, [lineItems, invoiceWithVat, vatRate]);
 
-  async function saveInvoice() {
-    try {
-      setSaving(true);
+async function saveInvoice() {
+  try {
+    setSaving(true);
 
-      const payload = {
-        type: "coach",
-        coach_id: coachId,
-        billing_mode: billingMode,
-        billing_year: billingYear ? Number(billingYear) : null,
-        billing_quarter: billingQuarter ? Number(billingQuarter) : null,
-        billing_month: billingMonth ? Number(billingMonth) : null,
-        bundle_key: bundleKey,
+    const payload = {
+      type: "coach",
+      coach_id: coachId,
+      billing_mode: billingMode,
+      billing_year: billingYear ? Number(billingYear) : null,
+      billing_quarter: billingQuarter ? Number(billingQuarter) : null,
+      billing_month: billingMonth ? Number(billingMonth) : null,
+      bundle_key: bundleKey,
 
-        invoice_number: invoiceNumber,
-        invoice_date: invoiceDate,
-        service_period: servicePeriod,
-        customer_number: customerNumber,
-        contact_person: contactPerson,
+      invoice_number: invoiceNumber,
+      invoice_date: invoiceDate,
+      service_period: servicePeriod,
+      customer_number: customerNumber,
+      contact_person: contactPerson,
 
-        client_name: clientName,
-        client_street: clientStreet,
-        client_city: clientZipCity,
-        client_country: clientCountry,
-        client_email: clientEmail,
+      client_name: clientName,
+      client_street: clientStreet,
+      client_city: clientZipCity,
+      client_country: clientCountry,
+      client_email: clientEmail,
 
-        salutation,
-        intro_text: introText,
-        payment_terms: paymentTerms,
-        closing_text: closingText,
+      salutation,
+      intro_text: introText,
+      payment_terms: paymentTerms,
+      closing_text: closingText,
 
-        invoice_with_vat: invoiceWithVat,
-        vat_rate: vatRate,
-        total_net: totals.net,
-        vat_amount: totals.vat,
-        total_gross: totals.gross,
+      invoice_with_vat: invoiceWithVat,
+      vat_rate: vatRate,
+      total_net: totals.net,
+      vat_amount: totals.vat,
+      total_gross: totals.gross,
 
-        line_items: lineItems.map((li, idx) => ({
-          pos: idx + 1,
-          description: li.description,
-          qty: li.qty,
-          unit_price: li.unit,
-          total: li.total,
-        })),
+      line_items: lineItems.map((li, idx) => ({
+        pos: idx + 1,
+        description: li.description,
+        qty: li.qty,
+        unit_price: li.unit,
+        total: li.total,
+      })),
 
-        sevdesk_invoice_id: sevdeskInvoiceId || null,
-        sevdesk_invoice_number: null,
-        sevdesk_synced_at: null,
-      };
+      sevdesk_invoice_id: sevdeskInvoiceId || null,
+      sevdesk_invoice_number: null,
+      sevdesk_synced_at: null,
+    };
 
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
 
-      const res = await fetch("/api/invoices/save-coach", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${session?.access_token}`,
-        },
-        body: JSON.stringify(payload),
-      });
+    const res = await fetch("/api/invoices/save-coach", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${session?.access_token}`,
+      },
+      body: JSON.stringify(payload),
+    });
 
-      const result = await res.json();
+    const result = await res.json().catch(() => null);
 
-      if (!res.ok) {
-        console.error("SAVE COACH INVOICE ERROR:", result);
-        alert("Fehler beim Speichern");
-        return;
-      }
-
-      if (result?.data?.id) {
-        setSavedCoachInvoiceId(result.data.id);
-      }
-
-      if (result?.data?.sevdesk_invoice_id) {
-        setSevdeskInvoiceId(result.data.sevdesk_invoice_id);
-      }
-
-      alert("Coach-Rechnung gespeichert");
-    } finally {
-      setSaving(false);
+    if (!res.ok) {
+      console.error("SAVE COACH INVOICE ERROR:", result);
+      alert("Fehler beim Speichern");
+      return;
     }
-  }
 
-  async function updateInvoiceInSevdesk() {
-    try {
-      if (!savedCoachInvoiceId) {
-        alert("Bitte die Rechnung zuerst speichern");
-        return;
-      }
-
-      if (!sevdeskInvoiceId) {
-        alert("Bitte zuerst eine sevDesk Invoice ID eintragen und speichern");
-        return;
-      }
-
-      setUpdatingSevdesk(true);
-
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-
-      const res = await fetch("/api/sevdesk/update-coach-invoice", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${session?.access_token}`,
-        },
-        body: JSON.stringify({
-          coachInvoiceId: savedCoachInvoiceId,
-        }),
-      });
-
-      const json = await res.json();
-
-      if (!res.ok) {
-        console.error("UPDATE SEVDESK INVOICE ERROR:", json);
-        alert(
-          "sevDesk Update fehlgeschlagen:\n\n" +
-            JSON.stringify(json, null, 2)
-        );
-        return;
-      }
-
-      alert("sevDesk-Rechnung aktualisiert");
-      await loadData();
-    } finally {
-      setUpdatingSevdesk(false);
+    if (result?.data?.id) {
+      setSavedCoachInvoiceId(result.data.id);
     }
+
+    if (result?.data?.sevdesk_invoice_id) {
+      setSevdeskInvoiceId(result.data.sevdesk_invoice_id);
+    }
+
+    alert("Coach-Rechnung gespeichert");
+  } catch (err) {
+    console.error("SAVE COACH INVOICE FATAL ERROR:", err);
+    alert("Fehler beim Speichern");
+  } finally {
+    setSaving(false);
   }
+}
+
+async function updateInvoiceInSevdesk() {
+  try {
+    if (!savedCoachInvoiceId) {
+      alert("Bitte die Rechnung zuerst speichern");
+      return;
+    }
+
+    if (!sevdeskInvoiceId) {
+      alert("Bitte zuerst eine sevDesk Invoice ID eintragen und speichern");
+      return;
+    }
+
+    setUpdatingSevdesk(true);
+
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+
+    const res = await fetch("/api/sevdesk/update-coach-invoice", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${session?.access_token}`,
+      },
+      body: JSON.stringify({
+        coachInvoiceId: savedCoachInvoiceId,
+      }),
+    });
+
+    const json = await res.json().catch(() => null);
+
+    if (!res.ok) {
+      console.error("UPDATE SEVDESK INVOICE ERROR:", json);
+      alert(
+        "sevDesk Update fehlgeschlagen:\n\n" +
+          JSON.stringify(json, null, 2)
+      );
+      return;
+    }
+
+    alert("sevDesk-Rechnung aktualisiert");
+    await loadData();
+  } catch (err) {
+    console.error("UPDATE SEVDESK INVOICE FATAL ERROR:", err);
+    alert("sevDesk Update fehlgeschlagen");
+  } finally {
+    setUpdatingSevdesk(false);
+  }
+}
 
   function exportPDF() {
     try {
