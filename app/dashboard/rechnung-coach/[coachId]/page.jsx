@@ -62,7 +62,6 @@ const [sendingAllToSevdesk, setSendingAllToSevdesk] = useState(false);
   const [lineItemsState, setLineItemsState] = useState([]);
   const [invoiceWithVat, setInvoiceWithVat] = useState(true);
   const [vatRate, setVatRate] = useState(20);
-  const [syncingPositions, setSyncingPositions] = useState(false);
 
   useEffect(() => {
     loadData();
