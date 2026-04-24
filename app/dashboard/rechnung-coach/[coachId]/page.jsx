@@ -29,6 +29,8 @@ export default function RechnungCoachPage({ params, searchParams }) {
 
   const [savedCoachInvoiceId, setSavedCoachInvoiceId] = useState(null);
   const [sevdeskInvoiceId, setSevdeskInvoiceId] = useState("");
+  const [syncingPositions, setSyncingPositions] = useState(false);
+const [sendingAllToSevdesk, setSendingAllToSevdesk] = useState(false);
 
   const [coach, setCoach] = useState(null);
   const [poiseSettings, setPoiseSettings] = useState(POISE_ADMIN_SETTINGS);
@@ -213,11 +215,10 @@ export default function RechnungCoachPage({ params, searchParams }) {
 
     return { net, vat, gross };
   }, [lineItems, invoiceWithVat, vatRate]);
-
 async function saveInvoice() {
-  try {
-    setSaving(true);
+  setSaving(true);
 
+  try {
     const payload = {
       type: "coach",
       coach_id: coachId,
@@ -280,8 +281,7 @@ async function saveInvoice() {
 
     if (!res.ok) {
       console.error("SAVE COACH INVOICE ERROR:", result);
-      alert("Fehler beim Speichern");
-      return;
+      throw new Error("Fehler beim Speichern");
     }
 
     if (result?.data?.id) {
@@ -292,29 +292,26 @@ async function saveInvoice() {
       setSevdeskInvoiceId(result.data.sevdesk_invoice_id);
     }
 
-    alert("Coach-Rechnung gespeichert");
-  } catch (err) {
-    console.error("SAVE COACH INVOICE FATAL ERROR:", err);
-    alert("Fehler beim Speichern");
+    return result;
   } finally {
     setSaving(false);
   }
 }
 
-async function updateInvoiceInSevdesk() {
+async function updateInvoiceInSevdesk(targetCoachInvoiceId = null) {
+  const invoiceIdToUse = targetCoachInvoiceId || savedCoachInvoiceId;
+
+  if (!invoiceIdToUse) {
+    throw new Error("Bitte die Rechnung zuerst speichern");
+  }
+
+  if (!sevdeskInvoiceId) {
+    throw new Error("Bitte zuerst eine sevDesk Invoice ID eintragen und speichern");
+  }
+
+  setUpdatingSevdesk(true);
+
   try {
-    if (!savedCoachInvoiceId) {
-      alert("Bitte die Rechnung zuerst speichern");
-      return;
-    }
-
-    if (!sevdeskInvoiceId) {
-      alert("Bitte zuerst eine sevDesk Invoice ID eintragen und speichern");
-      return;
-    }
-
-    setUpdatingSevdesk(true);
-
     const {
       data: { session },
     } = await supabase.auth.getSession();
@@ -326,7 +323,7 @@ async function updateInvoiceInSevdesk() {
         Authorization: `Bearer ${session?.access_token}`,
       },
       body: JSON.stringify({
-        coachInvoiceId: savedCoachInvoiceId,
+        coachInvoiceId: invoiceIdToUse,
       }),
     });
 
@@ -334,20 +331,59 @@ async function updateInvoiceInSevdesk() {
 
     if (!res.ok) {
       console.error("UPDATE SEVDESK INVOICE ERROR:", json);
-      alert(
+      throw new Error(
         "sevDesk Update fehlgeschlagen:\n\n" +
           JSON.stringify(json, null, 2)
       );
-      return;
     }
 
-    alert("sevDesk-Rechnung aktualisiert");
-    await loadData();
-  } catch (err) {
-    console.error("UPDATE SEVDESK INVOICE FATAL ERROR:", err);
-    alert("sevDesk Update fehlgeschlagen");
+    return json;
   } finally {
     setUpdatingSevdesk(false);
+  }
+}
+  async function syncInvoicePositionsToSevdesk(targetCoachInvoiceId = null) {
+  const invoiceIdToUse = targetCoachInvoiceId || savedCoachInvoiceId;
+
+  if (!invoiceIdToUse) {
+    throw new Error("Bitte die Rechnung zuerst speichern");
+  }
+
+  if (!sevdeskInvoiceId) {
+    throw new Error("Bitte zuerst eine sevDesk Invoice ID eintragen und speichern");
+  }
+
+  setSyncingPositions(true);
+
+  try {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+
+    const res = await fetch("/api/sevdesk/sync-coach-invoice-positions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${session?.access_token}`,
+      },
+      body: JSON.stringify({
+        coachInvoiceId: invoiceIdToUse,
+      }),
+    });
+
+    const json = await res.json().catch(() => null);
+
+    if (!res.ok) {
+      console.error("SYNC POSITIONS ERROR:", json);
+      throw new Error(
+        "sevDesk Positions-Sync fehlgeschlagen:\n\n" +
+          JSON.stringify(json, null, 2)
+      );
+    }
+
+    return json;
+  } finally {
+    setSyncingPositions(false);
   }
 }
 async function syncInvoicePositionsToSevdesk() {
@@ -397,6 +433,35 @@ async function syncInvoicePositionsToSevdesk() {
     alert("sevDesk Positions-Sync fehlgeschlagen");
   } finally {
     setSyncingPositions(false);
+  }
+}
+  async function sendAllToSevdesk() {
+  setSendingAllToSevdesk(true);
+
+  try {
+    if (!sevdeskInvoiceId) {
+      throw new Error("Bitte zuerst eine sevDesk Invoice ID eintragen");
+    }
+
+    const saveResult = await saveInvoice();
+
+    const freshCoachInvoiceId =
+      saveResult?.data?.id || savedCoachInvoiceId;
+
+    if (!freshCoachInvoiceId) {
+      throw new Error("Poise Save ID konnte nicht ermittelt werden");
+    }
+
+    await updateInvoiceInSevdesk(freshCoachInvoiceId);
+    await syncInvoicePositionsToSevdesk(freshCoachInvoiceId);
+
+    alert("Alles erfolgreich zu sevDesk übertragen ✅");
+    await loadData();
+  } catch (err) {
+    console.error("SEND ALL TO SEVDESK ERROR:", err);
+    alert(err.message || "Fehler beim sevDesk Sync");
+  } finally {
+    setSendingAllToSevdesk(false);
   }
 }
   function exportPDF() {
@@ -480,93 +545,135 @@ async function syncInvoicePositionsToSevdesk() {
 
   return (
     <div style={pageBg}>
-      <div
-        style={{
-          width: 900,
-          margin: "0 auto 18px auto",
-          display: "flex",
-          justifyContent: "flex-end",
-          gap: 10,
-        }}
-      >
-        <button
-          onClick={saveInvoice}
-          disabled={saving}
-          style={{
-            background: "#111",
-            color: "#fff",
-            border: "none",
-            padding: "10px 16px",
-            cursor: "pointer",
-            fontSize: 13,
-            borderRadius: 6,
-            opacity: saving ? 0.7 : 1,
-          }}
-        >
-          {saving ? "Speichere…" : "Rechnung speichern"}
-        </button>
-
-        <button
-          onClick={updateInvoiceInSevdesk}
-          disabled={updatingSevdesk || !savedCoachInvoiceId || !sevdeskInvoiceId}
-          style={{
-            background: "#0B6E4F",
-            color: "#fff",
-            border: "none",
-            padding: "10px 16px",
-            cursor:
-              updatingSevdesk || !savedCoachInvoiceId || !sevdeskInvoiceId
-                ? "not-allowed"
-                : "pointer",
-            fontSize: 13,
-            borderRadius: 6,
-            opacity:
-              updatingSevdesk || !savedCoachInvoiceId || !sevdeskInvoiceId
-                ? 0.7
-                : 1,
-          }}
-        >
-          {updatingSevdesk ? "Aktualisiere sevDesk…" : "sevDesk aktualisieren"}
-        </button>
-        
-<button
-  onClick={syncInvoicePositionsToSevdesk}
-  disabled={syncingPositions || !savedCoachInvoiceId || !sevdeskInvoiceId}
+<div
   style={{
-    background: "#1B4D8C",
-    color: "#fff",
-    border: "none",
-    padding: "10px 16px",
-    cursor:
-      syncingPositions || !savedCoachInvoiceId || !sevdeskInvoiceId
-        ? "not-allowed"
-        : "pointer",
-    fontSize: 13,
-    borderRadius: 6,
-    opacity:
-      syncingPositions || !savedCoachInvoiceId || !sevdeskInvoiceId
-        ? 0.7
-        : 1,
+    width: 900,
+    margin: "0 auto 18px auto",
+    display: "flex",
+    justifyContent: "flex-end",
+    gap: 10,
   }}
 >
-  {syncingPositions ? "Synchronisiere Positionen…" : "Positionen zu sevDesk"}
-</button>
-        
-        <button
-          onClick={exportPDF}
-          style={{
-            background: "#fff",
-            color: "#111",
-            border: "1px solid #111",
-            padding: "10px 16px",
-            cursor: "pointer",
-            fontSize: 13,
-            borderRadius: 6,
-          }}
-        >
-          PDF exportieren
-        </button>
-      </div>
+  <button
+    onClick={sendAllToSevdesk}
+    disabled={sendingAllToSevdesk}
+    style={{
+      background: "#0B6E4F",
+      color: "#fff",
+      border: "none",
+      padding: "12px 18px",
+      cursor: sendingAllToSevdesk ? "not-allowed" : "pointer",
+      fontSize: 14,
+      borderRadius: 6,
+      opacity: sendingAllToSevdesk ? 0.7 : 1,
+      fontWeight: 600,
+    }}
+  >
+    {sendingAllToSevdesk ? "Sende zu sevDesk…" : "Alles zu sevDesk"}
+  </button>
+
+  <button
+    onClick={saveInvoice}
+    disabled={saving || sendingAllToSevdesk}
+    style={{
+      background: "#111",
+      color: "#fff",
+      border: "none",
+      padding: "10px 16px",
+      cursor: saving || sendingAllToSevdesk ? "not-allowed" : "pointer",
+      fontSize: 13,
+      borderRadius: 6,
+      opacity: saving || sendingAllToSevdesk ? 0.7 : 1,
+    }}
+  >
+    {saving ? "Speichere…" : "Rechnung speichern"}
+  </button>
+
+  <button
+    onClick={updateInvoiceInSevdesk}
+    disabled={
+      updatingSevdesk ||
+      sendingAllToSevdesk ||
+      !savedCoachInvoiceId ||
+      !sevdeskInvoiceId
+    }
+    style={{
+      background: "#0B6E4F",
+      color: "#fff",
+      border: "none",
+      padding: "10px 16px",
+      cursor:
+        updatingSevdesk ||
+        sendingAllToSevdesk ||
+        !savedCoachInvoiceId ||
+        !sevdeskInvoiceId
+          ? "not-allowed"
+          : "pointer",
+      fontSize: 13,
+      borderRadius: 6,
+      opacity:
+        updatingSevdesk ||
+        sendingAllToSevdesk ||
+        !savedCoachInvoiceId ||
+        !sevdeskInvoiceId
+          ? 0.7
+          : 1,
+    }}
+  >
+    {updatingSevdesk ? "Aktualisiere sevDesk…" : "sevDesk aktualisieren"}
+  </button>
+
+  <button
+    onClick={syncInvoicePositionsToSevdesk}
+    disabled={
+      syncingPositions ||
+      sendingAllToSevdesk ||
+      !savedCoachInvoiceId ||
+      !sevdeskInvoiceId
+    }
+    style={{
+      background: "#1B4D8C",
+      color: "#fff",
+      border: "none",
+      padding: "10px 16px",
+      cursor:
+        syncingPositions ||
+        sendingAllToSevdesk ||
+        !savedCoachInvoiceId ||
+        !sevdeskInvoiceId
+          ? "not-allowed"
+          : "pointer",
+      fontSize: 13,
+      borderRadius: 6,
+      opacity:
+        syncingPositions ||
+        sendingAllToSevdesk ||
+        !savedCoachInvoiceId ||
+        !sevdeskInvoiceId
+          ? 0.7
+          : 1,
+    }}
+  >
+    {syncingPositions ? "Synchronisiere Positionen…" : "Positionen zu sevDesk"}
+  </button>
+
+  <button
+    onClick={exportPDF}
+    disabled={sendingAllToSevdesk}
+    style={{
+      background: "#fff",
+      color: "#111",
+      border: "1px solid #111",
+      padding: "10px 16px",
+      cursor: sendingAllToSevdesk ? "not-allowed" : "pointer",
+      fontSize: 13,
+      borderRadius: 6,
+      opacity: sendingAllToSevdesk ? 0.7 : 1,
+    }}
+  >
+    PDF exportieren
+  </button>
+</div>
 
       <div style={paper}>
         <div
