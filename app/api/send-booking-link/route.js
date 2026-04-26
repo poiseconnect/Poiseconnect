@@ -34,7 +34,7 @@ export async function POST(req) {
     const resend = new Resend(process.env.RESEND_API_KEY);
 
     const baseUrl =
-      process.env.NEXT_PUBLIC_SITE_URL || "https://poiseconnect.vercel.app";
+      process.env.NEXT_PUBLIC_SITE_URL || "https://app.mypoise.de";
 
     const bookingUrl = `${baseUrl}/booking/${bookingToken}`;
 
