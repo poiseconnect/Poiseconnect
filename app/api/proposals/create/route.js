@@ -70,7 +70,7 @@ export async function POST(req) {
     // ------------------------------------------------
     const baseUrl =
       process.env.NEXT_PUBLIC_SITE_URL ||
-      "https://poiseconnect.vercel.app";
+      "https://app.mypoise.de";
 
     const link = `${baseUrl}/confirm-proposal?request=${requestId}`;
 
