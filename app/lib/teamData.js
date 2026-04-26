@@ -630,7 +630,7 @@ scores: {
 },
 
 {
-    id: "bb7bce0f7-45be-427e-bca4-73386dbdc690",
+    id: "b7bce0f7-45be-427e-bca4-73386dbdc690",
   name: "Kristin",
   calendar_mode: "ics",
   email: "kristin@hitrauer.de",
