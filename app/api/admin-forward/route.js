@@ -24,7 +24,7 @@ export async function POST(request) {
 
     const baseUrl =
       process.env.NEXT_PUBLIC_SITE_URL ||
-      "https://poiseconnect.vercel.app";
+      "https://app.mypoise.de";
 
     const link = `${baseUrl}?resume=8&rid=${requestId}`;
 
