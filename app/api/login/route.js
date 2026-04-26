@@ -22,7 +22,7 @@ export async function POST(req) {
       email,
       options: {
         // 🔥 Der einzig korrekte Callback:
-        emailRedirectTo: "https://poiseconnect.vercel.app/auth/callback",
+        emailRedirectTo: "https://app.mypoise.de/auth/callback",
       },
     });
 
