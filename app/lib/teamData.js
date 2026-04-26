@@ -862,7 +862,7 @@ scores: {
 },
 
 {
-    id: "b314c5c6a-df29-4703-961c-8ea9bf01f7ba",
+    id: "314c5c6a-df29-4703-961c-8ea9bf01f7ba",
   name: "Sophie",
   calendar_mode: "proposal",
   role: "Psychologin, Heilpraktikerin für Psychotherapie",
