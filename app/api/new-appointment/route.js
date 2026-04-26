@@ -44,7 +44,7 @@ export async function POST(req) {
 
     const baseUrl =
       process.env.NEXT_PUBLIC_SITE_URL ||
-      "https://poiseconnect.vercel.app";
+      "https://app.mypoise.de";
 
     /* ===============================
        1️⃣ Alten Slot blockieren
