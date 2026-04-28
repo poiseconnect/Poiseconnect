@@ -348,7 +348,8 @@ const anfrageId =
 const [draftRequestId, setDraftRequestId] = useState(null);
 const [bookingToken, setBookingToken] = useState(null);
 const [savingDraft, setSavingDraft] = useState(false);
-
+const [submitting, setSubmitting] = useState(false);
+ 
 // 🔑 WICHTIG: dieser State hat gefehlt
 const [assignedTherapistId, setAssignedTherapistId] = useState(
   therapistIdFromUrl || null
@@ -1126,18 +1127,23 @@ console.log("✅ DRAFT RESPONSE", {
   // Formular absenden
   // -------------------------------------
 const send = async () => {
+  if (submitting) return;
+  setSubmitting(true);
+
   if (!assignedTherapistId) {
     alert("Bitte wähle eine Therapeutin oder einen Therapeuten aus.");
+    setSubmitting(false);
     return;
   }
 
   try {
     // 1) Bei booking: echten Termin zuerst buchen
     if (calendarMode === "booking") {
-      if (!bookingToken || !form.terminISO) {
-        alert("Bitte wähle zuerst einen Termin.");
-        return;
-      }
+if (!bookingToken || !form.terminISO) {
+  alert("Bitte wähle zuerst einen Termin.");
+  setSubmitting(false);
+  return;
+}
 
       const bookingRes = await fetch("/api/booking/book", {
         method: "POST",
@@ -1155,13 +1161,12 @@ const send = async () => {
       const bookingData = await bookingRes.json().catch(() => null);
 
       if (!bookingRes.ok) {
-        if (bookingData?.error === "slot_taken") {
-          alert(
-            "Dieser Termin wurde gerade vergeben. Bitte wähle einen neuen Termin."
-          );
-          setStep(10);
-          return;
-        }
+if (bookingData?.error === "slot_taken") {
+  alert("Dieser Termin wurde gerade vergeben.");
+  setStep(10);
+  setSubmitting(false);
+  return;
+}
 
         console.error("BOOKING ERROR:", bookingData);
         alert("Der Termin konnte nicht gebucht werden.");
@@ -1185,17 +1190,18 @@ const send = async () => {
 
     const data = await res.json().catch(() => null);
 
-    if (!res.ok) {
-      console.error("FORM SUBMIT ERROR:", data);
-      alert("Fehler – Anfrage konnte nicht gesendet werden.");
-      return;
-    }
+if (!res.ok) {
+  alert("Fehler – Anfrage konnte nicht gesendet werden.");
+  setSubmitting(false);
+  return;
+}
 
     alert("Danke – deine Anfrage wurde erfolgreich gesendet 🤍");
-  } catch (err) {
-    console.error("Client Fehler:", err);
-    alert("Unerwarteter Fehler – bitte später erneut versuchen.");
-  }
+} catch (err) {
+  console.error("Client Fehler:", err);
+  alert("Unerwarteter Fehler – bitte später erneut versuchen.");
+  setSubmitting(false);
+}
 };
 
 
@@ -1611,7 +1617,23 @@ color: "#000", // ✅ FIX: Text IMMER schwarz
                 })
               }
             />
-            Ich akzeptiere die Datenschutzerklärung.
+<span>
+  Ich akzeptiere die{" "}
+  <a
+    href="https://mypoise.de/privacy-policy/"
+    target="_blank"
+    rel="noopener noreferrer"
+    onClick={(e) => e.stopPropagation()}
+    style={{
+      color: "#111",
+      textDecoration: "underline",
+      fontWeight: 600,
+    }}
+  >
+    Datenschutzerklärung
+  </a>
+  .
+</span>
           </label>
 
           <label className="checkbox">
@@ -1987,8 +2009,16 @@ Eine Kostenübernahme kann möglich sein — individuell klären.`,
 
     <div className="footer-buttons" style={{ marginTop: 16 }}>
       <button onClick={back}>Zurück</button>
-      <button onClick={send}>Anfrage senden</button>
-    </div>
+<button
+  onClick={send}
+  disabled={submitting}
+  style={{
+    opacity: submitting ? 0.6 : 1,
+    cursor: submitting ? "not-allowed" : "pointer",
+  }}
+>
+  {submitting ? "Wird gesendet…" : "Anfrage senden"}
+</button>    </div>
   </div>
 )}
 
