@@ -5,6 +5,8 @@ import { teamData } from "../lib/teamData";
 import jsPDF from "jspdf";
 import "jspdf-autotable";
 import ActionMenu from "../components/ActionMenu";
+import CoachOnboardingTour from "../components/CoachOnboardingTour";
+
 import { supabase } from "../lib/supabase";
 
 async function getAccessToken() {
@@ -2543,13 +2545,9 @@ return (
         : "linear-gradient(180deg,#F7FFF9 0%, #FFFFFF 60%)",
   }}
 >
+  {role === "therapist" && <CoachOnboardingTour />}
 
-     
-
-     
-
-      
-      {/* ================= DEBUG OVERLAY (DEV ONLY) ================= */}
+  {/* ================= DEBUG OVERLAY (DEV ONLY) ================= */}
 {process.env.NODE_ENV === "development" && (
   <pre
     style={{
