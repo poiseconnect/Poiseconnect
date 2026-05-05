@@ -55,6 +55,7 @@ scores: {
   qualificationLevel: 1,
   image: "https://mypoise.de/wp-content/uploads/2023/06/Anna-Moser-scaled-e1739306168495-1300x1300.jpg",
   video: "https://youtu.be/I6a4ZUM5KiU",
+  email: "psychologin.anna.moser@hotmail.com",
   short: "Ich unterstütze Menschen in herausfordernden Lebensphasen, insbesondere bei emotionaler Belastung und Erschöpfung.",
   themes: {
     stress: 3,
@@ -97,6 +98,7 @@ scores: {
   qualificationLevel: 3,
   image: "https://mypoise.de/wp-content/uploads/2022/11/Vorstellungsfoto-1300x1300.jpg",
   video: "https://youtu.be/23tko9Jdr3A",
+    email: "coaching@anjatenge.de",
   short: "Ich begleite Menschen, die sich im inneren Konflikt befinden, sich emotional erschöpft fühlen oder eine Neuorientierung suchen.",
   themes: {
     selbstwert: 3,
@@ -140,6 +142,7 @@ scores: {
   qualificationLevel: 4,
   image: "https://mypoise.de/wp-content/uploads/2022/11/IMG_7891-scaled-e1669712492385-700x700.jpeg",
   video: "https://youtu.be/ooreni-vA78",
+    email: "hallo@babettegoldbach.de",
   short: "Ich arbeite schwerpunktmäßig mit Menschen, die unter Stress, Überforderung oder anhaltender innerer Anspannung leiden.",
   themes: {
     stress: 3,
@@ -180,6 +183,7 @@ scores: {
   qualificationLevel: 4,
   image: "https://mypoise.de/wp-content/uploads/2023/09/163_Portrait-Juni2023__pp-1300x1300.jpg",
   video: "https://youtu.be/bjJ76067_j0",
+    email: "info@carolinheemann.com",
   short:
     "Ich begleite Menschen in Umbruchphasen oder inneren Übergängen und unterstütze dabei, emotionale Orientierung und Stabilität zu entwickeln.",
   themes: {
@@ -225,6 +229,7 @@ scores: {
   qualificationLevel: 1,
   image: "https://mypoise.de/wp-content/uploads/2023/12/IMG_7279-700x700.jpg",
   video: "https://youtu.be/xvDbQYWlpL8",
+    email: "caroline.kohlmann@gmail.com",
   short:
     "Ich begleite Menschen bei psychosomatischen Themen, wenn Körper und Emotionen eng miteinander verbunden sind.",
   themes: {
@@ -270,6 +275,7 @@ scores: {
   qualificationLevel: 4,
   image: "https://mypoise.de/wp-content/uploads/2025/02/Image-scaled-e1740223110391.jpeg",
   video: "https://youtu.be/Gbmggqdwl9M",
+    email: "elena.wolf@outlook.com",
   short:
     "Ich unterstütze Menschen, die funktionieren müssen, obwohl innerlich vieles schwer ist, und helfe dabei, wieder in Kontakt mit sich selbst zu kommen.",
   themes: {
@@ -313,6 +319,7 @@ scores: {
   qualificationLevel: 3,
   image: "https://mypoise.de/wp-content/uploads/2022/12/1654680310653.jpg",
   video: "https://youtu.be/kngeVsC0vec",
+    email: "franziska.foesch@web.de",
   short:
     "Ich begleite Menschen bei Krankheit, Verlust oder seelischer Erschöpfung und biete Halt und Orientierung in belastenden Lebensphasen.",
   themes: {
@@ -443,6 +450,7 @@ scores: {
   qualificationLevel: 2,
   image: "https://mypoise.de/wp-content/uploads/2024/08/IsabellaKusztrits%C2%A9DanielaGruber-13.jpeg-600x426.png",
   video: "",
+   email: "isabella_kusztrits@hotmail.com",
   short:
     "Ich begleite hochsensible Menschen dabei, ihre Emotionen zu verstehen, gesunde Grenzen zu entwickeln und innere Stabilität aufzubauen.",
   themes: {
@@ -486,6 +494,7 @@ scores: {
   qualificationLevel: 4,
   image: "https://mypoise.de/wp-content/uploads/2022/11/Screen-Shot-2022-11-22-at-09.59.06-700x700.png",
   video: "https://youtu.be/NwQ1ftS6YvM",
+   email: "dehn.jennifer@googlemail.com",
   short:
     "Ich unterstütze dich dabei, alte Beziehungsmuster zu erkennen, emotionale Trigger zu verstehen und neue Handlungsspielräume zu entwickeln.",
   themes: {
@@ -529,6 +538,7 @@ scores: {
   qualificationLevel: 2,
   image: "https://mypoise.de/wp-content/uploads/2022/11/Judith_Gross-1300x1300.jpg",
   video: "https://youtu.be/-BBED_bocu0",
+   email: "praxis@judithkantor.at",
   short:
     "Ich unterstütze dich dabei, innere Belastung zu verstehen, einzuordnen und wieder mehr Stabilität & Leichtigkeit zu finden.",
   themes: {
@@ -587,6 +597,7 @@ scores: {
   qualificationLevel: 4,
   image: "https://mypoise.de/wp-content/uploads/2023/09/Poise_bild-1300x1300.jpg",
   video: "https://youtu.be/YNS5APSbV8Y",
+   email: "moeller.julius@outlook.com",
   short:
     "Ich arbeite ressourcenorientiert und klar — wir finden gemeinsam praktikable Schritte, die sich nicht nur gut anhören, sondern wirklich funktionieren.",
   themes: {
@@ -731,6 +742,7 @@ scores: {
   qualificationLevel: 2,
   image: "https://mypoise.de/wp-content/uploads/2023/01/Magdalena-e1672744279356-700x700.jpg",
   video: "https://youtu.be/b06MFP9AxTg",
+   email: "magdalena.falthansl@protonmail.com",
   short:
     "Ich begleite Kinder, Jugendliche, Familien und Erwachsene durch schwierige Entwicklungs- und Lebensphasen.",
   themes: {
@@ -777,6 +789,7 @@ scores: {
   qualificationLevel: 1,
   image: "https://mypoise.de/wp-content/uploads/2022/11/Foto-Homepage-1300x1300.jpg",
   video: "https://youtu.be/yXHYgCmN2ug",
+   email: "marleenoppermann@gmx.de",
   short:
     "Ich verbinde medizinische Erfahrung, Psychotherapie und Kommunikation – ganzheitlich und reflektiert.",
   themes: {
@@ -823,6 +836,7 @@ scores: {
   qualificationLevel: 1,
   image: "https://mypoise.de/wp-content/uploads/2022/12/IMG_9908-e1669989498337-700x700.jpeg",
   video: "https://youtu.be/ge-l5t2V5WM",
+   email: "M.Schmenger@gmx.de",
   short:
     "Ich unterstütze dich darin, deine eigenen Bedürfnisse ernst zu nehmen, Grenzen zu setzen und deinen Weg selbstbewusst zu gehen.",
   themes: {
@@ -869,6 +883,7 @@ scores: {
   qualificationLevel: 3,
   image: "https://mypoise.de/wp-content/uploads/2022/11/Foto-sophie-crop-1-e1668080175188.png",
   video: "https://youtu.be/OA4nNWg1nq4",
+   email: "info@psychologie-dyck.de",
   short:
     "Ich helfe dir, deine Geschichte zu verstehen und emotionale Muster liebevoll zu verändern.",
   themes: {
@@ -913,6 +928,7 @@ scores: {
   qualificationLevel: 1,
   image: "https://mypoise.de/wp-content/uploads/2024/11/IMG_7943-scaled-e1732804924432-1022x1024.jpg",
   video: "https://youtu.be/2axjVpI5vus",
+   email: "yaninaeisenbach@gmail.com",
   short:
     "Ich begleite dich fundiert, tiefenpsychologisch und klar durch emotionale Prozesse.",
   themes: {
@@ -959,7 +975,7 @@ scores: {
   qualificationLevel: 0,
   image: "https://mypoise.de/wp-content/uploads/2025/10/Foto-11-scaled.jpg",
   video: "https://www.youtube.com/watch?v=tEG_9zsMl3E&t=135s",
-  email: null,
+ email: "landgraf.livia@gmail.com",
   short: null,
   themes: {},
   keywords: [],
@@ -1019,9 +1035,9 @@ scores: {
   calendar_mode: "booking",
   role: "Psychologe (Test)",
   qualificationLevel: 0,
-  image: null,
-  video: null,
-  email: null,
+  image: "https://mypoise.de/wp-content/uploads/2023/05/Bildschirmfoto-2023-05-09-um-09.56.38.png",
+  video: "https://youtu.be/G5bZTo-cHI4?si=hozvsunESg9495iQ",
+  email: "vivienne@matev.at",
   short: "Interner Test-Therapeut für Dashboard-Tests.",
   themes: {},
   keywords: [],
