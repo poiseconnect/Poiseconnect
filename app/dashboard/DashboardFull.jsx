@@ -1003,14 +1003,19 @@ function getActionsForRequest(r, sessionList = []) {
     return actions;
   }
 
-  if (status === "termin_bestaetigt") {
-    const actions = [
-      {
-        key: "match",
-        label: "❤️ Match",
-        hint: "Erstgespräch war passend – Begleitung startet",
-      },
-    ];
+if (status === "termin_bestaetigt") {
+  const actions = [
+    {
+      key: "match",
+      label: "❤️ Match",
+      hint: "Erstgespräch war passend – Begleitung startet",
+    },
+    {
+      key: "reassign",
+      label: "👥 Therapeut wechseln",
+      hint: "An Admin zur Neuverteilung geben",
+    },
+  ];
 
     if (calendarMode === "booking") {
       actions.push({
