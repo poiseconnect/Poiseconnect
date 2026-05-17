@@ -10,8 +10,6 @@ export async function POST(request) {
       lastName,
       consent,
       source = "poise_app_form",
-      anliegen,
-      leidensdruck,
     } = body;
 
     if (!email || consent !== true) {
@@ -29,7 +27,7 @@ export async function POST(request) {
           Authorization: `Klaviyo-API-Key ${process.env.KLAVIYO_PRIVATE_API_KEY}`,
           Accept: "application/json",
           "Content-Type": "application/json",
-          revision: "2026-04-15",
+          revision: "2024-10-15",
         },
         body: JSON.stringify({
           data: {
@@ -42,19 +40,14 @@ export async function POST(request) {
                     type: "profile",
                     attributes: {
                       email,
+                      first_name: firstName || "",
+                      last_name: lastName || "",
                       subscriptions: {
                         email: {
                           marketing: {
                             consent: "SUBSCRIBED",
                           },
                         },
-                      },
-                      properties: {
-                        first_name: firstName || "",
-                        last_name: lastName || "",
-                        source,
-                        anliegen: anliegen || "",
-                        leidensdruck: leidensdruck || "",
                       },
                     },
                   },
@@ -74,22 +67,21 @@ export async function POST(request) {
       }
     );
 
-    if (!response.ok) {
-      const error = await response.text();
-      console.error("Klaviyo error:", error);
+    const responseText = await response.text();
 
+    if (!response.ok) {
+      console.error("Klaviyo error:", responseText);
       return NextResponse.json(
-        { ok: false, error },
+        { ok: false, error: responseText },
         { status: response.status }
       );
     }
 
-    return NextResponse.json({ ok: true });
+    return NextResponse.json({ ok: true, response: responseText });
   } catch (error) {
     console.error("Klaviyo subscribe error:", error);
-
     return NextResponse.json(
-      { ok: false, error: "Klaviyo subscription failed" },
+      { ok: false, error: String(error) },
       { status: 500 }
     );
   }
