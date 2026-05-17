@@ -4,13 +4,7 @@ export async function POST(request) {
   try {
     const body = await request.json();
 
-    const {
-      email,
-      firstName,
-      lastName,
-      consent,
-      source = "poise_app_form",
-    } = body;
+    const { email, consent, source = "poise_app_form" } = body;
 
     if (!email || consent !== true) {
       return NextResponse.json(
@@ -19,7 +13,7 @@ export async function POST(request) {
       );
     }
 
-    const response = await fetch(
+    const klaviyoRes = await fetch(
       "https://a.klaviyo.com/api/profile-subscription-bulk-create-jobs",
       {
         method: "POST",
@@ -40,8 +34,6 @@ export async function POST(request) {
                     type: "profile",
                     attributes: {
                       email,
-                      first_name: firstName || "",
-                      last_name: lastName || "",
                       subscriptions: {
                         email: {
                           marketing: {
@@ -67,22 +59,25 @@ export async function POST(request) {
       }
     );
 
-    const responseText = await response.text();
+    const text = await klaviyoRes.text();
 
-    if (!response.ok) {
-      console.error("Klaviyo error:", responseText);
-      return NextResponse.json(
-        { ok: false, error: responseText },
-        { status: response.status }
+    if (!klaviyoRes.ok) {
+      console.error("Klaviyo error:", text);
+      return new Response(
+        JSON.stringify({ ok: false, error: text }),
+        { status: klaviyoRes.status, headers: { "Content-Type": "application/json" } }
       );
     }
 
-    return NextResponse.json({ ok: true, response: responseText });
+    return new Response(
+      JSON.stringify({ ok: true, response: text }),
+      { status: 200, headers: { "Content-Type": "application/json" } }
+    );
   } catch (error) {
     console.error("Klaviyo subscribe error:", error);
-    return NextResponse.json(
-      { ok: false, error: String(error) },
-      { status: 500 }
+    return new Response(
+      JSON.stringify({ ok: false, error: String(error) }),
+      { status: 500, headers: { "Content-Type": "application/json" } }
     );
   }
 }
