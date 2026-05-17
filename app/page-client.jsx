@@ -376,6 +376,7 @@ const [form, setForm] = useState({
   check_datenschutz: false,
   check_online_setting: false,
   check_gesundheit: false,
+   newsletter_consent: false,
   terminISO: "",
   terminDisplay: "",
   assigned_therapist_id: null,
@@ -1196,7 +1197,25 @@ if (!res.ok) {
   return;
 }
 
-    alert("Danke – deine Anfrage wurde erfolgreich gesendet 🤍");
+if (form.newsletter_consent) {
+  fetch("/api/klaviyo/subscribe", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      email: form.email,
+      firstName: form.vorname,
+      lastName: form.nachname,
+      consent: form.newsletter_consent,
+      source: "poise_app_form",
+      anliegen: form.anliegen,
+      leidensdruck: form.leidensdruck,
+    }),
+  }).catch((err) => console.error("Klaviyo signup failed:", err));
+}
+
+alert("Danke – deine Anfrage wurde erfolgreich gesendet 🤍");
 } catch (err) {
   console.error("Client Fehler:", err);
   alert("Unerwarteter Fehler – bitte später erneut versuchen.");
@@ -1666,7 +1685,20 @@ color: "#000", // ✅ FIX: Text IMMER schwarz
             Ich habe keine akuten Suizidgedanken /
             akute Selbstgefährdung.
           </label>
-
+<label className="checkbox">
+  <input
+    type="checkbox"
+    checked={form.newsletter_consent || false}
+    onChange={() =>
+      setForm({
+        ...form,
+        newsletter_consent: !form.newsletter_consent,
+      })
+    }
+  />
+  Ich möchte gelegentlich Impulse, Angebote und Neuigkeiten von Poise per E-Mail erhalten.
+  Ich kann mich jederzeit wieder abmelden.
+</label>
           <div className="footer-buttons">
             <button onClick={back}>Zurück</button>
             <button
