@@ -1,43 +1,65 @@
 "use client";
 
 import { useState } from "react";
+import { useSearchParams } from "next/navigation";
 
 export default function BeziehungPage() {
   const [email, setEmail] = useState("");
   const [submitted, setSubmitted] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  const searchParams = useSearchParams();
+
+  const source =
+    searchParams.get("source") || "relationship_landingpage";
 
   async function handleSubmit(e) {
     e.preventDefault();
 
-    const res = await fetch("/api/klaviyo/subscribe", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        email,
-        consent: true,
-        source: "relationship_landingpage",
-      }),
-    });
+    if (!email) return;
 
-    if (res.ok) {
-      setSubmitted(true);
+    setLoading(true);
+
+    try {
+      const res = await fetch("/api/klaviyo/subscribe", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email,
+          consent: true,
+          source,
+        }),
+      });
+
+      if (res.ok) {
+        setSubmitted(true);
+      } else {
+        alert("Die Anmeldung hat leider nicht funktioniert.");
+      }
+    } catch (err) {
+      console.error("Newsletter signup failed:", err);
+      alert("Die Anmeldung hat leider nicht funktioniert.");
+    } finally {
+      setLoading(false);
     }
   }
 
   return (
     <main
       style={{
-        maxWidth: 500,
+        maxWidth: 520,
         margin: "0 auto",
         padding: "80px 24px",
         textAlign: "center",
+        color: "#2f2924",
       }}
     >
       <h1
         style={{
           fontSize: 36,
+          lineHeight: 1.15,
           marginBottom: 16,
         }}
       >
@@ -47,7 +69,7 @@ export default function BeziehungPage() {
       <p
         style={{
           fontSize: 18,
-          lineHeight: 1.5,
+          lineHeight: 1.55,
           opacity: 0.8,
           marginBottom: 32,
         }}
@@ -76,6 +98,7 @@ export default function BeziehungPage() {
 
           <button
             type="submit"
+            disabled={loading}
             style={{
               width: "100%",
               padding: 16,
@@ -84,16 +107,30 @@ export default function BeziehungPage() {
               background: "#111",
               color: "#fff",
               fontSize: 16,
-              cursor: "pointer",
+              cursor: loading ? "not-allowed" : "pointer",
+              opacity: loading ? 0.6 : 1,
             }}
           >
-            Kostenlos erhalten
+            {loading ? "Wird angemeldet…" : "Kostenlos erhalten"}
           </button>
+
+          <p
+            style={{
+              fontSize: 12,
+              lineHeight: 1.4,
+              opacity: 0.65,
+              marginTop: 14,
+            }}
+          >
+            Mit deiner Anmeldung erhältst du gelegentlich Impulse,
+            Angebote und Neuigkeiten von Poise per E-Mail.
+            Du kannst dich jederzeit wieder abmelden.
+          </p>
         </form>
       ) : (
         <div>
           <h2>Danke 💛</h2>
-          <p>Die Tipps sind bereits auf dem Weg zu dir.</p>
+          <p>Du bist angemeldet.</p>
         </div>
       )}
     </main>
