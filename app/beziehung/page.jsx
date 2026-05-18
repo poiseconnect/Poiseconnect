@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
 
-export default function BeziehungPage() {
+function BeziehungContent() {
   const [email, setEmail] = useState("");
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -56,13 +56,7 @@ export default function BeziehungPage() {
         color: "#2f2924",
       }}
     >
-      <h1
-        style={{
-          fontSize: 36,
-          lineHeight: 1.15,
-          marginBottom: 16,
-        }}
-      >
+      <h1 style={{ fontSize: 36, lineHeight: 1.15, marginBottom: 16 }}>
         Beziehungstipps für mehr Ruhe & Verbindung 💛
       </h1>
 
@@ -114,14 +108,7 @@ export default function BeziehungPage() {
             {loading ? "Wird angemeldet…" : "Kostenlos erhalten"}
           </button>
 
-          <p
-            style={{
-              fontSize: 12,
-              lineHeight: 1.4,
-              opacity: 0.65,
-              marginTop: 14,
-            }}
-          >
+          <p style={{ fontSize: 12, lineHeight: 1.4, opacity: 0.65, marginTop: 14 }}>
             Mit deiner Anmeldung erhältst du gelegentlich Impulse,
             Angebote und Neuigkeiten von Poise per E-Mail.
             Du kannst dich jederzeit wieder abmelden.
@@ -134,5 +121,13 @@ export default function BeziehungPage() {
         </div>
       )}
     </main>
+  );
+}
+
+export default function BeziehungPage() {
+  return (
+    <Suspense fallback={null}>
+      <BeziehungContent />
+    </Suspense>
   );
 }
