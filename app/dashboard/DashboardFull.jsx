@@ -336,6 +336,17 @@ function safeDateString(v) {
   if (Number.isNaN(d.getTime())) return "";
   return d.toLocaleString("de-AT");
 }
+function localDateTimeToISOString(value) {
+  if (!value) return null;
+
+  // value kommt aus input type="datetime-local"
+  // z.B. "2026-06-01T10:00"
+  const d = new Date(value);
+
+  if (Number.isNaN(d.getTime())) return null;
+
+  return d.toISOString();
+}
 
 function quarterKeyFromDate(dateLike) {
   const d = new Date(dateLike);
@@ -4820,11 +4831,11 @@ const res = await fetch("/api/add-sessions-batch", {
   body: JSON.stringify({
     anfrageId: detailsModal.id,
     therapist_id: myTeamMemberId,
-    sessions: valid.map((s) => ({
-      date: s.date,
-      duration: s.duration,
-      price: Number(editTarif),
-    })),
+sessions: valid.map((s) => ({
+  date: localDateTimeToISOString(s.date),
+  duration: s.duration,
+  price: Number(editTarif),
+})),
   }),
 });
 
