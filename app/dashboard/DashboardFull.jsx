@@ -4588,27 +4588,42 @@ if (!res.ok) {
     </button>
 <div style={{ marginTop: 12 }}>
   <label>
-    <input
-      type="checkbox"
-      checked={detailsModal.invoice_with_vat ?? true}
-      onChange={async (e) => {
-        const value = e.target.checked;
+<input
+  type="checkbox"
+  checked={detailsModal.invoice_with_vat === true}
+  onChange={async (e) => {
+    const value = e.target.checked;
 
-        await fetch("/api/update-invoice-setting", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            anfrageId: detailsModal.id,
-            invoice_with_vat: value,
-          }),
-        });
+    const res = await fetch("/api/update-invoice-setting", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        anfrageId: detailsModal.id,
+        invoice_with_vat: value,
+      }),
+    });
 
-        setDetailsModal({
-          ...detailsModal,
-          invoice_with_vat: value,
-        });
-      }}
-    />
+    if (!res.ok) {
+      const text = await res.text();
+      console.error("UPDATE INVOICE SETTING FAILED:", text);
+      alert("❌ Rechnungseinstellung konnte nicht gespeichert werden");
+      return;
+    }
+
+    setDetailsModal((prev) => ({
+      ...prev,
+      invoice_with_vat: value,
+    }));
+
+    setRequests((prev) =>
+      prev.map((x) =>
+        x.id === detailsModal.id
+          ? { ...x, invoice_with_vat: value }
+          : x
+      )
+    );
+  }}
+/>
     Rechnung inkl. Umsatzsteuer
   </label>
 </div>
