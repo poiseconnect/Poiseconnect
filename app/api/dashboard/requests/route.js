@@ -33,32 +33,33 @@ export async function GET(req) {
 
     let query = sb
       .from("anfragen")
-      .select(`
-        id,
-        created_at,
-        vorname,
-        nachname,
-        email,
-        telefon,
-        strasse_hausnr,
-        plz_ort,
-        geburtsdatum,
-        beschaeftigungsgrad,
-        anliegen,
-        leidensdruck,
-        verlauf,
-        ziel,
-        diagnose,
-        status,
-        bevorzugte_zeit,
-        wunschtherapeut,
-        honorar_klient,
-        admin_therapeuten,
-        terminwunsch_text,
-        assigned_therapist_id,
-        booking_token,
-        meeting_link_override
-      `)
+     .select(`
+  id,
+  created_at,
+  vorname,
+  nachname,
+  email,
+  telefon,
+  strasse_hausnr,
+  plz_ort,
+  geburtsdatum,
+  beschaeftigungsgrad,
+  anliegen,
+  leidensdruck,
+  verlauf,
+  ziel,
+  diagnose,
+  status,
+  bevorzugte_zeit,
+  wunschtherapeut,
+  honorar_klient,
+  invoice_with_vat,
+  admin_therapeuten,
+  terminwunsch_text,
+  assigned_therapist_id,
+  booking_token,
+  meeting_link_override
+`)
       .order("created_at", { ascending: false });
 
     if (member.role === "therapist") {
