@@ -1174,8 +1174,15 @@ const [access, setAccess] = useState("loading");
   const [sessionsByRequest, setSessionsByRequest] = useState({});
   const [billingSessions, setBillingSessions] = useState([]);
   const [selectedClientId, setSelectedClientId] = useState("alle");
-  const [filter, setFilter] = useState("unbearbeitet");
+const [filter, setFilter] = useState(() => {
+  if (typeof window === "undefined") return "unbearbeitet";
+  return sessionStorage.getItem("poise_dashboard_filter") || "unbearbeitet";
+});
   const [openMenuId, setOpenMenuId] = useState(null);
+  useEffect(() => {
+  if (typeof window === "undefined") return;
+  sessionStorage.setItem("poise_dashboard_filter", filter);
+}, [filter]);
  
   
 
