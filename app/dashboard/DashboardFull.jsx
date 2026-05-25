@@ -927,7 +927,12 @@ async function restoreFromTrash(r) {
   }
 
   // 🔄 Frontend-State sofort aktualisieren
-  location.reload();
+sessionStorage.setItem(
+  "poise_dashboard_filter",
+  filter
+);
+
+location.reload();
 }
 
 async function deleteForever(r) {
@@ -947,7 +952,12 @@ async function deleteForever(r) {
   }
 
   // 🔄 Frontend-State aktualisieren
-  location.reload();
+sessionStorage.setItem(
+  "poise_dashboard_filter",
+  filter
+);
+
+location.reload();
 }
 function getActionsForRequest(r, sessionList = []) {
   const status = normalizeStatus(r._status || r.status);
@@ -1574,7 +1584,12 @@ if (action === "new_appointment") {
         return;
       }
 
-      location.reload();
+sessionStorage.setItem(
+  "poise_dashboard_filter",
+  filter
+);
+
+location.reload();
       return;
     }
 
@@ -4755,7 +4770,12 @@ if (!res.ok) {
             return;
           }
 
-          location.reload();
+sessionStorage.setItem(
+  "poise_dashboard_filter",
+  filter
+);
+
+location.reload();
         }}
         style={{
           fontSize: 18,
@@ -4871,7 +4891,12 @@ if (!res.ok) {
 const data = await res.json();
 
       alert("✅ Sitzungen gespeichert");
-      location.reload();
+sessionStorage.setItem(
+  "poise_dashboard_filter",
+  filter
+);
+
+location.reload();
     }}
   >
     💾 Sitzungen speichern
@@ -5070,7 +5095,12 @@ const data = await res.json();
     setBestandBeschaeftigungsgrad("");
     setBestandTherapeut("");
 
-    location.reload();
+sessionStorage.setItem(
+  "poise_dashboard_filter",
+  filter
+);
+
+location.reload();
   }}
 >
   ✔ Anlegen
