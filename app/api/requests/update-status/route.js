@@ -39,13 +39,28 @@ export async function POST(request) {
     /* --------------------------------------------------
        2️⃣ STANDARD-STATUS (kein Spezialfall)
     -------------------------------------------------- */
-    const { error } = await supabase
-      .from("anfragen")
-      .update(
-        { status },
-        { returning: "minimal" }
-      )
-      .eq("id", requestId);
+const { data: existing } = await supabase
+  .from("anfragen")
+  .select("first_response_at")
+  .eq("id", requestId)
+  .single();
+
+const updateData = {
+  status,
+};
+
+if (!existing?.first_response_at) {
+  updateData.first_response_at =
+    new Date().toISOString();
+}
+
+const { error } = await supabase
+  .from("anfragen")
+  .update(
+    updateData,
+    { returning: "minimal" }
+  )
+  .eq("id", requestId);
 
     if (error) {
       return new Response(
