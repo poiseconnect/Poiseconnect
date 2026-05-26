@@ -2499,7 +2499,36 @@ const adminPeriodLabel = useMemo(() => {
     billingDate,
   });
 }, [billingMode, billingYear, billingMonth, billingQuarter, billingDate]);
+const responseTimeByTherapist = useMemo(() => {
+  const map = {};
 
+  (requests || []).forEach((r) => {
+    if (!r.assigned_therapist_id) return;
+    if (!r.created_at || !r.first_response_at) return;
+
+    const created = new Date(r.created_at);
+    const responded = new Date(r.first_response_at);
+
+    if (Number.isNaN(created.getTime()) || Number.isNaN(responded.getTime())) return;
+
+    const hours = (responded.getTime() - created.getTime()) / 36e5;
+    if (hours < 0) return;
+
+    const id = String(r.assigned_therapist_id);
+
+    if (!map[id]) {
+      map[id] = {
+        total: 0,
+        count: 0,
+      };
+    }
+
+    map[id].total += hours;
+    map[id].count += 1;
+  });
+
+  return map;
+}, [requests]);
 const controllingRows = useMemo(() => {
   const map = {};
 
@@ -2538,14 +2567,20 @@ const controllingRows = useMemo(() => {
     map[therapistId].payout += payout;
   });
 
-  return Object.values(map)
-    .map((row) => ({
+return Object.values(map)
+  .map((row) => {
+    const response = responseTimeByTherapist[String(row.therapist_id)];
+
+    return {
       ...row,
       clients: row.clientsSet.size,
-    }))
+      avgResponseHours:
+        response?.count > 0 ? response.total / response.count : null,
+    };
+  })
     .sort((a, b) => b.provision - a.provision);
-}, [filteredBillingSessions]);
-
+}, [filteredBillingSessions, responseTimeByTherapist]);
+  
 const controllingTotals = useMemo(() => {
   return controllingRows.reduce(
     (acc, row) => {
@@ -3591,6 +3626,7 @@ return (
             <th align="right">Umsatz €</th>
             <th align="right">Provision Poise €</th>
             <th align="right">Auszahlung €</th>
+            <th align="right">Antwortzeit</th>
           </tr>
         </thead>
         <tbody>
@@ -3601,6 +3637,11 @@ return (
               <td align="right">{row.umsatz.toFixed(2)}</td>
               <td align="right">{row.provision.toFixed(2)}</td>
               <td align="right">{row.payout.toFixed(2)}</td>
+              <td align="right">
+  {row.avgResponseHours != null
+    ? `Ø ${row.avgResponseHours.toFixed(1)} Std.`
+    : "–"}
+</td>
             </tr>
           ))}
         </tbody>
