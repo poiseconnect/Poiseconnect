@@ -347,7 +347,40 @@ function localDateTimeToISOString(value) {
 
   return d.toISOString();
 }
+function getRequestAgeInfo(createdAt) {
+  if (!createdAt) {
+    return {
+      label: "unbekannt",
+      percent: 0,
+      color: "#8BC34A",
+    };
+  }
 
+  const created = new Date(createdAt);
+  const now = new Date();
+
+  const hours = Math.max(
+    0,
+    Math.floor((now.getTime() - created.getTime()) / 36e5)
+  );
+
+  const percent = Math.min(100, (hours / 48) * 100);
+
+  let color = "#8BC34A";
+  if (hours >= 12) color = "#F2C94C";
+  if (hours >= 24) color = "#F2994A";
+  if (hours >= 48) color = "#D64545";
+
+  let label = `${hours} Std. unbearbeitet`;
+
+  if (hours >= 24) {
+    const days = Math.floor(hours / 24);
+    const restHours = hours % 24;
+    label = `${days} Tg. ${restHours} Std. unbearbeitet`;
+  }
+
+  return { label, percent, color };
+}
 function quarterKeyFromDate(dateLike) {
   const d = new Date(dateLike);
   if (Number.isNaN(d.getTime())) return null;
@@ -4253,6 +4286,46 @@ const calendarMode =
                     ⚠️ keine Sitzung seit {Math.round(daysSinceLast)} Tagen
                   </div>
                 )}
+  {["neu", "termin_neu"].includes(r._status) && (
+  (() => {
+    const age = getRequestAgeInfo(r.created_at);
+
+    return (
+      <div style={{ marginTop: 10, marginBottom: 10 }}>
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            fontSize: 12,
+            fontWeight: 600,
+            marginBottom: 4,
+          }}
+        >
+          <span>⏱ Bearbeitungszeit</span>
+          <span>{age.label}</span>
+        </div>
+
+        <div
+          style={{
+            height: 8,
+            background: "#eee",
+            borderRadius: 999,
+            overflow: "hidden",
+          }}
+        >
+          <div
+            style={{
+              height: "100%",
+              width: `${age.percent}%`,
+              background: age.color,
+              borderRadius: 999,
+            }}
+          />
+        </div>
+      </div>
+    );
+  })()
+)}
 <p
   style={{
     fontSize:
