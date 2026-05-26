@@ -57,7 +57,7 @@ function BeziehungContent() {
       }}
     >
       <h1 style={{ fontSize: 36, lineHeight: 1.15, marginBottom: 16 }}>
-        Beziehungstipps für mehr Ruhe & Verbindung 💛
+Impulse für mentale Gesundheit & innere Balance 💛
       </h1>
 
       <p
@@ -68,8 +68,8 @@ function BeziehungContent() {
           marginBottom: 32,
         }}
       >
-        Erhalte unsere liebsten Impulse rund um Beziehung,
-        Kommunikation und emotionale Verbindung.
+Erhalte unsere liebsten Impulse rund um Stress, Ängste,
+Beziehungen, Selbstwert und emotionale Balance..
       </p>
 
       {!submitted ? (
