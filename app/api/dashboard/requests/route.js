@@ -35,9 +35,10 @@ export async function GET(req) {
       .from("anfragen")
      .select(`
   id,
-  created_at,
-  vorname,
-  nachname,
+created_at,
+first_response_at,
+vorname,
+nachname,
   email,
   telefon,
   strasse_hausnr,
