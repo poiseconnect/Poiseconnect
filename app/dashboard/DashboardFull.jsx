@@ -2529,6 +2529,15 @@ const responseTimeByTherapist = useMemo(() => {
 
   return map;
 }, [requests]);
+  const myAvgResponseHours = useMemo(() => {
+  if (!myTeamMemberId) return null;
+
+  const response = responseTimeByTherapist[String(myTeamMemberId)];
+
+  if (!response || response.count <= 0) return null;
+
+  return response.total / response.count;
+}, [responseTimeByTherapist, myTeamMemberId]);
 const controllingRows = useMemo(() => {
   const map = {};
 
@@ -3237,7 +3246,29 @@ return (
   </div>
 </div>
   </div>
+<div
+  style={{
+    marginTop: 4,
+    padding: 14,
+    borderRadius: 12,
+    background: "#FFF8E8",
+    border: "1px solid #F0D999",
+  }}
+>
+  <div style={{ fontSize: 13, color: "#666", marginBottom: 4 }}>
+    Durchschnittliche Antwortzeit
+  </div>
 
+  <div style={{ fontSize: 22, fontWeight: 800 }}>
+    {myAvgResponseHours != null
+      ? `Antwortet durchschnittlich innerhalb ${myAvgResponseHours.toFixed(1)} Stunden`
+      : "Noch keine Daten"}
+  </div>
+
+  <div style={{ fontSize: 12, color: "#777", marginTop: 4 }}>
+    Berechnet ab Eingang einer neuen Anfrage bis zur ersten Bearbeitung.
+  </div>
+</div>
   <button
     type="button"
     onClick={saveProfileSettings}
@@ -3626,7 +3657,6 @@ return (
             <th align="right">Umsatz €</th>
             <th align="right">Provision Poise €</th>
             <th align="right">Auszahlung €</th>
-            <th align="right">Antwortzeit</th>
           </tr>
         </thead>
         <tbody>
@@ -3637,11 +3667,7 @@ return (
               <td align="right">{row.umsatz.toFixed(2)}</td>
               <td align="right">{row.provision.toFixed(2)}</td>
               <td align="right">{row.payout.toFixed(2)}</td>
-              <td align="right">
-  {row.avgResponseHours != null
-    ? `Ø ${row.avgResponseHours.toFixed(1)} Std.`
-    : "–"}
-</td>
+
             </tr>
           ))}
         </tbody>
@@ -4164,6 +4190,7 @@ gridTemplateColumns:
               <th align="right">Umsatz €</th>
               <th align="right">Provision €</th>
               <th align="right">Auszahlung €</th>
+              <th align="right">Antwortzeit</th>
             </tr>
           </thead>
           <tbody>
@@ -4175,6 +4202,11 @@ gridTemplateColumns:
                 <td align="right">{row.umsatz.toFixed(2)}</td>
                 <td align="right">{row.provision.toFixed(2)}</td>
                 <td align="right">{row.payout.toFixed(2)}</td>
+                <td align="right">
+  {row.avgResponseHours != null
+    ? `Ø ${row.avgResponseHours.toFixed(1)} Std.`
+    : "–"}
+</td>
               </tr>
             ))}
           </tbody>
