@@ -138,11 +138,16 @@ export async function POST(req) {
       }),
     });
 
-    if (!mailRes.ok) {
-      const mailText = await mailRes.text();
-      console.error("❌ MAIL ERROR:", mailText);
-      return json({ error: "mail_failed", detail: mailText }, 500);
-    }
+if (!mailRes.ok) {
+  const mailText = await mailRes.text();
+  console.error("❌ MAIL ERROR:", mailText);
+
+  return json({
+    ok: true,
+    warning: "proposal_saved_but_mail_failed",
+    detail: mailText,
+  });
+}
 
     console.log("✅ MAIL SENT TO:", request.email);
 
