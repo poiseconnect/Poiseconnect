@@ -13,7 +13,7 @@ const supabase = createClient(
 
 // 🔗 Feedback-Link (Microsoft Forms)
 const FEEDBACK_URL =
-  "https://forms.office.com/Pages/ResponsePage.aspx?id=XXXXXXX"; 
+  "https://forms.office.com/Pages/ResponsePage.aspx?id=DQSIkWdsW0yxEjajBLZtrQAAAAAAAAAAAAN__lvx3A5UMEFTNzZUQkVFQVVLRE5TTVFQVFMxWURETi4u"; 
 // ⬆️ HIER deinen echten Forms-Link einsetzen
 
 export async function POST(req) {
