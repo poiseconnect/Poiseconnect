@@ -1,6 +1,5 @@
 export const dynamic = "force-dynamic";
 
-import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
 const supabase = createClient(
@@ -8,55 +7,48 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
-export async function POST(req) {
+function sendJson(data, status = 200) {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: { "Content-Type": "application/json" },
+  });
+}
+
+export async function POST(request) {
   try {
-    const body = await req.json();
+    const body = await request.json();
 
-    const {
-      anfrageId,
-      invoice_with_vat,
-    } = body || {};
+    const { anfrageId, invoice_with_vat } = body || {};
 
-    if (
-      !anfrageId ||
-      typeof invoice_with_vat !== "boolean"
-    ) {
-      return NextResponse.json(
-        { error: "MISSING_FIELDS" },
-        { status: 400 }
+    if (!anfrageId || typeof invoice_with_vat !== "boolean") {
+      return sendJson(
+        { error: "MISSING_FIELDS", received: body },
+        400
       );
     }
 
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from("anfragen")
-      .update({
-        invoice_with_vat,
-      })
-      .eq("id", anfrageId);
+      .update({ invoice_with_vat })
+      .eq("id", anfrageId)
+      .select("id, invoice_with_vat")
+      .single();
 
     if (error) {
-      console.error(error);
-
-      return NextResponse.json(
-        {
-          error: error.message,
-        },
-        { status: 500 }
-      );
+      console.error("UPDATE INVOICE SETTING SUPABASE ERROR:", error);
+      return sendJson({ error: error.message }, 500);
     }
 
-    return NextResponse.json({
-      ok: true,
-    });
+    return sendJson({ ok: true, data });
+  } catch (error) {
+    console.error("UPDATE INVOICE SETTING SERVER ERROR:", error);
 
-  } catch (e) {
-    console.error(e);
-
-    return NextResponse.json(
+    return sendJson(
       {
         error: "SERVER_ERROR",
+        message: error?.message || String(error),
       },
-      { status: 500 }
+      500
     );
   }
 }
