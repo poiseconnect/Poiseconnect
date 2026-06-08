@@ -1005,7 +1005,11 @@ function getActionsForRequest(r, sessionList = []) {
 
   if (status === "neu" || status === "termin_neu") {
     const actions = [];
-
+actions.push({
+  key: "send_video_link",
+  label: "🎥 Videolink senden",
+  hint: "Video-Link direkt per Mail an Klient:in senden",
+});
     if (calendarMode === "booking" && r.bevorzugte_zeit) {
       actions.push({
         key: "confirm",
@@ -1102,12 +1106,17 @@ if (status === "termin_bestaetigt") {
     return actions;
   }
 
- if (status === "active") {
+if (status === "active") {
   const actions = [
     {
       key: "details",
       label: "🔍 Details",
       hint: "Sitzungen, Tarif und Verlauf ansehen",
+    },
+    {
+      key: "send_video_link",
+      label: "🎥 Videolink senden",
+      hint: "Video-Link direkt per Mail an Klient:in senden",
     },
     {
       key: "edit_client",
@@ -1664,7 +1673,9 @@ location.reload();
     if (action === "send_link") {
       await sendBookingLink(r);
     }
-
+if (action === "send_video_link") {
+  await sendVideoLink(r);
+}
     if (action === "reactivate") {
       await updateRequestStatus({
         requestId: r.id,
@@ -2242,6 +2253,37 @@ async function sendBookingLink(r) {
   }
 
   alert("✅ Buchungslink gesendet");
+}
+  async function sendVideoLink(r) {
+  if (!r?.id) {
+    alert("Keine Anfrage-ID vorhanden");
+    return;
+  }
+
+  if (!r?.email) {
+    alert("Keine E-Mail vorhanden");
+    return;
+  }
+
+  const res = await fetch("/api/send-video-link", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      requestId: r.id,
+    }),
+  });
+
+  const json = await res.json().catch(() => null);
+
+  if (!res.ok) {
+    console.error("SEND VIDEO LINK ERROR:", json);
+    alert("Fehler beim Senden des Videolinks");
+    return;
+  }
+
+  alert("✅ Videolink gesendet");
 }
 /* =========================================================
    GEFILTERTE ANFRAGEN (KARTEN / LISTEN)
