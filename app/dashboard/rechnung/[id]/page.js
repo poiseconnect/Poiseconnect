@@ -661,8 +661,9 @@ buildPdf({
           <div>
             <div style={{ fontWeight: 700 }}>{settings.company_name}</div>
             <div style={{ whiteSpace: "pre-line" }}>{settings.address}</div>
-            {clientEmail ? <div>E-Mail: {clientEmail}</div> : null}
-          </div>
+{coach?.email ? <div>E-Mail: {coach.email}</div> : null}
+  
+  </div>
 
           <div>
             <div style={{ fontWeight: 700 }}>Rechtliches</div>
@@ -802,6 +803,7 @@ function buildServicePeriod(sessions) {
 function buildPdf({
   doc,
   settings,
+  coach,
   invoiceNumber,
   invoiceDate,
   servicePeriod,
@@ -1005,9 +1007,11 @@ for (let i = 1; i <= pageCount; i++) {
     y1 += lineGap;
   });
 
-  if (settings.email) {
-    doc.text(`E-Mail: ${settings.email}`, x1, y1);
-  }
+const therapistEmail = coach?.email || settings?.email || "";
+
+if (therapistEmail) {
+  doc.text(`E-Mail: ${therapistEmail}`, x1, y1);
+}
 
   // ================= SPALTE 2 =================
   let x2 = marginX + colWidth;
