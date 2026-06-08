@@ -952,13 +952,6 @@ doc.setFont("helvetica", "normal");
 
 fy += 10;
 
-if (!invoiceWithVat) {
-  doc.setFontSize(9);
-  doc.text("Diese Rechnung wird ohne Umsatzsteuer ausgestellt.", marginX, fy);
-  fy += 8;
-  doc.setFontSize(10);
-}
-
 // Payment + closing
 const payLines = doc.splitTextToSize(String(paymentTerms || ""), pageWidth - 2 * marginX);
   doc.text(payLines, marginX, fy);
