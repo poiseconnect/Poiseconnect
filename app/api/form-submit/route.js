@@ -51,7 +51,7 @@ if (
 
 const requestId = body.rid || body.anfrageId || null;
     
-    const requestId = body.rid || body.anfrageId || null;
+
 
     const supabase = getSupabase();
     if (!supabase) {
