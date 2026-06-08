@@ -1005,7 +1005,7 @@ function getActionsForRequest(r, sessionList = []) {
 
   if (status === "neu" || status === "termin_neu") {
     const actions = [];
-actions.push({
+
 
     if (calendarMode === "booking" && r.bevorzugte_zeit) {
       actions.push({
