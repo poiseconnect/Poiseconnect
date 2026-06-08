@@ -355,7 +355,7 @@ const [draftRequestId, setDraftRequestId] = useState(null);
 const [bookingToken, setBookingToken] = useState(null);
 const [savingDraft, setSavingDraft] = useState(false);
 const [submitting, setSubmitting] = useState(false);
- 
+ const [formStartedAt] = useState(Date.now());
 // 🔑 WICHTIG: dieser State hat gefehlt
 const [assignedTherapistId, setAssignedTherapistId] = useState(
   therapistIdFromUrl || null
@@ -383,6 +383,7 @@ const [form, setForm] = useState({
   check_online_setting: false,
   check_gesundheit: false,
    newsletter_consent: false,
+ website: "",
   terminISO: "",
   terminDisplay: "",
   assigned_therapist_id: null,
@@ -1194,10 +1195,11 @@ if (bookingData?.error === "slot_taken") {
     const res = await fetch("/api/form-submit", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        ...form,
-        anfrageId: draftRequestId || anfrageId || null,
-        booking_token: bookingToken || null,
+body: JSON.stringify({
+  ...form,
+  formStartedAt,
+  anfrageId: draftRequestId || anfrageId || null,
+  booking_token: bookingToken || null,
         assigned_therapist_id: assignedTherapistId,
         therapist_from_url: form.wunschtherapeut,
         terminwunsch_text: form.preferred_times || null,
@@ -1246,6 +1248,25 @@ alert("Danke – deine Anfrage wurde erfolgreich gesendet 🤍");
 
   return (
     <div className="form-wrapper">
+     <input
+  type="text"
+  name="website"
+  value={form.website}
+  onChange={(e) =>
+    setForm({
+      ...form,
+      website: e.target.value,
+    })
+  }
+  style={{
+    position: "absolute",
+    left: "-9999px",
+    opacity: 0,
+    pointerEvents: "none",
+  }}
+  autoComplete="off"
+  tabIndex={-1}
+/>
       <div style={{ textAlign: "center", marginBottom: 24 }}>
         <Image
           src="/IMG_7599.png"
