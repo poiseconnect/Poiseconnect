@@ -584,6 +584,15 @@ return [...teamMembers]
         _score: score,
       };
     })
+    .filter((m) => {
+      // Wenn Themen ausgewählt wurden:
+      // nur Coaches mit Score > 0 anzeigen
+      if (form.themen.length > 0) {
+        return m._score > 0;
+      }
+
+      return true;
+    })
     .sort((a, b) => b._score - a._score);
 }, [form.themen, dbMatchingScores, teamMembers]);
 
