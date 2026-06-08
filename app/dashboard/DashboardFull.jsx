@@ -1049,12 +1049,6 @@ function getActionsForRequest(r, sessionList = []) {
       hint: "Anliegen passt grundsätzlich nicht zu Poise",
     });
     
-actions.push({
-  key: "send_video_link",
-  label: "🎥 Videolink senden",
-  hint: "Video-Link direkt per Mail an Klient:in senden",
-});
-    
     actions.push({
       key: "details",
       label: "🔍 Details",
@@ -1099,7 +1093,13 @@ if (status === "termin_bestaetigt") {
       label: "❌ Kein Match (Poise)",
       hint: "Anliegen passt grundsätzlich nicht zu Poise",
     });
-
+  
+actions.push({
+  key: "send_video_link",
+  label: "🎥 Videolink senden",
+  hint: "Video-Link direkt per Mail an Klient:in senden",
+});
+  
     actions.push({
       key: "details",
       label: "🔍 Details",
