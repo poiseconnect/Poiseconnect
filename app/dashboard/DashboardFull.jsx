@@ -1006,10 +1006,7 @@ function getActionsForRequest(r, sessionList = []) {
   if (status === "neu" || status === "termin_neu") {
     const actions = [];
 actions.push({
-  key: "send_video_link",
-  label: "🎥 Videolink senden",
-  hint: "Video-Link direkt per Mail an Klient:in senden",
-});
+
     if (calendarMode === "booking" && r.bevorzugte_zeit) {
       actions.push({
         key: "confirm",
@@ -1051,7 +1048,13 @@ actions.push({
       label: "❌ Kein Match (Poise)",
       hint: "Anliegen passt grundsätzlich nicht zu Poise",
     });
-
+    
+actions.push({
+  key: "send_video_link",
+  label: "🎥 Videolink senden",
+  hint: "Video-Link direkt per Mail an Klient:in senden",
+});
+    
     actions.push({
       key: "details",
       label: "🔍 Details",
