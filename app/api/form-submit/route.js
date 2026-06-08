@@ -21,6 +21,36 @@ function getSupabase() {
 export async function POST(req) {
   try {
     const body = await req.json();
+    // Honeypot
+if (body.website) {
+  return Response.json(
+    { error: "spam_detected" },
+    { status: 400 }
+  );
+}
+
+// Formular zu schnell ausgefüllt
+if (
+  body.formStartedAt &&
+  Date.now() - Number(body.formStartedAt) < 8000
+) {
+  return Response.json(
+    { error: "too_fast" },
+    { status: 400 }
+  );
+}
+    if (
+  !body.email ||
+  !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(body.email).trim())
+) {
+  return Response.json(
+    { error: "invalid_email" },
+    { status: 400 }
+  );
+}
+
+const requestId = body.rid || body.anfrageId || null;
+    
     const requestId = body.rid || body.anfrageId || null;
 
     const supabase = getSupabase();
