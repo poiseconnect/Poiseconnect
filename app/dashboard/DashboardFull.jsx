@@ -3013,20 +3013,20 @@ return (
                 />
               </div>
 
-              <div>
-                <label>Puffer (Min)</label>
-                <input
-                  type="number"
-                  value={bookingSettings.buffer_min || 10}
-                  onChange={(e) =>
-                    setBookingSettings({
-                      ...bookingSettings,
-                      buffer_min: Number(e.target.value),
-                    })
-                  }
-                />
-              </div>
-
+    <div>
+  <label>Puffer (Min)</label>
+  <input
+    type="number"
+    min="0"
+    value={bookingSettings.buffer_min ?? 10}
+    onChange={(e) =>
+      setBookingSettings({
+        ...bookingSettings,
+        buffer_min: Number(e.target.value),
+      })
+    }
+  />
+</div>
               <div>
                 <label>Mindestvorlaufzeit (Stunden)</label>
                 <input
