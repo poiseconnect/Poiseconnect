@@ -242,6 +242,7 @@ const MATCHING_THEMEN = [
   { key: "angehoerige", label: "Angehörige" },
   { key: "sexualitaet", label: "Sexualität" },
   { key: "trauer", label: "Trauer" },
+  { key: "mutterschaft", label: "Mutterschaft" },
 ];
 // ================= CALENDAR MODE HELPER =================
 function getCalendarModeByTherapistId(id) {
@@ -1279,6 +1280,7 @@ const [matchingScores, setMatchingScores] = useState({
   angehoerige: 0,
   sexualitaet: 0,
   trauer: 0,
+  mutterschaft: 0,
 });
 const [matchingScoresSaving, setMatchingScoresSaving] = useState(false);
   const [profileLoading, setProfileLoading] = useState(false);
