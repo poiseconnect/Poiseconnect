@@ -4385,7 +4385,7 @@ const calendarMode =
 
                 </div>
               )}
-{["neu", "termin_neu", "termin_bestaetigt", "active"].includes(r._status) && (
+{["neu", "termin_neu", "termin_bestaetigt"].includes(r._status) && (
   <div
     style={{
       marginTop: 8,
@@ -4399,7 +4399,7 @@ const calendarMode =
       color: "#555",
     }}
   >
-    {calendarMode === "proposal" && (
+    {["neu", "termin_neu"].includes(r._status) && calendarMode === "proposal" && (
       <>
         <div>Kalendermodus: Proposal</div>
 
@@ -4417,10 +4417,12 @@ const calendarMode =
       </>
     )}
 
-    <div>
-      🎥 Videolink:{" "}
-      {r.video_link_sent_at ? "gesendet" : "offen"}
-    </div>
+    {r._status === "termin_bestaetigt" && (
+      <div>
+        🎥 Videolink:{" "}
+        {r.video_link_sent_at ? "gesendet" : "offen"}
+      </div>
+    )}
   </div>
 )}
   
