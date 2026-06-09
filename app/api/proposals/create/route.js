@@ -150,7 +150,14 @@ if (!mailRes.ok) {
 }
 
     console.log("✅ MAIL SENT TO:", request.email);
-
+    
+await supabase
+  .from("anfragen")
+  .update({
+    proposals_sent_at: new Date().toISOString(),
+    proposals_count: rows.length,
+  })
+  .eq("id", requestId);
     return json({ ok: true });
   } catch (e) {
     console.error("SERVER ERROR:", e);
