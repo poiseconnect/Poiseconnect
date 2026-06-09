@@ -4385,7 +4385,45 @@ const calendarMode =
 
                 </div>
               )}
+{["neu", "termin_neu", "termin_bestaetigt", "active"].includes(r._status) && (
+  <div
+    style={{
+      marginTop: 8,
+      padding: "8px 10px",
+      borderRadius: 10,
+      background: "#FAFAFA",
+      border: "1px solid #eee",
+      display: "grid",
+      gap: 4,
+      fontSize: 13,
+      color: "#555",
+    }}
+  >
+    {calendarMode === "proposal" && (
+      <>
+        <div>Kalendermodus: Proposal</div>
 
+        <div>
+          📅 Vorschläge:{" "}
+          {Number(r.proposals_count || 0) > 0
+            ? Number(r.proposals_count)
+            : "offen"}
+        </div>
+
+        <div>
+          👀 Klient geöffnet:{" "}
+          {r.proposals_opened_at ? "Ja" : "Nein"}
+        </div>
+      </>
+    )}
+
+    <div>
+      🎥 Videolink:{" "}
+      {r.video_link_sent_at ? "gesendet" : "offen"}
+    </div>
+  </div>
+)}
+  
               {r._status === "active" && (
                 <div style={{ fontSize: 13, color: "#555", marginTop: 4 }}>
                   🧠 Sitzungen: {sessionList.length}
