@@ -61,7 +61,12 @@ export async function POST(req) {
         <p>Liebe Grüße<br />Dein Poise-Team</p>
       `,
     });
-
+await sb
+  .from("anfragen")
+  .update({
+    video_link_sent_at: new Date().toISOString(),
+  })
+  .eq("id", requestId);
     return json({ ok: true, videoLink });
   } catch (e) {
     console.error("SEND VIDEO LINK ERROR:", e);
