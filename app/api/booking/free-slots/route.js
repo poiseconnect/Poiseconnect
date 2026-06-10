@@ -10,7 +10,7 @@ import {
 
 function isPoiseSlot(ev) {
   const title = String(ev.summary || "").trim().toUpperCase();
-  return title.startsWith("POISE SLOT");
+  return title.startsWith("POISE VERFÜGBAR");
 }
 
 export async function GET(req) {
@@ -36,6 +36,16 @@ const requestedDays = Number(url.searchParams.get("days") || 0);
     }
 
     const therapistId = anfrage.assigned_therapist_id;
+    const { data: blockedSlots } = await sb
+  .from("blocked_slots")
+  .select("start_at")
+  .eq("therapist_id", therapistId);
+
+const blockedSet = new Set(
+  (blockedSlots || []).map((s) =>
+    new Date(s.start_at).toISOString()
+  )
+);
 
     if (!therapistId) {
       return json({ error: "NO_THERAPIST_ASSIGNED" }, 400);
@@ -47,6 +57,10 @@ const requestedDays = Number(url.searchParams.get("days") || 0);
       .eq("therapist_id", therapistId)
       .single();
 
+const slotDuration = 30; // Erstgespräch
+const buffer = Number(settings?.buffer_min || 0);
+const stepMinutes = slotDuration + buffer;
+    
     if (!settings?.booking_enabled) {
       return json({ slots: [] });
     }
@@ -119,19 +133,47 @@ oauth.setCredentials({
 
     const grouped = {};
 
-    slotEvents.forEach((ev) => {
-      const startISO = ev.start.dateTime;
-      const endISO = ev.end.dateTime;
-      const day = format(new Date(startISO), "yyyy-MM-dd");
+slotEvents.forEach((ev) => {
+  const start = new Date(ev.start.dateTime);
+  const end = new Date(ev.end.dateTime);
 
-      if (!grouped[day]) grouped[day] = [];
+  let current = new Date(start);
 
-      grouped[day].push({
-        googleEventId: ev.id,
-        start: startISO,
-        end: endISO,
-      });
+  while (current < end) {
+    const slotEnd = new Date(
+      current.getTime() + slotDuration * 60000
+    );
+
+    if (slotEnd > end) {
+      break;
+    }
+
+    if (
+      blockedSet.has(current.toISOString())
+    ) {
+      current = new Date(
+        current.getTime() + stepMinutes * 60000
+      );
+      continue;
+    }
+
+    const day = format(current, "yyyy-MM-dd");
+
+    if (!grouped[day]) {
+      grouped[day] = [];
+    }
+
+    grouped[day].push({
+      googleEventId: ev.id,
+      start: current.toISOString(),
+      end: slotEnd.toISOString(),
     });
+
+    current = new Date(
+      current.getTime() + stepMinutes * 60000
+    );
+  }
+});
 
     const slots = Object.entries(grouped).map(([day, arr]) => ({
       day,
