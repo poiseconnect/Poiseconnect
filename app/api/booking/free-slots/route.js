@@ -27,7 +27,7 @@ const requestedDays = Number(url.searchParams.get("days") || 0);
 
     const { data: anfrage, error: aErr } = await sb
       .from("anfragen")
-      .select("id, assigned_therapist_id")
+.select("id, assigned_therapist_id, status")
       .eq("booking_token", token)
       .single();
 
@@ -57,8 +57,14 @@ const blockedSet = new Set(
       .eq("therapist_id", therapistId)
       .single();
 
-const slotDuration = 30; // Erstgespräch
-const buffer = Number(settings?.buffer_min || 0);
+const isActiveClient =
+  String(anfrage.status || "").toLowerCase() === "active";
+
+const slotDuration = isActiveClient
+  ? Number(settings?.slot_duration_min || 60) // Sitzung
+  : 30; // Erstgespräch
+
+const buffer = Number(settings?.buffer_min ?? 0);
 const stepMinutes = slotDuration + buffer;
     
     if (!settings?.booking_enabled) {
