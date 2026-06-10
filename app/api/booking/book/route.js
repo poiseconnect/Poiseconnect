@@ -245,10 +245,9 @@ export async function POST(req) {
       ev =
         candidates.find((item) => {
           const title = String(item.summary || "").trim().toUpperCase();
-          return (
-            title.startsWith("POISE SLOT") &&
-            normalizeIso(item?.start?.dateTime) === wantedStartIso
-          );
+return (
+  title.startsWith("POISE VERFÜGBAR")
+);
         }) || null;
 
       console.log("BOOKING MATCHED EVENT:", {
@@ -273,7 +272,7 @@ export async function POST(req) {
       originalSummary: ev?.summary,
     });
 
-    if (!eventTitle.startsWith("POISE SLOT")) {
+if ( !eventTitle.startsWith("POISE VERFÜGBAR")) {
       console.log("BOOKING FAIL: SLOT_NOT_AVAILABLE");
       return json({ error: "SLOT_NOT_AVAILABLE" }, 409);
     }
