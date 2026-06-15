@@ -68,15 +68,17 @@ export async function POST(req) {
     // ------------------------------------------------
     const { data: existingRequest, error: reqLoadError } = await supabase
       .from("anfragen")
-      .select(`
-        id,
-        vorname,
-        email,
-        bevorzugte_zeit,
-        assigned_therapist_id,
-        wunschtherapeut,
-        meeting_link_override
-      `)
+.select(`
+  id,
+  vorname,
+  nachname,
+  email,
+  telefon,
+  bevorzugte_zeit,
+  assigned_therapist_id,
+  wunschtherapeut,
+  meeting_link_override
+`)
       .eq("id", requestId)
       .single();
 
@@ -151,10 +153,26 @@ export async function POST(req) {
         bookingSettings = bookingData;
       }
     }
+let coach = null;
 
-    const therapistName =
-      existingRequest.wunschtherapeut?.trim() || "dein Coach";
+if (proposal.therapist_id) {
+  const { data: coachData, error: coachError } =
+    await supabase
+      .from("team_members")
+      .select("id, name, email")
+      .eq("id", proposal.therapist_id)
+      .single();
 
+  if (coachError) {
+    console.warn("coach_load_failed", coachError);
+  } else {
+    coach = coachData;
+  }
+}
+ const therapistName =
+  coach?.name ||
+  existingRequest.wunschtherapeut?.trim() ||
+  "dein Coach";
     const terminText = safeDateString(proposal.date);
 
     const videoLink =
@@ -230,7 +248,74 @@ export async function POST(req) {
       console.log("📧 RESEND STATUS:", mailRes.status);
       console.log("📧 RESEND RESPONSE:", resendText);
     }
+if (coach?.email) {
+  const clientName =
+    `${existingRequest.vorname || ""} ${
+      existingRequest.nachname || ""
+    }`.trim() || "Klient:in";
 
+  const hasVideoLink = Boolean(videoLink);
+
+  await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      from: "Poise <noreply@mypoise.de>",
+      to: coach.email,
+      subject: "Erstgespräch wurde bestätigt 🤍",
+      html: `
+        <p>Hallo ${coach.name || ""},</p>
+
+        <p>
+          Ein Erstgespräch wurde soeben ausgewählt und bestätigt.
+        </p>
+
+        <p>
+          <strong>Klient:in:</strong> ${clientName}<br/>
+          <strong>E-Mail:</strong> ${
+            existingRequest.email || "–"
+          }<br/>
+          <strong>Telefon:</strong> ${
+            existingRequest.telefon || "–"
+          }<br/>
+          <strong>Termin:</strong> ${terminText}
+        </p>
+
+        ${
+          hasVideoLink
+            ? `
+            <p>
+              Der Videolink wurde der Klientin / dem Klienten
+              bereits automatisch mitgesendet.
+            </p>
+            `
+            : `
+            <p>
+              <strong>Achtung:</strong>
+              Der Klientin / dem Klienten wurde noch kein
+              Videolink mitgesendet, da weder ein persönlicher
+              Videolink in den Details noch ein allgemeiner
+              Videolink in den Einstellungen hinterlegt ist.
+            </p>
+
+            <p>
+              Bitte sende noch einen Videolink über die
+              Klient:innenkarte („Videolink senden“).
+            </p>
+            `
+        }
+
+        <p>
+          Liebe Grüße<br/>
+          Poise Connect
+        </p>
+      `,
+    }),
+  });
+}
     return json({ ok: true });
   } catch (e) {
     console.error("CONFIRM ERROR:", e);
