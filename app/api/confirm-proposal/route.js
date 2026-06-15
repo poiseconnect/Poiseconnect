@@ -43,8 +43,7 @@ export async function POST(req) {
     // ------------------------------------------------
     const { data: proposal, error: pError } = await supabase
       .from("appointment_proposals")
-      .select("id, anfrage_id, therapist_id, date")
-      .eq("id", proposalId)
+.select("id, anfrage_id, therapist_id, date, expires_at")      .eq("id", proposalId)
       .single();
 
     if (pError || !proposal) {
@@ -55,7 +54,19 @@ export async function POST(req) {
     if (String(proposal.anfrage_id) !== String(requestId)) {
       return json({ error: "proposal_request_mismatch" }, 400);
     }
-
+if (
+  proposal.expires_at &&
+  new Date(proposal.expires_at) < new Date()
+) {
+  return json(
+    {
+      error: "proposal_expired",
+      message:
+        "Diese Terminvorschläge sind leider abgelaufen. Bitte kontaktiere uns unter hallo@mypoise.de.",
+    },
+    410
+  );
+}
     const start = new Date(proposal.date);
     if (Number.isNaN(start.getTime())) {
       return json({ error: "invalid_proposal_date" }, 400);
