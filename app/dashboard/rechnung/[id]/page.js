@@ -102,6 +102,10 @@ async function loadData() {
     setAnfrage(a);
     setSessions(invoiceSessions);
     setSettings(invSettings);
+    setPaymentTerms(
+  invSettings?.invoice_footer_text ||
+    "Zahlungsbedingungen: Zahlung innerhalb von 14 Tagen ab Rechnungseingang ohne Abzüge."
+);
     setCoach(coachData);
 
     const now = new Date();
