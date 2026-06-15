@@ -5,7 +5,9 @@ import { supabase } from "../../../lib/supabase";
 import jsPDF from "jspdf";
 import "jspdf-autotable";
 async function imageUrlToBase64(url) {
-  const res = await fetch(url);
+const res = await fetch(
+  `/api/image-proxy?url=${encodeURIComponent(url)}`
+);
   const blob = await res.blob();
 
   return await new Promise((resolve, reject) => {
