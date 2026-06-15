@@ -1355,6 +1355,7 @@ const [invoiceSettings, setInvoiceSettings] = useState({
   vat_number: "",        // 🔥 UID Nummer
   default_vat_country: "AT",
   default_vat_rate: 0,
+  invoice_footer_text: "",
 });
 
 const [invoiceLoading, setInvoiceLoading] = useState(false);
@@ -3636,7 +3637,21 @@ return (
               />
             </div>
           </div>
-
+<div style={{ gridColumn: "1 / -1" }}>
+  <label>Rechnungstext / USt-Hinweis</label>
+  <textarea
+    rows={5}
+    value={invoiceSettings.invoice_footer_text || ""}
+    onChange={(e) =>
+      setInvoiceSettings({
+        ...invoiceSettings,
+        invoice_footer_text: e.target.value,
+      })
+    }
+    placeholder="z.B. Gemäß § 19 Abs. 1 UStG wird keine Umsatzsteuer ausgewiesen."
+    style={{ width: "100%" }}
+  />
+</div>
            {/* SAVE BUTTON */}
           <div
             style={{
