@@ -4,7 +4,17 @@ import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../../../lib/supabase";
 import jsPDF from "jspdf";
 import "jspdf-autotable";
+async function imageUrlToBase64(url) {
+  const res = await fetch(url);
+  const blob = await res.blob();
 
+  return await new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
 export default function RechnungPage({ params }) {
   const { id } = params;
 
@@ -309,40 +319,52 @@ Poise`
       setSendingInvoice(false);
     }
   }
-  function exportPDF() {
-    try {
-      const doc = new jsPDF("p", "mm", "a4");
-buildPdf({
-  doc,
-  settings,
-  coach,
-  invoiceNumber,
-  invoiceDate,
-  servicePeriod,
-  customerNumber,
-  contactPerson,
-  clientName,
-  clientStreet,
-  clientZipCity,
-  clientCountry,
-  clientEmail,
-  salutation,
-  introText,
-  paymentTerms,
-  closingText,
-  vatRate,
-  invoiceWithVat,
-  lineItems,
-  totals,
-});
+async function exportPDF() {
+  try {
+    const doc = new jsPDF("p", "mm", "a4");
 
-      const safeName = (clientName || "Klient").replaceAll(" ", "_");
-      doc.save(`Rechnung_${invoiceNumber}_${safeName}.pdf`);
-    } catch (e) {
-      console.error("PDF ERROR:", e);
-      alert("PDF konnte nicht erstellt werden (siehe Console).");
+    let logoBase64 = null;
+
+    if (settings?.logo_url) {
+      try {
+        logoBase64 = await imageUrlToBase64(settings.logo_url);
+      } catch (err) {
+        console.error("LOGO LOAD FAILED:", err);
+      }
     }
+
+    buildPdf({
+      doc,
+      settings,
+      coach,
+      logoBase64,
+      invoiceNumber,
+      invoiceDate,
+      servicePeriod,
+      customerNumber,
+      contactPerson,
+      clientName,
+      clientStreet,
+      clientZipCity,
+      clientCountry,
+      clientEmail,
+      salutation,
+      introText,
+      paymentTerms,
+      closingText,
+      vatRate,
+      invoiceWithVat,
+      lineItems,
+      totals,
+    });
+
+    const safeName = (clientName || "Klient").replaceAll(" ", "_");
+    doc.save(`Rechnung_${invoiceNumber}_${safeName}.pdf`);
+  } catch (e) {
+    console.error("PDF ERROR:", e);
+    alert("PDF konnte nicht erstellt werden (siehe Console).");
   }
+}
 
   if (loading) return <div style={{ padding: 40 }}>Lade…</div>;
   if (!anfrage) return <div style={{ padding: 40 }}>Keine Anfrage gefunden</div>;
@@ -805,6 +827,7 @@ function buildPdf({
   doc,
   settings,
   coach,
+  logoBase64,
   invoiceNumber,
   invoiceDate,
   servicePeriod,
@@ -828,11 +851,28 @@ function buildPdf({
   const pageWidth = doc.internal.pageSize.getWidth();
 
   // Header
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(10);
+// Header
+doc.setFont("helvetica", "normal");
+doc.setFontSize(10);
 
-  doc.text(String(settings.company_name || ""), marginX, 18);
-  const addrLines = String(settings.address || "").split("\n");
+// Logo rechts oben
+if (logoBase64) {
+  try {
+    doc.addImage(
+      logoBase64,
+      "PNG",
+      pageWidth - 45, // Abstand von rechts
+      12,             // Abstand von oben
+      30,             // Breite
+      18              // Höhe
+    );
+  } catch (err) {
+    console.error("PDF LOGO ADD FAILED:", err);
+  }
+}
+
+doc.text(String(settings.company_name || ""), marginX, 18);
+const addrLines = String(settings.address || "").split("\n");
   let y = 23;
   for (const ln of addrLines) {
     doc.text(ln, marginX, y);
