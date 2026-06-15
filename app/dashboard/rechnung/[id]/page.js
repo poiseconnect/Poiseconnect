@@ -860,13 +860,30 @@ doc.setFontSize(10);
 // Logo rechts oben
 if (logoBase64) {
   try {
+    const img = new Image();
+    img.src = logoBase64;
+
+    const ratio =
+      img.naturalWidth / img.naturalHeight || 1;
+
+    const maxWidth = 65;
+    const maxHeight = 25;
+
+    let width = maxWidth;
+    let height = width / ratio;
+
+    if (height > maxHeight) {
+      height = maxHeight;
+      width = height * ratio;
+    }
+
     doc.addImage(
       logoBase64,
       "PNG",
-      pageWidth - 45, // Abstand von rechts
-      12,             // Abstand von oben
-      30,             // Breite
-      18              // Höhe
+      pageWidth - marginX - width,
+      8,
+      width,
+      height
     );
   } catch (err) {
     console.error("PDF LOGO ADD FAILED:", err);
@@ -883,10 +900,12 @@ const addrLines = String(settings.address || "").split("\n");
 
   // Right meta
   doc.setFontSize(18);
-  doc.text("RECHNUNG", pageWidth - marginX, 22, { align: "right" });
+doc.text("RECHNUNG", pageWidth - marginX, 40, {
+  align: "right",
+});
 
   doc.setFontSize(10);
-  const metaY = 32;
+  const metaY = 50;
   doc.text("Rechnungs-Nr.:", pageWidth - marginX - 70, metaY);
   doc.text(String(invoiceNumber || ""), pageWidth - marginX, metaY, { align: "right" });
 
