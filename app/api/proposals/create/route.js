@@ -28,23 +28,40 @@ export async function POST(req) {
     // ------------------------------------------------
     // Vorschläge vorbereiten
     // ------------------------------------------------
-    const rows = proposals
-      .filter((p) => p.date)
-      .map((p) => ({
-        anfrage_id: requestId,
-        therapist_id,
-        date: p.date,
-      }));
+const expiresAt = new Date(
+  Date.now() + 4 * 24 * 60 * 60 * 1000
+).toISOString();
+
+const rows = proposals
+  .filter((p) => p.date)
+  .map((p) => ({
+    anfrage_id: requestId,
+    therapist_id,
+    date: p.date,
+    expires_at: expiresAt,
+  }));
 
     if (!rows.length) {
       return json({ error: "no_valid_dates" }, 400);
     }
 
-    console.log("📤 INSERT:", rows);
+// Alte Vorschläge dieser Anfrage löschen,
+// damit beim zweiten Senden nur die neuen gelten
+const { error: deleteOldError } = await supabase
+  .from("appointment_proposals")
+  .delete()
+  .eq("anfrage_id", requestId);
 
-    const { error: insertError } = await supabase
-      .from("appointment_proposals")
-      .insert(rows);
+if (deleteOldError) {
+  console.error("❌ DELETE OLD PROPOSALS ERROR:", deleteOldError);
+  return json({ error: deleteOldError.message }, 500);
+}
+
+console.log("📤 INSERT:", rows);
+
+const { error: insertError } = await supabase
+  .from("appointment_proposals")
+  .insert(rows);
 
     if (insertError) {
       console.error("❌ INSERT ERROR:", insertError);
@@ -102,6 +119,10 @@ export async function POST(req) {
             <p>
               Such dir gerne den Termin aus, der für dich am besten passt.
             </p>
+
+            <p>
+  Die Terminvorschläge sind für die nächsten 4 Tage gültig.
+</p>
 
             <p style="margin: 24px 0;">
               <a
