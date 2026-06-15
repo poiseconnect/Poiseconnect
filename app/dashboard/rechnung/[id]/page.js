@@ -860,30 +860,28 @@ doc.setFontSize(10);
 // Logo rechts oben
 if (logoBase64) {
   try {
-    const img = new Image();
-    img.src = logoBase64;
+    const props = doc.getImageProperties(logoBase64);
 
-    const ratio =
-      img.naturalWidth / img.naturalHeight || 1;
+    const maxWidth = 55;
+    const maxHeight = 18;
 
-    const maxWidth = 65;
-    const maxHeight = 25;
+    const ratio = props.width / props.height;
 
-    let width = maxWidth;
-    let height = width / ratio;
+    let logoWidth = maxWidth;
+    let logoHeight = logoWidth / ratio;
 
-    if (height > maxHeight) {
-      height = maxHeight;
-      width = height * ratio;
+    if (logoHeight > maxHeight) {
+      logoHeight = maxHeight;
+      logoWidth = logoHeight * ratio;
     }
 
     doc.addImage(
       logoBase64,
-      "PNG",
-      pageWidth - marginX - width,
+      props.fileType || "PNG",
+      pageWidth - marginX - logoWidth,
       8,
-      width,
-      height
+      logoWidth,
+      logoHeight
     );
   } catch (err) {
     console.error("PDF LOGO ADD FAILED:", err);
