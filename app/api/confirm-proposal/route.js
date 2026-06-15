@@ -266,53 +266,43 @@ if (coach?.email) {
       from: "Poise <noreply@mypoise.de>",
       to: coach.email,
       subject: "Erstgespräch wurde bestätigt 🤍",
-      html: `
-        <p>Hallo ${coach.name || ""},</p>
+html: `
+  <p>Hallo ${coach.name || ""},</p>
 
-        <p>
-          Ein Erstgespräch wurde soeben ausgewählt und bestätigt.
-        </p>
+  <p>
+    Ein Erstgespräch wurde soeben ausgewählt und bestätigt.
+  </p>
 
-        <p>
-          <strong>Klient:in:</strong> ${clientName}<br/>
-          <strong>E-Mail:</strong> ${
-            existingRequest.email || "–"
-          }<br/>
-          <strong>Telefon:</strong> ${
-            existingRequest.telefon || "–"
-          }<br/>
-          <strong>Termin:</strong> ${terminText}
-        </p>
+  <p>
+    <strong>Klient:in:</strong> ${clientName}<br/>
+    <strong>Termin:</strong> ${terminText}
+  </p>
 
-        ${
-          hasVideoLink
-            ? `
-            <p>
-              Der Videolink wurde der Klientin / dem Klienten
-              bereits automatisch mitgesendet.
-            </p>
-            `
-            : `
-            <p>
-              <strong>Achtung:</strong>
-              Der Klientin / dem Klienten wurde noch kein
-              Videolink mitgesendet, da weder ein persönlicher
-              Videolink in den Details noch ein allgemeiner
-              Videolink in den Einstellungen hinterlegt ist.
-            </p>
+  ${
+    hasVideoLink
+      ? `
+      <p>
+        Der Videolink wurde der Klientin / dem Klienten bereits automatisch mitgesendet.
+      </p>
+      `
+      : `
+      <p>
+        <strong>Achtung:</strong> Es ist derzeit kein Videolink hinterlegt.
+      </p>
 
-            <p>
-              Bitte sende noch einen Videolink über die
-              Klient:innenkarte („Videolink senden“).
-            </p>
-            `
-        }
+      <p>
+        Die Klientin / der Klient hat daher noch keinen Videolink erhalten.
+        Bitte sende noch einen Videolink über die Klient:innenkarte
+        („Videolink senden“).
+      </p>
+      `
+  }
 
-        <p>
-          Liebe Grüße<br/>
-          Poise Connect
-        </p>
-      `,
+  <p>
+    Liebe Grüße<br/>
+    Poise Connect
+  </p>
+`,
     }),
   });
 }
