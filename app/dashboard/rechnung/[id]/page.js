@@ -315,6 +315,7 @@ Poise`
 buildPdf({
   doc,
   settings,
+  coach,
   invoiceNumber,
   invoiceDate,
   servicePeriod,
