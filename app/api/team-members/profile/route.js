@@ -55,7 +55,7 @@ export async function GET(req) {
   profile_preis_ermaessigt,
   sevdesk_contact_id
 `)
-      .eq("email", user.email)
+      .eq("user_id", user.id)
       .single();
 
     if (error) {
@@ -106,7 +106,7 @@ const payload = {
     const { data: member, error } = await supabase
       .from("team_members")
       .update(payload)
-      .eq("email", user.email)
+.eq("user_id", user.id)
 .select(`
   id,
   email,
