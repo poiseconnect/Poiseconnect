@@ -10,7 +10,9 @@ const supabase = createClient(
 function json(data, status = 200) {
   return new Response(JSON.stringify(data), {
     status,
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+    },
   });
 }
 
@@ -18,27 +20,29 @@ export async function GET() {
   try {
     const { data, error } = await supabase
       .from("sessions")
-.select(`
-  id,
-  date,
-  duration_min,
-  price,
-  therapist_id,
-  anfrage_id,
-anfragen (
-  vorname,
-  nachname,
-  email,
-  strasse_hausnr,
-  plz_ort,
-  status
-),
-  team_members (
-    id,
-    name,
-    email
-  )
-`)
+      .select(`
+        id,
+        date,
+        duration_min,
+        price,
+        therapist_id,
+        anfrage_id,
+        anfragen (
+          vorname,
+          nachname,
+          email,
+          strasse_hausnr,
+          plz_ort,
+          status,
+          invoice_with_vat,
+          beschaeftigungsgrad
+        ),
+        team_members (
+          id,
+          name,
+          email
+        )
+      `)
       .order("date", { ascending: false });
 
     if (error) {
