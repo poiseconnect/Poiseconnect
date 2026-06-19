@@ -2669,16 +2669,21 @@ const controllingRows = useMemo(() => {
     }
 
     const price = Number(s.price || 0);
-  let provision = 0;
+
+const invoiceWithVat =
+  s?.anfragen?.invoice_with_vat === true ||
+  s?.invoice_with_vat === true;
+
+let provision = 0;
 
 if (invoiceWithVat) {
-  const vatRate = Number(invoiceSettings.default_vat_rate || 20);
-  const net = price / (1 + vatRate / 100);
+  const net = price / 1.2;
   provision = net * 0.3;
 } else {
   provision = price * 0.3;
 }
-    const payout = price - provision;
+
+const payout = 0;
 
     map[therapistId].sessions += 1;
 
