@@ -283,6 +283,59 @@ const requestId = body.rid || body.anfrageId || null;
               : proposalHtml,
         });
       }
+      // ------------------------------------------------
+// Coach über neue Anfrage informieren
+// ------------------------------------------------
+let coachEmail = selectedTherapist?.email || null;
+
+if (!coachEmail && assignedTherapistId) {
+  const { data: coachData, error: coachError } = await supabase
+    .from("team_members")
+    .select("email, name")
+    .eq("id", assignedTherapistId)
+    .single();
+
+  if (coachError) {
+    console.warn("COACH LOAD FAILED:", coachError);
+  }
+
+  coachEmail = coachData?.email || null;
+}
+
+if (coachEmail) {
+  await resend.emails.send({
+    from: "Poise <noreply@mypoise.de>",
+    to: coachEmail,
+    subject: "Neue Anfrage bei Poise 🤍",
+    html: `
+      <p>Hallo ${finalTherapistName},</p>
+
+      <p>
+        es ist eine neue Anfrage bei Poise eingegangen und dir zugeordnet.
+      </p>
+
+      <p>
+        Bitte öffne dein Poise Dashboard und bearbeite die Anfrage möglichst zeitnah.
+      </p>
+
+      <p>
+        Bei Proposal Mode: Bitte sende innerhalb von 48 Stunden passende Terminvorschläge.
+      </p>
+
+      <p>
+        Liebe Grüße<br/>
+        Poise Connect
+      </p>
+    `,
+  });
+
+  console.log("✅ COACH MAIL SENT TO:", coachEmail);
+} else {
+  console.warn("⚠️ Keine Coach-E-Mail gefunden", {
+    assignedTherapistId,
+    finalTherapistName,
+  });
+}
     } catch (mailErr) {
       console.warn("MAIL FAILED (but DB ok):", mailErr);
     }
