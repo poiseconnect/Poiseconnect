@@ -2310,9 +2310,7 @@ async function sendBookingLink(r) {
   setPersonalMessageRequest(r);
   setPersonalMessageSubject("Persönliche Nachricht vor unserem Erstgespräch");
   setPersonalMessageBody(
-`ich freue mich darauf, dich bei unserem Erstgespräch kennenzulernen.
-
-Falls du vorab noch Fragen hast oder es etwas gibt, das ich bereits im Vorfeld wissen sollte, kannst du mir gerne antworten.`
+`ich freue mich darauf, dich bei unserem Erstgespräch kennenzulernen.`
   );
   setPersonalMessageOpen(true);
 }
@@ -5625,7 +5623,7 @@ location.reload();
     <div style={{ marginBottom: 12, fontSize: 13, color: "#666" }}>
       Empfänger: Klient:in
       <br />
-      Die E-Mail-Adresse wird nicht angezeigt.
+      
     </div>
 
     <label>Betreff</label>
