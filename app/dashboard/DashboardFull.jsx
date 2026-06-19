@@ -1066,6 +1066,11 @@ if (status === "termin_bestaetigt") {
       label: "❤️ Match",
       hint: "Erstgespräch war passend – Begleitung startet",
     },
+        {
+      key: "personal_message",
+      label: "💬 Persönliche Nachricht senden",
+      hint: "Nachricht vor dem Erstgespräch senden, ohne E-Mail-Adresse anzuzeigen",
+    },
     {
       key: "reassign",
       label: "👥 Therapeut wechseln",
@@ -1248,6 +1253,11 @@ const [filter, setFilter] = useState(() => {
 
 const [detailsModal, setDetailsModal] = useState(null);
 const [editClientModal, setEditClientModal] = useState(null);
+  const [personalMessageOpen, setPersonalMessageOpen] = useState(false);
+const [personalMessageRequest, setPersonalMessageRequest] = useState(null);
+const [personalMessageSubject, setPersonalMessageSubject] = useState("");
+const [personalMessageBody, setPersonalMessageBody] = useState("");
+const [sendingPersonalMessage, setSendingPersonalMessage] = useState(false);
 
 const [editClientForm, setEditClientForm] = useState({
   vorname: "",
@@ -1681,6 +1691,11 @@ location.reload();
     }
 if (action === "send_video_link") {
   await sendVideoLink(r);
+}
+    if (action === "personal_message") {
+  openPersonalMessageModal(r);
+  setOpenMenuId(null);
+  return;
 }
     if (action === "reactivate") {
       await updateRequestStatus({
@@ -2290,6 +2305,52 @@ async function sendBookingLink(r) {
   }
 
   alert("✅ Videolink gesendet");
+}
+  function openPersonalMessageModal(r) {
+  setPersonalMessageRequest(r);
+  setPersonalMessageSubject("Persönliche Nachricht vor unserem Erstgespräch");
+  setPersonalMessageBody(
+`ich freue mich darauf, dich bei unserem Erstgespräch kennenzulernen.
+
+Falls du vorab noch Fragen hast oder es etwas gibt, das ich bereits im Vorfeld wissen sollte, kannst du mir gerne antworten.`
+  );
+  setPersonalMessageOpen(true);
+}
+
+async function sendPersonalMessage() {
+  if (!personalMessageRequest?.id) return;
+
+  try {
+    setSendingPersonalMessage(true);
+
+    const token = await getAccessToken();
+
+    const res = await fetch("/api/send-personal-message", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        requestId: personalMessageRequest.id,
+        subject: personalMessageSubject,
+        message: personalMessageBody,
+      }),
+    });
+
+    const json = await res.json().catch(() => null);
+
+    if (!res.ok) {
+      console.error("PERSONAL MESSAGE ERROR:", json);
+      alert("Nachricht konnte nicht gesendet werden.");
+      return;
+    }
+
+    alert("✅ Nachricht wurde gesendet.");
+    setPersonalMessageOpen(false);
+  } finally {
+    setSendingPersonalMessage(false);
+  }
 }
 /* =========================================================
    GEFILTERTE ANFRAGEN (KARTEN / LISTEN)
@@ -5553,6 +5614,57 @@ location.reload();
 
       <button type="button" onClick={saveClientData}>
         💾 Speichern
+      </button>
+    </div>
+  </Modal>
+)}
+  {personalMessageOpen && (
+  <Modal onClose={() => setPersonalMessageOpen(false)}>
+    <h3>💬 Persönliche Nachricht senden</h3>
+
+    <div style={{ marginBottom: 12, fontSize: 13, color: "#666" }}>
+      Empfänger: Klient:in
+      <br />
+      Die E-Mail-Adresse wird nicht angezeigt.
+    </div>
+
+    <label>Betreff</label>
+    <input
+      value={personalMessageSubject}
+      onChange={(e) => setPersonalMessageSubject(e.target.value)}
+      style={{ width: "100%", marginBottom: 12 }}
+    />
+
+    <label>Nachricht</label>
+    <textarea
+      value={personalMessageBody}
+      onChange={(e) => setPersonalMessageBody(e.target.value)}
+      rows={9}
+      style={{
+        width: "100%",
+        marginBottom: 16,
+        resize: "vertical",
+      }}
+    />
+
+    <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+      <button
+        type="button"
+        onClick={() => setPersonalMessageOpen(false)}
+      >
+        Abbrechen
+      </button>
+
+      <button
+        type="button"
+        onClick={sendPersonalMessage}
+        disabled={
+          sendingPersonalMessage ||
+          !personalMessageSubject ||
+          !personalMessageBody
+        }
+      >
+        {sendingPersonalMessage ? "Sende…" : "Nachricht senden"}
       </button>
     </div>
   </Modal>
