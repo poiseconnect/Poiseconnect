@@ -315,16 +315,12 @@ if (coachEmail) {
       </p>
 
       <p>
-        Bitte öffne dein Poise Dashboard und bearbeite die Anfrage möglichst zeitnah.
-      </p>
-
-      <p>
-        Bei Proposal Mode: Bitte sende innerhalb von 48 Stunden passende Terminvorschläge.
+        Bitte öffne dein Poise Dashboard und bearbeite die Anfrage möglichst zeitnah innerhalb 48h.
       </p>
 
       <p>
         Liebe Grüße<br/>
-        Poise Connect
+     Sebastian
       </p>
     `,
   });
