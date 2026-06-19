@@ -1069,7 +1069,7 @@ if (status === "termin_bestaetigt") {
         {
       key: "personal_message",
       label: "💬 Persönliche Nachricht senden",
-      hint: "Nachricht vor dem Erstgespräch senden, ohne E-Mail-Adresse anzuzeigen",
+      hint: "Nachricht vor dem Erstgespräch senden",
     },
     {
       key: "reassign",
