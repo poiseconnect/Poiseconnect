@@ -18,67 +18,17 @@ export async function POST(req) {
   try {
     const body = await req.json();
 
-    const {
-      anfrageId,
-      vorname,
-      nachname,
-      email,
-      telefon,
-      strasse_hausnr,
-      plz_ort,
-      geburtsdatum,
-      beschaeftigungsgrad,
-      anliegen,
-      themen,
-      leidensdruck,
-      verlauf,
-      diagnose,
-      ziel,
-      wunschtherapeut,
-      assigned_therapist_id,
-      check_datenschutz,
-      check_online_setting,
-      check_gesundheit,
-    } = body || {};
+    const { anfrageId, wunschtherapeut, assigned_therapist_id } = body || {};
 
     if (!assigned_therapist_id) {
       return json({ error: "ASSIGNED_THERAPIST_ID_MISSING" }, 400);
     }
 
-    let anliegenText = "";
-
-    if (Array.isArray(themen) && themen.length) {
-      anliegenText += "Ausgewählte Themen:\n";
-      themen.forEach((t) => {
-        anliegenText += `• ${t}\n`;
-      });
-    }
-
-    if (anliegen?.trim()) {
-      anliegenText += (anliegenText ? "\n\n" : "") + anliegen.trim();
-    }
-
     const payload = {
-      vorname: vorname || null,
-      nachname: nachname || null,
-      email: email || null,
-      telefon: telefon || null,
-      strasse_hausnr: strasse_hausnr || null,
-      plz_ort: plz_ort || null,
-      geburtsdatum: geburtsdatum || null,
-      beschaeftigungsgrad: beschaeftigungsgrad || null,
-      leidensdruck: leidensdruck || null,
-      verlauf: verlauf || null,
-      diagnose: diagnose || null,
-      ziel: ziel || null,
-      anliegen: anliegenText || null,
       wunschtherapeut: wunschtherapeut || null,
-      assigned_therapist_id: assigned_therapist_id || null,
-      check_datenschutz: !!check_datenschutz,
-      check_online_setting: !!check_online_setting,
-      check_suizid: !!check_gesundheit,
-      status: "neu",
-      match_state: "pending",
+      assigned_therapist_id,
+      status: "draft",
+      match_state: "draft",
     };
 
     if (anfrageId) {
@@ -124,9 +74,6 @@ export async function POST(req) {
     });
   } catch (err) {
     console.error("CREATE REQUEST DRAFT ERROR:", err);
-    return json(
-      { error: "SERVER_ERROR", detail: String(err) },
-      500
-    );
+    return json({ error: "SERVER_ERROR", detail: String(err) }, 500);
   }
 }
