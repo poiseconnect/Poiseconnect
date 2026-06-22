@@ -9,9 +9,19 @@ const supabase = createClient(
 
 function safeDateString(v) {
   if (!v) return "";
+
   const d = new Date(v);
   if (Number.isNaN(d.getTime())) return "";
-  return d.toLocaleString("de-AT");
+
+  return d.toLocaleString("de-AT", {
+    timeZone: "Europe/Vienna",
+    weekday: "long",
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }
 
 export async function POST(request) {
