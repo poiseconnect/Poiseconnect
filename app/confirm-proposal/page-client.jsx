@@ -3,6 +3,22 @@
 import { useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
+// 👇 HIER EINFÜGEN
+function safeDateString(v) {
+  if (!v) return "";
+
+  const d = new Date(v);
+  if (Number.isNaN(d.getTime())) return "";
+
+  return d.toLocaleString("de-AT", {
+    timeZone: "Europe/Vienna",
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+
 export default function ConfirmProposalPage() {
   const searchParams = useSearchParams();
   const requestId = searchParams.get("request");
@@ -100,7 +116,7 @@ Wir freuen uns auf dich 🤍
               cursor: "pointer",
             }}
           >
-            {new Date(p.date).toLocaleString("de-DE")}
+{safeDateString(p.date)}
           </button>
         </div>
       ))}
