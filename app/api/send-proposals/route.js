@@ -13,7 +13,22 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
+function safeDateString(v) {
+  if (!v) return "";
 
+  const d = new Date(v);
+  if (Number.isNaN(d.getTime())) return "";
+
+  return d.toLocaleString("de-AT", {
+    timeZone: "Europe/Vienna",
+    weekday: "long",
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
 export async function POST(req) {
   try {
     const { requestId, therapist_id, proposals } = await req.json();
@@ -53,16 +68,16 @@ export async function POST(req) {
       process.env.NEXT_PUBLIC_SITE_URL ||
       "https://app.mypoise.de";
 
-    const links = inserts
-      .map(
-        (p) => `
-        <p>
-          <a href="${baseUrl}/confirm-proposal?id=${p.proposed_at}">
-            ${new Date(p.proposed_at).toLocaleString("de-AT")}
-          </a>
-        </p>`
-      )
-      .join("");
+const links = inserts
+  .map(
+    (p) => `
+      <p>
+        <a href="${baseUrl}/confirm-proposal?id=${p.proposed_at}">
+          ${safeDateString(p.proposed_at)}
+        </a>
+      </p>`
+  )
+  .join("");
 
     await fetch("https://api.resend.com/emails", {
       method: "POST",
