@@ -12,12 +12,14 @@ function safeDateString(v) {
 
   return d.toLocaleString("de-AT", {
     timeZone: "Europe/Vienna",
+    weekday: "long",
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
     hour: "2-digit",
     minute: "2-digit",
   });
+}
 
 export default function ConfirmProposalPage() {
   const searchParams = useSearchParams();
