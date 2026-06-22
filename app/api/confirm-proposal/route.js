@@ -16,9 +16,12 @@ function json(data, status = 200) {
 
 function safeDateString(v) {
   if (!v) return "";
+
   const d = new Date(v);
   if (Number.isNaN(d.getTime())) return "";
+
   return d.toLocaleString("de-AT", {
+    timeZone: "Europe/Vienna",
     weekday: "long",
     day: "2-digit",
     month: "2-digit",
