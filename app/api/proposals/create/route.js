@@ -13,7 +13,52 @@ function json(data, status = 200) {
     headers: { "Content-Type": "application/json" },
   });
 }
+function viennaLocalToUtc(value) {
+  if (!value) return null;
 
+  const raw = String(value).replace(" ", "T");
+  const [datePart, timePartRaw] = raw.split("T");
+  const timePart = (timePartRaw || "").slice(0, 5);
+
+  if (!datePart || !timePart) return null;
+
+  const [year, month, day] = datePart.split("-").map(Number);
+  const [hour, minute] = timePart.split(":").map(Number);
+
+  const localAsUTC = Date.UTC(year, month - 1, day, hour, minute, 0);
+
+  function getViennaOffsetMs(utcMs) {
+    const parts = new Intl.DateTimeFormat("en-GB", {
+      timeZone: "Europe/Vienna",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: false,
+    }).formatToParts(new Date(utcMs));
+
+    const obj = {};
+    for (const p of parts) obj[p.type] = p.value;
+
+    return (
+      Date.UTC(
+        Number(obj.year),
+        Number(obj.month) - 1,
+        Number(obj.day),
+        Number(obj.hour),
+        Number(obj.minute),
+        Number(obj.second)
+      ) - utcMs
+    );
+  }
+
+  let utcMs = localAsUTC - getViennaOffsetMs(localAsUTC);
+  utcMs = localAsUTC - getViennaOffsetMs(utcMs);
+
+  return new Date(utcMs).toISOString();
+}
 export async function POST(req) {
   try {
     const body = await req.json();
@@ -32,31 +77,6 @@ const expiresAt = new Date(
   Date.now() + 4 * 24 * 60 * 60 * 1000
 ).toISOString();
 
-function viennaLocalToUtc(value) {
-  if (!value) return null;
-
-  const raw = String(value);
-
-  // z.B. "2027-01-10T19:00" oder "2027-01-10 19:00"
-  const [datePart, timePartRaw] = raw.replace(" ", "T").split("T");
-  const timePart = (timePartRaw || "").slice(0, 5);
-
-  if (!datePart || !timePart) return null;
-
-  const testDate = new Date(`${datePart}T12:00:00Z`);
-
-  const offsetHours = new Intl.DateTimeFormat("en-US", {
-    timeZone: "Europe/Vienna",
-    timeZoneName: "shortOffset",
-  })
-    .formatToParts(testDate)
-    .find((p) => p.type === "timeZoneName")
-    ?.value?.replace("GMT", "");
-
-  const offset = offsetHours || "+1";
-
-  return new Date(`${datePart}T${timePart}:00${offset}`).toISOString();
-}
 
 const rows = proposals
   .filter((p) => p.date)
@@ -67,6 +87,7 @@ const rows = proposals
     expires_at: expiresAt,
   }))
   .filter((row) => row.date);
+
 
     if (!rows.length) {
       return json({ error: "no_valid_dates" }, 400);
