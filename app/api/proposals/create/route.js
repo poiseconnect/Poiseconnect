@@ -32,14 +32,41 @@ const expiresAt = new Date(
   Date.now() + 4 * 24 * 60 * 60 * 1000
 ).toISOString();
 
+function viennaLocalToUtc(value) {
+  if (!value) return null;
+
+  const raw = String(value);
+
+  // z.B. "2027-01-10T19:00" oder "2027-01-10 19:00"
+  const [datePart, timePartRaw] = raw.replace(" ", "T").split("T");
+  const timePart = (timePartRaw || "").slice(0, 5);
+
+  if (!datePart || !timePart) return null;
+
+  const testDate = new Date(`${datePart}T12:00:00Z`);
+
+  const offsetHours = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Europe/Vienna",
+    timeZoneName: "shortOffset",
+  })
+    .formatToParts(testDate)
+    .find((p) => p.type === "timeZoneName")
+    ?.value?.replace("GMT", "");
+
+  const offset = offsetHours || "+1";
+
+  return new Date(`${datePart}T${timePart}:00${offset}`).toISOString();
+}
+
 const rows = proposals
   .filter((p) => p.date)
   .map((p) => ({
     anfrage_id: requestId,
     therapist_id,
-    date: p.date,
+    date: viennaLocalToUtc(p.date),
     expires_at: expiresAt,
-  }));
+  }))
+  .filter((row) => row.date);
 
     if (!rows.length) {
       return json({ error: "no_valid_dates" }, 400);
