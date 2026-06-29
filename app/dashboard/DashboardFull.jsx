@@ -1002,8 +1002,11 @@ function getActionsForRequest(r, sessionList = []) {
     teamData.find((t) => t.name === r.wunschtherapeut)?.id ||
     null;
 
-  const calendarMode = getCalendarModeByTherapistId(therapistId);
-
+const calendarMode = String(
+  r.profile_calendar_mode ||
+  r.calendar_mode ||
+  getCalendarModeByTherapistId(therapistId)
+).trim();
   if (status === "neu" || status === "termin_neu") {
     const actions = [];
 
