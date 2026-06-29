@@ -4914,16 +4914,23 @@ if (!res.ok) {
   return;
 }
 
-        // ✅ sofort im UI aktualisieren
-        setRequests((prev) =>
-          prev.map((x) =>
-            x.id === detailsModal.id
-              ? { ...x, honorar_klient: Number(editTarif) }
-              : x
-          )
-        );
+// ✅ sofort im UI aktualisieren
+setRequests((prev) =>
+  prev.map((x) =>
+    x.id === detailsModal.id
+      ? { ...x, honorar_klient: Number(editTarif) }
+      : x
+  )
+);
 
-        alert("💶 Stundensatz gespeichert");
+// ✅ auch das geöffnete Detailfenster aktualisieren
+setDetailsModal((prev) =>
+  prev
+    ? { ...prev, honorar_klient: Number(editTarif) }
+    : prev
+);
+
+alert("💶 Stundensatz gespeichert");
       }}
     >
       💾 Speichern
