@@ -5138,21 +5138,23 @@ location.reload();
       }}
     />
 
-    <select
-      value={s.duration || 60}
-      onChange={(e) => {
-        const copy = [...newSessions];
-        copy[i] = {
-          ...copy[i],
-          duration: Number(e.target.value),
-        };
-        setNewSessions(copy);
-      }}
-    >
-      <option value={50}>50 Min</option>
-      <option value={60}>60 Min</option>
-      <option value={75}>75 Min</option>
-    </select>
+<input
+  type="number"
+  min={1}
+  max={240}
+  step={1}
+  value={s.duration || 60}
+  onChange={(e) => {
+    const copy = [...newSessions];
+    copy[i] = {
+      ...copy[i],
+      duration: Number(e.target.value),
+    };
+    setNewSessions(copy);
+  }}
+  style={{ width: 90 }}
+/>
+<span>Min</span>
 
     <button
       type="button"
