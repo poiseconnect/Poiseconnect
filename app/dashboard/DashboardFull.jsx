@@ -247,7 +247,7 @@ const MATCHING_THEMEN = [
 // ================= CALENDAR MODE HELPER =================
 function getCalendarModeByTherapistId(id) {
   const t = teamData.find((x) => String(x.id) === String(id));
-  return t?.calendar_mode || "booking";
+  return String(t?.calendar_mode || "booking").trim();
 }
 function getCardStyleByFilter(filter) {
   const c = POISE_COLORS[filter] || POISE_COLORS.alle;
@@ -1078,13 +1078,13 @@ if (status === "termin_bestaetigt") {
     },
   ];
 
-    if (calendarMode === "booking") {
-      actions.push({
-        key: "new_appointment",
-        label: "🔁 Neuer Termin",
-        hint: "Klient:in wählt neuen Termin",
-      });
-    }
+if (calendarMode === "booking") {
+  actions.push({
+    key: "new_appointment",
+    label: "🔁 Termin neu",
+    hint: "Termin passt nicht – Klient:in wählt neu",
+  });
+}
 
     if (calendarMode === "proposal") {
       actions.push({
