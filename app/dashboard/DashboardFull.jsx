@@ -5185,10 +5185,20 @@ location.reload();
     onClick={async () => {
       const valid = newSessions.filter((s) => s.date);
 
-      if (!valid.length) {
-        alert("Bitte mindestens eine Sitzung mit Datum eintragen");
-        return;
-      }
+      if (!editTarif || Number(editTarif) <= 0) {
+  alert("Bitte zuerst einen Stundensatz speichern.");
+  return;
+}
+
+if (!detailsModal.honorar_klient || Number(detailsModal.honorar_klient) <= 0) {
+  alert("Bitte zuerst den Stundensatz mit 💾 Speichern sichern.");
+  return;
+}
+
+if (!valid.length) {
+  alert("Bitte mindestens eine Sitzung mit Datum eintragen");
+  return;
+}
 const res = await fetch("/api/add-sessions-batch", {
   method: "POST",
   headers: { "Content-Type": "application/json" },
