@@ -249,6 +249,19 @@ function getCalendarModeByTherapistId(id) {
   const t = teamData.find((x) => String(x.id) === String(id));
   return String(t?.calendar_mode || "booking").trim();
 }
+function getCalendarModeForRequest(r, sessionList = []) {
+  const therapistId =
+    r.assigned_therapist_id ||
+    sessionList?.[0]?.therapist_id ||
+    teamData.find((t) => t.name === r.wunschtherapeut)?.id ||
+    null;
+
+  return String(
+    r.profile_calendar_mode ||
+    r.calendar_mode ||
+    getCalendarModeByTherapistId(therapistId)
+  ).trim();
+}
 function getCardStyleByFilter(filter) {
   const c = POISE_COLORS[filter] || POISE_COLORS.alle;
 
@@ -996,17 +1009,7 @@ location.reload();
 function getActionsForRequest(r, sessionList = []) {
   const status = normalizeStatus(r._status || r.status);
 
-  const therapistId =
-    r.assigned_therapist_id ||
-    sessionList?.[0]?.therapist_id ||
-    teamData.find((t) => t.name === r.wunschtherapeut)?.id ||
-    null;
-
-const calendarMode = String(
-  r.profile_calendar_mode ||
-  r.calendar_mode ||
-  getCalendarModeByTherapistId(therapistId)
-).trim();
+const calendarMode = getCalendarModeForRequest(r, sessionList);
   if (status === "neu" || status === "termin_neu") {
     const actions = [];
 
@@ -1442,7 +1445,7 @@ const therapistId =
   null;
 
 const calendarMode =
-  getCalendarModeByTherapistId(therapistId);
+  calendarModeParam || getCalendarModeForRequest(r, sessionList);
 if (action === "details") {
   setDetailsModal({
     ...r,
@@ -4376,7 +4379,7 @@ const therapistId =
   null;
 
 const calendarMode =
-  getCalendarModeByTherapistId(therapistId);
+  getCalendarModeForRequest(r, sessionList);
           const lastSessionDate = sessionList.length
             ? sessionList[sessionList.length - 1]?.date
             : null;
