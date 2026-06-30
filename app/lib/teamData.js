@@ -1004,7 +1004,7 @@ scores: {
   calendar_mode: "booking",
   role: "Psychologe (Test)",
   qualificationLevel: 0,
-  image: "https://mypoise.de/wp-content/uploads/2025/11/Buchcover-scaled.jpg",
+  image: "https://mypoise.de/wp-content/uploads/2026/06/DSC06120-scaled.jpg",
   video: null,
   email: "hallo@lindaleinweber.com",
   short: "Interner Test-Therapeut für Dashboard-Tests.",
