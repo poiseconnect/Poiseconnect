@@ -51,6 +51,11 @@ const POISE_COLORS = {
     base: "#9FC3CF",     // hellblau
     active: "#7E6BC4",   // lila Kreis
   },
+  
+  drafts: {
+  base: "#FFF8E8",
+  active: "#8B5A2B",
+},
   einstellungen: {
     base: "#000000",     // schwarz body
     active: "#EDEDED",   // weißer Kreis
@@ -1237,6 +1242,7 @@ if (status === "active") {
 export default function DashboardFull() {
   const [user, setUser] = useState(null);
   const [requests, setRequests] = useState([]);
+  const [draftRequests, setDraftRequests] = useState([]);
 const [role, setRole] = useState(null); // "admin" | "therapist"
   const isAdmin = role === "admin";
 const [myUserId, setMyUserId] = useState(null);
@@ -1939,8 +1945,8 @@ setProfileForm({
       setRequests(
   (json.requests || [])
     .filter((r) => r.status !== "draft" && r.match_state !== "draft")
-    .map((r) => {
-
+.map((r) => {
+  const normalized = normalizeStatus(r.status);
           let adminTher = r.admin_therapeuten;
 
           if (typeof adminTher === "string") {
@@ -1966,7 +1972,19 @@ setProfileForm({
 }, [user, role]);
 
 
-  
+  useEffect(() => {
+  if (!isAdmin) return;
+
+  fetch("/api/admin/form-drafts")
+    .then((res) => res.json())
+    .then((data) => {
+      setDraftRequests(data.drafts || []);
+    })
+    .catch((err) => {
+      console.error("DRAFT LOAD FAILED:", err);
+      setDraftRequests([]);
+    });
+}, [isAdmin]);
 /* ---------- LOAD SESSIONS (ADMIN API – STABIL) ---------- */
 useEffect(() => {
   let mounted = true;
@@ -2931,7 +2949,17 @@ return (
     onClick={setFilter}
     color={POISE_COLORS.papierkorb}
   />
-
+  
+{isAdmin && (
+  <DashboardTab
+    label={`Entwürfe ${draftRequests.length}`}
+    value="drafts"
+    active={filter === "drafts"}
+    onClick={setFilter}
+    color={POISE_COLORS.drafts}
+  />
+)}
+  
   <DashboardTab
     label="Einstellungen"
     value="einstellungen"
@@ -4371,10 +4399,50 @@ gridTemplateColumns:
     }}
   />
 )}
-      {/* KARTEN */}
+  {filter === "drafts" && isAdmin && (
+  <>
+    <h2>Nicht abgeschlossene Formulare</h2>
+
+    {draftRequests.length === 0 && (
+      <div
+        style={{
+          padding: 20,
+          border: "1px solid #ddd",
+          borderRadius: 12,
+        }}
+      >
+        Keine Entwürfe vorhanden.
+      </div>
+    )}
+
+    {draftRequests.map((d) => (
+      <div
+        key={d.id}
+        style={getCardStyleByFilter("drafts")}
+      >
+        <h3>
+          {d.vorname || d.nachname
+            ? `${d.vorname || ""} ${d.nachname || ""}`
+            : "Name noch nicht eingegeben"}
+        </h3>
+
+        <p><b>E-Mail:</b> {d.email || "-"}</p>
+        <p><b>Coach:</b> {d.wunschtherapeut || "-"}</p>
+        <p>
+          <b>Begonnen:</b>{" "}
+          {new Date(d.created_at).toLocaleString("de-AT")}
+        </p>
+
+        <small>{d.id}</small>
+      </div>
+    ))}
+  </>
+)}
+{/* KARTEN */}
 {filter !== "abrechnung" &&
   filter !== "controlling" &&
   filter !== "einstellungen" &&
+  filter !== "drafts" &&
   therapistFilteredRequests.map((r) => {
           const sessionList = sessionsByRequest[String(r.id)] || [];
 const therapistId =
