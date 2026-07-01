@@ -219,6 +219,7 @@ erstgespraech: ["termin_bestaetigt"],
   controlling: ["active"],
   beendet: ["beendet"],
   papierkorb: ["papierkorb"],
+  drafts: [],
   einstellungen: [],
   alle: [
     "offen",
