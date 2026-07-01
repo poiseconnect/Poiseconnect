@@ -1937,8 +1937,9 @@ setProfileForm({
       }
 
       setRequests(
-        (json.requests || []).map((r) => {
-          const normalized = normalizeStatus(r.status);
+  (json.requests || [])
+    .filter((r) => r.status !== "draft" && r.match_state !== "draft")
+    .map((r) => {
 
           let adminTher = r.admin_therapeuten;
 
