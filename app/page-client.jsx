@@ -1105,6 +1105,23 @@ async function createOrUpdateDraft(selectedMember) {
       },
 body: JSON.stringify({
   anfrageId: draftRequestId || anfrageId || null,
+
+  vorname: form.vorname,
+  nachname: form.nachname,
+  email: form.email,
+  telefon: form.telefon,
+  strasse_hausnr: form.strasse_hausnr,
+  plz_ort: form.plz_ort,
+  geburtsdatum: form.geburtsdatum,
+  beschaeftigungsgrad: form.beschaeftigungsgrad,
+
+  themen: form.themen,
+  anliegen: form.anliegen,
+  leidensdruck: form.leidensdruck,
+  verlauf: form.verlauf,
+  diagnose: form.diagnose,
+  ziel: form.ziel,
+
   wunschtherapeut: selectedMember.name,
   assigned_therapist_id: selectedMember.id,
 }),
