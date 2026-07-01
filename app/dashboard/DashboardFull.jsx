@@ -155,7 +155,11 @@ async function updateRequestStatus({
 function normalizeStatus(raw) {
   if (!raw) return "neu";
 
-  const s = String(raw).toLowerCase().trim();
+const s = String(raw).toLowerCase().trim();
+
+if (s === "draft") return "draft";
+
+
 
   // ✅ NEU / UNBEARBEITET
   if (["neu", "offen", "new"].includes(s)) return "neu";
