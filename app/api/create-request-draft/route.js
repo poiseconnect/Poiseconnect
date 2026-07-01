@@ -18,18 +18,41 @@ export async function POST(req) {
   try {
     const body = await req.json();
 
-    const { anfrageId, wunschtherapeut, assigned_therapist_id } = body || {};
+const {
+  anfrageId,
+  wunschtherapeut,
+  assigned_therapist_id,
+
+  vorname,
+  nachname,
+  email,
+  telefon,
+  strasse_hausnr,
+  plz_ort,
+  geburtsdatum,
+  beschaeftigungsgrad,
+} = body || {};
 
     if (!assigned_therapist_id) {
       return json({ error: "ASSIGNED_THERAPIST_ID_MISSING" }, 400);
     }
 
-    const payload = {
-      wunschtherapeut: wunschtherapeut || null,
-      assigned_therapist_id,
-      status: "draft",
-      match_state: "draft",
-    };
+const payload = {
+  vorname: vorname || null,
+  nachname: nachname || null,
+  email: email || null,
+  telefon: telefon || null,
+  strasse_hausnr: strasse_hausnr || null,
+  plz_ort: plz_ort || null,
+  geburtsdatum: geburtsdatum || null,
+  beschaeftigungsgrad: beschaeftigungsgrad || null,
+
+  wunschtherapeut: wunschtherapeut || null,
+  assigned_therapist_id,
+
+  status: "draft",
+  match_state: "draft",
+};
 
     if (anfrageId) {
       const { data, error } = await supabase
