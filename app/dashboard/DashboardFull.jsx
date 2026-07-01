@@ -1160,18 +1160,25 @@ if (status === "active") {
     },
   ];
 
-    if (calendarMode === "booking") {
-      actions.push({
-        key: "copy_link",
-        label: "🔗 Buchungslink kopieren",
-        hint: "Link für weitere Terminbuchungen kopieren",
-      });
-      actions.push({
-        key: "send_link",
-        label: "📧 Buchungslink senden",
-        hint: "Link direkt per Mail an Klient:in senden",
-      });
-    }
+if (calendarMode === "booking") {
+  actions.push({
+    key: "new_appointment",
+    label: "🔁 Neuer Termin",
+    hint: "Termin passt nicht – Klient:in wählt neu",
+  });
+
+  actions.push({
+    key: "copy_link",
+    label: "🔗 Buchungslink kopieren",
+    hint: "Link für weitere Terminbuchungen kopieren",
+  });
+
+  actions.push({
+    key: "send_link",
+    label: "📧 Buchungslink senden",
+    hint: "Link direkt per Mail an Klient:in senden",
+  });
+}
 
     if (calendarMode === "proposal") {
       actions.push({
