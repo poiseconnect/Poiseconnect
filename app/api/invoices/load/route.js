@@ -45,11 +45,42 @@ export async function GET(req) {
       return json({ error: "ANFRAGE_NOT_FOUND" }, 404);
     }
 
-    const { data: sessions, error: sessErr } = await sb
-      .from("sessions")
-      .select("*")
-      .eq("anfrage_id", anfrageId)
-      .order("date", { ascending: true });
+let sessionsQuery = sb
+  .from("sessions")
+  .select("*")
+  .eq("anfrage_id", anfrageId);
+
+const billingMode = url.searchParams.get("billingMode");
+const billingYear = Number(url.searchParams.get("billingYear"));
+const billingMonth = Number(url.searchParams.get("billingMonth"));
+const billingQuarter = Number(url.searchParams.get("billingQuarter"));
+
+if (billingMode === "monat" && billingYear && billingMonth) {
+  const start = `${billingYear}-${String(billingMonth).padStart(2, "0")}-01`;
+  const endDate = new Date(billingYear, billingMonth, 0);
+  const end = `${billingYear}-${String(billingMonth).padStart(2, "0")}-${String(
+    endDate.getDate()
+  ).padStart(2, "0")}`;
+
+  sessionsQuery = sessionsQuery.gte("date", start).lte("date", end);
+}
+
+if (billingMode === "quartal" && billingYear && billingQuarter) {
+  const startMonth = (billingQuarter - 1) * 3 + 1;
+  const endMonth = startMonth + 2;
+
+  const start = `${billingYear}-${String(startMonth).padStart(2, "0")}-01`;
+  const endDate = new Date(billingYear, endMonth, 0);
+  const end = `${billingYear}-${String(endMonth).padStart(2, "0")}-${String(
+    endDate.getDate()
+  ).padStart(2, "0")}`;
+
+  sessionsQuery = sessionsQuery.gte("date", start).lte("date", end);
+}
+
+const { data: sessions, error: sessErr } = await sessionsQuery.order("date", {
+  ascending: true,
+});
 
     if (sessErr) {
       return json({ error: sessErr.message }, 400);
