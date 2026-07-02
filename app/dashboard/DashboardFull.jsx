@@ -4160,10 +4160,17 @@ if (!res.ok) {
                 <td align="right">
                   <button
                     onClick={() => {
-                      window.open(
-                        `/dashboard/rechnung/${r.anfrage_id}`,
-                        "_blank"
-                      );
+                      const params = new URLSearchParams({
+  billingMode: String(billingMode || ""),
+  billingYear: String(billingYear || ""),
+  billingMonth: String(billingMonth || ""),
+  billingQuarter: String(billingQuarter || ""),
+});
+
+window.open(
+  `/dashboard/rechnung/${r.anfrage_id}?${params.toString()}`,
+  "_blank"
+);
                     }}
                   >
                     🧾 Rechnung öffnen
