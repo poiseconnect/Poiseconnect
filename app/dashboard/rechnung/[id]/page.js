@@ -17,8 +17,13 @@ const res = await fetch(
     reader.readAsDataURL(blob);
   });
 }
-export default function RechnungPage({ params }) {
+export default function RechnungPage({ params, searchParams }) {
   const { id } = params;
+
+  const billingMode = searchParams?.billingMode || "";
+  const billingYear = searchParams?.billingYear || "";
+  const billingMonth = searchParams?.billingMonth || "";
+  const billingQuarter = searchParams?.billingQuarter || "";
 
   const [loading, setLoading] = useState(true);
 
@@ -81,8 +86,15 @@ async function loadData() {
       data: { session },
     } = await supabase.auth.getSession();
 
-    const res = await fetch(`/api/invoices/load?id=${encodeURIComponent(id)}`, {
-      headers: {
+const qs = new URLSearchParams({
+  id: String(id || ""),
+  billingMode: String(billingMode || ""),
+  billingYear: String(billingYear || ""),
+  billingMonth: String(billingMonth || ""),
+  billingQuarter: String(billingQuarter || ""),
+});
+
+const res = await fetch(`/api/invoices/load?${qs.toString()}`, {      headers: {
         Authorization: `Bearer ${session?.access_token}`,
       },
     });
