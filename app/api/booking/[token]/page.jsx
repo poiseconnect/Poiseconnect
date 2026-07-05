@@ -14,9 +14,10 @@ export default function BookingPage({ params }) {
 
     const from = new Date().toISOString().slice(0, 10);
 
-    const res = await fetch(
-      `/api/booking/free-slots?token=${encodeURIComponent(token)}&from=${from}&days=21`
-    );
+const res = await fetch(
+  `/api/booking/free-slots?token=${encodeURIComponent(token)}&from=${from}`,
+  { cache: "no-store" }
+);
 
     const json = await res.json();
     setSlots(json.slots || []);
