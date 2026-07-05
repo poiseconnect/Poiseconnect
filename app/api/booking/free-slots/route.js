@@ -92,10 +92,9 @@ const effectiveDays =
     ? Math.min(requestedDays, bookingWindowDays)
     : bookingWindowDays;
 
-const endDate = addDays(
-  startDate,
-  Math.min(Math.max(effectiveDays, 1), 180)
-);
+const safeDays = Math.min(Math.max(effectiveDays, 1), 365);
+
+const endDate = addDays(startDate, safeDays);
 
 const oauth = oauthClient();
 
