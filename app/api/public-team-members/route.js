@@ -19,17 +19,18 @@ export async function GET() {
   try {
     const { data: members, error } = await supabase
       .from("team_members")
-      .select(`
-        id,
-        email,
-        profile_name,
-        profile_role,
-        profile_calendar_mode,
-        profile_short,
-        profile_keywords,
-        profile_preis_std,
-        profile_preis_ermaessigt
-      `);
+.select(`
+  id,
+  email,
+  profile_name,
+  profile_role,
+  profile_calendar_mode,
+  profile_short,
+  profile_keywords,
+  profile_preis_std,
+  profile_preis_ermaessigt,
+  booking_window_days
+`);
 
     if (error) {
       console.error("PUBLIC TEAM MEMBERS ERROR:", error);
@@ -57,11 +58,14 @@ export async function GET() {
             : t.keywords || [],
         preis_std:
           db?.profile_preis_std != null ? db.profile_preis_std : t.preis_std,
-        preis_ermaessigt:
-          db?.profile_preis_ermaessigt != null
-            ? db.profile_preis_ermaessigt
-            : t.preis_ermaessigt,
-      };
+preis_ermaessigt:
+  db?.profile_preis_ermaessigt != null
+    ? db.profile_preis_ermaessigt
+    : t.preis_ermaessigt,
+
+booking_window_days:
+  db?.booking_window_days ?? t.booking_window_days ?? 90,
+};
     });
 
     return json({ members: merged });
