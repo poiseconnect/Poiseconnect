@@ -86,17 +86,13 @@ const stepMinutes = slotDuration + buffer;
 const startDate = parseISO(from);
 const bookingWindowDays = Number(settings?.booking_window_days || 90);
 
-const safeDays = Math.min(
-  Math.max(bookingWindowDays, 1),
-  365
-);
+const safeDays = Math.min(Math.max(bookingWindowDays, 1), 365);
 
 const endDate = addDays(startDate, safeDays);
-    
+
 console.log("BOOKING WINDOW DEBUG", {
   bookingWindowDays,
   requestedDays,
-  effectiveDays,
   safeDays,
   startDate: startDate.toISOString(),
   endDate: endDate.toISOString(),
