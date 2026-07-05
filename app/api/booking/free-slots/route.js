@@ -95,7 +95,14 @@ const effectiveDays =
 const safeDays = Math.min(Math.max(effectiveDays, 1), 365);
 
 const endDate = addDays(startDate, safeDays);
-
+console.log("BOOKING WINDOW DEBUG", {
+  bookingWindowDays,
+  requestedDays,
+  effectiveDays,
+  safeDays,
+  startDate: startDate.toISOString(),
+  endDate: endDate.toISOString(),
+});
 const oauth = oauthClient();
 
 if (!process.env.GOOGLE_REFRESH_TOKEN) {
@@ -123,6 +130,11 @@ oauth.setCredentials({
     });
 
     const rawEvents = res.data.items || [];
+    console.log("GOOGLE EVENTS DEBUG", {
+  count: rawEvents.length,
+  first: rawEvents[0]?.start?.dateTime,
+  last: rawEvents.at(-1)?.start?.dateTime,
+});
 
     // Nur freie POISE SLOT Events
     const slotEvents = rawEvents.filter((ev) => {
