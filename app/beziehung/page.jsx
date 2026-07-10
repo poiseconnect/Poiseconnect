@@ -57,7 +57,7 @@ function BeziehungContent() {
       }}
     >
       <h1 style={{ fontSize: 36, lineHeight: 1.15, marginBottom: 16 }}>
-Impulse für mentale Gesundheit & innere Balance 💛
+Impulse für mentale Gesundheit & emotionale Balance 💛
       </h1>
 
       <p
