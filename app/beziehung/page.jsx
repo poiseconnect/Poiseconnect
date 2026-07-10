@@ -180,8 +180,8 @@ function BeziehungContent() {
         }
 
         .logo {
-          width: 150px;
-          height: 158px;
+          width: auto;
+          height: 92px;
           object-fit: contain;
         }
 
