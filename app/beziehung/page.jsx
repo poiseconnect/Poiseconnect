@@ -58,9 +58,11 @@ function BeziehungContent() {
             <Image
               src="/Poise Logo Transparent Druck.png"
               alt="Poise by Linda Leinweber"
-              width={500}
-              height={350}
+              width={220}
+              height={110}
               priority
+              quality={75}
+              sizes="180px"
               className="logo"
             />
           </div>
@@ -69,9 +71,9 @@ function BeziehungContent() {
             <Image
               src="/linda-beziehung.jpg"
               alt="Linda Leinweber"
-              width={1200}
-              height={1600}
+              fill
               priority
+              quality={78}
               sizes="(max-width: 700px) 94vw, 520px"
               className="portrait"
             />
@@ -160,7 +162,7 @@ function BeziehungContent() {
               rgba(239, 220, 208, 0.72),
               transparent 34%
             ),
-            linear-gradient(180deg, #f8f2ee 0%, #fff 50%, #fbf8f5 100%);
+            linear-gradient(180deg, #f8f2ee 0%, #ffffff 50%, #fbf8f5 100%);
         }
 
         .content {
@@ -171,18 +173,23 @@ function BeziehungContent() {
         }
 
         .logoWrap {
+          display: flex;
+          justify-content: center;
           margin-bottom: 18px;
         }
 
         .logo {
-          width: 128px;
+          width: 180px;
           height: auto;
           object-fit: contain;
         }
 
         .imageWrap {
+          position: relative;
           width: 100%;
-          margin-bottom: 28px;
+          max-width: 520px;
+          aspect-ratio: 4 / 5;
+          margin: 0 auto 28px;
           overflow: hidden;
           border-radius: 28px;
           background: #eee6df;
@@ -192,9 +199,8 @@ function BeziehungContent() {
         }
 
         .portrait {
-          display: block;
-          width: 100%;
-          height: auto;
+          object-fit: cover;
+          object-position: center center;
         }
 
         .eyebrow {
@@ -245,13 +251,10 @@ function BeziehungContent() {
           border: 1px solid #d8cec6;
           border-radius: 14px;
           outline: none;
-          background: #fff;
+          background: #ffffff;
           color: #2f2925;
           font: inherit;
           font-size: 16px;
-          transition:
-            border-color 0.18s ease,
-            box-shadow 0.18s ease;
         }
 
         input:focus {
@@ -266,7 +269,7 @@ function BeziehungContent() {
           border: none;
           border-radius: 14px;
           background: #2f2925;
-          color: #fff;
+          color: #ffffff;
           font: inherit;
           font-size: 16px;
           font-weight: 800;
@@ -336,7 +339,7 @@ function BeziehungContent() {
           }
 
           .logo {
-            width: 112px;
+            width: 150px;
           }
 
           .imageWrap {
