@@ -55,14 +55,10 @@ function BeziehungContent() {
       <main className="page">
         <section className="content">
           <div className="logoWrap">
-            <Image
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
               src="/Poise Logo Transparent Druck.png"
               alt="Poise by Linda Leinweber"
-              width={400}
-              height={420}
-              priority
-              quality={75}
-              sizes="160px"
               className="logo"
             />
           </div>
