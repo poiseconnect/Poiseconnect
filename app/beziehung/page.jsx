@@ -77,15 +77,16 @@ function BeziehungContent() {
               sizes="(max-width: 700px) 94vw, 520px"
               className="portrait"
             />
+            <div className="scrim" />
+            <div className="overlayText">
+              <p className="eyebrow">
+                Psychologische Impulse für Beziehungen
+              </p>
+              <h1>
+                Impulse für mehr Nähe und Verbindung in deiner Beziehung
+              </h1>
+            </div>
           </div>
-
-          <p className="eyebrow">
-            Psychologische Impulse für Beziehungen
-          </p>
-
-          <h1>
-            Kostenlose Impulse für mehr Nähe und Verbindung in deiner Beziehung
-          </h1>
 
           <p className="intro">
             Trag dich ein und erhalte von Linda psychologisch fundierte,
@@ -203,22 +204,48 @@ function BeziehungContent() {
           object-position: center center;
         }
 
-        .eyebrow {
-          margin: 0 0 12px;
-          color: #917766;
+        .scrim {
+          position: absolute;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          height: 62%;
+          background: linear-gradient(
+            180deg,
+            rgba(47, 41, 37, 0) 0%,
+            rgba(47, 41, 37, 0.55) 55%,
+            rgba(47, 41, 37, 0.82) 100%
+          );
+          pointer-events: none;
+        }
+
+        .overlayText {
+          position: absolute;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          padding: 0 28px 30px;
+          text-align: left;
+        }
+
+        .overlayText .eyebrow {
+          margin: 0 0 10px;
+          color: #f0d9c8;
           font-size: 12px;
           font-weight: 800;
           letter-spacing: 0.13em;
           text-transform: uppercase;
         }
 
-        h1 {
-          margin: 0 auto 18px;
+        .overlayText h1 {
+          margin: 0;
+          color: #ffffff;
           font-family: Georgia, "Times New Roman", serif;
-          font-size: clamp(36px, 8vw, 54px);
+          font-size: clamp(28px, 6vw, 40px);
           font-weight: 500;
-          line-height: 1.04;
-          letter-spacing: -0.04em;
+          line-height: 1.08;
+          letter-spacing: -0.03em;
+          text-shadow: 0 2px 20px rgba(0, 0, 0, 0.25);
         }
 
         .intro {
@@ -347,8 +374,8 @@ function BeziehungContent() {
             border-radius: 22px;
           }
 
-          h1 {
-            font-size: 39px;
+          .overlayText {
+            padding: 0 20px 22px;
           }
 
           .intro {
