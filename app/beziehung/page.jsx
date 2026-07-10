@@ -58,11 +58,11 @@ function BeziehungContent() {
             <Image
               src="/Poise Logo Transparent Druck.png"
               alt="Poise by Linda Leinweber"
-              width={220}
-              height={110}
+              width={400}
+              height={420}
               priority
               quality={75}
-              sizes="180px"
+              sizes="160px"
               className="logo"
             />
           </div>
@@ -180,8 +180,8 @@ function BeziehungContent() {
         }
 
         .logo {
-          width: 180px;
-          height: auto;
+          width: 150px;
+          height: 158px;
           object-fit: contain;
         }
 
