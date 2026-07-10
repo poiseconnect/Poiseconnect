@@ -72,6 +72,7 @@ function BeziehungContent() {
               quality={78}
               sizes="(max-width: 700px) 94vw, 520px"
               className="portrait"
+              style={{ objectFit: "cover", objectPosition: "center center" }}
             />
             <div className="scrim" />
             <div className="overlayText">
