@@ -218,16 +218,38 @@ if (!mailRes.ok) {
   });
 }
 
-    console.log("✅ MAIL SENT TO:", request.email);
-    
-await supabase
+console.log("✅ MAIL SENT TO:", request.email);
+
+const sentAt = new Date().toISOString();
+
+const { error: proposalStatusError } = await supabase
   .from("anfragen")
   .update({
-    proposals_sent_at: new Date().toISOString(),
+    proposals_sent_at: sentAt,
     proposals_count: rows.length,
   })
   .eq("id", requestId);
-    return json({ ok: true });
+
+if (proposalStatusError) {
+  console.error(
+    "❌ PROPOSAL STATUS UPDATE ERROR:",
+    proposalStatusError
+  );
+
+  return json(
+    {
+      error: "proposal_status_update_failed",
+      detail: proposalStatusError.message,
+    },
+    500
+  );
+}
+
+return json({
+  ok: true,
+  proposals_sent_at: sentAt,
+  proposals_count: rows.length,
+});
   } catch (e) {
     console.error("SERVER ERROR:", e);
     return json({ error: "server_error", detail: String(e) }, 500);
