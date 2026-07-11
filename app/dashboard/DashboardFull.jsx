@@ -4580,23 +4580,68 @@ const calendarMode =
       color: "#555",
     }}
   >
-    {["neu", "termin_neu"].includes(r._status) && calendarMode === "proposal" && (
-      <>
-        <div>Kalendermodus: Proposal</div>
+   {["neu", "termin_neu"].includes(r._status) &&
+  calendarMode === "proposal" && (
+    <>
+      <div>Kalendermodus: Proposal</div>
 
-        <div>
-          📅 Vorschläge:{" "}
-          {Number(r.proposals_count || 0) > 0
-            ? Number(r.proposals_count)
-            : "offen"}
-        </div>
+      {r.proposals_sent_at ? (
+        <>
+          <div
+            style={{
+              fontWeight: 700,
+              color: "#0B6E4F",
+            }}
+          >
+            ✅ Terminvorschläge versandt
+          </div>
 
-        <div>
-          👀 Klient geöffnet:{" "}
-          {r.proposals_opened_at ? "Ja" : "Nein"}
-        </div>
-      </>
-    )}
+          {Array.isArray(r.proposal_times) &&
+          r.proposal_times.length > 0 ? (
+            <div
+              style={{
+                display: "grid",
+                gap: 3,
+                marginTop: 4,
+              }}
+            >
+              {r.proposal_times.map((proposal, index) => {
+                const date = new Date(proposal.date);
+
+                return (
+                  <div key={proposal.id || index}>
+                    📅{" "}
+                    {Number.isNaN(date.getTime())
+                      ? proposal.date
+                      : date.toLocaleString("de-AT", {
+                          weekday: "short",
+                          day: "2-digit",
+                          month: "2-digit",
+                          year: "numeric",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                          timeZone: "Europe/Vienna",
+                        })}
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div>
+              {Number(r.proposals_count || 0)} Vorschläge versandt
+            </div>
+          )}
+        </>
+      ) : (
+        <div>📅 Terminvorschläge noch nicht versandt</div>
+      )}
+
+      <div>
+        👀 Klient geöffnet:{" "}
+        {r.proposals_opened_at ? "Ja" : "Nein"}
+      </div>
+    </>
+  )}
 
     {r._status === "termin_bestaetigt" && (
       <div>
@@ -4906,6 +4951,110 @@ const calendarMode =
     <strong>Wunschzeiten des Klienten:</strong><br />
     {detailsModal.terminwunsch_text}
   </p>
+)}
+  {["neu", "termin_neu"].includes(
+  normalizeStatus(
+    detailsModal.status || detailsModal._status
+  )
+) && (
+  <div
+    style={{
+      marginTop: 14,
+      padding: 12,
+      borderRadius: 10,
+      border: "1px solid #eee",
+      background: "#FAFAFA",
+    }}
+  >
+    <strong>Terminvorschläge</strong>
+
+    {!detailsModal.proposals_sent_at ? (
+      <div
+        style={{
+          marginTop: 6,
+          color: "#777",
+        }}
+      >
+        Noch keine Terminvorschläge versandt
+      </div>
+    ) : (
+      <>
+        <div
+          style={{
+            marginTop: 6,
+            marginBottom: 8,
+            color: "#0B6E4F",
+            fontWeight: 700,
+          }}
+        >
+          ✅ Terminvorschläge wurden versandt
+        </div>
+
+        {Array.isArray(detailsModal.proposal_times) &&
+        detailsModal.proposal_times.length > 0 ? (
+          <div
+            style={{
+              display: "grid",
+              gap: 8,
+            }}
+          >
+            {detailsModal.proposal_times.map(
+              (proposal, index) => {
+                const date = new Date(proposal.date);
+
+                return (
+                  <div
+                    key={proposal.id || index}
+                    style={{
+                      padding: "8px 10px",
+                      borderRadius: 8,
+                      background: "#fff",
+                      border: "1px solid #ddd",
+                    }}
+                  >
+                    📅{" "}
+                    {Number.isNaN(date.getTime())
+                      ? proposal.date
+                      : date.toLocaleString("de-AT", {
+                          weekday: "long",
+                          day: "2-digit",
+                          month: "2-digit",
+                          year: "numeric",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                          timeZone: "Europe/Vienna",
+                        })}
+                  </div>
+                );
+              }
+            )}
+          </div>
+        ) : (
+          <div>
+            {Number(
+              detailsModal.proposals_count || 0
+            )}{" "}
+            Vorschläge wurden versandt
+          </div>
+        )}
+
+        <div
+          style={{
+            marginTop: 8,
+            fontSize: 12,
+            color: "#777",
+          }}
+        >
+          Versendet am:{" "}
+          {new Date(
+            detailsModal.proposals_sent_at
+          ).toLocaleString("de-AT", {
+            timeZone: "Europe/Vienna",
+          })}
+        </div>
+      </>
+    )}
+  </div>
 )}
 </section>
 <div style={{ marginTop: 12, marginBottom: 12 }}>
