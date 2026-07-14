@@ -46,32 +46,65 @@ export async function POST(req) {
       process.env.NEXT_PUBLIC_SITE_URL ||
       "https://app.mypoise.de";
 
-    /* ===============================
-       1️⃣ Alten Slot blockieren
-    =============================== */
-    if (oldSlot) {
-      const start = new Date(oldSlot);
+/* ===============================
+   1️⃣ Alten Termin freigeben
+=============================== */
+if (oldSlot) {
+  const start = new Date(oldSlot);
 
-      if (!isNaN(start.getTime())) {
-        const end = new Date(start.getTime() + 60 * 60 * 1000);
+  if (!isNaN(start.getTime())) {
+    const oldStartIso = start.toISOString();
 
-        const { error: blockError } = await supabase
-          .from("blocked_slots")
-          .insert({
-            anfrage_id: requestId,
-            therapist_name: therapistName,
-            start_at: start.toISOString(),
-            end_at: end.toISOString(),
-            reason: "client_reschedule",
-          });
+    /*
+     * Alten gebuchten Termin entfernen.
+     * Dadurch wird der Slot wieder frei.
+     */
+    const { data: deletedAppointments, error: deleteAppointmentError } =
+      await supabase
+        .from("booked_appointments")
+        .delete()
+        .eq("anfrage_id", requestId)
+        .select();
 
-        if (blockError) {
-          console.error("❌ BLOCK SLOT ERROR:", blockError);
-        } else {
-          console.log("✅ SLOT BLOCKED:", start.toISOString());
-        }
-      }
+    if (deleteAppointmentError) {
+      console.error(
+        "❌ DELETE OLD APPOINTMENT ERROR:",
+        deleteAppointmentError
+      );
+
+      return json(
+        {
+          error: "old_appointment_release_failed",
+          detail: deleteAppointmentError.message,
+        },
+        500
+      );
     }
+
+    console.log("✅ OLD APPOINTMENT RELEASED:", {
+      requestId,
+      oldStartIso,
+      deletedAppointments,
+    });
+
+    /*
+     * Alte Reschedule-Blockierungen entfernen,
+     * falls der Termin vorher bereits blockiert wurde.
+     */
+    const { error: unblockError } = await supabase
+      .from("blocked_slots")
+      .delete()
+      .eq("anfrage_id", requestId)
+      .eq("reason", "client_reschedule");
+
+    if (unblockError) {
+      console.error("❌ REMOVE BLOCKED SLOT ERROR:", unblockError);
+    } else {
+      console.log("✅ OLD SLOT UNBLOCKED:", oldStartIso);
+    }
+  }
+}
+
 
     /* ===============================
        2️⃣ Anfrage sauber zurücksetzen
