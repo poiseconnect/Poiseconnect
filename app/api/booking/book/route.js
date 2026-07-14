@@ -474,66 +474,79 @@ if ( !eventTitle.startsWith("POISE VERFÜGBAR")) {
       }
     }
 
-    // 9) Google Event patchen
-    try {
-      const descriptionLines = [
+// 9) Eigenen Google-Termin erstellen
+// Der bestehende Eintrag "POISE VERFÜGBAR" bleibt unverändert.
+let bookedGoogleEventId = null;
+
+try {
+  const descriptionLines = [
+    bookingType === "erstgespraech"
+      ? "Poise Erstgespräch"
+      : "Poise Sitzung",
+    `Anfrage-ID: ${anfrage.id}`,
+    `Klient: ${clientName}`,
+    `E-Mail: ${anfrage.email || ""}`,
+    `Telefon: ${anfrage.telefon || ""}`,
+  ];
+
+  if (insertedSession?.id) {
+    descriptionLines.splice(
+      2,
+      0,
+      `Session-ID: ${insertedSession.id}`
+    );
+  }
+
+  console.log("BOOKING GOOGLE INSERT PAYLOAD:", {
+    calendarId: settings.selected_calendar_id,
+    summary:
+      bookingType === "erstgespraech"
+        ? `Poise Erstgespräch – ${clientName}`
+        : `Poise Sitzung – ${clientName}`,
+    startISO,
+    endISO,
+  });
+
+  const bookedEventRes = await calendar.events.insert({
+    calendarId: settings.selected_calendar_id,
+    requestBody: {
+      summary:
         bookingType === "erstgespraech"
-          ? "Poise Erstgespräch"
-          : "Poise Sitzung",
-        `Anfrage-ID: ${anfrage.id}`,
-        `Klient: ${clientName}`,
-        `E-Mail: ${anfrage.email || ""}`,
-        `Telefon: ${anfrage.telefon || ""}`,
-      ];
+          ? `Poise Erstgespräch – ${clientName}`
+          : `Poise Sitzung – ${clientName}`,
 
-      if (insertedSession?.id) {
-        descriptionLines.splice(2, 0, `Session-ID: ${insertedSession.id}`);
-      }
+      description: descriptionLines.join("\n"),
 
-      console.log("BOOKING GOOGLE PATCH PAYLOAD:", {
-        calendarId: settings.selected_calendar_id,
-        eventId: googleEventId,
-        summary:
-          bookingType === "erstgespraech"
-            ? `Poise Erstgespräch – ${clientName}`
-            : `Poise Sitzung – ${clientName}`,
-        description: descriptionLines.join("\n"),
-        startISO,
-        endISO,
+      start: {
+        dateTime: startISO,
         timeZone: settings.time_zone || "Europe/Vienna",
-      });
+      },
 
-      await calendar.events.patch({
-        calendarId: settings.selected_calendar_id,
-        eventId: googleEventId,
-        requestBody: {
-          summary:
-            bookingType === "erstgespraech"
-              ? `Poise Erstgespräch – ${clientName}`
-              : `Poise Sitzung – ${clientName}`,
-          description: descriptionLines.join("\n"),
-          start: {
-            dateTime: startISO,
-            timeZone: settings.time_zone || "Europe/Vienna",
-          },
-          end: {
-            dateTime: endISO,
-            timeZone: settings.time_zone || "Europe/Vienna",
-          },
-        },
-      });
+      end: {
+        dateTime: endISO,
+        timeZone: settings.time_zone || "Europe/Vienna",
+      },
+    },
+  });
 
-      console.log("BOOKING GOOGLE PATCH SUCCESS");
-    } catch (googlePatchErr) {
-      console.error("GOOGLE EVENT PATCH FAILED:", googlePatchErr);
-      return json(
-        {
-          error: "GOOGLE_EVENT_PATCH_FAILED",
-          detail: String(googlePatchErr),
-        },
-        500
-      );
-    }
+  bookedGoogleEventId = bookedEventRes.data.id || null;
+
+  console.log("BOOKING GOOGLE INSERT SUCCESS:", {
+    bookedGoogleEventId,
+    startISO,
+    endISO,
+  });
+} catch (googleInsertErr) {
+  console.error("GOOGLE EVENT INSERT FAILED:", googleInsertErr);
+
+  return json(
+    {
+      error: "GOOGLE_EVENT_INSERT_FAILED",
+      detail: String(googleInsertErr),
+    },
+    500
+  );
+}
 
     // 10) Mails
     try {
