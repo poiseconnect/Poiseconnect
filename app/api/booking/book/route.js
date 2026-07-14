@@ -295,8 +295,18 @@ if (!availabilityStartISO || !availabilityEndISO) {
   return json({ error: "INVALID_AVAILABILITY_EVENT" }, 400);
 }
 
-const startISO = selectedStartISO || availabilityStartISO;
+if (!selectedStartISO) {
+  console.log("BOOKING FAIL: INVALID_SELECTED_START", {
+    startFromBody,
+  });
 
+  return json(
+    { error: "INVALID_SELECTED_START" },
+    400
+  );
+}
+
+const startISO = selectedStartISO;
 const endISO = new Date(
   new Date(startISO).getTime() + durationMin * 60000
 ).toISOString();
@@ -326,10 +336,6 @@ if (
     409
   );
 }
-    const endISO = new Date(
-      new Date(startISO).getTime() + durationMin * 60000
-    ).toISOString();
-
     const clientName =
       `${anfrage.vorname || ""} ${anfrage.nachname || ""}`.trim() || "Klient";
 
@@ -824,15 +830,16 @@ if (anfrage.email) {
       console.error("BOOKING MAIL ERROR:", mailErr);
     }
 
-    console.log("=== BOOKING POST SUCCESS ===", {
-      bookingType,
-      sessionId: insertedSession?.id || null,
-      anfrageId: anfrage.id,
-      therapistId,
-      googleEventId,
-      startISO,
-      endISO,
-    });
+console.log("=== BOOKING POST SUCCESS ===", {
+  bookingType,
+  sessionId: insertedSession?.id || null,
+  anfrageId: anfrage.id,
+  therapistId,
+  availabilityGoogleEventId: googleEventId,
+  bookedGoogleEventId,
+  startISO,
+  endISO,
+});
 
     return json({
       ok: true,
@@ -841,7 +848,8 @@ if (anfrage.email) {
       booking: {
         anfrage_id: anfrage.id,
         therapist_id: therapistId,
-        google_event_id: googleEventId,
+google_event_id: bookedGoogleEventId,
+availability_event_id: googleEventId,
         start: startISO,
         end: endISO,
       },
