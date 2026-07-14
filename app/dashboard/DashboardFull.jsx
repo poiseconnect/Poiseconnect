@@ -1597,23 +1597,22 @@ if (action === "new_appointment") {
       return;
     }
 
-    const oldSlot =
-      r.terminISO ||
-      r.termin_iso ||
-      r.terminISO_erstgespraech ||
-      r.bevorzugte_zeit ||
-      null;
+  const oldSlot =
+  r.terminISO ||
+  r.termin_iso ||
+  r.terminISO_erstgespraech ||
+  r.bevorzugte_zeit ||
+  null;
 
-    if (!oldSlot) {
-      console.error("❌ NEW APPOINTMENT: oldSlot missing", {
-        requestId: r.id,
-        request: r,
-      });
-
-      alert("❌ Alter Termin fehlt");
-      setOpenMenuId(null);
-      return;
+if (!oldSlot) {
+  console.warn(
+    "⚠️ NEW APPOINTMENT: Kein alter Termin gefunden – Reschedule wird trotzdem gesendet",
+    {
+      requestId: r.id,
+      request: r,
     }
+  );
+}
 
     const res = await fetch("/api/new-appointment", {
       method: "POST",
