@@ -285,13 +285,47 @@ if ( !eventTitle.startsWith("POISE VERFÜGBAR")) {
       return json({ error: "INVALID_SLOT_EVENT" }, 400);
     }
 
-    const originalStartISO = normalizeIso(ev.start.dateTime);
-    if (!originalStartISO) {
-      console.log("BOOKING FAIL: INVALID_SLOT_START");
-      return json({ error: "INVALID_SLOT_START" }, 400);
-    }
+const availabilityStartISO = normalizeIso(ev.start.dateTime);
+const availabilityEndISO = normalizeIso(ev.end.dateTime);
 
-    const startISO = originalStartISO;
+const selectedStartISO = normalizeIso(startFromBody);
+
+if (!availabilityStartISO || !availabilityEndISO) {
+  console.log("BOOKING FAIL: INVALID_AVAILABILITY_EVENT");
+  return json({ error: "INVALID_AVAILABILITY_EVENT" }, 400);
+}
+
+const startISO = selectedStartISO || availabilityStartISO;
+
+const endISO = new Date(
+  new Date(startISO).getTime() + durationMin * 60000
+).toISOString();
+
+const availabilityStartMs =
+  new Date(availabilityStartISO).getTime();
+
+const availabilityEndMs =
+  new Date(availabilityEndISO).getTime();
+
+const bookingStartMs = new Date(startISO).getTime();
+const bookingEndMs = new Date(endISO).getTime();
+
+if (
+  bookingStartMs < availabilityStartMs ||
+  bookingEndMs > availabilityEndMs
+) {
+  console.log("BOOKING FAIL: SELECTED_SLOT_OUTSIDE_AVAILABILITY", {
+    availabilityStartISO,
+    availabilityEndISO,
+    startISO,
+    endISO,
+  });
+
+  return json(
+    { error: "SELECTED_SLOT_OUTSIDE_AVAILABILITY" },
+    409
+  );
+}
     const endISO = new Date(
       new Date(startISO).getTime() + durationMin * 60000
     ).toISOString();
@@ -474,15 +508,19 @@ if ( !eventTitle.startsWith("POISE VERFÜGBAR")) {
       }
     }
 
-// 9) Eigenen Google-Termin erstellen
-// Der bestehende Eintrag "POISE VERFÜGBAR" bleibt unverändert.
+// 9) Eigenen Google-Termin für die Buchung erstellen
+// Der bestehende Block "POISE VERFÜGBAR" bleibt unverändert.
 let bookedGoogleEventId = null;
 
 try {
+  const timeZone =
+    settings.time_zone || "Europe/Vienna";
+
   const descriptionLines = [
     bookingType === "erstgespraech"
       ? "Poise Erstgespräch"
       : "Poise Sitzung",
+
     `Anfrage-ID: ${anfrage.id}`,
     `Klient: ${clientName}`,
     `E-Mail: ${anfrage.email || ""}`,
@@ -497,47 +535,127 @@ try {
     );
   }
 
+  const googleSummary =
+    bookingType === "erstgespraech"
+      ? `Poise Erstgespräch – ${clientName}`
+      : `Poise Sitzung – ${clientName}`;
+
   console.log("BOOKING GOOGLE INSERT PAYLOAD:", {
     calendarId: settings.selected_calendar_id,
-    summary:
-      bookingType === "erstgespraech"
-        ? `Poise Erstgespräch – ${clientName}`
-        : `Poise Sitzung – ${clientName}`,
+    summary: googleSummary,
     startISO,
     endISO,
+    availabilityEventId: googleEventId,
   });
 
-  const bookedEventRes = await calendar.events.insert({
-    calendarId: settings.selected_calendar_id,
-    requestBody: {
-      summary:
-        bookingType === "erstgespraech"
-          ? `Poise Erstgespräch – ${clientName}`
-          : `Poise Sitzung – ${clientName}`,
+  /*
+   * Wichtig:
+   * Nicht calendar.events.patch verwenden.
+   *
+   * patch würde den großen Verfügbarkeitsblock überschreiben.
+   * insert erstellt stattdessen einen zusätzlichen Kundentermin.
+   */
+  const bookedEventRes =
+    await calendar.events.insert({
+      calendarId: settings.selected_calendar_id,
 
-      description: descriptionLines.join("\n"),
+      requestBody: {
+        summary: googleSummary,
 
-      start: {
-        dateTime: startISO,
-        timeZone: settings.time_zone || "Europe/Vienna",
+        description:
+          descriptionLines.join("\n"),
+
+        start: {
+          dateTime: startISO,
+          timeZone,
+        },
+
+        end: {
+          dateTime: endISO,
+          timeZone,
+        },
       },
+    });
 
-      end: {
-        dateTime: endISO,
-        timeZone: settings.time_zone || "Europe/Vienna",
-      },
-    },
-  });
-
-  bookedGoogleEventId = bookedEventRes.data.id || null;
+  bookedGoogleEventId =
+    bookedEventRes.data.id || null;
 
   console.log("BOOKING GOOGLE INSERT SUCCESS:", {
     bookedGoogleEventId,
     startISO,
     endISO,
   });
+
+  /*
+   * Google-ID beim geblockten Erstgespräch speichern.
+   * Damit kann genau dieser Kundentermin später
+   * beim Verschieben oder Absagen gelöscht werden.
+   */
+  if (
+    bookingType === "erstgespraech" &&
+    bookedGoogleEventId
+  ) {
+    const {
+      data: updatedBlockedSlots,
+      error: eventIdUpdateError,
+    } = await sb
+      .from("blocked_slots")
+      .update({
+        google_event_id: bookedGoogleEventId,
+      })
+      .eq("anfrage_id", anfrage.id)
+      .eq("therapist_id", therapistId)
+      .eq("start_at", startISO)
+      .select();
+
+    if (eventIdUpdateError) {
+      console.error(
+        "BOOKING GOOGLE EVENT ID SAVE FAILED:",
+        eventIdUpdateError
+      );
+
+      return json(
+        {
+          error: "GOOGLE_EVENT_ID_SAVE_FAILED",
+          detail: eventIdUpdateError.message,
+        },
+        500
+      );
+    }
+
+    if (
+      !updatedBlockedSlots ||
+      updatedBlockedSlots.length === 0
+    ) {
+      console.error(
+        "BOOKING GOOGLE EVENT ID SAVE FAILED: BLOCKED SLOT NOT FOUND",
+        {
+          anfrageId: anfrage.id,
+          therapistId,
+          startISO,
+          bookedGoogleEventId,
+        }
+      );
+
+      return json(
+        {
+          error: "BLOCKED_SLOT_NOT_FOUND_AFTER_BOOKING",
+        },
+        500
+      );
+    }
+
+    console.log("BOOKING GOOGLE EVENT ID SAVED:", {
+      bookedGoogleEventId,
+      blockedSlotId:
+        updatedBlockedSlots[0]?.id || null,
+    });
+  }
 } catch (googleInsertErr) {
-  console.error("GOOGLE EVENT INSERT FAILED:", googleInsertErr);
+  console.error(
+    "GOOGLE EVENT INSERT FAILED:",
+    googleInsertErr
+  );
 
   return json(
     {
