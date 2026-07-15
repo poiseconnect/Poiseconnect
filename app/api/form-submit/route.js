@@ -184,9 +184,18 @@ const requestId = body.rid || body.anfrageId || null;
 
     // Mail (optional – darf DB nicht killen)
     try {
-      const terminText = terminISO
-        ? new Date(terminISO).toLocaleString("de-AT")
-        : "noch offen";
+const terminText = terminISO
+  ? new Date(terminISO).toLocaleString("de-AT", {
+      timeZone: "Europe/Vienna",
+      weekday: "long",
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    })
+  : "noch offen";
 
       const bookingHtml = `
         <p>Hallo ${safeVorname},</p>
