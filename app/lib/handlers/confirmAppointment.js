@@ -137,18 +137,45 @@ export async function confirmAppointment({
           `
           }
 
-          <p>
-            Bitte plane dir ausreichend Zeit und einen ruhigen Ort für das Gespräch ein.
-          </p>
+         <p>
+  Bitte plane dir ausreichend Zeit und einen ruhigen Ort für das Gespräch ein.
+</p>
 
-          <p>
-            Falls der Termin doch nicht eingehalten werden kann, melde dich bitte rechtzeitig unter
-            <a href="mailto:hallo@mypoise.de">hallo@mypoise.de</a>.
-          </p>
+<p>
+  Bitte sei ein paar Minuten vor Beginn bereit und stelle sicher,
+  dass Kamera, Mikrofon und Internetverbindung funktionieren.
+</p>
 
-          <p>
-            Wir freuen uns auf dich 🤍
-          </p>
+<br />
+
+<p>
+  <strong>Termin ändern oder absagen</strong>
+</p>
+
+<p>
+  Falls du den Termin nicht wahrnehmen kannst oder Fragen dazu hast,
+  melde dich bitte rechtzeitig unter:
+</p>
+
+<p>
+  <a href="mailto:hallo@mypoise.de">
+    <strong>hallo@mypoise.de</strong>
+  </a>
+</p>
+
+<p>
+  Wir kümmern uns schnell um eine Lösung und finden gemeinsam einen neuen Termin.
+</p>
+
+<p>
+  Bitte gib uns möglichst früh Bescheid, falls du den Termin nicht wahrnehmen kannst.
+</p>
+
+<br />
+
+<p>
+  Wir freuen uns auf dich 🤍
+</p>
 
           <p>
             Herzliche Grüße<br />
