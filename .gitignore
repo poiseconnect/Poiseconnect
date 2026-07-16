@@ -1,0 +1,40 @@
+# Dependencies
+node_modules/
+
+# Next.js
+.next/
+out/
+
+# Vercel
+.vercel/
+
+# Environment variables and secrets
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env*.local
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+
+# Local database exports and backups
+backups/
+exports/
+dumps/
+*.dump
+*.backup
+
+# Local AI indexes
+.ai-index/
+.vector-cache/
+embeddings/
+
+# Personal or production data
+client-data/
+patient-data/
+production-data/
