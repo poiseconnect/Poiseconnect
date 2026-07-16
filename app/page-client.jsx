@@ -1835,8 +1835,12 @@ color: "#000", // ✅ FIX: Text IMMER schwarz
       {step === 9 &&
         (() => {
 const t =
-  teamMembers.find((x) => x.name === form.wunschtherapeut) || {};
-         
+  teamMembers.find(
+    (x) =>
+      String(x.id) === String(assignedTherapistId) ||
+      String(x.name || "").trim() ===
+        String(form.wunschtherapeut || "").trim()
+  ) || {};
           const slides = [
             {
               title: "Schön, dass du da bist 🤍",
@@ -1865,14 +1869,14 @@ Danach entscheiden beide frei, ob ihr weiter zusammenarbeitet.`,
 • Ca. 8–10 Sitzungen im Durchschnitt
 • Offenes Tempo & Anpassung jederzeit möglich`,
             },
-            {
-              title: `Kosten bei ${t.name || "deiner Begleitung"}`,
-              text: `Standardtarif: **${t.preis_std ?? "–"}€ / 60 Min**
-Ermäßigt (Studierende / Azubi): **${t.preis_ermaessigt ?? "–"}€**
+          {
+  title: `Kosten bei ${t.name || "deiner Begleitung"}`,
+  text: `Standardtarif: ${t.preis_std ?? "–"} € / 60 Min
+Ermäßigt (Studierende / Azubi): ${t.preis_ermaessigt ?? "–"} € / 60 Min
 
 Unser Angebot richtet sich grundsätzlich an Selbstzahler.
 Eine Kostenübernahme kann möglich sein — individuell klären.`,
-            },
+},
           ];
 
           const isLast = subStep9 === slides.length - 1;
