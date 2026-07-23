@@ -834,7 +834,7 @@ scores: {
   calendar_mode: "proposal",
   role: "Psychologin, Psychotherapeutin",
   qualificationLevel: 1,
-  image: "https://mypoise.de/wp-content/uploads/2022/12/IMG_9908-e1669989498337-700x700.jpeg",
+  image: "https://mypoise.de/wp-content/uploads/2026/06/Reshad-Miller21-scaled.jpg",
   video: "https://youtu.be/ge-l5t2V5WM",
    email: "M.Schmenger@gmx.de",
   short:
