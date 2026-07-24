@@ -59,8 +59,7 @@ export async function GET() {
         profile_short,
         profile_keywords,
         profile_preis_std,
-        profile_preis_ermaessigt,
-        booking_window_days
+        profile_preis_ermaessigt
       `);
 
     if (error) {
@@ -157,9 +156,9 @@ export async function GET() {
         preis_ermaessigt: preisErmaessigt,
 
         booking_window_days:
-          dbMember?.booking_window_days ??
-          teamMember.booking_window_days ??
-          90,
+          
+  teamMember.booking_window_days ?? 90,
+        
       };
     });
 
