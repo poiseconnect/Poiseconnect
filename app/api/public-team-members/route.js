@@ -1,17 +1,48 @@
 export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 import { createClient } from "@supabase/supabase-js";
 import { teamData } from "../../lib/teamData";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
+  process.env.SUPABASE_SERVICE_ROLE_KEY,
+  {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+    },
+  }
 );
+
+function normalize(value) {
+  return String(value || "").trim().toLowerCase();
+}
+
+function normalizePrice(value, fallback = null) {
+  if (value === null || value === undefined || value === "") {
+    return fallback;
+  }
+
+  const normalized =
+    typeof value === "string"
+      ? value.replace(",", ".").trim()
+      : value;
+
+  const number = Number(normalized);
+
+  return Number.isFinite(number) ? number : fallback;
+}
 
 function json(data, status = 200) {
   return new Response(JSON.stringify(data), {
     status,
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+      Pragma: "no-cache",
+      Expires: "0",
+    },
   });
 }
 
@@ -19,53 +50,117 @@ export async function GET() {
   try {
     const { data: members, error } = await supabase
       .from("team_members")
-.select(`
-  id,
-  email,
-  profile_name,
-  profile_role,
-  profile_calendar_mode,
-  profile_short,
-  profile_keywords,
-  profile_preis_std,
-  profile_preis_ermaessigt,
-  booking_window_days
-`);
+      .select(`
+        id,
+        email,
+        profile_name,
+        profile_role,
+        profile_calendar_mode,
+        profile_short,
+        profile_keywords,
+        profile_preis_std,
+        profile_preis_ermaessigt,
+        booking_window_days
+      `);
 
     if (error) {
       console.error("PUBLIC TEAM MEMBERS ERROR:", error);
       return json({ error: error.message }, 500);
     }
 
-    const dbById = new Map((members || []).map((m) => [String(m.id), m]));
-    const dbByEmail = new Map((members || []).map((m) => [String(m.email), m]));
+    const dbMembers = members || [];
 
-    const merged = teamData.map((t) => {
-      const db =
-        dbById.get(String(t.id)) ||
-        dbByEmail.get(String(t.email)) ||
+    const dbById = new Map(
+      dbMembers
+        .filter((member) => member.id != null)
+        .map((member) => [String(member.id).trim(), member])
+    );
+
+    const dbByEmail = new Map(
+      dbMembers
+        .filter((member) => member.email)
+        .map((member) => [normalize(member.email), member])
+    );
+
+    const dbByName = new Map(
+      dbMembers
+        .filter((member) => member.profile_name)
+        .map((member) => [normalize(member.profile_name), member])
+    );
+
+    const merged = teamData.map((teamMember) => {
+      const dbMember =
+        dbById.get(String(teamMember.id || "").trim()) ||
+        dbByEmail.get(normalize(teamMember.email)) ||
+        dbByName.get(normalize(teamMember.name)) ||
         null;
 
-      return {
-        ...t,
-        name: db?.profile_name || t.name,
-        role: db?.profile_role || t.role,
-        calendar_mode: db?.profile_calendar_mode || t.calendar_mode,
-        short: db?.profile_short || t.short,
-        keywords:
-          Array.isArray(db?.profile_keywords) && db.profile_keywords.length
-            ? db.profile_keywords
-            : t.keywords || [],
-        preis_std:
-          db?.profile_preis_std != null ? db.profile_preis_std : t.preis_std,
-preis_ermaessigt:
-  db?.profile_preis_ermaessigt != null
-    ? db.profile_preis_ermaessigt
-    : t.preis_ermaessigt,
+      const preisStd = normalizePrice(
+        dbMember?.profile_preis_std,
+        teamMember.preis_std ?? null
+      );
 
-booking_window_days:
-  db?.booking_window_days ?? t.booking_window_days ?? 90,
-};
+      const preisErmaessigt = normalizePrice(
+        dbMember?.profile_preis_ermaessigt,
+        teamMember.preis_ermaessigt ?? null
+      );
+
+      console.log("PUBLIC TEAM MEMBER MERGE", {
+        teamDataName: teamMember.name,
+        teamDataId: teamMember.id,
+        teamDataEmail: teamMember.email,
+        dbFound: !!dbMember,
+        dbId: dbMember?.id,
+        dbEmail: dbMember?.email,
+        dbName: dbMember?.profile_name,
+        dbPreisStd: dbMember?.profile_preis_std,
+        dbPreisErmaessigt: dbMember?.profile_preis_ermaessigt,
+        returnedPreisStd: preisStd,
+        returnedPreisErmaessigt: preisErmaessigt,
+      });
+
+      return {
+        ...teamMember,
+
+        id: dbMember?.id ?? teamMember.id,
+        email: dbMember?.email ?? teamMember.email,
+
+        name:
+          dbMember?.profile_name?.trim() ||
+          teamMember.name,
+
+        role:
+          dbMember?.profile_role?.trim() ||
+          teamMember.role,
+
+        calendar_mode:
+          dbMember?.profile_calendar_mode ||
+          teamMember.calendar_mode ||
+          "proposal",
+
+        short:
+          dbMember?.profile_short?.trim() ||
+          teamMember.short,
+
+        keywords:
+          Array.isArray(dbMember?.profile_keywords)
+            ? dbMember.profile_keywords
+            : teamMember.keywords || [],
+
+        tags:
+          Array.isArray(dbMember?.profile_keywords)
+            ? dbMember.profile_keywords
+            : teamMember.tags || teamMember.keywords || [],
+
+        preis_std: preisStd,
+
+        preis_ermaessigt: preisErmaessigt,
+
+        booking_window_days:
+          dbMember?.booking_window_days ??
+          teamMember.booking_window_days ??
+          90,
+      };
     });
 
     return json({ members: merged });
