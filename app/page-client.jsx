@@ -382,13 +382,14 @@ const [form, setForm] = useState({
   check_datenschutz: false,
   check_online_setting: false,
   check_gesundheit: false,
-   newsletter_consent: false,
- website: "",
+  newsletter_consent: false,
+  website: "",
   terminISO: "",
   terminDisplay: "",
   assigned_therapist_id: null,
 });
-const calendarMode = useMemo(() => {
+
+const selectedTherapist = useMemo(() => {
   const effectiveTherapistId =
     assignedTherapistId ||
     form.assigned_therapist_id ||
@@ -397,51 +398,72 @@ const calendarMode = useMemo(() => {
 
   let therapist = null;
 
+  // 1. Zuerst eindeutig über die ID suchen
   if (effectiveTherapistId) {
-therapist = teamMembers.find(
- (x) => String(x.id) === String(effectiveTherapistId)
-    );
+    therapist =
+      teamMembers.find(
+        (member) =>
+          String(member.id) === String(effectiveTherapistId)
+      ) || null;
   }
 
+  // 2. Falls keine ID gefunden wurde: über den ausgewählten Namen suchen
   if (!therapist && form.wunschtherapeut) {
-therapist = teamMembers.find(
- (x) => String(x.name).trim() === String(form.wunschtherapeut).trim()
-    );
+    therapist =
+      teamMembers.find(
+        (member) =>
+          String(member.name || "").trim().toLowerCase() ===
+          String(form.wunschtherapeut || "").trim().toLowerCase()
+      ) || null;
   }
 
+  // 3. Falls Coach direkt über die URL ausgewählt wurde
   if (!therapist && therapistFromUrl) {
-therapist = teamMembers.find(
- (x) => String(x.name).trim() === String(therapistFromUrl).trim()
-    );
+    therapist =
+      teamMembers.find(
+        (member) =>
+          String(member.name || "").trim().toLowerCase() ===
+          String(therapistFromUrl || "").trim().toLowerCase()
+      ) || null;
   }
 
-  console.log("🧪 CALENDAR MODE CHECK", {
+  console.log("💶 SELECTED THERAPIST CHECK", {
     assignedTherapistId,
     formAssignedTherapistId: form.assigned_therapist_id,
     therapistIdFromUrl,
     therapistFromUrl,
     formWunschtherapeut: form.wunschtherapeut,
     effectiveTherapistId,
-    foundTherapist: therapist?.name,
-    foundMode: therapist?.calendar_mode,
+    foundTherapistId: therapist?.id,
+    foundTherapistName: therapist?.name,
+    foundPreisStd: therapist?.preis_std,
+    foundPreisErmaessigt: therapist?.preis_ermaessigt,
+    foundCalendarMode: therapist?.calendar_mode,
   });
 
-  return therapist?.calendar_mode || "proposal";
+  return therapist;
 }, [
   assignedTherapistId,
   form.assigned_therapist_id,
   form.wunschtherapeut,
   therapistIdFromUrl,
   therapistFromUrl,
+  teamMembers,
 ]);
-  const isAdminResume =
+
+const calendarMode = useMemo(() => {
+  return selectedTherapist?.calendar_mode || "proposal";
+}, [selectedTherapist]);
+
+const isAdminResume =
   resumeMode === "admin" ||
   resumeMode === "5" ||
   resumeMode === "8" ||
-  (Array.isArray(form.admin_therapeuten) && form.admin_therapeuten.length > 0);
+  (Array.isArray(form.admin_therapeuten) &&
+    form.admin_therapeuten.length > 0);
 
-  // Validierungs-Fehler für Step "Kontaktdaten"
-  const [errors, setErrors] = useState({});
+// Validierungs-Fehler für Step "Kontaktdaten"
+const [errors, setErrors] = useState({});
 
 // STEP 8 – Verfügbarkeit
 const [availableTherapists, setAvailableTherapists] = useState([]);
@@ -460,9 +482,15 @@ const [dbMatchingScores, setDbMatchingScores] = useState({});
 
   async function loadPublicTeamMembers() {
     try {
-      const res = await fetch("/api/public-team-members", {
-        cache: "no-store",
-      });
+const res = await fetch(
+  `/api/public-team-members?t=${Date.now()}`,
+  {
+    cache: "no-store",
+    headers: {
+      "Cache-Control": "no-cache",
+    },
+  }
+);
 
       const json = await res.json();
 
@@ -1832,16 +1860,11 @@ color: "#000", // ✅ FIX: Text IMMER schwarz
 
 
       {/* STEP 9 – Story / Infos zum Ablauf */}
-      {step === 9 &&
-        (() => {
-const t =
-  teamMembers.find(
-    (x) =>
-      String(x.id) === String(assignedTherapistId) ||
-      String(x.name || "").trim() ===
-        String(form.wunschtherapeut || "").trim()
-  ) || {};
-          const slides = [
+{step === 9 &&
+  (() => {
+    const t = selectedTherapist || {};
+
+    const slides = [
             {
               title: "Schön, dass du da bist 🤍",
               text: `Danke für dein Vertrauen.
