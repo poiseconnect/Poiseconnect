@@ -47,8 +47,7 @@ body: JSON.stringify({ token }),      });
 
       setLoading(false);
     })();
-  }, [requestId]);
-
+}, [token]);
   // ------------------------------------------------
   // Termin bestätigen
   // ------------------------------------------------
