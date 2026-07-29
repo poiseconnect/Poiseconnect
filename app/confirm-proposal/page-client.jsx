@@ -55,8 +55,7 @@ body: JSON.stringify({ token }),      });
     const res = await fetch("/api/confirm-proposal", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ requestId, proposalId }),
-    });
+body: JSON.stringify({ token, proposalId }),    });
 
     if (res.ok) {
       setDone(true);
