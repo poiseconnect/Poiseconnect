@@ -236,6 +236,8 @@ if (proposal.therapist_id) {
       existingRequest.meeting_link_override ||
       bookingSettings?.meeting_link ||
       "";
+    const manageLink =
+  `${process.env.NEXT_PUBLIC_APP_URL}/termin-verwalten/${token}`;
 
     // ------------------------------------------------
 // Eigenen Google-Kliententermin erstellen
@@ -504,12 +506,44 @@ if (delError) {
                 </p>
                 `
             }
+<p>
+  Deinen Termin kannst du jederzeit selbst verwalten.
+</p>
 
-            <p>
-              Falls du den Termin doch nicht wahrnehmen kannst oder etwas dazwischenkommt,
-              melde dich bitte unter
-              <a href="mailto:hallo@mypoise.de">hallo@mypoise.de</a>.
-            </p>
+<p style="margin:24px 0;">
+  <a
+    href="${manageLink}"
+    style="
+      display:inline-block;
+      background:#8E3A4A;
+      color:white;
+      padding:14px 22px;
+      border-radius:10px;
+      text-decoration:none;
+      font-weight:600;
+    "
+  >
+    Termin verwalten
+  </a>
+</p>
+
+<p>
+  Dort kannst du:
+</p>
+
+<ul>
+  <li>Termin ansehen</li>
+  <li>Termin ändern</li>
+  <li>Termin absagen</li>
+</ul>
+
+<p>
+  Falls du Probleme hast,
+  erreichst du uns jederzeit unter
+  <a href="mailto:hallo@mypoise.de">
+    hallo@mypoise.de
+  </a>.
+</p>
 
             <p>
               Alles Liebe<br/>
