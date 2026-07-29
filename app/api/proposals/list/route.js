@@ -16,14 +16,25 @@ function json(data, status = 200) {
 
 export async function POST(req) {
   try {
-    const { requestId } = await req.json();
+const { token } = await req.json();
 
-    if (!requestId) return json({ error: "missing_requestId" }, 400);
+if (!token) {
+  return json({ error: "missing_token" }, 400);
+}
 
+    const { data: request, error: requestError } = await supabase
+  .from("anfragen")
+  .select("id")
+  .eq("booking_token", token)
+  .single();
+
+if (requestError || !request) {
+  return json({ error: "invalid_token" }, 404);
+}
     const { data, error } = await supabase
       .from("appointment_proposals")
       .select("id, date")
-      .eq("anfrage_id", requestId)
+.eq("anfrage_id", request.id)
       .order("date", { ascending: true });
 
     if (error) return json({ error: error.message }, 500);
