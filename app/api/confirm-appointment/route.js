@@ -50,7 +50,8 @@ export async function POST(request) {
         bevorzugte_zeit,
         assigned_therapist_id,
         wunschtherapeut,
-        meeting_link_override
+        meeting_link_override,
+        booking_token
       `)
       .eq("id", requestId)
       .single();
@@ -126,7 +127,16 @@ export async function POST(request) {
       existing.meeting_link_override ||
       bookingSettings?.meeting_link ||
       "";
+const appBaseUrl = (
+  process.env.NEXT_PUBLIC_APP_URL ||
+  "https://poiseconnect.vercel.app"
+).replace(/\/$/, "");
 
+const manageLink = existing.booking_token
+  ? `${appBaseUrl}/termin-verwalten/${encodeURIComponent(
+      existing.booking_token
+    )}`
+  : null;
     /* --------------------------------------------------
        4️⃣ MAIL AN KLIENT:IN
     -------------------------------------------------- */
@@ -173,10 +183,49 @@ export async function POST(request) {
             Bitte plane dir ausreichend Zeit und einen ruhigen Ort für das Gespräch ein.
           </p>
 
-          <p>
-            Solltest du den Termin doch nicht wahrnehmen können, melde dich bitte rechtzeitig unter
-            <a href="mailto:hallo@mypoise.de">hallo@mypoise.de</a>.
-          </p>
+${
+  manageLink
+    ? `
+    <p>
+      Deinen Termin kannst du über den folgenden Button jederzeit ansehen und verwalten:
+    </p>
+
+    <p style="margin:24px 0;">
+      <a
+        href="${manageLink}"
+        target="_blank"
+        style="
+          display:inline-block;
+          background:#8E3A4A;
+          color:#ffffff;
+          padding:14px 22px;
+          border-radius:10px;
+          text-decoration:none;
+          font-weight:600;
+        "
+      >
+        Termin verwalten
+      </a>
+    </p>
+
+    <p style="font-size:14px; color:#666666;">
+      Dort kannst du deinen Termin ansehen, eine Änderung anfragen oder den Termin absagen.
+    </p>
+
+    <p style="font-size:13px; color:#777777;">
+      Falls der Button nicht funktioniert, kannst du diesen Link in deinen Browser kopieren:<br/>
+      <a href="${manageLink}" style="color:#8E3A4A;">
+        ${manageLink}
+      </a>
+    </p>
+    `
+    : `
+    <p>
+      Solltest du den Termin doch nicht wahrnehmen können, melde dich bitte rechtzeitig unter
+      <a href="mailto:hallo@mypoise.de">hallo@mypoise.de</a>.
+    </p>
+    `
+}
 
           <p>
             Herzliche Grüße<br/>
