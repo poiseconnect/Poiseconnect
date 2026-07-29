@@ -23,8 +23,7 @@ function safeDateString(v) {
 
 export default function ConfirmProposalPage() {
   const searchParams = useSearchParams();
-  const requestId = searchParams.get("request");
-
+const token = searchParams.get("token");
   const [loading, setLoading] = useState(true);
   const [proposals, setProposals] = useState([]);
   const [done, setDone] = useState(false);
@@ -33,14 +32,12 @@ export default function ConfirmProposalPage() {
   // Vorschläge laden
   // ------------------------------------------------
   useEffect(() => {
-    if (!requestId) return;
-
+if (!token) return;
     (async () => {
       const res = await fetch("/api/proposals/list", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ requestId }),
-      });
+body: JSON.stringify({ token }),      });
 
       const data = await res.json();
 
@@ -69,8 +66,7 @@ export default function ConfirmProposalPage() {
     }
   }
 
-  if (!requestId) return <div>Ungültiger Link</div>;
-
+if (!token) return <div>Ungültiger Link</div>;
   if (loading) return <div>Lade Termine...</div>;
 
   if (done) {
