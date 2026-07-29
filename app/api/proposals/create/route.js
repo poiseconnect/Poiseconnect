@@ -119,16 +119,20 @@ const { error: insertError } = await supabase
     // ------------------------------------------------
     // KLIENT:IN + COACH LADEN
     // ------------------------------------------------
-    const { data: request, error: reqError } = await supabase
-      .from("anfragen")
-      .select("email, vorname, wunschtherapeut")
-      .eq("id", requestId)
-      .single();
+const { data: request, error: reqError } = await supabase
+  .from("anfragen")
+  .select("email, vorname, wunschtherapeut, booking_token")
+  .eq("id", requestId)
+  .single();
 
-    if (reqError || !request?.email) {
-      console.error("❌ EMAIL LOAD ERROR:", reqError);
-      return json({ error: "client_email_missing" }, 500);
-    }
+if (reqError || !request?.email || !request?.booking_token) {
+  console.error("❌ REQUEST LOAD ERROR:", reqError);
+
+  return json(
+    { error: "client_or_booking_token_missing" },
+    500
+  );
+}
 
     // ------------------------------------------------
     // LINK BAUEN
@@ -137,8 +141,10 @@ const { error: insertError } = await supabase
       process.env.NEXT_PUBLIC_SITE_URL ||
       "https://app.mypoise.de";
 
-    const link = `${baseUrl}/confirm-proposal?request=${requestId}`;
-
+const link =
+  `${baseUrl}/confirm-proposal?token=${encodeURIComponent(
+    request.booking_token
+  )}`;
     const coachName = request.wunschtherapeut || "dein Coach";
 
     // ------------------------------------------------
