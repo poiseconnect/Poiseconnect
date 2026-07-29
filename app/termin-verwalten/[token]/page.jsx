@@ -10,6 +10,8 @@ export default function TerminVerwaltenPage() {
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
+  const [cancelling, setCancelling] = useState(false);
+const [cancelled, setCancelled] = useState(false);
 
   useEffect(() => {
     if (!token) return;
@@ -36,6 +38,48 @@ export default function TerminVerwaltenPage() {
       }
     })();
   }, [token]);
+  async function cancelAppointment() {
+  const confirmed = window.confirm(
+    "Möchtest du diesen Termin wirklich absagen?"
+  );
+
+  if (!confirmed) return;
+
+  try {
+    setCancelling(true);
+
+    const res = await fetch("/api/client/appointment/cancel", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        token,
+      }),
+    });
+
+    const json = await res.json();
+
+    if (!res.ok) {
+      console.error("CANCEL APPOINTMENT ERROR:", json);
+
+      alert(
+        json?.message ||
+          "Der Termin konnte nicht abgesagt werden."
+      );
+
+      return;
+    }
+
+    setCancelled(true);
+  } catch (err) {
+    console.error("CANCEL APPOINTMENT FAILED:", err);
+
+    alert("Der Termin konnte nicht abgesagt werden.");
+  } finally {
+    setCancelling(false);
+  }
+}
 
   if (loading) {
     return <div style={{ padding: 40 }}>Termin wird geladen…</div>;
@@ -44,7 +88,23 @@ export default function TerminVerwaltenPage() {
   if (error) {
     return <div style={{ padding: 40 }}>{error}</div>;
   }
+if (cancelled) {
+  return (
+    <div
+      style={{
+        maxWidth: 600,
+        margin: "0 auto",
+        padding: 32,
+      }}
+    >
+      <h1>Termin abgesagt</h1>
 
+      <p style={{ marginTop: 16 }}>
+        Dein Termin wurde erfolgreich abgesagt.
+      </p>
+    </div>
+  );
+}
   if (!data) {
     return <div style={{ padding: 40 }}>Kein Termin gefunden.</div>;
   }
@@ -95,7 +155,7 @@ export default function TerminVerwaltenPage() {
         )}
       </div>
 
-      <div
+           <div
         style={{
           display: "flex",
           flexDirection: "column",
@@ -117,15 +177,19 @@ export default function TerminVerwaltenPage() {
 
         <button
           type="button"
+          onClick={cancelAppointment}
+          disabled={cancelling}
           style={{
             padding: "12px 16px",
             borderRadius: 12,
             border: "1px solid #ccc",
             background: "#fff",
-            cursor: "pointer",
+            cursor: cancelling ? "not-allowed" : "pointer",
           }}
         >
-          Termin absagen
+          {cancelling
+            ? "Termin wird abgesagt…"
+            : "Termin absagen"}
         </button>
       </div>
     </div>
