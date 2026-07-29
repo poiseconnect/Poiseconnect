@@ -33,13 +33,31 @@ function safeDateString(v) {
 
 export async function POST(req) {
   try {
-    const { requestId, proposalId } = await req.json();
+const { token, proposalId } = await req.json();
 
-    console.log("✅ CONFIRM PROPOSAL API HIT", { requestId, proposalId });
+console.log("✅ CONFIRM PROPOSAL API HIT", {
+  hasToken: !!token,
+  proposalId,
+});
 
-    if (!requestId || !proposalId) {
-      return json({ error: "missing_data" }, 400);
-    }
+if (!token || !proposalId) {
+  return json({ error: "missing_data" }, 400);
+}
+    // ------------------------------------------------
+// Anfrage über sicheren Booking-Token ermitteln
+// ------------------------------------------------
+const { data: tokenRequest, error: tokenRequestError } = await supabase
+  .from("anfragen")
+  .select("id")
+  .eq("booking_token", token)
+  .single();
+
+if (tokenRequestError || !tokenRequest) {
+  console.error("invalid_booking_token", tokenRequestError);
+  return json({ error: "invalid_token" }, 404);
+}
+
+const requestId = tokenRequest.id;
 
     // ------------------------------------------------
     // Proposal holen
