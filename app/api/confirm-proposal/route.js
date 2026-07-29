@@ -121,53 +121,76 @@ if (
       return json({ error: "request_not_found" }, 404);
     }
 
-    // ------------------------------------------------
-    // Anfrage updaten
-    // ------------------------------------------------
-    const { error: updateError } = await supabase
-      .from("anfragen")
-      .update({
-        bevorzugte_zeit: proposal.date,
-        assigned_therapist_id: proposal.therapist_id,
-        status: "termin_bestaetigt",
-      })
-      .eq("id", requestId);
+// ------------------------------------------------
+// Prüfen, ob der Zeitraum inzwischen belegt ist
+// Intervalllogik:
+// existing_start < new_end
+// AND existing_end > new_start
+// ------------------------------------------------
+const startISO = start.toISOString();
+const endISO = end.toISOString();
 
-    if (updateError) {
-      console.error("updateError", updateError);
-      return json({ error: updateError.message }, 500);
-    }
+const { data: overlappingSlots, error: overlapError } = await supabase
+  .from("blocked_slots")
+  .select("id, start_at, end_at")
+  .eq("therapist_id", proposal.therapist_id)
+  .lt("start_at", endISO)
+  .gt("end_at", startISO)
+  .limit(1);
 
-    // ------------------------------------------------
-    // Slot blockieren
-    // ------------------------------------------------
-    const { error: blockError } = await supabase
-      .from("blocked_slots")
-      .insert({
-        anfrage_id: requestId,
-        therapist_id: proposal.therapist_id,
-        start_at: start.toISOString(),
-        end_at: end.toISOString(),
-        reason: "proposal_confirmed",
-      });
+if (overlapError) {
+  console.error("overlap_check_failed", overlapError);
 
-    if (blockError) {
-      console.error("blockError", blockError);
-      return json({ error: blockError.message }, 500);
-    }
+  return json(
+    {
+      error: "overlap_check_failed",
+      detail: overlapError.message,
+    },
+    500
+  );
+}
 
-    // ------------------------------------------------
-    // Andere Vorschläge löschen
-    // ------------------------------------------------
-    const { error: delError } = await supabase
-      .from("appointment_proposals")
-      .delete()
-      .eq("anfrage_id", requestId)
-      .neq("id", proposalId);
+if ((overlappingSlots || []).length > 0) {
+  console.warn("proposal_slot_already_taken", {
+    requestId,
+    proposalId,
+  });
 
-    if (delError) {
-      console.error("delError", delError);
-    }
+  return json(
+    {
+      error: "slot_taken",
+      message:
+        "Dieser Termin ist inzwischen leider nicht mehr verfügbar. Bitte wähle einen anderen Terminvorschlag.",
+    },
+    409
+  );
+}
+   // ------------------------------------------------
+// Slot blockieren
+// ------------------------------------------------
+const { data: blockedSlot, error: blockError } = await supabase
+  .from("blocked_slots")
+  .insert({
+    anfrage_id: requestId,
+    therapist_id: proposal.therapist_id,
+    start_at: startISO,
+    end_at: endISO,
+    reason: "proposal_confirmed",
+  })
+  .select("id")
+  .single();
+
+if (blockError || !blockedSlot) {
+  console.error("blockError", blockError);
+
+  return json(
+    {
+      error: "blocked_slot_insert_failed",
+      detail: blockError?.message || null,
+    },
+    500
+  );
+}
 
     // ------------------------------------------------
     // Meeting-Link laden
@@ -177,7 +200,7 @@ if (
     if (proposal.therapist_id) {
       const { data: bookingData, error: bookingError } = await supabase
         .from("therapist_booking_settings")
-        .select("meeting_link")
+.select("meeting_link, selected_calendar_id, time_zone")
         .eq("therapist_id", proposal.therapist_id)
         .single();
 
@@ -214,12 +237,230 @@ if (proposal.therapist_id) {
       bookingSettings?.meeting_link ||
       "";
 
+    // ------------------------------------------------
+// Eigenen Google-Kliententermin erstellen
+// POISE VERFÜGBAR bleibt unverändert
+// ------------------------------------------------
+if (!bookingSettings?.selected_calendar_id) {
+  console.error("selected_calendar_id_missing");
+
+  return json(
+    { error: "selected_calendar_id_missing" },
+    500
+  );
+}
+
+const oauth = oauthClient();
+
+oauth.setCredentials({
+  access_token: process.env.GOOGLE_ACCESS_TOKEN,
+  refresh_token: process.env.GOOGLE_REFRESH_TOKEN,
+});
+
+const calendar = google.calendar({
+  version: "v3",
+  auth: oauth,
+});
+
+const clientName =
+  `${existingRequest.vorname || ""} ${
+    existingRequest.nachname || ""
+  }`.trim() || "Klient:in";
+
+const timeZone =
+  bookingSettings.time_zone || "Europe/Vienna";
+
+let bookedGoogleEventId = null;
+
+try {
+  const descriptionLines = [
+    "Poise Erstgespräch",
+    `Anfrage-ID: ${requestId}`,
+    `Klient: ${clientName}`,
+    `E-Mail: ${existingRequest.email || ""}`,
+    `Telefon: ${existingRequest.telefon || ""}`,
+  ];
+
+  const googleEventRes = await calendar.events.insert({
+    calendarId: bookingSettings.selected_calendar_id,
+
+    requestBody: {
+      summary: `Poise Erstgespräch – ${clientName}`,
+
+      description: descriptionLines.join("\n"),
+
+      start: {
+        dateTime: start.toISOString(),
+        timeZone,
+      },
+
+      end: {
+        dateTime: end.toISOString(),
+        timeZone,
+      },
+    },
+  });
+
+  bookedGoogleEventId =
+    googleEventRes.data.id || null;
+
+  if (!bookedGoogleEventId) {
+    throw new Error("Google Event wurde ohne ID erstellt");
+  }
+
+  console.log("✅ PROPOSAL GOOGLE EVENT CREATED", {
+    requestId,
+    blockedSlotId: blockedSlot.id,
+    bookedGoogleEventId,
+  });
+} catch (googleInsertError) {
+  console.error(
+    "❌ PROPOSAL GOOGLE EVENT INSERT FAILED:",
+    googleInsertError
+  );
+
+  // Die gerade gesetzte Sperre wieder entfernen,
+  // weil kein Google-Kliententermin erstellt wurde.
+  const { error: rollbackError } = await supabase
+    .from("blocked_slots")
+    .delete()
+    .eq("id", blockedSlot.id);
+
+  if (rollbackError) {
+    console.error(
+      "❌ BLOCKED SLOT ROLLBACK FAILED:",
+      rollbackError
+    );
+  }
+
+  return json(
+    {
+      error: "google_event_insert_failed",
+      detail: String(googleInsertError),
+    },
+    500
+  );
+}
+
+// ------------------------------------------------
+// Google Event ID im blocked_slot speichern
+// ------------------------------------------------
+const { error: googleIdSaveError } = await supabase
+  .from("blocked_slots")
+  .update({
+    google_event_id: bookedGoogleEventId,
+  })
+  .eq("id", blockedSlot.id);
+
+if (googleIdSaveError) {
+  console.error(
+    "❌ GOOGLE EVENT ID SAVE FAILED:",
+    googleIdSaveError
+  );
+
+  // Google-Termin wieder entfernen
+  try {
+    await calendar.events.delete({
+      calendarId: bookingSettings.selected_calendar_id,
+      eventId: bookedGoogleEventId,
+    });
+  } catch (googleRollbackError) {
+    console.error(
+      "❌ GOOGLE EVENT ROLLBACK FAILED:",
+      googleRollbackError
+    );
+  }
+
+  // blocked_slot wieder entfernen
+  const { error: blockedRollbackError } = await supabase
+    .from("blocked_slots")
+    .delete()
+    .eq("id", blockedSlot.id);
+
+  if (blockedRollbackError) {
+    console.error(
+      "❌ BLOCKED SLOT ROLLBACK FAILED:",
+      blockedRollbackError
+    );
+  }
+
+  return json(
+    {
+      error: "google_event_id_save_failed",
+      detail: googleIdSaveError.message,
+    },
+    500
+  );
+}
+
     console.log("📧 about to send mail", {
       to: existingRequest.email,
       therapistName,
       terminText,
       videoLink,
     });
+
+    // ------------------------------------------------
+// Anfrage erst nach erfolgreicher Kalenderbuchung bestätigen
+// ------------------------------------------------
+const { error: updateError } = await supabase
+  .from("anfragen")
+  .update({
+    bevorzugte_zeit: proposal.date,
+    assigned_therapist_id: proposal.therapist_id,
+    status: "termin_bestaetigt",
+  })
+  .eq("id", requestId);
+
+if (updateError) {
+  console.error("request_update_failed", updateError);
+
+  // Google-Termin wieder entfernen
+  try {
+    await calendar.events.delete({
+      calendarId: bookingSettings.selected_calendar_id,
+      eventId: bookedGoogleEventId,
+    });
+  } catch (googleRollbackError) {
+    console.error(
+      "❌ GOOGLE EVENT ROLLBACK AFTER REQUEST UPDATE FAILED:",
+      googleRollbackError
+    );
+  }
+
+  // blocked_slot wieder entfernen
+  const { error: blockedRollbackError } = await supabase
+    .from("blocked_slots")
+    .delete()
+    .eq("id", blockedSlot.id);
+
+  if (blockedRollbackError) {
+    console.error(
+      "❌ BLOCKED SLOT ROLLBACK AFTER REQUEST UPDATE FAILED:",
+      blockedRollbackError
+    );
+  }
+
+  return json(
+    {
+      error: "request_update_failed",
+      detail: updateError.message,
+    },
+    500
+  );
+}
+    // ------------------------------------------------
+// Andere Vorschläge erst nach erfolgreicher Buchung löschen
+// ------------------------------------------------
+const { error: delError } = await supabase
+  .from("appointment_proposals")
+  .delete()
+  .eq("anfrage_id", requestId)
+  .neq("id", proposalId);
+
+if (delError) {
+  console.error("delError", delError);
+}
 
     // ------------------------------------------------
     // Mail senden
@@ -283,10 +524,6 @@ if (proposal.therapist_id) {
       console.log("📧 RESEND RESPONSE:", resendText);
     }
 if (coach?.email) {
-  const clientName =
-    `${existingRequest.vorname || ""} ${
-      existingRequest.nachname || ""
-    }`.trim() || "Klient:in";
 
   const hasVideoLink = Boolean(videoLink);
 
