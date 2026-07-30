@@ -1,6 +1,8 @@
 export const dynamic = "force-dynamic";
 
 import { createClient } from "@supabase/supabase-js";
+import { google } from "googleapis";
+import { oauthClient } from "../_lib/server";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -69,7 +71,45 @@ export async function POST(req) {
     if (!requestId || !therapist_id || !Array.isArray(proposals)) {
       return json({ error: "missing_data" }, 400);
     }
+// ------------------------------------------------
+// GOOGLE-KALENDER DES COACHS LADEN
+// ------------------------------------------------
+const { data: googleTokens, error: googleTokensError } =
+  await supabase
+    .from("therapist_google_tokens")
+    .select("access_token, refresh_token, expiry_date, calendar_id")
+    .eq("therapist_id", therapist_id)
+    .single();
 
+if (googleTokensError || !googleTokens) {
+  console.error(
+    "❌ GOOGLE TOKENS LOAD ERROR:",
+    googleTokensError
+  );
+
+  return json(
+    {
+      error: "google_calendar_not_connected",
+    },
+    400
+  );
+}
+
+const oauth = oauthClient();
+
+oauth.setCredentials({
+  access_token: googleTokens.access_token || undefined,
+  refresh_token: googleTokens.refresh_token || undefined,
+  expiry_date: googleTokens.expiry_date || undefined,
+});
+
+const calendar = google.calendar({
+  version: "v3",
+  auth: oauth,
+});
+
+const calendarId =
+  googleTokens.calendar_id || "primary";
     // ------------------------------------------------
     // Vorschläge vorbereiten
     // ------------------------------------------------
@@ -93,29 +133,205 @@ const rows = proposals
       return json({ error: "no_valid_dates" }, 400);
     }
 
-// Alte Vorschläge dieser Anfrage löschen,
-// damit beim zweiten Senden nur die neuen gelten
+// ------------------------------------------------
+// ALTE VORSCHLÄGE + GOOGLE-RESERVIERUNGEN LÖSCHEN
+// ------------------------------------------------
+const { data: oldProposals, error: oldProposalsError } =
+  await supabase
+    .from("appointment_proposals")
+    .select("id, google_event_id")
+    .eq("anfrage_id", requestId);
+
+if (oldProposalsError) {
+  console.error(
+    "❌ LOAD OLD PROPOSALS ERROR:",
+    oldProposalsError
+  );
+
+  return json(
+    {
+      error: "old_proposals_load_failed",
+      detail: oldProposalsError.message,
+    },
+    500
+  );
+}
+
+for (const oldProposal of oldProposals || []) {
+  if (!oldProposal.google_event_id) continue;
+
+  try {
+    await calendar.events.delete({
+      calendarId,
+      eventId: oldProposal.google_event_id,
+    });
+
+    console.log(
+      "🗑️ OLD GOOGLE PROPOSAL DELETED:",
+      oldProposal.google_event_id
+    );
+  } catch (err) {
+    console.warn(
+      "⚠️ OLD GOOGLE PROPOSAL DELETE FAILED:",
+      oldProposal.google_event_id,
+      err
+    );
+  }
+}
+
 const { error: deleteOldError } = await supabase
   .from("appointment_proposals")
   .delete()
   .eq("anfrage_id", requestId);
 
 if (deleteOldError) {
-  console.error("❌ DELETE OLD PROPOSALS ERROR:", deleteOldError);
-  return json({ error: deleteOldError.message }, 500);
+  console.error(
+    "❌ DELETE OLD PROPOSALS ERROR:",
+    deleteOldError
+  );
+
+  return json(
+    {
+      error: "delete_old_proposals_failed",
+      detail: deleteOldError.message,
+    },
+    500
+  );
 }
 
-console.log("📤 INSERT:", rows);
+// ------------------------------------------------
+// NEUE VORSCHLÄGE + GOOGLE-RESERVIERUNGEN ERSTELLEN
+// ------------------------------------------------
+const createdProposalIds = [];
+const createdGoogleEventIds = [];
 
-const { error: insertError } = await supabase
-  .from("appointment_proposals")
-  .insert(rows);
+try {
+  for (const row of rows) {
+    const start = new Date(row.date);
 
-    if (insertError) {
-      console.error("❌ INSERT ERROR:", insertError);
-      return json({ error: insertError.message }, 500);
+    if (Number.isNaN(start.getTime())) {
+      throw new Error("invalid_proposal_date");
     }
 
+    // Aktuell 60 Minuten Erstgespräch
+    const end = new Date(
+      start.getTime() + 60 * 60 * 1000
+    );
+
+    // ----------------------------------------------
+    // Google-Reservierung erstellen
+    // ----------------------------------------------
+    const googleEventRes =
+      await calendar.events.insert({
+        calendarId,
+
+        requestBody: {
+          summary: "Poise – Terminoption reserviert",
+
+          description:
+            "Vorläufig reservierter Poise-Terminvorschlag.",
+
+          start: {
+            dateTime: start.toISOString(),
+            timeZone: "Europe/Vienna",
+          },
+
+          end: {
+            dateTime: end.toISOString(),
+            timeZone: "Europe/Vienna",
+          },
+
+          transparency: "opaque",
+          status: "tentative",
+        },
+      });
+
+    const googleEventId =
+      googleEventRes.data.id || null;
+
+    if (!googleEventId) {
+      throw new Error(
+        "google_event_created_without_id"
+      );
+    }
+
+    createdGoogleEventIds.push(googleEventId);
+
+    // ----------------------------------------------
+    // Proposal in Supabase speichern
+    // ----------------------------------------------
+    const {
+      data: insertedProposal,
+      error: insertError,
+    } = await supabase
+      .from("appointment_proposals")
+      .insert({
+        ...row,
+        google_event_id: googleEventId,
+      })
+      .select("id")
+      .single();
+
+    if (insertError || !insertedProposal) {
+      throw new Error(
+        insertError?.message ||
+          "proposal_insert_failed"
+      );
+    }
+
+    createdProposalIds.push(insertedProposal.id);
+
+    console.log("✅ PROPOSAL CREATED:", {
+      proposalId: insertedProposal.id,
+      googleEventId,
+      date: row.date,
+    });
+  }
+} catch (proposalCreateError) {
+  console.error(
+    "❌ PROPOSAL CREATE FAILED:",
+    proposalCreateError
+  );
+
+  // Google-Events zurückrollen
+  for (const eventId of createdGoogleEventIds) {
+    try {
+      await calendar.events.delete({
+        calendarId,
+        eventId,
+      });
+    } catch (rollbackError) {
+      console.error(
+        "❌ GOOGLE ROLLBACK FAILED:",
+        rollbackError
+      );
+    }
+  }
+
+  // Supabase-Proposals zurückrollen
+  if (createdProposalIds.length > 0) {
+    const { error: rollbackDbError } =
+      await supabase
+        .from("appointment_proposals")
+        .delete()
+        .in("id", createdProposalIds);
+
+    if (rollbackDbError) {
+      console.error(
+        "❌ DB ROLLBACK FAILED:",
+        rollbackDbError
+      );
+    }
+  }
+
+  return json(
+    {
+      error: "proposal_creation_failed",
+      detail: String(proposalCreateError),
+    },
+    500
+  );
+}
     // ------------------------------------------------
     // KLIENT:IN + COACH LADEN
     // ------------------------------------------------
