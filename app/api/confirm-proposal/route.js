@@ -64,16 +64,31 @@ const requestId = tokenRequest.id;
     // ------------------------------------------------
     // Proposal holen
     // ------------------------------------------------
-    const { data: proposal, error: pError } = await supabase
-      .from("appointment_proposals")
-.select("id, anfrage_id, therapist_id, date, expires_at")      .eq("id", proposalId)
-      .single();
+const { data: proposal, error: pError } = await supabase
+  .from("appointment_proposals")
+  .select(
+    "id, anfrage_id, therapist_id, date, expires_at, google_event_id"
+  )
+  .eq("id", proposalId)
+  .single();
 
     if (pError || !proposal) {
       console.error("proposal_not_found", pError);
       return json({ error: "proposal_not_found" }, 404);
     }
+if (!proposal.google_event_id) {
+  console.error("proposal_google_event_id_missing", {
+    proposalId,
+    requestId,
+  });
 
+  return json(
+    {
+      error: "proposal_google_event_missing",
+    },
+    500
+  );
+}
     if (String(proposal.anfrage_id) !== String(requestId)) {
       return json({ error: "proposal_request_mismatch" }, 400);
     }
@@ -150,6 +165,7 @@ if (overlapError) {
   );
 }
 
+    
 if ((overlappingSlots || []).length > 0) {
   console.warn("proposal_slot_already_taken", {
     requestId,
@@ -165,8 +181,10 @@ if ((overlappingSlots || []).length > 0) {
     409
   );
 }
-   // ------------------------------------------------
-// Slot blockieren
+
+
+// ------------------------------------------------
+// SLOT BLOCKIEREN
 // ------------------------------------------------
 const { data: blockedSlot, error: blockError } = await supabase
   .from("blocked_slots")
@@ -176,12 +194,13 @@ const { data: blockedSlot, error: blockError } = await supabase
     start_at: startISO,
     end_at: endISO,
     reason: "proposal_confirmed",
+    google_event_id: proposal.google_event_id,
   })
   .select("id")
   .single();
 
 if (blockError || !blockedSlot) {
-  console.error("blockError", blockError);
+  console.error("blocked_slot_insert_failed", blockError);
 
   return json(
     {
@@ -192,24 +211,34 @@ if (blockError || !blockedSlot) {
   );
 }
 
-    // ------------------------------------------------
-    // Meeting-Link laden
-    // ------------------------------------------------
-    let bookingSettings = null;
+// ------------------------------------------------
+// BOOKING SETTINGS DES COACHS LADEN
+// ------------------------------------------------
+let bookingSettings = null;
 
-    if (proposal.therapist_id) {
-      const { data: bookingData, error: bookingError } = await supabase
-        .from("therapist_booking_settings")
-.select("meeting_link, selected_calendar_id, time_zone")
-        .eq("therapist_id", proposal.therapist_id)
-        .single();
+if (proposal.therapist_id) {
+  const { data: bookingData, error: bookingError } =
+    await supabase
+      .from("therapist_booking_settings")
+      .select(
+        "meeting_link, selected_calendar_id, time_zone"
+      )
+      .eq("therapist_id", proposal.therapist_id)
+      .single();
 
-      if (bookingError) {
-        console.warn("booking_settings_load_failed", bookingError);
-      } else {
-        bookingSettings = bookingData;
-      }
-    }
+  if (bookingError) {
+    console.warn(
+      "booking_settings_load_failed",
+      bookingError
+    );
+  } else {
+    bookingSettings = bookingData;
+  }
+}
+
+// ------------------------------------------------
+// COACH LADEN
+// ------------------------------------------------
 let coach = null;
 
 if (proposal.therapist_id) {
@@ -221,30 +250,51 @@ if (proposal.therapist_id) {
       .single();
 
   if (coachError) {
-    console.warn("coach_load_failed", coachError);
+    console.warn(
+      "coach_load_failed",
+      coachError
+    );
   } else {
     coach = coachData;
   }
 }
- const therapistName =
+
+// ------------------------------------------------
+// TEXTE / LINKS VORBEREITEN
+// ------------------------------------------------
+const therapistName =
   coach?.name ||
   existingRequest.wunschtherapeut?.trim() ||
   "dein Coach";
-    const terminText = safeDateString(proposal.date);
 
-    const videoLink =
-      existingRequest.meeting_link_override ||
-      bookingSettings?.meeting_link ||
-      "";
-    const manageLink =
-  `${process.env.NEXT_PUBLIC_APP_URL}/termin-verwalten/${token}`;
+const terminText =
+  safeDateString(proposal.date);
 
-    // ------------------------------------------------
-// Eigenen Google-Kliententermin erstellen
-// POISE VERFÜGBAR bleibt unverändert
+const videoLink =
+  existingRequest.meeting_link_override ||
+  bookingSettings?.meeting_link ||
+  "";
+
+const appBaseUrl = (
+  process.env.NEXT_PUBLIC_APP_URL ||
+  "https://poiseconnect.vercel.app"
+).replace(/\/$/, "");
+
+const manageLink =
+  `${appBaseUrl}/termin-verwalten/${encodeURIComponent(
+    token
+  )}`;
+// ------------------------------------------------
+// VORHANDENE GOOGLE-RESERVIERUNG BESTÄTIGEN
 // ------------------------------------------------
 if (!bookingSettings?.selected_calendar_id) {
   console.error("selected_calendar_id_missing");
+
+  // blocked_slot wieder entfernen
+  await supabase
+    .from("blocked_slots")
+    .delete()
+    .eq("id", blockedSlot.id);
 
   return json(
     { error: "selected_calendar_id_missing" },
@@ -272,7 +322,7 @@ const clientName =
 const timeZone =
   bookingSettings.time_zone || "Europe/Vienna";
 
-let bookedGoogleEventId = null;
+const bookedGoogleEventId = proposal.google_event_id;
 
 try {
   const descriptionLines = [
@@ -283,8 +333,9 @@ try {
     `Telefon: ${existingRequest.telefon || ""}`,
   ];
 
-  const googleEventRes = await calendar.events.insert({
+  await calendar.events.patch({
     calendarId: bookingSettings.selected_calendar_id,
+    eventId: bookedGoogleEventId,
 
     requestBody: {
       summary: `Poise Erstgespräch – ${clientName}`,
@@ -300,29 +351,26 @@ try {
         dateTime: end.toISOString(),
         timeZone,
       },
+
+      status: "confirmed",
+      transparency: "opaque",
     },
   });
 
-  bookedGoogleEventId =
-    googleEventRes.data.id || null;
-
-  if (!bookedGoogleEventId) {
-    throw new Error("Google Event wurde ohne ID erstellt");
-  }
-
-  console.log("✅ PROPOSAL GOOGLE EVENT CREATED", {
+  console.log("✅ PROPOSAL GOOGLE EVENT CONFIRMED", {
     requestId,
+    proposalId,
     blockedSlotId: blockedSlot.id,
     bookedGoogleEventId,
   });
-} catch (googleInsertError) {
+} catch (googlePatchError) {
   console.error(
-    "❌ PROPOSAL GOOGLE EVENT INSERT FAILED:",
-    googleInsertError
+    "❌ PROPOSAL GOOGLE EVENT PATCH FAILED:",
+    googlePatchError
   );
 
-  // Die gerade gesetzte Sperre wieder entfernen,
-  // weil kein Google-Kliententermin erstellt wurde.
+  // blocked_slot wieder entfernen,
+  // weil die Reservierung nicht bestätigt werden konnte
   const { error: rollbackError } = await supabase
     .from("blocked_slots")
     .delete()
@@ -337,59 +385,8 @@ try {
 
   return json(
     {
-      error: "google_event_insert_failed",
-      detail: String(googleInsertError),
-    },
-    500
-  );
-}
-
-// ------------------------------------------------
-// Google Event ID im blocked_slot speichern
-// ------------------------------------------------
-const { error: googleIdSaveError } = await supabase
-  .from("blocked_slots")
-  .update({
-    google_event_id: bookedGoogleEventId,
-  })
-  .eq("id", blockedSlot.id);
-
-if (googleIdSaveError) {
-  console.error(
-    "❌ GOOGLE EVENT ID SAVE FAILED:",
-    googleIdSaveError
-  );
-
-  // Google-Termin wieder entfernen
-  try {
-    await calendar.events.delete({
-      calendarId: bookingSettings.selected_calendar_id,
-      eventId: bookedGoogleEventId,
-    });
-  } catch (googleRollbackError) {
-    console.error(
-      "❌ GOOGLE EVENT ROLLBACK FAILED:",
-      googleRollbackError
-    );
-  }
-
-  // blocked_slot wieder entfernen
-  const { error: blockedRollbackError } = await supabase
-    .from("blocked_slots")
-    .delete()
-    .eq("id", blockedSlot.id);
-
-  if (blockedRollbackError) {
-    console.error(
-      "❌ BLOCKED SLOT ROLLBACK FAILED:",
-      blockedRollbackError
-    );
-  }
-
-  return json(
-    {
-      error: "google_event_id_save_failed",
-      detail: googleIdSaveError.message,
+      error: "google_event_patch_failed",
+      detail: String(googlePatchError),
     },
     500
   );
@@ -417,12 +414,39 @@ const { error: updateError } = await supabase
 if (updateError) {
   console.error("request_update_failed", updateError);
 
-  // Google-Termin wieder entfernen
+  // ------------------------------------------------
+  // Google-Termin wieder zur Reservierung zurücksetzen
+  // ------------------------------------------------
   try {
-    await calendar.events.delete({
+    await calendar.events.patch({
       calendarId: bookingSettings.selected_calendar_id,
       eventId: bookedGoogleEventId,
+
+      requestBody: {
+        summary: "Poise – Terminoption reserviert",
+
+        description:
+          "Vorläufig reservierter Poise-Terminvorschlag.",
+
+        start: {
+          dateTime: start.toISOString(),
+          timeZone,
+        },
+
+        end: {
+          dateTime: end.toISOString(),
+          timeZone,
+        },
+
+        status: "tentative",
+        transparency: "opaque",
+      },
     });
+
+    console.log(
+      "↩️ GOOGLE EVENT BACK TO PROPOSAL:",
+      bookedGoogleEventId
+    );
   } catch (googleRollbackError) {
     console.error(
       "❌ GOOGLE EVENT ROLLBACK AFTER REQUEST UPDATE FAILED:",
@@ -430,7 +454,9 @@ if (updateError) {
     );
   }
 
+  // ------------------------------------------------
   // blocked_slot wieder entfernen
+  // ------------------------------------------------
   const { error: blockedRollbackError } = await supabase
     .from("blocked_slots")
     .delete()
@@ -452,18 +478,89 @@ if (updateError) {
   );
 }
     // ------------------------------------------------
-// Andere Vorschläge erst nach erfolgreicher Buchung löschen
 // ------------------------------------------------
-const { error: delError } = await supabase
-  .from("appointment_proposals")
-  .delete()
-  .eq("anfrage_id", requestId)
-  .neq("id", proposalId);
+// ANDERE VORSCHLÄGE + GOOGLE-RESERVIERUNGEN LÖSCHEN
+// ------------------------------------------------
+const { data: otherProposals, error: otherProposalsError } =
+  await supabase
+    .from("appointment_proposals")
+    .select("id, google_event_id")
+    .eq("anfrage_id", requestId)
+    .neq("id", proposalId);
 
-if (delError) {
-  console.error("delError", delError);
+if (otherProposalsError) {
+  console.error(
+    "❌ OTHER PROPOSALS LOAD FAILED:",
+    otherProposalsError
+  );
+} else {
+  // ----------------------------------------------
+  // zuerst Google-Events löschen
+  // ----------------------------------------------
+  for (const otherProposal of otherProposals || []) {
+    if (!otherProposal.google_event_id) {
+      console.warn(
+        "⚠️ OTHER PROPOSAL WITHOUT GOOGLE EVENT:",
+        otherProposal.id
+      );
+      continue;
+    }
+
+    try {
+      await calendar.events.delete({
+        calendarId: bookingSettings.selected_calendar_id,
+        eventId: otherProposal.google_event_id,
+      });
+
+      console.log(
+        "🗑️ UNUSED GOOGLE PROPOSAL DELETED:",
+        otherProposal.google_event_id
+      );
+    } catch (googleDeleteError) {
+      console.error(
+        "❌ UNUSED GOOGLE PROPOSAL DELETE FAILED:",
+        {
+          proposalId: otherProposal.id,
+          googleEventId: otherProposal.google_event_id,
+          error: googleDeleteError,
+        }
+      );
+    }
+  }
+
+  // ----------------------------------------------
+  // danach die beiden DB-Proposals löschen
+  // ----------------------------------------------
+  const { error: delError } = await supabase
+    .from("appointment_proposals")
+    .delete()
+    .eq("anfrage_id", requestId)
+    .neq("id", proposalId);
+
+  if (delError) {
+    console.error(
+      "❌ OTHER PROPOSALS DELETE FAILED:",
+      delError
+    );
+  }
 }
+// ------------------------------------------------
+// GEWÄHLTEN PROPOSAL-DATENSATZ ENTFERNEN
+// Der bestätigte Termin lebt jetzt in
+// anfragen + blocked_slots + Google Calendar
+// ------------------------------------------------
+const { error: selectedProposalDeleteError } =
+  await supabase
+    .from("appointment_proposals")
+    .delete()
+    .eq("id", proposalId);
 
+if (selectedProposalDeleteError) {
+  console.error(
+    "❌ SELECTED PROPOSAL DELETE FAILED:",
+    selectedProposalDeleteError
+  );
+}
     // ------------------------------------------------
     // Mail senden
     // ------------------------------------------------
