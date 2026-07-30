@@ -72,24 +72,38 @@ export async function POST(req) {
       return json({ error: "missing_data" }, 400);
     }
 // ------------------------------------------------
-// GOOGLE-KALENDER DES COACHS LADEN
+// POISE-GOOGLE-KONTO + KALENDER DES COACHS LADEN
 // ------------------------------------------------
-const { data: googleTokens, error: googleTokensError } =
+const { data: bookingSettings, error: bookingSettingsError } =
   await supabase
-    .from("therapist_google_tokens")
-    .select("access_token, refresh_token, expiry_date, calendar_id")
+    .from("therapist_booking_settings")
+    .select("selected_calendar_id, time_zone")
     .eq("therapist_id", therapist_id)
     .single();
 
-if (googleTokensError || !googleTokens) {
+if (bookingSettingsError || !bookingSettings) {
   console.error(
-    "❌ GOOGLE TOKENS LOAD ERROR:",
-    googleTokensError
+    "❌ BOOKING SETTINGS LOAD ERROR:",
+    bookingSettingsError
   );
 
   return json(
     {
-      error: "google_calendar_not_connected",
+      error: "booking_settings_not_found",
+    },
+    400
+  );
+}
+
+if (!bookingSettings.selected_calendar_id) {
+  console.error(
+    "❌ SELECTED CALENDAR ID MISSING:",
+    therapist_id
+  );
+
+  return json(
+    {
+      error: "selected_calendar_id_missing",
     },
     400
   );
@@ -98,9 +112,8 @@ if (googleTokensError || !googleTokens) {
 const oauth = oauthClient();
 
 oauth.setCredentials({
-  access_token: googleTokens.access_token || undefined,
-  refresh_token: googleTokens.refresh_token || undefined,
-  expiry_date: googleTokens.expiry_date || undefined,
+  access_token: process.env.GOOGLE_ACCESS_TOKEN,
+  refresh_token: process.env.GOOGLE_REFRESH_TOKEN,
 });
 
 const calendar = google.calendar({
@@ -109,7 +122,10 @@ const calendar = google.calendar({
 });
 
 const calendarId =
-  googleTokens.calendar_id || "primary";
+  bookingSettings.selected_calendar_id;
+
+const timeZone =
+  bookingSettings.time_zone || "Europe/Vienna";
     // ------------------------------------------------
     // Vorschläge vorbereiten
     // ------------------------------------------------
@@ -230,17 +246,15 @@ try {
 
           description:
             "Vorläufig reservierter Poise-Terminvorschlag.",
+start: {
+  dateTime: start.toISOString(),
+  timeZone,
+},
 
-          start: {
-            dateTime: start.toISOString(),
-            timeZone: "Europe/Vienna",
-          },
-
-          end: {
-            dateTime: end.toISOString(),
-            timeZone: "Europe/Vienna",
-          },
-
+end: {
+  dateTime: end.toISOString(),
+  timeZone,
+},
           transparency: "opaque",
           status: "tentative",
         },
