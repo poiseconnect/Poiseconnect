@@ -387,7 +387,7 @@ const link =
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        from: "Poise <noreply@mypoise.de>",
+        from: "Poise <hallo@mypoise.de>",
         to: request.email,
         subject: "Deine Terminvorschläge 🤍",
         html: `
