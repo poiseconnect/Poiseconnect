@@ -463,6 +463,12 @@ const { error: proposalStatusError } = await supabase
   .update({
     proposals_sent_at: sentAt,
     proposals_count: rows.length,
+
+    // Reminder-/Ablaufstatus für diese neue Runde zurücksetzen
+    proposal_reminder_1_at: null,
+    proposal_reminder_2_at: null,
+    proposals_expired_at: null,
+    new_proposals_requested_at: null,
   })
   .eq("id", requestId);
 
