@@ -166,71 +166,130 @@ export async function POST(req) {
       }
     }
 
-    // ------------------------------------------------
-    // COACH INFORMIEREN
-    // ------------------------------------------------
+// ------------------------------------------------
+// COACH INFORMIEREN
+// ------------------------------------------------
 
-    if (coachEmail) {
-      try {
-        await resend.emails.send({
-          from:
-            "Poise <noreply@mypoise.de>",
+if (coachEmail) {
+  try {
+    const dashboardBaseUrl =
+      process.env.NEXT_PUBLIC_SITE_URL ||
+      "https://app.mypoise.de";
 
-          to: coachEmail,
+const dashboardLink =
+  `${dashboardBaseUrl}/dashboard`;
 
-          subject:
-            "Neue Terminvorschläge angefordert 🤍",
+    const mailResult =
+      await resend.emails.send({
+        from:
+          "Poise <noreply@mypoise.de>",
 
-          html: `
-            <p>Hallo ${coachName},</p>
+        to: coachEmail,
+
+        subject:
+          `Neue Terminvorschläge für ${
+            request.vorname || "Klient:in"
+          } angefordert 🤍`,
+
+        html: `
+          <div
+            style="
+              font-family: Arial, sans-serif;
+              line-height: 1.6;
+              color: #111;
+            "
+          >
+            <p>
+              Hallo ${coachName},
+            </p>
 
             <p>
               ${
                 request.vorname ||
                 "Ein:e Klient:in"
               }
-              hat neue Terminvorschläge angefordert.
+              hat neue Terminvorschläge für das
+              Erstgespräch angefordert.
             </p>
 
             <p>
-              Bitte öffne dein Poise Dashboard
+              <strong>Klient:in:</strong>
+              ${request.vorname || "–"}
+              <br />
+
+              <strong>E-Mail:</strong>
+              ${request.email || "–"}
+            </p>
+
+            <p>
+              Bitte öffne die Anfrage im Poise Dashboard
               und sende möglichst zeitnah neue
               Terminvorschläge.
             </p>
 
+            <p style="margin:24px 0;">
+              <a
+                href="${dashboardLink}"
+                style="
+                  background:#111;
+                  color:#fff;
+                  padding:12px 18px;
+                  border-radius:999px;
+                  text-decoration:none;
+                  display:inline-block;
+                  font-weight:600;
+                "
+              >
+                Anfrage im Dashboard öffnen
+              </a>
+            </p>
+
             <p>
-              Liebe Grüße<br/>
+              Sobald du neue Vorschläge sendest,
+              startet der Terminprozess automatisch erneut.
+            </p>
+
+            <p style="margin-top:24px;">
+              Liebe Grüße<br />
               Sebastian
             </p>
-          `,
-        });
+          </div>
+        `,
+      });
 
-        console.log(
-          "✅ NEW PROPOSALS COACH MAIL SENT TO:",
-          coachEmail
-        );
-      } catch (mailError) {
-        // Anfrage bleibt trotzdem gespeichert
-        console.warn(
-          "⚠️ NEW PROPOSALS COACH MAIL FAILED:",
-          mailError
-        );
-      }
-    } else {
+    if (mailResult?.error) {
       console.warn(
-        "⚠️ Keine Coach-E-Mail gefunden:",
-        {
-          requestId:
-            request.id,
-
-          assignedTherapistId:
-            request.assigned_therapist_id,
-
-          therapist:
-            request.wunschtherapeut,
-        }
+        "⚠️ NEW PROPOSALS COACH MAIL FAILED:",
+        mailResult.error
+      );
+    } else {
+      console.log(
+        "✅ NEW PROPOSALS COACH MAIL SENT TO:",
+        coachEmail
       );
     }
+  } catch (mailError) {
+    // Anfrage bleibt trotzdem gespeichert
+    console.warn(
+      "⚠️ NEW PROPOSALS COACH MAIL FAILED:",
+      mailError
+    );
+  }
+} else {
+  console.warn(
+    "⚠️ Keine Coach-E-Mail gefunden:",
+    {
+      requestId:
+        request.id,
+
+      assignedTherapistId:
+        request.assigned_therapist_id,
+
+      therapist:
+        request.wunschtherapeut,
+    }
+  );
+}
 
     // ------------------------------------------------
     // FERTIG
