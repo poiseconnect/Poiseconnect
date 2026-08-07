@@ -1,19 +1,28 @@
 export const dynamic = "force-dynamic";
 
 import { createClient } from "@supabase/supabase-js";
+import { Resend } from "resend";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
+const resend = new Resend(
+  process.env.RESEND_API_KEY
+);
+
 function json(data, status = 200) {
-  return new Response(JSON.stringify(data), {
-    status,
-    headers: {
-      "Content-Type": "application/json",
-    },
-  });
+  return new Response(
+    JSON.stringify(data),
+    {
+      status,
+      headers: {
+        "Content-Type":
+          "application/json",
+      },
+    }
+  );
 }
 
 export async function POST(req) {
@@ -41,6 +50,7 @@ export async function POST(req) {
         email,
         vorname,
         wunschtherapeut,
+        assigned_therapist_id,
         booking_token,
         new_proposals_requested_at
       `)
@@ -57,13 +67,15 @@ export async function POST(req) {
       );
 
       return json(
-        { error: "invalid_token" },
+        {
+          error: "invalid_token",
+        },
         404
       );
     }
 
     // ------------------------------------------------
-    // BEREITS ANGEFORDERT?
+    // SCHON ANGEFORDERT?
     // ------------------------------------------------
 
     if (
@@ -111,22 +123,138 @@ export async function POST(req) {
       );
     }
 
+    // ------------------------------------------------
+    // COACH LADEN
+    // ------------------------------------------------
+
+    let coachEmail = null;
+    let coachName =
+      request.wunschtherapeut ||
+      "dein Coach";
+
+    if (
+      request.assigned_therapist_id
+    ) {
+      const {
+        data: coach,
+        error: coachError,
+      } = await supabase
+        .from("team_members")
+        .select(
+          "id, name, email"
+        )
+        .eq(
+          "id",
+          request.assigned_therapist_id
+        )
+        .single();
+
+      if (coachError) {
+        console.warn(
+          "⚠️ COACH LOAD FAILED:",
+          coachError
+        );
+      }
+
+      if (coach) {
+        coachEmail =
+          coach.email || null;
+
+        coachName =
+          coach.name ||
+          coachName;
+      }
+    }
+
+    // ------------------------------------------------
+    // COACH INFORMIEREN
+    // ------------------------------------------------
+
+    if (coachEmail) {
+      try {
+        await resend.emails.send({
+          from:
+            "Poise <noreply@mypoise.de>",
+
+          to: coachEmail,
+
+          subject:
+            "Neue Terminvorschläge angefordert 🤍",
+
+          html: `
+            <p>Hallo ${coachName},</p>
+
+            <p>
+              ${
+                request.vorname ||
+                "Ein:e Klient:in"
+              }
+              hat neue Terminvorschläge angefordert.
+            </p>
+
+            <p>
+              Bitte öffne dein Poise Dashboard
+              und sende möglichst zeitnah neue
+              Terminvorschläge.
+            </p>
+
+            <p>
+              Liebe Grüße<br/>
+              Sebastian
+            </p>
+          `,
+        });
+
+        console.log(
+          "✅ NEW PROPOSALS COACH MAIL SENT TO:",
+          coachEmail
+        );
+      } catch (mailError) {
+        // Anfrage bleibt trotzdem gespeichert
+        console.warn(
+          "⚠️ NEW PROPOSALS COACH MAIL FAILED:",
+          mailError
+        );
+      }
+    } else {
+      console.warn(
+        "⚠️ Keine Coach-E-Mail gefunden:",
+        {
+          requestId:
+            request.id,
+
+          assignedTherapistId:
+            request.assigned_therapist_id,
+
+          therapist:
+            request.wunschtherapeut,
+        }
+      );
+    }
+
+    // ------------------------------------------------
+    // FERTIG
+    // ------------------------------------------------
+
     console.log(
       "🔁 NEW PROPOSALS REQUESTED:",
       {
         requestId:
           request.id,
+
         client:
           request.email,
+
         coach:
-          request.wunschtherapeut,
+          coachName,
       }
     );
 
     return json({
       ok: true,
       alreadyRequested: false,
-      requested_at: requestedAt,
+      requested_at:
+        requestedAt,
     });
   } catch (e) {
     console.error(
