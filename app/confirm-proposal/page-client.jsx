@@ -34,6 +34,11 @@ export default function ConfirmProposalPage() {
   const [proposals, setProposals] = useState([]);
   const [done, setDone] = useState(false);
   const [invalid, setInvalid] = useState(false);
+  const [requestingNew, setRequestingNew] =
+  useState(false);
+
+const [newRequested, setNewRequested] =
+  useState(false);
 
   // ------------------------------------------------
   // ALTEN ?request=... LINK AUFLÖSEN
@@ -184,6 +189,65 @@ export default function ConfirmProposalPage() {
   }
 
   // ------------------------------------------------
+// NEUE TERMINE ANFORDERN
+// ------------------------------------------------
+
+async function requestNewProposals() {
+  if (
+    !token ||
+    requestingNew
+  ) {
+    return;
+  }
+
+  setRequestingNew(true);
+
+  try {
+    const res = await fetch(
+      "/api/proposals/request-new",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type":
+            "application/json",
+        },
+        body: JSON.stringify({
+          token,
+        }),
+      }
+    );
+
+    const data =
+      await res.json();
+
+    if (!res.ok) {
+      console.error(
+        "REQUEST NEW PROPOSALS FAILED:",
+        data
+      );
+
+      alert(
+        "Die Anfrage konnte leider nicht übermittelt werden."
+      );
+
+      return;
+    }
+
+    setNewRequested(true);
+  } catch (e) {
+    console.error(
+      "REQUEST NEW PROPOSALS ERROR:",
+      e
+    );
+
+    alert(
+      "Die Anfrage konnte leider nicht übermittelt werden."
+    );
+  } finally {
+    setRequestingNew(false);
+  }
+}
+  // ------------------------------------------------
   // ANZEIGE
   // ------------------------------------------------
 
@@ -241,35 +305,96 @@ export default function ConfirmProposalPage() {
       </div>
     );
   }
-
-  return (
-    <div style={{ padding: 40 }}>
+return (
+  <div style={{ padding: 40 }}>
+    {proposals.length > 0 && (
       <h2>Bitte wähle einen Termin</h2>
+    )}
 
-      {proposals.length === 0 && (
-        <p>
-          Diese Terminvorschläge sind nicht mehr verfügbar.
-        </p>
-      )}
+    {proposals.length === 0 &&
+      !newRequested && (
+        <div>
+          <h2>
+            Deine Terminvorschläge sind abgelaufen
+          </h2>
 
-      {proposals.map((p) => (
-        <div
-          key={p.id}
-          style={{ marginBottom: 12 }}
-        >
+          <p style={{ marginTop: 12 }}>
+            Die bisherigen Termine sind leider
+            nicht mehr verfügbar.
+          </p>
+
+          <p style={{ marginTop: 8 }}>
+            Wenn du weiterhin ein Erstgespräch
+            möchtest, kannst du hier ganz einfach
+            neue Terminvorschläge anfordern.
+          </p>
+
           <button
-            onClick={() => confirm(p.id)}
+            onClick={requestNewProposals}
+            disabled={requestingNew}
             style={{
-              padding: "10px 16px",
-              borderRadius: 10,
-              border: "1px solid #ccc",
-              cursor: "pointer",
+              marginTop: 18,
+              padding: "12px 18px",
+              borderRadius: 999,
+              border: "none",
+              background: "#111",
+              color: "#fff",
+              cursor: requestingNew
+                ? "default"
+                : "pointer",
+              fontWeight: 600,
             }}
           >
-            {safeDateString(p.date)}
+            {requestingNew
+              ? "Wird gesendet..."
+              : "Neue Terminvorschläge anfordern"}
           </button>
         </div>
-      ))}
-    </div>
-  );
+      )}
+
+    {newRequested && (
+      <div>
+        <h2>Danke 🤍</h2>
+
+        <p style={{ marginTop: 12 }}>
+          Deine Anfrage wurde erfolgreich
+          übermittelt.
+        </p>
+
+        <p style={{ marginTop: 8 }}>
+          Dein:e Therapeut:in kann dir nun
+          neue Terminvorschläge senden.
+        </p>
+
+        <p
+          style={{
+            marginTop: 18,
+            fontWeight: 500,
+          }}
+        >
+          Wir melden uns bei dir.
+        </p>
+      </div>
+    )}
+
+    {proposals.map((p) => (
+      <div
+        key={p.id}
+        style={{ marginBottom: 12 }}
+      >
+        <button
+          onClick={() => confirm(p.id)}
+          style={{
+            padding: "10px 16px",
+            borderRadius: 10,
+            border: "1px solid #ccc",
+            cursor: "pointer",
+          }}
+        >
+          {safeDateString(p.date)}
+        </button>
+      </div>
+    ))}
+  </div>
+);
 }
