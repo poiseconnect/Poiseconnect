@@ -377,7 +377,8 @@ return (
       </div>
     )}
 
-    {proposals.map((p) => (
+{proposals.length > 0 &&
+  proposals.map((p) => (
       <div
         key={p.id}
         style={{ marginBottom: 12 }}
