@@ -5,6 +5,10 @@
       "schedule": "0 9 * * *"
     },
     {
+      "path": "/api/cron/proposal-reminders",
+      "schedule": "15 8 * * *"
+    },
+    {
       "path": "/api/cron/expire-proposals",
       "schedule": "0 3 * * *"
     }
