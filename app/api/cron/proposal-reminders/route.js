@@ -139,6 +139,7 @@ export async function GET(req) {
 
     let reminder1Sent = 0;
     let reminder2Sent = 0;
+    let expirationMailsSent = 0;
 
     // =================================================
     // REMINDER 1
@@ -498,17 +499,285 @@ export async function GET(req) {
         );
       }
     }
+// =================================================
+// 3. ABLAUFMAIL NACH 4 TAGEN
+// =================================================
 
+const expirationThreshold =
+  new Date(
+    nowDate.getTime() -
+      96 * 60 * 60 * 1000
+  ).toISOString();
+
+const {
+  data: expiredRequests,
+  error: expiredLoadError,
+} = await supabase
+  .from("anfragen")
+  .select(`
+    id,
+    email,
+    vorname,
+    wunschtherapeut,
+    booking_token,
+    status,
+    proposals_sent_at,
+    proposal_reminder_2_at,
+    proposals_expired_at
+  `)
+  .not(
+    "proposals_sent_at",
+    "is",
+    null
+  )
+  .not(
+    "proposal_reminder_2_at",
+    "is",
+    null
+  )
+  .is(
+    "proposals_expired_at",
+    null
+  )
+  .lte(
+    "proposals_sent_at",
+    expirationThreshold
+  );
+
+if (expiredLoadError) {
+  console.error(
+    "❌ EXPIRED REQUESTS LOAD ERROR:",
+    expiredLoadError
+  );
+} else {
+  for (
+    const request of
+    expiredRequests || []
+  ) {
+    // ----------------------------------------------
+    // Bereits bestätigte / abgeschlossene Anfragen
+    // NICHT als abgelaufen behandeln
+    // ----------------------------------------------
+
+    if (
+      [
+        "termin_bestaetigt",
+        "active",
+        "beendet",
+        "papierkorb",
+      ].includes(request.status)
+    ) {
+      continue;
+    }
+
+    if (
+      !request.email ||
+      !request.booking_token
+    ) {
+      console.warn(
+        "⚠️ EXPIRATION MAIL DATA MISSING:",
+        {
+          requestId: request.id,
+          email: request.email,
+          bookingToken:
+            Boolean(
+              request.booking_token
+            ),
+        }
+      );
+
+      continue;
+    }
+
+    // ----------------------------------------------
+    // Prüfen, ob noch aktive Vorschläge existieren
+    // ----------------------------------------------
+
+    const {
+      count,
+      error: proposalCheckError,
+    } = await supabase
+      .from("appointment_proposals")
+      .select("id", {
+        count: "exact",
+        head: true,
+      })
+      .eq(
+        "anfrage_id",
+        request.id
+      )
+      .gt(
+        "expires_at",
+        now
+      );
+
+    if (proposalCheckError) {
+      console.error(
+        "❌ EXPIRATION PROPOSAL CHECK ERROR:",
+        {
+          requestId:
+            request.id,
+          error:
+            proposalCheckError,
+        }
+      );
+
+      continue;
+    }
+
+    // Es gibt noch gültige Vorschläge.
+    // Dann noch keine Ablaufmail.
+    if (count > 0) {
+      continue;
+    }
+
+    // ----------------------------------------------
+    // LINK ZUM BESTEHENDEN TERMINSCREEN
+    // ----------------------------------------------
+
+    const link =
+      `${baseUrl}/confirm-proposal?token=${encodeURIComponent(
+        request.booking_token
+      )}`;
+
+    const coachName =
+      request.wunschtherapeut ||
+      "dein Coach";
+
+    // ----------------------------------------------
+    // ABLAUFMAIL SENDEN
+    // ----------------------------------------------
+
+    const mailSent =
+      await sendMail({
+        to: request.email,
+
+        subject:
+          "Deine Terminvorschläge sind abgelaufen 🤍",
+
+        html: `
+          <div
+            style="
+              font-family: Arial, sans-serif;
+              line-height: 1.6;
+              color: #111;
+            "
+          >
+            <p>
+              Hallo ${
+                request.vorname ||
+                "du"
+              },
+            </p>
+
+            <p>
+              deine bisherigen Terminvorschläge
+              für dein Erstgespräch sind inzwischen
+              abgelaufen und nicht mehr reserviert.
+            </p>
+
+            <p>
+              Wenn du weiterhin ein Erstgespräch
+              mit ${coachName} möchtest, kannst du
+              ganz einfach neue Terminvorschläge
+              anfordern.
+            </p>
+
+            <p style="margin:24px 0;">
+              <a
+                href="${link}"
+                style="
+                  background:#111;
+                  color:#fff;
+                  padding:12px 18px;
+                  border-radius:999px;
+                  text-decoration:none;
+                  display:inline-block;
+                  font-weight:600;
+                "
+              >
+                Neue Terminvorschläge anfordern
+              </a>
+            </p>
+
+            <p>
+              Wenn du aktuell kein Erstgespräch
+              mehr möchtest, musst du nichts
+              weiter tun.
+            </p>
+
+            <p style="margin-top:24px;">
+              Alles Liebe<br />
+              Sebastian<br />
+              Poise
+            </p>
+          </div>
+        `,
+      });
+
+    if (!mailSent) {
+      // Wichtig:
+      // proposals_expired_at bleibt NULL.
+      // Dadurch versucht der Cron die Mail
+      // beim nächsten Lauf erneut.
+      continue;
+    }
+
+    // ----------------------------------------------
+    // ERST NACH ERFOLGREICHER MAIL MARKIEREN
+    // ----------------------------------------------
+
+    const {
+      error: expiredUpdateError,
+    } = await supabase
+      .from("anfragen")
+      .update({
+        proposals_expired_at:
+          new Date().toISOString(),
+      })
+      .eq(
+        "id",
+        request.id
+      );
+
+    if (expiredUpdateError) {
+      console.error(
+        "❌ EXPIRED STATUS UPDATE ERROR:",
+        {
+          requestId:
+            request.id,
+          error:
+            expiredUpdateError,
+        }
+      );
+
+      continue;
+    }
+
+    expirationMailsSent += 1;
+
+    console.log(
+      "✅ PROPOSAL EXPIRATION MAIL SENT:",
+      {
+        requestId:
+          request.id,
+        email:
+          request.email,
+      }
+    );
+  }
+}
     // ------------------------------------------------
     // FERTIG
     // ------------------------------------------------
 
-    return json({
-      ok: true,
-      reminder1Sent,
-      reminder2Sent,
-      checkedAt: now,
-    });
+return json({
+  ok: true,
+  reminder1Sent,
+  reminder2Sent,
+  expirationMailsSent,
+  checkedAt: now,
+});
   } catch (e) {
     console.error(
       "🔥 PROPOSAL REMINDER CRON ERROR:",
