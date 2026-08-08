@@ -136,10 +136,13 @@ const requestId = body.rid || body.anfrageId || null;
       bevorzugte_zeit: terminISO,
       terminwunsch_text: body.terminwunsch_text || null,
 
-      wunschtherapeut: finalTherapistName,
-      assigned_therapist_id: assignedTherapistId,
+     wunschtherapeut: finalTherapistName,
+assigned_therapist_id: assignedTherapistId,
 
-      check_datenschutz: Boolean(body.check_datenschutz),
+coaching_typ:
+  body.coaching_typ === "paar" ? "paar" : "einzel",
+
+check_datenschutz: Boolean(body.check_datenschutz),
       check_online_setting: Boolean(body.check_online_setting),
       check_suizid: Boolean(
         body.check_suizid ?? body.check_gesundheit
