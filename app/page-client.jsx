@@ -1702,13 +1702,25 @@ color: "#000", // ✅ FIX: Text IMMER schwarz
 
           <div className="footer-buttons">
             <button onClick={back}>Zurück</button>
-            <button
-              onClick={() => {
-                if (validateClientData(form)) next();
-              }}
-            >
-              Weiter
-            </button>
+           <button
+  onClick={() => {
+    if (!validateClientData(form)) return;
+
+    if (form.coaching_typ === "paar") {
+      setForm((prev) => ({
+        ...prev,
+        beschaeftigungsgrad: "",
+      }));
+
+      setStep(7);
+      return;
+    }
+
+    next();
+  }}
+>
+  Weiter
+</button>
           </div>
         </div>
       )}
@@ -1868,8 +1880,18 @@ color: "#000", // ✅ FIX: Text IMMER schwarz
   Ich kann mich jederzeit wieder abmelden.
 </label>
           <div className="footer-buttons">
-            <button onClick={back}>Zurück</button>
-            <button
+<button
+  onClick={() => {
+    if (form.coaching_typ === "paar") {
+      setStep(5);
+      return;
+    }
+
+    back();
+  }}
+>
+  Zurück
+</button>            <button
               disabled={
                 !form.check_datenschutz ||
                 !form.check_online_setting ||
