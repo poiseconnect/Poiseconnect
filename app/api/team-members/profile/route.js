@@ -41,22 +41,25 @@ export async function GET(req) {
       return json({ error: "unauthorized" }, 401);
     }
 
-    const { data: member, error } = await supabase
-      .from("team_members")
-.select(`
-  id,
-  email,
-  profile_name,
-  profile_role,
-  profile_calendar_mode,
-  profile_short,
-  profile_keywords,
-  profile_preis_std,
-  profile_preis_ermaessigt,
-  sevdesk_contact_id
-`)
-      .eq("user_id", user.id)
-      .single();
+const { data: member, error } = await supabase
+  .from("team_members")
+  .select(`
+    id,
+    email,
+    profile_name,
+    profile_role,
+    profile_calendar_mode,
+    profile_short,
+    profile_keywords,
+    profile_preis_std,
+    profile_preis_ermaessigt,
+    paarcoaching,
+    paarcoaching_preis,
+    paarcoaching_dauer_min,
+    sevdesk_contact_id
+  `)
+  .eq("user_id", user.id)
+  .single();
 
     if (error) {
       console.error("PROFILE GET ERROR:", error);
@@ -85,18 +88,36 @@ const payload = {
   profile_role: body.profile_role || null,
   profile_calendar_mode: body.profile_calendar_mode || null,
   profile_short: body.profile_short || null,
+
   profile_keywords: Array.isArray(body.profile_keywords)
     ? body.profile_keywords
     : null,
+
   profile_preis_std:
     body.profile_preis_std === null || body.profile_preis_std === ""
       ? null
       : Number(body.profile_preis_std),
+
   profile_preis_ermaessigt:
     body.profile_preis_ermaessigt === null ||
     body.profile_preis_ermaessigt === ""
       ? null
       : Number(body.profile_preis_ermaessigt),
+
+  paarcoaching: body.paarcoaching === true,
+
+  paarcoaching_preis:
+    body.paarcoaching_preis === null ||
+    body.paarcoaching_preis === ""
+      ? null
+      : Number(body.paarcoaching_preis),
+
+  paarcoaching_dauer_min:
+    body.paarcoaching_dauer_min === null ||
+    body.paarcoaching_dauer_min === ""
+      ? null
+      : Number(body.paarcoaching_dauer_min),
+
   sevdesk_contact_id:
     body.sevdesk_contact_id === null || body.sevdesk_contact_id === ""
       ? null
@@ -117,6 +138,9 @@ const payload = {
   profile_keywords,
   profile_preis_std,
   profile_preis_ermaessigt,
+  paarcoaching,
+  paarcoaching_preis,
+  paarcoaching_dauer_min,
   sevdesk_contact_id
 `)
       .single();
