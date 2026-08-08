@@ -1971,18 +1971,32 @@ und klärt organisatorische Fragen.
 Danach entscheiden beide frei, ob ihr weiter zusammenarbeitet.`,
             },
             {
-              title: "Wie geht es danach weiter?",
-              text: `Wenn ihr weitermacht:
+  title: "Wie geht es danach weiter?",
+  text: `Wenn ihr weitermacht:
 
-• Sitzungen à **60 Minuten**
+• Sitzungen à **${
+    form.coaching_typ === "paar"
+      ? t.paarcoaching_dauer_min ?? "–"
+      : 60
+  } Minuten**
 • Online per Video-Call
 • Ca. 8–10 Sitzungen im Durchschnitt
 • Offenes Tempo & Anpassung jederzeit möglich`,
-            },
+},
           {
   title: `Kosten bei ${t.name || "deiner Begleitung"}`,
-  text: `Standardtarif: ${t.preis_std ?? "–"} € / 60 Min
-Ermäßigt (Studierende / Azubi): ${t.preis_ermaessigt ?? "–"} € / 60 Min
+  text:
+    form.coaching_typ === "paar"
+      ? `Paarcoaching: ${t.paarcoaching_preis ?? "–"} € / ${
+          t.paarcoaching_dauer_min ?? "–"
+        } Min
+
+Unser Angebot richtet sich grundsätzlich an Selbstzahler.
+Eine Kostenübernahme kann möglich sein — individuell klären.`
+      : `Standardtarif: ${t.preis_std ?? "–"} € / 60 Min
+Ermäßigt (Studierende / Azubi): ${
+          t.preis_ermaessigt ?? "–"
+        } € / 60 Min
 
 Unser Angebot richtet sich grundsätzlich an Selbstzahler.
 Eine Kostenübernahme kann möglich sein — individuell klären.`,
