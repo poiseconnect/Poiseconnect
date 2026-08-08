@@ -4519,6 +4519,23 @@ const calendarMode =
   >
     {STATUS_LABEL[r._status] || safeText(r._status)}
   </div>
+  {r.new_proposals_requested_at && (
+  <div
+    style={{
+      display: "inline-block",
+      marginBottom: 12,
+      padding: "7px 11px",
+      borderRadius: 999,
+      background: "#FFF3CD",
+      border: "1px solid #E6B800",
+      fontSize: 13,
+      fontWeight: 700,
+      color: "#6B5200",
+    }}
+  >
+    🔁 Neue Terminvorschläge angefordert
+  </div>
+)}
 </div>
   <div style={{ position: "absolute", top: 10, right: 10 }}>
 <button
@@ -5738,7 +5755,16 @@ location.reload();
                   alert("Fehler beim Speichern");
                   return;
                 }
-
+setRequests((prev) =>
+  prev.map((r) =>
+    String(r.id) === String(proposalModal.id)
+      ? {
+          ...r,
+          new_proposals_requested_at: null,
+        }
+      : r
+  )
+);
                 alert("✅ Vorschläge gespeichert");
                 setProposalModal(null);
               }}
