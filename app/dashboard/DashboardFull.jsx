@@ -1327,8 +1327,12 @@ const [profileForm, setProfileForm] = useState({
   profile_keywords: "",
   profile_preis_std: "",
   profile_preis_ermaessigt: "",
+
+  paarcoaching: false,
+  paarcoaching_preis: "",
+  paarcoaching_dauer_min: 90,
+
   sevdesk_contact_id: "",
-  
 });
 
   // ================= PROPOSALS =================
@@ -1908,12 +1912,29 @@ setProfileForm({
   profile_keywords: Array.isArray(m.profile_keywords)
     ? m.profile_keywords.join(", ")
     : "",
+
   profile_preis_std:
-    m.profile_preis_std != null ? String(m.profile_preis_std) : "",
+    m.profile_preis_std != null
+      ? String(m.profile_preis_std)
+      : "",
+
   profile_preis_ermaessigt:
     m.profile_preis_ermaessigt != null
       ? String(m.profile_preis_ermaessigt)
       : "",
+
+  paarcoaching: Boolean(m.paarcoaching),
+
+  paarcoaching_preis:
+    m.paarcoaching_preis != null
+      ? String(m.paarcoaching_preis)
+      : "",
+
+  paarcoaching_dauer_min:
+    m.paarcoaching_dauer_min != null
+      ? Number(m.paarcoaching_dauer_min)
+      : 90,
+
   sevdesk_contact_id: m.sevdesk_contact_id || "",
 });
     } catch (err) {
@@ -2133,18 +2154,34 @@ body: JSON.stringify({
   profile_role: profileForm.profile_role,
   profile_calendar_mode: profileForm.profile_calendar_mode,
   profile_short: profileForm.profile_short,
+
   profile_keywords: profileForm.profile_keywords
     .split(",")
     .map((x) => x.trim())
     .filter(Boolean),
+
   profile_preis_std:
     profileForm.profile_preis_std === ""
       ? null
       : Number(profileForm.profile_preis_std),
+
   profile_preis_ermaessigt:
     profileForm.profile_preis_ermaessigt === ""
       ? null
       : Number(profileForm.profile_preis_ermaessigt),
+
+  paarcoaching: profileForm.paarcoaching === true,
+
+  paarcoaching_preis:
+    profileForm.paarcoaching_preis === ""
+      ? null
+      : Number(profileForm.paarcoaching_preis),
+
+  paarcoaching_dauer_min:
+    profileForm.paarcoaching_dauer_min === ""
+      ? null
+      : Number(profileForm.paarcoaching_dauer_min),
+
   sevdesk_contact_id:
     profileForm.sevdesk_contact_id === ""
       ? null
@@ -3395,6 +3432,83 @@ return (
       </div>
     </div>
     <div>
+      <div
+  style={{
+    marginTop: 24,
+    paddingTop: 20,
+    borderTop: "1px solid #ddd",
+  }}
+>
+  <label
+    style={{
+      display: "flex",
+      alignItems: "center",
+      gap: 10,
+      cursor: "pointer",
+      marginBottom: 16,
+    }}
+  >
+    <input
+      type="checkbox"
+      checked={profileForm.paarcoaching === true}
+      onChange={(e) =>
+        setProfileForm((prev) => ({
+          ...prev,
+          paarcoaching: e.target.checked,
+        }))
+      }
+    />
+
+    <strong>Paarcoaching anbieten</strong>
+  </label>
+
+  {profileForm.paarcoaching && (
+    <div
+      style={{
+        display: "grid",
+        gridTemplateColumns: "1fr 1fr",
+        gap: 10,
+      }}
+    >
+      <div>
+        <label>Preis Paarcoaching (€)</label>
+
+        <input
+          type="number"
+          min="0"
+          step="1"
+          value={profileForm.paarcoaching_preis}
+          onChange={(e) =>
+            setProfileForm((prev) => ({
+              ...prev,
+              paarcoaching_preis: e.target.value,
+            }))
+          }
+          placeholder="220"
+          style={{ width: "100%" }}
+        />
+      </div>
+
+      <div>
+        <label>Dauer Paarcoaching</label>
+
+        <select
+          value={profileForm.paarcoaching_dauer_min}
+          onChange={(e) =>
+            setProfileForm((prev) => ({
+              ...prev,
+              paarcoaching_dauer_min: Number(e.target.value),
+            }))
+          }
+          style={{ width: "100%" }}
+        >
+          <option value={60}>60 Minuten</option>
+          <option value={90}>90 Minuten</option>
+        </select>
+      </div>
+    </div>
+  )}
+</div>
   <label>sevdesk Contact ID</label>
   <input
     value={profileForm.sevdesk_contact_id}
