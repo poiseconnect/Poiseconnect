@@ -22,6 +22,7 @@ const {
   anfrageId,
   wunschtherapeut,
   assigned_therapist_id,
+  coaching_typ,
 
   vorname,
   nachname,
@@ -46,12 +47,14 @@ const payload = {
   plz_ort: plz_ort || null,
   geburtsdatum: geburtsdatum || null,
   beschaeftigungsgrad: beschaeftigungsgrad || null,
+wunschtherapeut: wunschtherapeut || null,
+assigned_therapist_id,
 
-  wunschtherapeut: wunschtherapeut || null,
-  assigned_therapist_id,
+coaching_typ:
+  coaching_typ === "paar" ? "paar" : "einzel",
 
-  status: "draft",
-  match_state: "draft",
+status: "draft",
+match_state: "draft",
 };
 
     if (anfrageId) {
