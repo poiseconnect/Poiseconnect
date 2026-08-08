@@ -62,7 +62,8 @@ export async function GET(req) {
   meeting_link_override,
   proposals_sent_at,
   proposals_count,
-  proposals_opened_at
+  proposals_opened_at,
+  new_proposals_requested_at
 `)
       .order("created_at", { ascending: false });
 
