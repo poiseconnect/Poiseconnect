@@ -49,19 +49,22 @@ function json(data, status = 200) {
 export async function GET() {
   try {
     const { data: members, error } = await supabase
-      .from("team_members")
-      .select(`
-        id,
-        email,
-        profile_name,
-        profile_role,
-        profile_calendar_mode,
-        profile_short,
-        profile_keywords,
-        profile_preis_std,
-        profile_preis_ermaessigt
-      `);
-
+  .from("team_members")
+  .select(`
+    id,
+    email,
+    profile_name,
+    profile_role,
+    profile_calendar_mode,
+    profile_short,
+    profile_keywords,
+    profile_preis_std,
+    profile_preis_ermaessigt,
+    paarcoaching,
+    paarcoaching_preis,
+    paarcoaching_dauer_min
+  `);
+    
     if (error) {
       console.error("PUBLIC TEAM MEMBERS ERROR:", error);
       return json({ error: error.message }, 500);
@@ -151,12 +154,23 @@ export async function GET() {
             ? dbMember.profile_keywords
             : teamMember.tags || teamMember.keywords || [],
 
-        preis_std: preisStd,
+preis_std: preisStd,
 
-        preis_ermaessigt: preisErmaessigt,
+preis_ermaessigt: preisErmaessigt,
 
-        booking_window_days:
-          
+paarcoaching: dbMember?.paarcoaching ?? false,
+
+paarcoaching_preis: normalizePrice(
+  dbMember?.paarcoaching_preis,
+  null
+),
+
+paarcoaching_dauer_min:
+  dbMember?.paarcoaching_dauer_min != null
+    ? Number(dbMember.paarcoaching_dauer_min)
+    : null,
+
+booking_window_days:
   teamMember.booking_window_days ?? 90,
         
       };
