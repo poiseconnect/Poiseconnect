@@ -370,6 +370,9 @@ const [form, setForm] = useState({
   diagnose: "",
   ziel: "",
   wunschtherapeut: "",
+
+  coaching_typ: "einzel",
+
   vorname: "",
   nachname: "",
   email: "",
@@ -588,7 +591,15 @@ const AUSBILDUNGS_BONUS = {
 };
 
 const matchedTeam = useMemo(() => {
-return [...teamMembers]
+  let baseTeam = [...teamMembers];
+
+  if (form.coaching_typ === "paar") {
+    baseTeam = baseTeam.filter(
+      (m) => m.paarcoaching === true
+    );
+  }
+
+  return baseTeam
  .map((m) => {
       let score = 0;
 
@@ -623,8 +634,12 @@ return [...teamMembers]
       return true;
     })
     .sort((a, b) => b._score - a._score);
-}, [form.themen, dbMatchingScores, teamMembers]);
-
+}, [
+  form.themen,
+  form.coaching_typ,
+  dbMatchingScores,
+  teamMembers,
+]);
 
 
   // -------------------------------------
@@ -1134,6 +1149,8 @@ async function createOrUpdateDraft(selectedMember) {
 body: JSON.stringify({
   anfrageId: draftRequestId || anfrageId || null,
 
+ coaching_typ: form.coaching_typ,
+ 
   vorname: form.vorname,
   nachname: form.nachname,
   email: form.email,
@@ -1508,7 +1525,77 @@ color: "#000", // ✅ FIX: Text IMMER schwarz
       {step === 5 && (
         <div className="step-container">
           <h2>Kontaktdaten</h2>
+<div style={{ marginBottom: 24 }}>
+  <p style={{ fontWeight: 600, marginBottom: 12 }}>
+    Für wen suchst du Unterstützung?
+  </p>
 
+  <div style={{ display: "grid", gap: 12 }}>
+    <button
+      type="button"
+      onClick={() =>
+        setForm({
+          ...form,
+          coaching_typ: "einzel",
+        })
+      }
+      style={{
+        textAlign: "left",
+        padding: "14px 16px",
+        borderRadius: 16,
+        border:
+          form.coaching_typ === "einzel"
+            ? "2px solid #A27C77"
+            : "1px solid #ddd",
+        background:
+          form.coaching_typ === "einzel"
+            ? "#F3E9E7"
+            : "#fff",
+        color: "#000",
+        cursor: "pointer",
+      }}
+    >
+      <strong>Ich suche Unterstützung für mich</strong>
+    </button>
+
+    <button
+      type="button"
+      onClick={() =>
+        setForm({
+          ...form,
+          coaching_typ: "paar",
+        })
+      }
+      style={{
+        textAlign: "left",
+        padding: "14px 16px",
+        borderRadius: 16,
+        border:
+          form.coaching_typ === "paar"
+            ? "2px solid #A27C77"
+            : "1px solid #ddd",
+        background:
+          form.coaching_typ === "paar"
+            ? "#F3E9E7"
+            : "#fff",
+        color: "#000",
+        cursor: "pointer",
+      }}
+    >
+      <strong>Wir suchen Unterstützung als Paar</strong>
+
+      <div
+        style={{
+          fontSize: 14,
+          color: "#666",
+          marginTop: 4,
+        }}
+      >
+        Paarcoaching
+      </div>
+    </button>
+  </div>
+</div>
           <input
             placeholder="Vorname"
             value={form.vorname}
