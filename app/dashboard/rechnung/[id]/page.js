@@ -110,33 +110,68 @@ const res = await fetch(`/api/invoices/load?${qs.toString()}`, {      headers: {
     const invoiceSessions = json.sessions || [];
     const invSettings = json.settings || null;
     const coachData = json.coach || null;
+    const invoice = json.invoice || null;
 
     setAnfrage(a);
     setSessions(invoiceSessions);
     setSettings(invSettings);
     setPaymentTerms(
-  invSettings?.invoice_footer_text ||
-    "Zahlungsbedingungen: Zahlung innerhalb von 14 Tagen ab Rechnungseingang ohne Abzüge."
-);
+      invSettings?.invoice_footer_text ||
+        "Zahlungsbedingungen: Zahlung innerhalb von 14 Tagen ab Rechnungseingang ohne Abzüge."
+    );
     setCoach(coachData);
 
     const now = new Date();
-    setInvoiceNumber((prev) => prev || "RE-" + Date.now().toString().slice(-5));
-    setInvoiceDate((prev) => prev || now.toISOString().slice(0, 10));
+    setSavedInvoiceId(invoice?.id ?? null);
+    setInvoiceNumber(invoice?.invoice_number ?? "RE-" + Date.now().toString().slice(-5));
+    setInvoiceDate(invoice?.invoice_date ?? now.toISOString().slice(0, 10));
 
     const period = buildServicePeriod(invoiceSessions);
-    setServicePeriod((prev) => prev || period);
+    setServicePeriod(invoice?.service_period ?? period);
 
-    setClientName((prev) => prev || `${a?.vorname || ""} ${a?.nachname || ""}`.trim());
-    setClientStreet((prev) => prev || (a?.strasse_hausnr || ""));
-    setClientZipCity((prev) => prev || (a?.plz_ort || ""));
-    setClientEmail((prev) => prev || (a?.email || ""));
-    setClientCountry((prev) => prev || "");
+    setCustomerNumber(invoice?.customer_number ?? "");
+    setContactPerson(invoice?.contact_person ?? "");
+
+    setClientName(
+      invoice?.client_name ?? `${a?.vorname || ""} ${a?.nachname || ""}`.trim()
+    );
+    setClientStreet(invoice?.client_street ?? (a?.strasse_hausnr || ""));
+    setClientZipCity(invoice?.client_city ?? (a?.plz_ort || ""));
+    setClientEmail(invoice?.client_email ?? (a?.email || ""));
+    setClientCountry(invoice?.client_country ?? "");
+
+    setSalutation(invoice?.salutation ?? "Sehr geehrte Damen und Herren,");
+    setIntroText(
+      invoice?.intro_text ??
+        "Für unsere Unterstützung stellen wir wie vereinbart in Rechnung:"
+    );
+    setPaymentTerms(
+      invoice?.payment_terms ??
+        invSettings?.invoice_footer_text ??
+        "Zahlungsbedingungen: Zahlung innerhalb von 14 Tagen ab Rechnungseingang ohne Abzüge."
+    );
+    setClosingText(
+      invoice?.closing_text ??
+        "Ich danke dir für dein Vertrauen und freue mich, dass ich dich mit Poise begleiten durfte.\n\nLiebe Grüße"
+    );
+
+    const lineItemMap = (Array.isArray(invoice?.line_items) ? invoice.line_items : []).reduce(
+      (map, item) => {
+        if (item?.session_id) {
+          map[item.session_id] = item;
+        }
+        return map;
+      },
+      {}
+    );
 
     setDescriptions((prev) => {
       const next = { ...prev };
       for (const s of invoiceSessions) {
-        if (!next[s.id]) {
+        const invoiceLine = lineItemMap[s.id];
+        if (invoiceLine && Object.prototype.hasOwnProperty.call(invoiceLine, "description")) {
+          next[s.id] = invoiceLine.description;
+        } else if (!next[s.id]) {
           next[s.id] = "Psychologische Beratung";
         }
       }
@@ -146,7 +181,12 @@ const res = await fetch(`/api/invoices/load?${qs.toString()}`, {      headers: {
     setQuantities((prev) => {
       const next = { ...prev };
       for (const s of invoiceSessions) {
-        if (typeof next[s.id] !== "number") next[s.id] = 1;
+        const invoiceLine = lineItemMap[s.id];
+        if (typeof invoiceLine?.qty === "number") {
+          next[s.id] = Number(invoiceLine.qty || 0);
+        } else if (typeof next[s.id] !== "number") {
+          next[s.id] = 1;
+        }
       }
       return next;
     });
@@ -154,12 +194,17 @@ const res = await fetch(`/api/invoices/load?${qs.toString()}`, {      headers: {
     setUnitPrices((prev) => {
       const next = { ...prev };
       for (const s of invoiceSessions) {
-        if (typeof next[s.id] !== "number") next[s.id] = Number(s.price || 0);
+        const invoiceLine = lineItemMap[s.id];
+        if (typeof invoiceLine?.unit_price === "number") {
+          next[s.id] = Number(invoiceLine.unit_price || 0);
+        } else if (typeof next[s.id] !== "number") {
+          next[s.id] = Number(s.price || 0);
+        }
       }
       return next;
     });
 
-    setContactPerson((prev) => prev || "");
+    setContactPerson(invoice?.contact_person || "");
   } finally {
     setLoading(false);
   }

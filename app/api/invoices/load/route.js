@@ -92,6 +92,7 @@ const { data: sessions, error: sessErr } = await sessionsQuery.order("date", {
 
     let settings = null;
     let coach = null;
+    let invoice = null;
 
     if (therapistId) {
       const { data: invSet } = await sb
@@ -111,11 +112,35 @@ const { data: sessions, error: sessErr } = await sessionsQuery.order("date", {
       coach = coachMember || null;
     }
 
+    if (anfrageId) {
+      const { data: existingInvoice, error: invoiceError } = await sb
+        .from("invoices")
+        .select("*")
+        .eq("anfrage_id", anfrageId)
+        .order("updated_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (invoiceError) {
+        console.error("LOAD INVOICE ERROR:", invoiceError);
+        return json(
+          {
+            error: "invoice_load_failed",
+            detail: invoiceError.message,
+          },
+          500
+        );
+      }
+
+      invoice = existingInvoice || null;
+    }
+
     return json({
       anfrage,
       sessions: sessions || [],
       settings,
       coach,
+      invoice,
     });
   } catch (e) {
     return json({ error: "SERVER_ERROR", detail: String(e) }, 500);
