@@ -19,6 +19,8 @@ Vor Änderungen immer zuerst lesen:
 - `AI_CONTEXT.md`
 - `docs/architecture.md`
 - `docs/security.md`
+- `docs/agent/cto-workflow.md`
+- `docs/agent/system-audit.md`
 - `docs/generated/api-map.md`
 - `docs/generated/database-usage.md`
 - `docs/generated/calendar-map.md`
