@@ -5591,9 +5591,22 @@ if (!valid.length) {
   alert("Bitte mindestens eine Sitzung mit Datum eintragen");
   return;
 }
+
+const {
+  data: { session: authSession },
+} = await supabase.auth.getSession();
+
+if (!authSession?.access_token) {
+  alert("Fehler beim Speichern: Keine gültige Session gefunden.");
+  return;
+}
+
 const res = await fetch("/api/add-sessions-batch", {
   method: "POST",
-  headers: { "Content-Type": "application/json" },
+  headers: {
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${authSession.access_token}`,
+  },
   body: JSON.stringify({
     anfrageId: detailsModal.id,
     therapist_id: myTeamMemberId,

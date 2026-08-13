@@ -2,7 +2,7 @@ export const dynamic = "force-dynamic";
 
 import { createClient } from "@supabase/supabase-js";
 import { google } from "googleapis";
-import { oauthClient } from "../_lib/server";
+import { oauthClient, getUserFromBearer } from "../_lib/server";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -133,10 +133,36 @@ export async function POST(req) {
       JSON.stringify(body, null, 2)
     );
 
+    /* ===============================
+       0️⃣ Authentifizierung & Rolle
+    =============================== */
+
+    const { user, error: authError } = await getUserFromBearer(req);
+    if (!user) {
+      return json({ error: authError || "NO_TOKEN" }, 401);
+    }
+
+    const { data: member, error: memberErr } = await supabase
+      .from("team_members")
+      .select("id, role, active")
+      .eq("user_id", user.id)
+      .single();
+
+    if (memberErr || !member || member.active !== true) {
+      return json({ error: "NO_ACCESS" }, 403);
+    }
+
+    const isAdmin = member.role === "admin";
+    const isTherapist = member.role === "therapist";
+
+    if (!isAdmin && !isTherapist) {
+      return json({ error: "NO_ACCESS" }, 403);
+    }
+
     const {
       anfrageId,
       therapist,
-      therapist_id,
+      therapist_id: _clientTherapistId, // NICHT als Autorisierungsquelle verwenden
       sessions,
     } = body || {};
 
@@ -146,14 +172,13 @@ export async function POST(req) {
 
     if (
       !anfrageId ||
-      !therapist_id ||
       !Array.isArray(sessions)
     ) {
       return json(
         {
           error: "INVALID_INPUT",
           hint:
-            "anfrageId, therapist_id oder sessions fehlt",
+            "anfrageId oder sessions fehlt",
         },
         400
       );
@@ -287,6 +312,26 @@ export async function POST(req) {
             anfrageError?.message || null,
         },
         404
+      );
+    }
+
+    /* ===============================
+       Ownership prüfen (Source of Truth)
+    =============================== */
+
+    if (
+      isTherapist &&
+      String(anfrage.assigned_therapist_id) !== String(member.id)
+    ) {
+      return json({ error: "NO_ACCESS" }, 403);
+    }
+
+    const therapist_id = anfrage.assigned_therapist_id;
+
+    if (!therapist_id) {
+      return json(
+        { error: "ANFRAGE_HAS_NO_ASSIGNED_THERAPIST" },
+        400
       );
     }
 
