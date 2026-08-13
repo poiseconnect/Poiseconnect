@@ -255,9 +255,21 @@ const totals = useMemo(() => {
         })),
       };
 
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (!session?.access_token) {
+        alert("Fehler beim Speichern: Keine gültige Session gefunden.");
+        return;
+      }
+
       const res = await fetch("/api/invoices/save", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
         body: JSON.stringify(payload),
       });
 
