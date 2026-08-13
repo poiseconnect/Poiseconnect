@@ -4,6 +4,8 @@
 
 Dieses Dokument beschreibt den verbindlichen Workflow für jede zukünftige Aufgabe des technischen CTO-Agenten. Der Workflow ist als Leitlinie für Planung, Umsetzung, Tests und Abschlussberichte konzipiert und passt zum Stil der bestehenden Projekt- und Sicherheitsdokumentation.
 
+Langfristigen strategischen Produktkontext liefert [docs/strategy/product-vision.md](../strategy/product-vision.md). Dieses Dokument ist keine technische Source-of-Truth und ersetzt keine Regel dieses Workflows; es dient ausschließlich der Einordnung größerer Architekturentscheidungen (siehe Abschnitt 3).
+
 ## Workflow-Phasen
 
 1. System verstehen
@@ -64,6 +66,7 @@ Prüfpunkte:
 - Ist ein Refactoring notwendig, um saubere Verantwortungstrennung zu gewährleisten?
 - Sind externe Systeme und Integrationen korrekt adressiert?
 - Ist die geplante Lösung wartbar und testbar?
+- Bei größeren Architekturentscheidungen: passt die Lösung zur langfristigen Richtung aus `docs/strategy/product-vision.md`, ohne dass diese bestehendes Systemverhalten oder aktuelle menschliche Entscheidungen überschreibt?
 
 ---
 
