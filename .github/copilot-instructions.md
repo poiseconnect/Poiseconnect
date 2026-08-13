@@ -27,6 +27,8 @@ Vor Änderungen immer zuerst lesen:
 - `docs/generated/email-map.md`
 - `docs/generated/status-map.md`
 
+Langfristigen strategischen Produktkontext liefert `docs/strategy/product-vision.md`. Dieses Dokument ist keine technische Source-of-Truth und keine Freigabe für Architekturänderungen — es dient nur der Einordnung größerer Entscheidungen (siehe Priorität in `docs/agent/cto-workflow.md`).
+
 ## Sicherheitsregeln
 
 Das Repository enthält Code für ein System, das sensible und teilweise
