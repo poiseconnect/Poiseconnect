@@ -1,15 +1,10 @@
 export const dynamic = "force-dynamic";
 
-import { createClient } from "@supabase/supabase-js";
-
-/**
- * ⚠️ WICHTIG:
- * In app/api NIE client-supabase verwenden!
- */
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-);
+import {
+  getUserFromBearer,
+  json,
+  supabaseAdmin,
+} from "../_lib/server";
 
 // 🔗 Feedback-Link (Microsoft Forms)
 const FEEDBACK_URL =
@@ -18,22 +13,59 @@ const FEEDBACK_URL =
 
 export async function POST(req) {
   try {
-    // 🔹 BODY – GENAU EINMAL
-    const body = await req.json();
-    const { anfrageId } = body || {};
+    const { user, error: authError } = await getUserFromBearer(req);
+    if (!user) return json({ error: authError || "NO_TOKEN" }, 401);
 
-    console.log("📥 FINISH BODY:", body);
+    const sb = supabaseAdmin();
 
-    if (!anfrageId) {
-      return new Response(
-        JSON.stringify({ error: "missing_anfrageId" }),
-        { status: 400 }
-      );
+    const { data: member, error: memberErr } = await sb
+      .from("team_members")
+      .select("id, role, active")
+      .eq("user_id", user.id)
+      .single();
+
+    if (memberErr || !member || member.active !== true) {
+      return json({ error: "NO_ACCESS" }, 403);
     }
 
+    const isAdmin = member.role === "admin";
+    const isTherapist = member.role === "therapist";
 
-    // ✅ Status auf beendet setzen + Klientendaten laden
-    const { data: anfrage, error: updateError } = await supabase
+    if (!isAdmin && !isTherapist) {
+      return json({ error: "NO_ACCESS" }, 403);
+    }
+
+    let body;
+    try {
+      body = await req.json();
+    } catch {
+      return json({ error: "INVALID_JSON" }, 400);
+    }
+
+    const { anfrageId } = body || {};
+
+    if (!anfrageId) {
+      return json({ error: "MISSING_ANFRAGE_ID" }, 400);
+    }
+
+    const { data: existingAnfrage, error: anfrageErr } = await sb
+      .from("anfragen")
+      .select("id, assigned_therapist_id")
+      .eq("id", anfrageId)
+      .single();
+
+    if (anfrageErr || !existingAnfrage) {
+      return json({ error: "REQUEST_NOT_FOUND" }, 404);
+    }
+
+    if (
+      isTherapist &&
+      String(existingAnfrage.assigned_therapist_id) !== String(member.id)
+    ) {
+      return json({ error: "NO_ACCESS" }, 403);
+    }
+
+    const { data: anfrage, error: updateError } = await sb
       .from("anfragen")
       .update({ status: "beendet" })
       .eq("id", anfrageId)
@@ -41,17 +73,8 @@ export async function POST(req) {
       .single();
 
     if (updateError) {
-      console.error("❌ FINISH UPDATE ERROR:", updateError);
-      return new Response(
-        JSON.stringify({
-          error: "UPDATE_FAILED",
-          detail: updateError.message,
-        }),
-        { status: 500 }
-      );
+      return json({ error: "UPDATE_FAILED" }, 500);
     }
-
-    console.log("✅ COACHING BEENDET");
 
     // 📧 Feedback-Mail senden
     if (anfrage?.email) {
@@ -90,19 +113,9 @@ export async function POST(req) {
       }
     }
 
-    return new Response(
-      JSON.stringify({ ok: true }),
-      { status: 200 }
-    );
+    return json({ ok: true });
 
   } catch (err) {
-    console.error("🔥 FINISH SERVER ERROR:", err);
-    return new Response(
-      JSON.stringify({
-        error: "SERVER_ERROR",
-        detail: String(err),
-      }),
-      { status: 500 }
-    );
+    return json({ error: "SERVER_ERROR" }, 500);
   }
 }

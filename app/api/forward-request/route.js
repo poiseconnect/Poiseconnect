@@ -1,30 +1,70 @@
 export const dynamic = "force-dynamic";
 
-import { createClient } from "@supabase/supabase-js";
-
-/**
- * ⚠️ WICHTIG:
- * In app/api NIE client-supabase verwenden!
- */
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-);
+import {
+  getUserFromBearer,
+  json,
+  supabaseAdmin,
+} from "../_lib/server";
 
 export async function POST(request) {
   try {
-    const body = await request.json();
+    const { user, error: authError } = await getUserFromBearer(request);
+    if (!user) return json({ error: authError || "NO_TOKEN" }, 401);
 
-    console.log("FORWARD BODY:", body);
+    const sb = supabaseAdmin();
 
-    const { requestId, client, vorname, excludedTherapist } = body || {};
+    const { data: member, error: memberErr } = await sb
+      .from("team_members")
+      .select("id, role, active")
+      .eq("user_id", user.id)
+      .single();
 
-    if (!requestId || !client) {
-      return new Response(
-        JSON.stringify({ error: "missing_fields" }),
-        { status: 400 }
-      );
+    if (memberErr || !member || member.active !== true) {
+      return json({ error: "NO_ACCESS" }, 403);
     }
+
+    const isAdmin = member.role === "admin";
+    const isTherapist = member.role === "therapist";
+
+    if (!isAdmin && !isTherapist) {
+      return json({ error: "NO_ACCESS" }, 403);
+    }
+
+    let body;
+    try {
+      body = await request.json();
+    } catch {
+      return json({ error: "INVALID_JSON" }, 400);
+    }
+
+    const { requestId } = body || {};
+
+    if (!requestId) {
+      return json({ error: "MISSING_REQUEST_ID" }, 400);
+    }
+
+    const { data: anfrage, error: anfrageErr } = await sb
+      .from("anfragen")
+      .select("id, assigned_therapist_id, email, vorname, wunschtherapeut")
+      .eq("id", requestId)
+      .single();
+
+    if (anfrageErr || !anfrage) {
+      return json({ error: "REQUEST_NOT_FOUND" }, 404);
+    }
+
+    if (
+      isTherapist &&
+      String(anfrage.assigned_therapist_id) !== String(member.id)
+    ) {
+      return json({ error: "NO_ACCESS" }, 403);
+    }
+
+    if (!anfrage.email) {
+      return json({ error: "CLIENT_EMAIL_MISSING" }, 400);
+    }
+
+    const excludedTherapist = anfrage.wunschtherapeut;
 
     const baseUrl =
       process.env.NEXT_PUBLIC_SITE_URL ||
@@ -33,7 +73,7 @@ export async function POST(request) {
     const link = `${baseUrl}?resume=8&rid=${requestId}`;
 
     // 1️⃣ Anfrage korrekt weiterleiten
-    const { error: updateError } = await supabase
+    const { error: updateError } = await sb
       .from("anfragen")
       .update({
         status: "admin_weiterleiten",
@@ -47,14 +87,7 @@ export async function POST(request) {
       .eq("id", requestId);
 
     if (updateError) {
-      console.error("FORWARD UPDATE ERROR:", updateError);
-      return new Response(
-        JSON.stringify({
-          error: "update_failed",
-          detail: updateError.message,
-        }),
-        { status: 500 }
-      );
+      return json({ error: "UPDATE_FAILED" }, 500);
     }
 
     // 2️⃣ Mail an Klient:in
@@ -66,10 +99,10 @@ export async function POST(request) {
       },
       body: JSON.stringify({
         from: "Poise <noreply@mypoise.de>",
-        to: client,
+        to: anfrage.email,
         subject: "Wähle jetzt deine passende Begleitung 🤍",
         html: `
-          <p>Hallo ${vorname || ""},</p>
+          <p>Hallo ${anfrage.vorname || ""},</p>
 
           <p>
             danke dir für dein Vertrauen 🤍
@@ -112,18 +145,8 @@ export async function POST(request) {
       console.warn("FORWARD MAIL FAILED – DB UPDATE OK");
     }
 
-    return new Response(
-      JSON.stringify({ ok: true }),
-      { status: 200 }
-    );
+    return json({ ok: true });
   } catch (err) {
-    console.error("FORWARD SERVER ERROR:", err);
-    return new Response(
-      JSON.stringify({
-        error: "server_error",
-        detail: String(err),
-      }),
-      { status: 500 }
-    );
+    return json({ error: "SERVER_ERROR" }, 500);
   }
 }

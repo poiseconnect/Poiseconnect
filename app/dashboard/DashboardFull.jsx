@@ -1529,14 +1529,20 @@ if (action === "no_match") {
 }
 
     if (action === "forward") {
+      const accessToken = await getAccessToken();
+      if (!accessToken) {
+        alert("Fehler bei der Weiterleitung: Keine gültige Session gefunden.");
+        return;
+      }
+
       const res = await fetch("/api/forward-request", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
         body: JSON.stringify({
           requestId: r.id,
-          client: r.email,
-          vorname: r.vorname,
-          excludedTherapist: r.wunschtherapeut,
         }),
       });
 
@@ -1679,9 +1685,18 @@ location.reload();
     }
 
     if (action === "finish") {
+      const accessToken = await getAccessToken();
+      if (!accessToken) {
+        alert("Fehler beim Beenden: Keine gültige Session gefunden.");
+        return;
+      }
+
       const res = await fetch("/api/finish-coaching", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
         body: JSON.stringify({ anfrageId: r.id }),
       });
 
@@ -3905,9 +3920,18 @@ return (
                   return;
                 }
 
+                const accessToken = await getAccessToken();
+                if (!accessToken) {
+                  alert("Fehler beim Speichern: Keine gültige Session gefunden.");
+                  return;
+                }
+
                 const res = await fetch("/api/accounting-settings", {
                   method: "POST",
-                  headers: { "Content-Type": "application/json" },
+                  headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${accessToken}`,
+                  },
                   body: JSON.stringify({
                     ...invoiceSettings,
                     therapist_id: targetTherapistId,
@@ -5271,9 +5295,18 @@ const calendarMode =
           return;
         }
 
+        const accessToken = await getAccessToken();
+        if (!accessToken) {
+          alert("Fehler beim Speichern: Keine gültige Session gefunden.");
+          return;
+        }
+
         const res = await fetch("/api/update-tarif", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${accessToken}`,
+          },
           body: JSON.stringify({
             anfrageId: detailsModal.id,
             tarif: editTarif,
