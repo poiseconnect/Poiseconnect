@@ -1,23 +1,42 @@
 export const dynamic = "force-dynamic";
 
-import { createClient } from "@supabase/supabase-js";
-
-// ❗ KEIN NextResponse hier
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-);
-
-function json(data, status = 200) {
-  return new Response(JSON.stringify(data), {
-    status,
-    headers: { "Content-Type": "application/json" },
-  });
-}
+import {
+  getUserFromBearer,
+  json,
+  supabaseAdmin,
+} from "../_lib/server";
 
 export async function POST(req) {
   try {
-    const body = await req.json();
+    const { user, error: authError } = await getUserFromBearer(req);
+    if (!user) return json({ error: authError || "NO_TOKEN" }, 401);
+
+    const sb = supabaseAdmin();
+
+    const { data: member, error: memberErr } = await sb
+      .from("team_members")
+      .select("id, role, active")
+      .eq("user_id", user.id)
+      .single();
+
+    if (memberErr || !member || member.active !== true) {
+      return json({ error: "NO_ACCESS" }, 403);
+    }
+
+    const isAdmin = member.role === "admin";
+    const isTherapist = member.role === "therapist";
+
+    if (!isAdmin && !isTherapist) {
+      return json({ error: "NO_ACCESS" }, 403);
+    }
+
+    let body;
+    try {
+      body = await req.json();
+    } catch {
+      return json({ error: "INVALID_JSON" }, 400);
+    }
+
     const { anfrageId, tarif } = body || {};
 
     if (!anfrageId || tarif === undefined) {
@@ -29,25 +48,34 @@ export async function POST(req) {
       return json({ error: "INVALID_TARIF" }, 400);
     }
 
-    const { error } = await supabase
+    const { data: anfrage, error: anfrageErr } = await sb
+      .from("anfragen")
+      .select("id, assigned_therapist_id")
+      .eq("id", anfrageId)
+      .single();
+
+    if (anfrageErr || !anfrage) {
+      return json({ error: "REQUEST_NOT_FOUND" }, 404);
+    }
+
+    if (
+      isTherapist &&
+      String(anfrage.assigned_therapist_id) !== String(member.id)
+    ) {
+      return json({ error: "NO_ACCESS" }, 403);
+    }
+
+    const { error } = await sb
       .from("anfragen")
       .update({ honorar_klient: value })
       .eq("id", anfrageId);
 
     if (error) {
-      console.error("❌ UPDATE TARIF ERROR:", error);
-      return json(
-        { error: "DB_UPDATE_FAILED", detail: error.message },
-        500
-      );
+      return json({ error: "DB_UPDATE_FAILED" }, 500);
     }
 
     return json({ ok: true });
   } catch (err) {
-    console.error("🔥 UPDATE TARIF SERVER ERROR:", err);
-    return json(
-      { error: "SERVER_ERROR", detail: String(err) },
-      500
-    );
+    return json({ error: "SERVER_ERROR" }, 500);
   }
 }
