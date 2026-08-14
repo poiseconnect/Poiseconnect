@@ -1,25 +1,92 @@
 export const dynamic = "force-dynamic";
 
-import { createClient } from "@supabase/supabase-js";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-);
+import {
+  getUserFromBearer,
+  json,
+  supabaseAdmin,
+} from "../_lib/server";
 
 export async function POST(request) {
   try {
-    const body = await request.json();
+    const { user, error: authError } = await getUserFromBearer(request);
+    if (!user) {
+      return json({ error: authError || "NO_TOKEN" }, 401);
+    }
 
-    console.log("FORWARD BODY:", body);
+    const sb = supabaseAdmin();
 
-    const { requestId, client, vorname, excludedTherapist } = body || {};
+    const { data: member, error: memberErr } = await sb
+      .from("team_members")
+      .select("id, role, active")
+      .eq("user_id", user.id)
+      .single();
 
-    if (!requestId || !client) {
-      return new Response(
-        JSON.stringify({ error: "missing_fields" }),
-        { status: 400 }
-      );
+    if (memberErr || !member || member.active !== true || member.role !== "admin") {
+      return json({ error: "NO_ACCESS" }, 403);
+    }
+
+    let body;
+    try {
+      body = await request.json();
+    } catch {
+      return json({ error: "INVALID_JSON" }, 400);
+    }
+
+    const { requestId, excludedTherapist } = body || {};
+
+    if (!requestId) {
+      return json({ error: "MISSING_REQUEST_ID" }, 400);
+    }
+
+    const rawSelected = Array.isArray(body?.admin_therapeuten)
+      ? body.admin_therapeuten
+      : Array.isArray(body?.therapists)
+        ? body.therapists
+        : [];
+
+    const normalizedSelected = [...new Set(
+      rawSelected
+        .map((value) => String(value || "").trim())
+        .filter(Boolean)
+    )].slice(0, 3);
+
+    if (normalizedSelected.length === 0) {
+      return json({ error: "NO_COACHES_SELECTED" }, 400);
+    }
+
+    const { data: validMembers, error: validMembersErr } = await sb
+      .from("team_members")
+      .select("id, name, active")
+      .eq("active", true);
+
+    if (validMembersErr) {
+      return json({ error: "TEAM_LOAD_FAILED" }, 500);
+    }
+
+    const validNames = new Set(
+      (validMembers || [])
+        .map((memberRow) => String(memberRow.name || "").trim())
+        .filter(Boolean)
+    );
+
+    const approvedCoaches = normalizedSelected.filter((name) => validNames.has(name));
+
+    if (approvedCoaches.length !== normalizedSelected.length) {
+      return json({ error: "INVALID_COACHES" }, 400);
+    }
+
+    const { data: requestData, error: requestErr } = await sb
+      .from("anfragen")
+      .select("id, email, vorname")
+      .eq("id", requestId)
+      .single();
+
+    if (requestErr || !requestData) {
+      return json({ error: "REQUEST_NOT_FOUND" }, 404);
+    }
+
+    if (!requestData.email) {
+      return json({ error: "CLIENT_EMAIL_MISSING" }, 400);
     }
 
     const baseUrl =
@@ -28,15 +95,14 @@ export async function POST(request) {
 
     const link = `${baseUrl}?resume=8&rid=${requestId}`;
 
-    // 1️⃣ Anfrage so zurücksetzen, dass Klient:in selbst neu wählen kann
-    const { error: updateError } = await supabase
+    const { error: updateError } = await sb
       .from("anfragen")
       .update({
         status: "admin_weiterleiten",
         wunschtherapeut: null,
         bevorzugte_zeit: null,
         assigned_therapist_id: null,
-        admin_therapeuten: [],
+        admin_therapeuten: approvedCoaches,
         excluded_therapeuten: excludedTherapist
           ? [excludedTherapist]
           : [],
@@ -44,17 +110,9 @@ export async function POST(request) {
       .eq("id", requestId);
 
     if (updateError) {
-      console.error("FORWARD UPDATE ERROR:", updateError);
-      return new Response(
-        JSON.stringify({
-          error: "update_failed",
-          detail: updateError.message,
-        }),
-        { status: 500 }
-      );
+      return json({ error: "UPDATE_FAILED", detail: updateError.message }, 500);
     }
 
-    // 2️⃣ Mail an Klient:in
     const mailRes = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: {
@@ -63,10 +121,10 @@ export async function POST(request) {
       },
       body: JSON.stringify({
         from: "Poise <noreply@mypoise.de>",
-        to: client,
+        to: requestData.email,
         subject: "Bitte wähle eine neue Begleitung 🤍",
         html: `
-          <p>Hallo ${vorname || ""},</p>
+          <p>Hallo ${requestData.vorname || ""},</p>
 
           <p>
             deine ursprünglich ausgewählte Begleitung hat aktuell leider keine Kapazitäten.
@@ -104,18 +162,8 @@ export async function POST(request) {
       console.warn("FORWARD MAIL FAILED – DB UPDATE OK:", mailText);
     }
 
-    return new Response(
-      JSON.stringify({ ok: true }),
-      { status: 200 }
-    );
+    return json({ ok: true });
   } catch (err) {
-    console.error("FORWARD SERVER ERROR:", err);
-    return new Response(
-      JSON.stringify({
-        error: "server_error",
-        detail: String(err),
-      }),
-      { status: 500 }
-    );
+    return json({ error: "SERVER_ERROR", detail: String(err) }, 500);
   }
 }

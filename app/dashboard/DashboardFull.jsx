@@ -4957,9 +4957,7 @@ const calendarMode =
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             requestId: r.id,
-            therapists: r.admin_therapeuten,
-            client: r.email,
-            vorname: r.vorname,
+            admin_therapeuten: r.admin_therapeuten,
           }),
         });
 
