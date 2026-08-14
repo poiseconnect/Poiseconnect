@@ -6,6 +6,7 @@ import jsPDF from "jspdf";
 import "jspdf-autotable";
 import ActionMenu from "../components/ActionMenu";
 import CoachOnboardingTour from "../components/CoachOnboardingTour";
+import { matchesCoachFilter } from "./coachFilter";
 
 import { supabase } from "../lib/supabase";
 
@@ -2474,18 +2475,17 @@ const sortedRequests = useMemo(() => {
   });
 }, [filteredRequests, sort, sessionsByRequest]);
 /* =========================================================
-   THERAPEUT:IN FILTER NUR FÜR AKTIV TAB
+   THERAPEUT:IN FILTER FÜR NORMALE REQUEST-TABS
 ========================================================= */
 const therapistFilteredRequests = useMemo(() => {
-  if (filter !== "aktiv") return sortedRequests;
-  if (therapistFilter === "alle") return sortedRequests;
-
-return sortedRequests.filter((r) => {
-  if (String(r.assigned_therapist_id) === String(therapistFilter)) return true;
-
-  const sessions = sessionsByRequest[String(r.id)] || [];
-  return sessions.some((s) => String(s.therapist_id) === String(therapistFilter));
-});
+  return sortedRequests.filter((request) =>
+    matchesCoachFilter({
+      request,
+      tab: filter,
+      therapistId: therapistFilter,
+      sessions: sessionsByRequest[String(request.id)] || [],
+    })
+  );
 }, [sortedRequests, therapistFilter, filter, sessionsByRequest]);
 
 
