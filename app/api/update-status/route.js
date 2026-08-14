@@ -63,6 +63,7 @@ export async function POST(req) {
       "active",
       "admin_pruefen",
       "admin_weiterleiten",
+      "admin_vorschlaege_gesendet",
       "papierkorb",
       "beendet",
       "kein_match",

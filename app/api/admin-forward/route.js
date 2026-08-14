@@ -160,6 +160,16 @@ export async function POST(request) {
     if (!mailRes.ok) {
       const mailText = await mailRes.text();
       console.warn("FORWARD MAIL FAILED – DB UPDATE OK:", mailText);
+      return json({ error: "FORWARD_MAIL_FAILED" }, 502);
+    }
+
+    const { error: sentStatusError } = await sb
+      .from("anfragen")
+      .update({ status: "admin_vorschlaege_gesendet" })
+      .eq("id", requestId);
+
+    if (sentStatusError) {
+      return json({ error: "STATUS_UPDATE_FAILED" }, 500);
     }
 
     return json({ ok: true });

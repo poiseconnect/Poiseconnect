@@ -184,6 +184,7 @@ if (["termin_neu", "neuer_termin"].includes(s)) return "termin_neu";
 
 // 🛂 ADMIN
 if (["admin_pruefen", "admin", "admin_weiterleiten"].includes(s)) return "admin_pruefen";
+if (s === "admin_vorschlaege_gesendet") return "admin_vorschlaege_gesendet";
   
   // 🗑 PAPIERKORB
   if (["papierkorb", "trash"].includes(s)) return "papierkorb";
@@ -207,6 +208,7 @@ const STATUS_LABEL = {
   beendet: "Beendet",
   papierkorb: "Papierkorb",
   admin_pruefen: "Admin – Weiterleitung prüfen",
+  admin_vorschlaege_gesendet: "Wartet auf Klient:in",
 
 };
 const STATUS_FILTER_MAP = {
@@ -214,6 +216,7 @@ const STATUS_FILTER_MAP = {
   unbearbeitet: ["neu", "termin_neu"],
 erstgespraech: ["termin_bestaetigt"],
   admin_pruefen: ["admin_pruefen", "admin_weiterleiten"],
+  admin_vorschlaege_gesendet: ["admin_vorschlaege_gesendet"],
   aktiv: ["active"],
   abrechnung: ["active"],
   controlling: ["active"],
@@ -231,6 +234,7 @@ erstgespraech: ["termin_bestaetigt"],
     "beendet",
     "papierkorb",
     "admin_pruefen",
+    "admin_vorschlaege_gesendet",
   ],
 };
 
@@ -2959,6 +2963,16 @@ return (
       label="Admin"
       value="admin_pruefen"
       active={filter === "admin_pruefen"}
+      onClick={setFilter}
+      color={POISE_COLORS.admin_pruefen}
+    />
+  )}
+
+  {isAdmin && (
+    <DashboardTab
+      label="Wartet auf Klient:in"
+      value="admin_vorschlaege_gesendet"
+      active={filter === "admin_vorschlaege_gesendet"}
       onClick={setFilter}
       color={POISE_COLORS.admin_pruefen}
     />
