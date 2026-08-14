@@ -1559,23 +1559,9 @@ if (action === "no_match") {
     }
 
     if (action === "admin") {
-      await updateRequestStatus({
-        requestId: r.id,
-        status: "admin_weiterleiten",
-      });
-
-      setRequests((prev) =>
-        prev.map((x) =>
-          x.id === r.id
-            ? {
-                ...x,
-                _status: "admin_pruefen",
-                status: "admin_weiterleiten",
-                admin_therapeuten: [],
-              }
-            : x
-        )
-      );
+      setReassignModal({ ...r, _handoverAction: "admin" });
+      setOpenMenuId(null);
+      return;
     }
 
 if (action === "new_appointment") {
@@ -1720,8 +1706,9 @@ location.reload();
     }
 
     if (action === "reassign") {
-      setReassignModal(r);
-      setNewTherapist("");
+      setReassignModal({ ...r, _handoverAction: "reassign" });
+      setOpenMenuId(null);
+      return;
     }
 
     if (action === "copy_link") {
@@ -5700,37 +5687,62 @@ location.reload();
       {/* REASSIGN */}
       {reassignModal && (
         <Modal onClose={() => setReassignModal(null)}>
-          <h3>Therapeut wechseln</h3>
+          <h3>
+            {reassignModal._handoverAction === "reassign"
+              ? "Therapeut wechseln"
+              : "Anliegen passt nicht zu mir"}
+          </h3>
 
-          <select
-            value={newTherapist}
-            onChange={(e) => setNewTherapist(e.target.value)}
-            style={{ width: "100%", marginBottom: 12 }}
-          >
-            <option value="">Bitte wählen…</option>
-            {teamData.map((t) => (
- <option key={t.email} value={t.name}>
-    {t.name}
-  </option>
-))}
-
-          </select>
+          <p>
+            Die Anfrage wird an den Admin zur Auswahl von drei passenden Coaches
+            zurückgegeben.
+          </p>
 
           <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
             <button onClick={() => setReassignModal(null)}>Abbrechen</button>
             <button
-              onClick={() =>
-                fetch("/api/reassign-request", {
+              onClick={async () => {
+                const accessToken = await getAccessToken();
+                if (!accessToken) {
+                  alert("Fehler: Keine gültige Session gefunden.");
+                  return;
+                }
+
+                const res = await fetch("/api/coach-handover", {
                   method: "POST",
-                  headers: { "Content-Type": "application/json" },
+                  headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${accessToken}`,
+                  },
                   body: JSON.stringify({
                     anfrageId: reassignModal.id,
-                    newTherapist,
+                    handoverType:
+                      reassignModal._handoverAction === "reassign"
+                        ? "therapist_change"
+                        : "not_match",
                   }),
-                }).then(() => location.reload())
-              }
+                });
+
+                const data = await res.json().catch(() => null);
+                if (!res.ok) {
+                  console.error(
+                    "COACH HANDOVER FAILED:",
+                    data?.error || "UNKNOWN_ERROR"
+                  );
+                  alert("Fehler bei der Rückgabe an den Admin");
+                  return;
+                }
+
+                setReassignModal(null);
+                alert(
+                  data?.mode === "new"
+                    ? "Neue Anfrage an den Admin übergeben"
+                    : "Anfrage an den Admin übergeben"
+                );
+                location.reload();
+              }}
             >
-              Speichern
+              An Admin übergeben
             </button>
           </div>
         </Modal>
