@@ -662,13 +662,11 @@ const step8Members = useMemo(() => {
       .map((v) => String(v).trim())
       .filter(Boolean);
 
-    const adminUsesEmail = adminList.some((v) => v.includes("@"));
-
     base = base.filter((m) => {
-      if (adminUsesEmail) {
-        return adminList.includes(String(m.email).trim());
-      }
-      return adminList.includes(String(m.name).trim());
+      return (
+        adminList.includes(String(m.id).trim()) ||
+        adminList.includes(String(m.name).trim())
+      );
     });
   }
 

@@ -56,22 +56,22 @@ export async function POST(request) {
 
     const { data: validMembers, error: validMembersErr } = await sb
       .from("team_members")
-      .select("id, name, active")
+      .select("id, active")
       .eq("active", true);
 
     if (validMembersErr) {
       return json({ error: "TEAM_LOAD_FAILED" }, 500);
     }
 
-    const validNames = new Set(
+    const validIds = new Set(
       (validMembers || [])
-        .map((memberRow) => String(memberRow.name || "").trim())
+        .map((memberRow) => String(memberRow.id || "").trim())
         .filter(Boolean)
     );
 
-    const approvedCoaches = normalizedSelected.filter((name) => validNames.has(name));
+    const approvedCoachIds = normalizedSelected.filter((id) => validIds.has(id));
 
-    if (approvedCoaches.length !== normalizedSelected.length) {
+    if (approvedCoachIds.length !== normalizedSelected.length) {
       return json({ error: "INVALID_COACHES" }, 400);
     }
 
@@ -102,7 +102,7 @@ export async function POST(request) {
         wunschtherapeut: null,
         bevorzugte_zeit: null,
         assigned_therapist_id: null,
-        admin_therapeuten: approvedCoaches,
+        admin_therapeuten: approvedCoachIds,
         excluded_therapeuten: excludedTherapist
           ? [excludedTherapist]
           : [],

@@ -4907,7 +4907,7 @@ const calendarMode =
 
     <div style={{ marginTop: 8 }}>
 {teamData.map((t) => {
-  const selected = (r.admin_therapeuten || []).includes(t.name);
+  const selected = (r.admin_therapeuten || []).includes(String(t.id));
   const maxReached = (r.admin_therapeuten || []).length >= 3;
 
   return (
@@ -4931,10 +4931,12 @@ const calendarMode =
               const current = x.admin_therapeuten || [];
               let next;
 
-              if (current.includes(t.name)) {
-                next = current.filter((n) => n !== t.name);
+              const coachId = String(t.id);
+
+              if (current.includes(coachId)) {
+                next = current.filter((id) => id !== coachId);
               } else {
-                next = [...current, t.name].slice(0, 3);
+                next = [...current, coachId].slice(0, 3);
               }
 
               return { ...x, admin_therapeuten: next };
