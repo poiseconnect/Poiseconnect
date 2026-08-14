@@ -72,6 +72,26 @@ export async function GET() {
 
     const dbMembers = members || [];
 
+    const { data: bookingSettings, error: bookingSettingsError } =
+      await supabase
+        .from("therapist_booking_settings")
+        .select("therapist_id, booking_enabled, selected_calendar_id");
+
+    if (bookingSettingsError) {
+      console.error(
+        "PUBLIC TEAM MEMBERS BOOKING SETTINGS ERROR:",
+        bookingSettingsError
+      );
+      return json({ error: bookingSettingsError.message }, 500);
+    }
+
+    const bookingSettingsById = new Map(
+      (bookingSettings || []).map((settings) => [
+        String(settings.therapist_id).trim(),
+        settings,
+      ])
+    );
+
     const dbById = new Map(
       dbMembers
         .filter((member) => member.id != null)
@@ -107,6 +127,16 @@ export async function GET() {
         teamMember.preis_ermaessigt ?? null
       );
 
+      const coachBookingSettings = dbMember?.id
+        ? bookingSettingsById.get(String(dbMember.id).trim())
+        : null;
+
+      const calendarMode =
+        coachBookingSettings?.booking_enabled === true &&
+        Boolean(coachBookingSettings.selected_calendar_id)
+          ? "booking"
+          : "proposal";
+
       console.log("PUBLIC TEAM MEMBER MERGE", {
         teamDataName: teamMember.name,
         teamDataId: teamMember.id,
@@ -135,10 +165,7 @@ export async function GET() {
           dbMember?.profile_role?.trim() ||
           teamMember.role,
 
-        calendar_mode:
-          dbMember?.profile_calendar_mode ||
-          teamMember.calendar_mode ||
-          "proposal",
+        calendar_mode: calendarMode,
 
         short:
           dbMember?.profile_short?.trim() ||
