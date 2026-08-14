@@ -4952,9 +4952,18 @@ const calendarMode =
       style={{ marginTop: 10 }}
       disabled={!r.admin_therapeuten || r.admin_therapeuten.length === 0}
       onClick={async () => {
+        const accessToken = await getAccessToken();
+        if (!accessToken) {
+          alert("Fehler bei der Weiterleitung: Keine gültige Session gefunden.");
+          return;
+        }
+
         const res = await fetch("/api/admin-forward", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${accessToken}`,
+          },
           body: JSON.stringify({
             requestId: r.id,
             admin_therapeuten: r.admin_therapeuten,
