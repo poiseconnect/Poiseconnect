@@ -748,6 +748,49 @@ try {
 
         console.log("BOOKING COACH MAIL SENT");
       }
+
+      try {
+        if (anfrage.email) {
+          const clientTypeLabel =
+            bookingType === "erstgespraech" ? "Erstgespräch" : "Termin";
+
+          const clientSubject =
+            bookingType === "erstgespraech"
+              ? "Dein Erstgespräch bei Poise ist bestätigt 🤍"
+              : "Dein Termin bei Poise ist bestätigt 🤍";
+
+          const greetingName = anfrage.vorname?.trim() || "";
+
+          const meetingLinkHtml = meetingLink
+            ? `<p><strong>Videolink:</strong> <a href="${meetingLink}">${meetingLink}</a></p>`
+            : "";
+
+          await resend.emails.send({
+            from,
+            to: anfrage.email,
+            subject: clientSubject,
+            html: `
+              <p>Hallo ${greetingName ? greetingName : "du"},</p>
+
+              <p>dein ${clientTypeLabel} bei Poise wurde erfolgreich gebucht.</p>
+
+              <p>
+                <strong>Begleitung:</strong> ${therapistMember?.name || "dein Coach"}<br />
+                <strong>Datum:</strong> ${dateString}<br />
+                <strong>Zeit:</strong> ${timeString} bis ${endTimeString}
+              </p>
+
+              ${meetingLinkHtml}
+
+              <p>Wir freuen uns auf dich 🤍<br />Poise</p>
+            `,
+          });
+
+          console.log("BOOKING CLIENT MAIL SENT");
+        }
+      } catch (clientMailErr) {
+        console.error("BOOKING CLIENT MAIL ERROR:", clientMailErr);
+      }
     } catch (mailErr) {
       console.error("BOOKING MAIL ERROR:", mailErr);
     }
