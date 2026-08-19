@@ -32,6 +32,8 @@ const {
   plz_ort,
   geburtsdatum,
   beschaeftigungsgrad,
+
+  structured_time_preference,
 } = body || {};
 
     if (!assigned_therapist_id) {
@@ -52,6 +54,12 @@ assigned_therapist_id,
 
 coaching_typ:
   coaching_typ === "paar" ? "paar" : "einzel",
+
+// Optionale grobe Zeitpräferenz vor der Coach-Auswahl (Version 1, kein Pflichtfeld).
+// Alte Anfragen ohne dieses Feld bleiben unverändert funktionsfähig.
+structured_time_preference: Array.isArray(structured_time_preference)
+  ? structured_time_preference
+  : null,
 
 status: "draft",
 match_state: "draft",

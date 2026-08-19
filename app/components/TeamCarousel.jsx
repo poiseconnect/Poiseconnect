@@ -217,6 +217,23 @@ export default function TeamCarousel({ members, onSelect }) {
                 </p>
               )}
 
+              {m.proposalConstraintLabel && (
+                <p
+                  style={{
+                    fontSize: ".85rem",
+                    marginTop: 8,
+                    marginBottom: 0,
+                    lineHeight: 1.4,
+                    fontWeight: 600,
+                    color: m.proposalConstraintConflict ? "#8B5A2B" : "#7A5350",
+                  }}
+                >
+                  {m.proposalConstraintConflict
+                    ? `⚠️ Zeitlich möglicherweise nicht passend: ${m.proposalConstraintLabel}`
+                    : m.proposalConstraintLabel}
+                </p>
+              )}
+
               <button
                 type="button"
                 onClick={() => toggleOpen(i)}

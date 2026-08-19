@@ -136,6 +136,12 @@ const requestId = body.rid || body.anfrageId || null;
       bevorzugte_zeit: terminISO,
       terminwunsch_text: body.terminwunsch_text || null,
 
+      // Optionale grobe Zeitpräferenz vor der Coach-Auswahl (Version 1).
+      // Fehlt sie (alte Anfragen), bleibt der bestehende Flow unverändert.
+      structured_time_preference: Array.isArray(body.structured_time_preference)
+        ? body.structured_time_preference
+        : null,
+
      wunschtherapeut: finalTherapistName,
 assigned_therapist_id: assignedTherapistId,
 

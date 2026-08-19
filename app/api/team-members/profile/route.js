@@ -56,7 +56,9 @@ const { data: member, error } = await supabase
     paarcoaching,
     paarcoaching_preis,
     paarcoaching_dauer_min,
-    sevdesk_contact_id
+    sevdesk_contact_id,
+    proposal_earliest_time,
+    proposal_latest_time
   `)
   .eq("user_id", user.id)
   .single();
@@ -82,6 +84,14 @@ export async function POST(req) {
     }
 
     const body = await req.json();
+
+// Optionale Proposal-Zeitrahmen (Version 1, kein Booking-Ersatz).
+// Nur speichern, wenn Format "HH:MM" (24h) gültig ist, sonst null.
+const timePattern = /^([01]\d|2[0-3]):([0-5]\d)$/;
+const sanitizeProposalTime = (value) =>
+  typeof value === "string" && timePattern.test(value.trim())
+    ? value.trim()
+    : null;
 
 const payload = {
   profile_name: body.profile_name || null,
@@ -122,6 +132,9 @@ const payload = {
     body.sevdesk_contact_id === null || body.sevdesk_contact_id === ""
       ? null
       : String(body.sevdesk_contact_id).trim(),
+
+  proposal_earliest_time: sanitizeProposalTime(body.proposal_earliest_time),
+  proposal_latest_time: sanitizeProposalTime(body.proposal_latest_time),
 };
 
     const { data: member, error } = await supabase
@@ -141,7 +154,9 @@ const payload = {
   paarcoaching,
   paarcoaching_preis,
   paarcoaching_dauer_min,
-  sevdesk_contact_id
+  sevdesk_contact_id,
+  proposal_earliest_time,
+  proposal_latest_time
 `)
       .single();
 

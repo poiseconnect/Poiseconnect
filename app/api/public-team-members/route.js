@@ -62,7 +62,9 @@ export async function GET() {
     profile_preis_ermaessigt,
     paarcoaching,
     paarcoaching_preis,
-    paarcoaching_dauer_min
+    paarcoaching_dauer_min,
+    proposal_earliest_time,
+    proposal_latest_time
   `);
     
     if (error) {
@@ -199,6 +201,10 @@ paarcoaching_dauer_min:
 
 booking_window_days:
   teamMember.booking_window_days ?? 90,
+
+// Nur ein optionaler Proposal-Zeitrahmen (Version 1), keine Booking-Slots.
+proposal_earliest_time: dbMember?.proposal_earliest_time || null,
+proposal_latest_time: dbMember?.proposal_latest_time || null,
         
       };
     });

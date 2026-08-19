@@ -7,6 +7,14 @@ import Image from "next/image";
 import StepIndicator from "./components/StepIndicator";
 import TeamCarousel from "./components/TeamCarousel";
 import { teamData } from "./lib/teamData";
+import {
+  TIME_PREFERENCE_OPTIONS,
+  clearCoachDependentFormFields,
+  formatTimePreference,
+  getProposalConstraintLabel,
+  mayConflictWithPreference,
+  sanitizeTimePreference,
+} from "./lib/proposalTimePreference";
 
 
  
@@ -373,6 +381,8 @@ const [form, setForm] = useState({
 
   coaching_typ: "einzel",
 
+  structured_time_preference: [],
+
   vorname: "",
   nachname: "",
   email: "",
@@ -551,6 +561,16 @@ return [...teamMembers].sort((a, b) => {
 
   const next = () => setStep((s) => s + 1);
   const back = () => setStep((s) => s - 1);
+
+  // Coachwechsel: nur coachabhängige Felder zurücksetzen, restliche
+  // Formulardaten (Anliegen, Kontaktdaten, frühe Zeitpräferenz) bleiben erhalten.
+  function goBackToCoachSelection() {
+    setAssignedTherapistId(null);
+    setForm((prev) => clearCoachDependentFormFields(prev));
+    setSelectedDay(null);
+    setSlots([]);
+    setStep(8);
+  }
   // -------------------------------------
 // -------------------------------------
 // MATCHING – Checkboxen + Freitext
@@ -807,11 +827,24 @@ useEffect(() => {
         }
       }
       if (!Array.isArray(adminTherapeuten)) adminTherapeuten = [];
+
+      // Alte Anfragen besitzen dieses Feld evtl. nicht -> null/fehlt = kein Fehler.
+      let structuredTimePreference = data.structured_time_preference;
+      if (typeof structuredTimePreference === "string") {
+        try {
+          structuredTimePreference = JSON.parse(structuredTimePreference);
+        } catch {
+          structuredTimePreference = [];
+        }
+      }
+      structuredTimePreference = sanitizeTimePreference(structuredTimePreference);
+
 setForm((prev) => ({
   ...prev,
   ...data,
   assigned_therapist_id: data.assigned_therapist_id || null,
   admin_therapeuten: adminTherapeuten,
+  structured_time_preference: structuredTimePreference,
 }));
 
 setDraftRequestId(data.id || null);
@@ -1164,6 +1197,8 @@ body: JSON.stringify({
   verlauf: form.verlauf,
   diagnose: form.diagnose,
   ziel: form.ziel,
+
+  structured_time_preference: form.structured_time_preference || [],
 
   wunschtherapeut: selectedMember.name,
   assigned_therapist_id: selectedMember.id,
@@ -1803,6 +1838,54 @@ color: "#000", // ✅ FIX: Text IMMER schwarz
         <div className="step-container">
           <h2>Wichtige Hinweise</h2>
 
+          {/* Frühe, grobe Zeitpräferenz – optional, vor der Coach-Auswahl */}
+          <div style={{ marginBottom: 20 }}>
+            <h3 style={{ marginBottom: 8 }}>
+              Wann kommen Termine für dich grundsätzlich infrage?
+            </h3>
+            <p style={{ fontSize: 14, color: "#666", marginTop: 0 }}>
+              Das hilft uns einzuschätzen, welche Coaches zeitlich gut zu dir
+              passen. Konkrete Terminmöglichkeiten kannst du später angeben.
+            </p>
+
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+              {TIME_PREFERENCE_OPTIONS.map((option) => {
+                const selected = (
+                  form.structured_time_preference || []
+                ).includes(option.key);
+
+                return (
+                  <button
+                    key={option.key}
+                    type="button"
+                    onClick={() => {
+                      setForm((prev) => {
+                        const current = prev.structured_time_preference || [];
+                        const next = current.includes(option.key)
+                          ? current.filter((k) => k !== option.key)
+                          : [...current, option.key];
+
+                        return { ...prev, structured_time_preference: next };
+                      });
+                    }}
+                    style={{
+                      padding: "8px 14px",
+                      borderRadius: 999,
+                      border: selected
+                        ? "2px solid #A27C77"
+                        : "1px solid #ddd",
+                      background: selected ? "#F3E9E7" : "#fff",
+                      color: "#000",
+                      cursor: "pointer",
+                    }}
+                  >
+                    {option.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
           <label className="checkbox">
             <input
               type="checkbox"
@@ -1931,7 +2014,27 @@ color: "#000", // ✅ FIX: Text IMMER schwarz
           die aktuell freie Termine haben.
         </p>
 <TeamCarousel
-  members={step8Members}
+  members={step8Members.map((m) => {
+    const isProposal = String(m.calendar_mode || "").toLowerCase() === "proposal";
+
+    return {
+      ...m,
+      proposalConstraintLabel: isProposal
+        ? getProposalConstraintLabel({
+            earliestTime: m.proposal_earliest_time,
+            latestTime: m.proposal_latest_time,
+          })
+        : null,
+      proposalConstraintConflict: isProposal
+        ? mayConflictWithPreference({
+            calendarMode: m.calendar_mode,
+            earliestTime: m.proposal_earliest_time,
+            latestTime: m.proposal_latest_time,
+            timePreference: form.structured_time_preference,
+          })
+        : false,
+    };
+  })}
   onSelect={async (member) => {
     if (savingDraft) return;
 
@@ -2080,7 +2183,72 @@ Eine Kostenübernahme kann möglich sein — individuell klären.`,
     {/* ================================================= */}
     {calendarMode === "proposal" && (
       <>
-        <h3>Wann hättest du grundsätzlich Zeit?</h3>
+        {(() => {
+          const preferenceText = formatTimePreference(
+            form.structured_time_preference
+          );
+          const constraintLabel = getProposalConstraintLabel({
+            earliestTime: selectedTherapist?.proposal_earliest_time,
+            latestTime: selectedTherapist?.proposal_latest_time,
+          });
+
+          const mayConflict = mayConflictWithPreference({
+            calendarMode,
+            earliestTime: selectedTherapist?.proposal_earliest_time,
+            latestTime: selectedTherapist?.proposal_latest_time,
+            timePreference: form.structured_time_preference,
+          });
+
+          if (!preferenceText && !constraintLabel) return null;
+
+          return (
+            <div
+              style={{
+                marginBottom: 16,
+                padding: "10px 12px",
+                borderRadius: 10,
+                background: mayConflict ? "#FFF4E6" : "#F3E9E7",
+                fontSize: 14,
+              }}
+            >
+              {preferenceText && (
+                <div style={{ marginBottom: 8 }}>
+                  {preferenceText === "zeitlich flexibel bist"
+                    ? "Du hast angegeben, dass du zeitlich flexibel bist."
+                    : `Du hast angegeben, dass Termine für dich grundsätzlich ${preferenceText} infrage kommen.`}
+                </div>
+              )}
+              {mayConflict && (
+                <div style={{ fontWeight: 700, marginBottom: 4 }}>
+                  Zeitlich möglicherweise nicht passend
+                </div>
+              )}
+              {constraintLabel && <div>
+                {selectedTherapist?.name || "Diese Begleitung"} bietet{" "}
+                {constraintLabel.charAt(0).toLowerCase() + constraintLabel.slice(1)}.
+                {!mayConflict && " Bitte berücksichtige das bei deinen Vorschlägen."}
+              </div>}
+
+              <button
+                type="button"
+                onClick={goBackToCoachSelection}
+                style={{
+                  marginTop: 10,
+                  background: "transparent",
+                  border: "none",
+                  color: "#A27C77",
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  padding: 0,
+                }}
+              >
+                Passt das zeitlich nicht? ← Anderen Coach auswählen
+              </button>
+            </div>
+          );
+        })()}
+
+        <h3>Welche Tage oder konkreten Zeiten passen dir besonders gut?</h3>
 
         <textarea
           placeholder="z.B. Montag Nachmittag, Dienstag Vormittag…"
