@@ -31,6 +31,20 @@ export async function GET(req) {
       return json({ error: "NO_ACCESS" }, 403);
     }
 
+    let coachAvailability = [];
+    if (member.role === "admin") {
+      const { data: availability, error: availabilityErr } = await sb
+        .from("team_members")
+        .select("id, profile_name, active, available_for_intake")
+        .order("profile_name", { ascending: true });
+
+      if (availabilityErr) {
+        return json({ error: "TEAM_LOAD_FAILED" }, 500);
+      }
+
+      coachAvailability = availability || [];
+    }
+
     let query = sb
       .from("anfragen")
 .select(`
@@ -56,6 +70,7 @@ export async function GET(req) {
   honorar_klient,
   invoice_with_vat,
   admin_therapeuten,
+  excluded_therapeuten,
   terminwunsch_text,
   assigned_therapist_id,
   booking_token,
@@ -129,6 +144,7 @@ const requests = (data || []).map((r) => ({
 return json({
   role: member.role,
   myTeamMemberId: member.id,
+  coachAvailability,
   requests,
 });
   } catch (e) {

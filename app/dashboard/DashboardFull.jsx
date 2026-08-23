@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { teamData } from "../lib/teamData";
+import { isCoachAvailableForNewClient } from "../lib/intakeAvailability";
 import jsPDF from "jspdf";
 import "jspdf-autotable";
 import ActionMenu from "../components/ActionMenu";
@@ -1255,6 +1256,7 @@ if (calendarMode === "booking") {
 export default function DashboardFull() {
   const [user, setUser] = useState(null);
   const [requests, setRequests] = useState([]);
+  const [coachAvailability, setCoachAvailability] = useState([]);
   const [draftRequests, setDraftRequests] = useState([]);
 const [role, setRole] = useState(null); // "admin" | "therapist"
   const isAdmin = role === "admin";
@@ -1996,6 +1998,8 @@ setProfileForm({
           };
         })
       );
+
+      setCoachAvailability(json.coachAvailability || []);
 
       if (json.role) setRole(json.role);
       if (json.myTeamMemberId) setMyTeamMemberId(json.myTeamMemberId);
@@ -4907,7 +4911,16 @@ const calendarMode =
     <strong>Therapeut:innen auswählen (max. 3)</strong>
 
     <div style={{ marginTop: 8 }}>
-{teamData.map((t) => {
+{teamData
+  .filter((t) =>
+    isCoachAvailableForNewClient({
+      member: coachAvailability.find(
+        (member) => String(member.id) === String(t.id)
+      ),
+      excludedTherapeuten: r.excluded_therapeuten,
+    })
+  )
+  .map((t) => {
   const selected = (r.admin_therapeuten || []).includes(String(t.id));
   const maxReached = (r.admin_therapeuten || []).length >= 3;
 

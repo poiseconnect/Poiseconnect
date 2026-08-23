@@ -10,6 +10,10 @@ import {
   resolveResumeStep,
   shouldUseLoadedRequestResumeDecision,
 } from "../../app/lib/proposalTimePreference.js";
+import {
+  getInvalidNewClientCoachIds,
+  isCoachAvailableForNewClient,
+} from "../../app/lib/intakeAvailability.js";
 
 describe("resolveCalendarMode", () => {
   it("profil proposal bleibt proposal trotz aktivierter Booking-Settings", () => {
@@ -34,6 +38,96 @@ describe("resolveCalendarMode", () => {
 
   it("ungültiger Profilmodus nutzt den gültigen Legacy-Modus", () => {
     expect(resolveCalendarMode("unknown", "ics")).toBe("ics");
+  });
+});
+
+describe("intake availability", () => {
+  const availableProposalCoach = {
+    id: "proposal-1",
+    profile_name: "Proposal Coach",
+    active: true,
+    available_for_intake: true,
+  };
+
+  const availableBookingCoach = {
+    id: "booking-1",
+    profile_name: "Booking Coach",
+    active: true,
+    available_for_intake: true,
+  };
+
+  it("verfügbarer Coach ist auswählbar, unabhängig vom Calendar Mode", () => {
+    expect(
+      isCoachAvailableForNewClient({
+        member: { ...availableProposalCoach, calendar_mode: "proposal" },
+      })
+    ).toBe(true);
+    expect(
+      isCoachAvailableForNewClient({
+        member: { ...availableBookingCoach, calendar_mode: "booking" },
+      })
+    ).toBe(true);
+  });
+
+  it("nicht verfügbare oder inactive Coaches sind nicht auswählbar", () => {
+    expect(
+      isCoachAvailableForNewClient({
+        member: { ...availableProposalCoach, available_for_intake: false },
+      })
+    ).toBe(false);
+    expect(
+      isCoachAvailableForNewClient({
+        member: { ...availableBookingCoach, active: false },
+      })
+    ).toBe(false);
+  });
+
+  it("schließt ausgeschlossene Coaches aus", () => {
+    expect(
+      isCoachAvailableForNewClient({
+        member: availableProposalCoach,
+        excludedTherapeuten: ["proposal-1"],
+      })
+    ).toBe(false);
+    expect(
+      isCoachAvailableForNewClient({
+        member: availableBookingCoach,
+        excludedTherapeuten: ["Booking Coach"],
+      })
+    ).toBe(false);
+  });
+
+  it("Proposal-Zeitgrenzen beeinflussen die Aufnahmeentscheidung nicht", () => {
+    expect(
+      isCoachAvailableForNewClient({
+        member: {
+          ...availableProposalCoach,
+          proposal_earliest_time: "18:00",
+          proposal_latest_time: "20:00",
+        },
+      })
+    ).toBe(true);
+  });
+
+  it("Servervalidierung lehnt unbekannte, inaktive und nicht verfügbare IDs ab", () => {
+    expect(
+      getInvalidNewClientCoachIds({
+        selectedIds: ["proposal-1", "missing", "booking-1"],
+        members: [
+          availableProposalCoach,
+          { ...availableBookingCoach, available_for_intake: false },
+        ],
+      })
+    ).toEqual(["missing", "booking-1"]);
+  });
+
+  it("eine Änderung auf nicht verfügbar wird beim erneuten Servercheck abgelehnt", () => {
+    expect(
+      getInvalidNewClientCoachIds({
+        selectedIds: ["proposal-1"],
+        members: [{ ...availableProposalCoach, available_for_intake: false }],
+      })
+    ).toEqual(["proposal-1"]);
   });
 });
 

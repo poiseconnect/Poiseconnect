@@ -5,6 +5,7 @@ import {
   json,
   supabaseAdmin,
 } from "../_lib/server";
+import { getInvalidNewClientCoachIds } from "../../lib/intakeAvailability";
 
 export async function POST(request) {
   try {
@@ -56,34 +57,33 @@ export async function POST(request) {
 
     const { data: validMembers, error: validMembersErr } = await sb
       .from("team_members")
-      .select("id, active")
-      .eq("active", true);
+      .select("id, profile_name, active, available_for_intake");
 
     if (validMembersErr) {
       return json({ error: "TEAM_LOAD_FAILED" }, 500);
     }
 
-    const validIds = new Set(
-      (validMembers || [])
-        .map((memberRow) => String(memberRow.id || "").trim())
-        .filter(Boolean)
-    );
-
-    const approvedCoachIds = normalizedSelected.filter((id) => validIds.has(id));
-
-    if (approvedCoachIds.length !== normalizedSelected.length) {
-      return json({ error: "INVALID_COACHES" }, 400);
-    }
-
     const { data: requestData, error: requestErr } = await sb
       .from("anfragen")
-      .select("id, email, vorname")
+      .select("id, email, vorname, excluded_therapeuten")
       .eq("id", requestId)
       .single();
 
     if (requestErr || !requestData) {
       return json({ error: "REQUEST_NOT_FOUND" }, 404);
     }
+
+    const invalidCoachIds = getInvalidNewClientCoachIds({
+      selectedIds: normalizedSelected,
+      members: validMembers || [],
+      excludedTherapeuten: requestData.excluded_therapeuten,
+    });
+
+    if (invalidCoachIds.length > 0) {
+      return json({ error: "INVALID_COACHES" }, 400);
+    }
+
+    const approvedCoachIds = normalizedSelected;
 
     if (!requestData.email) {
       return json({ error: "CLIENT_EMAIL_MISSING" }, 400);
