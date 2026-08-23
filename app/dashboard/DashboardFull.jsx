@@ -2,7 +2,12 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { teamData } from "../lib/teamData";
-import { isCoachAvailableForNewClient } from "../lib/intakeAvailability";
+import {
+  isCoachAvailableForNewClient,
+  findCoachAvailabilityMember,
+  getAdminCoachOptions,
+  isHistoricallySelectedCoach,
+} from "../lib/intakeAvailability";
 import jsPDF from "jspdf";
 import "jspdf-autotable";
 import ActionMenu from "../components/ActionMenu";
@@ -4911,17 +4916,20 @@ const calendarMode =
     <strong>Therapeut:innen auswählen (max. 3)</strong>
 
     <div style={{ marginTop: 8 }}>
-{teamData
-  .filter((t) =>
-    isCoachAvailableForNewClient({
-      member: coachAvailability.find(
-        (member) => String(member.id) === String(t.id)
-      ),
-      excludedTherapeuten: r.excluded_therapeuten,
-    })
-  )
-  .map((t) => {
-  const selected = (r.admin_therapeuten || []).includes(String(t.id));
+{getAdminCoachOptions({
+  teamMembers: teamData,
+  availability: coachAvailability,
+  selectedIds: r.admin_therapeuten || [],
+  excludedTherapeuten: r.excluded_therapeuten,
+}).map((t) => {
+  const selected = isHistoricallySelectedCoach({
+    member: t,
+    selectedIds: r.admin_therapeuten || [],
+  });
+  const currentlyAvailable = isCoachAvailableForNewClient({
+    member: t,
+    excludedTherapeuten: r.excluded_therapeuten,
+  });
   const maxReached = (r.admin_therapeuten || []).length >= 3;
 
   return (
@@ -4936,7 +4944,7 @@ const calendarMode =
       <input
         type="checkbox"
         checked={selected}
-        disabled={!selected && maxReached}
+        disabled={!selected && (!currentlyAvailable || maxReached)}
         onChange={() => {
           setRequests((prev) =>
             prev.map((x) => {

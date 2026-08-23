@@ -12,7 +12,11 @@ import {
 } from "../../app/lib/proposalTimePreference.js";
 import {
   getInvalidNewClientCoachIds,
+  findCoachAvailabilityMember,
+  getAdminCoachOptions,
+  isHistoricallySelectedCoach,
   isCoachAvailableForNewClient,
+  shouldShowAdminCoach,
 } from "../../app/lib/intakeAvailability.js";
 
 describe("resolveCalendarMode", () => {
@@ -95,6 +99,105 @@ describe("intake availability", () => {
         excludedTherapeuten: ["Booking Coach"],
       })
     ).toBe(false);
+  });
+
+  it("zeigt historische Coaches weiter, macht sie aber nicht neu auswählbar", () => {
+    const historicalUnavailableCoach = {
+      ...availableProposalCoach,
+      available_for_intake: false,
+    };
+
+    expect(
+      shouldShowAdminCoach({
+        member: historicalUnavailableCoach,
+        selectedIds: ["proposal-1"],
+      })
+    ).toBe(true);
+    expect(
+      isCoachAvailableForNewClient({ member: historicalUnavailableCoach })
+    ).toBe(false);
+  });
+
+  it("erkennt historische Coach-Auswahlen als ID oder Profilname", () => {
+    expect(
+      isHistoricallySelectedCoach({
+        member: availableProposalCoach,
+        selectedIds: ["proposal-1"],
+      })
+    ).toBe(true);
+    expect(
+      isHistoricallySelectedCoach({
+        member: availableProposalCoach,
+        selectedIds: ["Proposal Coach"],
+      })
+    ).toBe(true);
+  });
+
+  it("behandelt null, leere und Legacy-Stringwerte nicht als historische Auswahl", () => {
+    for (const selectedIds of [null, undefined, [], "", "[]"]) {
+      expect(
+        shouldShowAdminCoach({
+          member: { ...availableProposalCoach, available_for_intake: false },
+          selectedIds,
+        })
+      ).toBe(false);
+    }
+  });
+
+  it("ordnet Availability bei abweichender ID über den Profilnamen korrekt zu", () => {
+    const staticMember = {
+      id: "static-id",
+      email: "coach@example.invalid",
+      name: "Proposal Coach",
+    };
+
+    expect(
+      findCoachAvailabilityMember({
+        member: staticMember,
+        availability: [
+          {
+            id: "database-id",
+            profile_name: "Proposal Coach",
+            active: true,
+            available_for_intake: true,
+          },
+        ],
+      })
+    ).toMatchObject({ id: "database-id", available_for_intake: true });
+  });
+
+  it("fehlender Availability-Lookup bleibt nicht auswählbar", () => {
+    expect(
+      isCoachAvailableForNewClient({
+        member: undefined,
+      })
+    ).toBe(false);
+  });
+
+  it("offene Auswahl verwendet nur aktuelle Availability-Datensätze", () => {
+    const options = getAdminCoachOptions({
+      teamMembers: [
+        { id: "available-1", name: "Available" },
+        { id: "unavailable-1", name: "Unavailable" },
+      ],
+      availability: [
+        {
+          id: "available-1",
+          profile_name: "Available",
+          active: true,
+          available_for_intake: true,
+        },
+        {
+          id: "unavailable-1",
+          profile_name: "Unavailable",
+          active: true,
+          available_for_intake: false,
+        },
+      ],
+      selectedIds: [],
+    });
+
+    expect(options.map((coach) => coach.id)).toEqual(["available-1"]);
   });
 
   it("Proposal-Zeitgrenzen beeinflussen die Aufnahmeentscheidung nicht", () => {
