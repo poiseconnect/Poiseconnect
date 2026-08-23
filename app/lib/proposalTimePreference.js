@@ -55,6 +55,29 @@ export function hasTimePreference(value) {
   return sanitizeTimePreference(value).length > 0;
 }
 
+export function resolveCoachSelectionResumeStep({
+  resume,
+  hasAnfrageId,
+  timePreference,
+} = {}) {
+  if (!resume) return null;
+
+  const n = Number.parseInt(resume, 10);
+  const isCoachSelectionResume = resume === "admin" || n === 5 || n === 8;
+
+  if (!isCoachSelectionResume) return null;
+  if (!hasAnfrageId) return 7;
+  return hasTimePreference(timePreference) ? 8 : 7;
+}
+
+export function shouldUseLoadedRequestResumeDecision({ resume, hasAnfrageId } = {}) {
+  if (!resume) return false;
+
+  const n = Number.parseInt(resume, 10);
+  const isCoachSelectionResume = resume === "admin" || n === 5 || n === 8;
+  return isCoachSelectionResume && Boolean(hasAnfrageId);
+}
+
 // Bestimmt den Ziel-Step für einen Resume-Link, ohne bestehende Step-Nummern
 // zu verschieben. Coach-Auswahl-Resumes (admin/5/8) fragen die grobe
 // Zeitpräferenz zuerst ab (Step 7), wenn sie noch fehlt und keine Anfrage
@@ -64,12 +87,13 @@ export function resolveResumeStep({ resume, hasAnfrageId, timePreference } = {})
   if (!resume) return null;
 
   const n = Number.parseInt(resume, 10);
-  const isCoachSelectionResume = resume === "admin" || n === 5 || n === 8;
+  const coachSelectionStep = resolveCoachSelectionResumeStep({
+    resume,
+    hasAnfrageId,
+    timePreference,
+  });
 
-  if (isCoachSelectionResume) {
-    if (!hasAnfrageId) return 7;
-    return hasTimePreference(timePreference) ? 8 : 7;
-  }
+  if (coachSelectionStep !== null) return coachSelectionStep;
 
   if (n === 10) return 10;
   if (!Number.isNaN(n)) return n;

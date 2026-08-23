@@ -14,8 +14,10 @@ import {
   getProposalConstraintLabel,
   hasTimePreference,
   mayConflictWithPreference,
+  resolveCoachSelectionResumeStep,
   resolveResumeStep,
   sanitizeTimePreference,
+  shouldUseLoadedRequestResumeDecision,
 } from "./lib/proposalTimePreference";
 
 
@@ -862,26 +864,26 @@ const fallbackTherapistId =
 
 setAssignedTherapistId(fallbackTherapistId);
 
-      if (resume === "admin") {
+      const coachSelectionStep = resolveCoachSelectionResumeStep({
+        resume,
+        hasAnfrageId: Boolean(data?.id || anfrageId),
+        timePreference: structuredTimePreference,
+      });
+
+      if (coachSelectionStep !== null) {
         setSelectedDay(null);
-        setStep(hasTimePreference(structuredTimePreference) ? 8 : 7);
+        setForm((prev) => ({
+          ...prev,
+          terminISO: "",
+          terminDisplay: "",
+        }));
+        setStep(coachSelectionStep);
         return;
       }
 
       const n = parseInt(resume, 10);
 
       if (!Number.isNaN(n)) {
-        if (n === 5) {
-          setSelectedDay(null);
-          setForm((prev) => ({
-            ...prev,
-            terminISO: "",
-            terminDisplay: "",
-          }));
-          setStep(hasTimePreference(structuredTimePreference) ? 8 : 7);
-          return;
-        }
-
         if (n === 10) {
           setStep(10);
           setSelectedDay(null);
@@ -890,12 +892,6 @@ setAssignedTherapistId(fallbackTherapistId);
             terminISO: "",
             terminDisplay: "",
           }));
-          return;
-        }
-
-        if (n === 8) {
-          // Neue Coach-Auswahl nach Resume: fehlende Zeitpräferenz zuerst erfassen.
-          setStep(hasTimePreference(structuredTimePreference) ? 8 : 7);
           return;
         }
 
@@ -923,12 +919,13 @@ useEffect(() => {
   if (!resume) return;
 
   const n = parseInt(resume, 10);
-  const isCoachSelectionResume =
-    resume === "admin" || n === 5 || n === 8;
 
-  // Mit Anfrage-ID entscheidet ausschließlich die Resume-Datenladung oben,
-  // ob Step 7 (Zeitpräferenz fehlt) oder Step 8 (vorhanden) gezeigt wird.
-  if (isCoachSelectionResume && anfrageId) return;
+  // Bei Coach-Selection-Resumes mit vorhandener Anfrage bleibt die
+  // Entscheidung vollständig in der Request-Lade-Logik; der generische
+  // Fallback darf die bereits geladene Entscheidung nicht überschreiben.
+  if (shouldUseLoadedRequestResumeDecision({ resume, hasAnfrageId: Boolean(anfrageId) })) {
+    return;
+  }
 
   const targetStep = resolveResumeStep({
     resume,
@@ -940,9 +937,7 @@ useEffect(() => {
 
   setSelectedDay(null);
   setStep(targetStep);
-
-  // ❌ URL HIER NICHT mehr aufräumen
-}, [anfrageId]);
+}, [anfrageId, resumeMode]);
 
   // -------------------------------------
 // -------------------------------------

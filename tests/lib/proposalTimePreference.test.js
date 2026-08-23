@@ -6,7 +6,9 @@ import {
   hasTimePreference,
   mayConflictWithPreference,
   resolveCalendarMode,
+  resolveCoachSelectionResumeStep,
   resolveResumeStep,
+  shouldUseLoadedRequestResumeDecision,
 } from "../../app/lib/proposalTimePreference.js";
 
 describe("resolveCalendarMode", () => {
@@ -258,5 +260,72 @@ describe("resolveResumeStep", () => {
     expect(
       resolveResumeStep({ resume: "3", hasAnfrageId: true, timePreference: [] })
     ).toBe(3);
+  });
+});
+
+describe("single-source resume gate", () => {
+  it("resume=8 mit geladener Anfrage und fehlender Präferenz -> Step 7", () => {
+    expect(
+      resolveCoachSelectionResumeStep({
+        resume: "8",
+        hasAnfrageId: true,
+        timePreference: null,
+      })
+    ).toBe(7);
+  });
+
+  it("resume=8 mit geladener Anfrage und vorhandener Präferenz -> Step 8", () => {
+    expect(
+      resolveCoachSelectionResumeStep({
+        resume: "8",
+        hasAnfrageId: true,
+        timePreference: ["abends"],
+      })
+    ).toBe(8);
+  });
+
+  it("resume=admin mit fehlender Präferenz -> Step 7", () => {
+    expect(
+      resolveCoachSelectionResumeStep({
+        resume: "admin",
+        hasAnfrageId: true,
+        timePreference: [],
+      })
+    ).toBe(7);
+  });
+
+  it("resume=5 mit fehlender Präferenz -> Step 7", () => {
+    expect(
+      resolveCoachSelectionResumeStep({
+        resume: "5",
+        hasAnfrageId: true,
+        timePreference: undefined,
+      })
+    ).toBe(7);
+  });
+
+  it("resume=10 darf niemals durch den Coach-Gate ersetzt werden", () => {
+    expect(
+      resolveCoachSelectionResumeStep({
+        resume: "10",
+        hasAnfrageId: true,
+        timePreference: [],
+      })
+    ).toBeNull();
+  });
+
+  it("bei vorhandener Anfrage-ID darf der generische Resume-Fallback nicht erneut entscheiden", () => {
+    expect(
+      shouldUseLoadedRequestResumeDecision({
+        resume: "8",
+        hasAnfrageId: true,
+      })
+    ).toBe(true);
+    expect(
+      shouldUseLoadedRequestResumeDecision({
+        resume: "8",
+        hasAnfrageId: false,
+      })
+    ).toBe(false);
   });
 });
