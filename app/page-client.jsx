@@ -12,7 +12,9 @@ import {
   clearCoachDependentFormFields,
   formatTimePreference,
   getProposalConstraintLabel,
+  hasTimePreference,
   mayConflictWithPreference,
+  resolveResumeStep,
   sanitizeTimePreference,
 } from "./lib/proposalTimePreference";
 
@@ -861,8 +863,8 @@ const fallbackTherapistId =
 setAssignedTherapistId(fallbackTherapistId);
 
       if (resume === "admin") {
-        setStep(8);
         setSelectedDay(null);
+        setStep(hasTimePreference(structuredTimePreference) ? 8 : 7);
         return;
       }
 
@@ -870,13 +872,13 @@ setAssignedTherapistId(fallbackTherapistId);
 
       if (!Number.isNaN(n)) {
         if (n === 5) {
-          setStep(8);
           setSelectedDay(null);
           setForm((prev) => ({
             ...prev,
             terminISO: "",
             terminDisplay: "",
           }));
+          setStep(hasTimePreference(structuredTimePreference) ? 8 : 7);
           return;
         }
 
@@ -888,6 +890,12 @@ setAssignedTherapistId(fallbackTherapistId);
             terminISO: "",
             terminDisplay: "",
           }));
+          return;
+        }
+
+        if (n === 8) {
+          // Neue Coach-Auswahl nach Resume: fehlende Zeitpräferenz zuerst erfassen.
+          setStep(hasTimePreference(structuredTimePreference) ? 8 : 7);
           return;
         }
 
@@ -914,16 +922,19 @@ useEffect(() => {
   const resume = params.get("resume");
   if (!resume) return;
 
-  let targetStep = null;
   const n = parseInt(resume, 10);
+  const isCoachSelectionResume =
+    resume === "admin" || n === 5 || n === 8;
 
-  if (!Number.isNaN(n)) {
-    if (n === 5) targetStep = 8;
-    else if (n === 10) targetStep = 10;
-    else targetStep = n;
-  } else if (resume === "admin") {
-    targetStep = 8;
-  }
+  // Mit Anfrage-ID entscheidet ausschließlich die Resume-Datenladung oben,
+  // ob Step 7 (Zeitpräferenz fehlt) oder Step 8 (vorhanden) gezeigt wird.
+  if (isCoachSelectionResume && anfrageId) return;
+
+  const targetStep = resolveResumeStep({
+    resume,
+    hasAnfrageId: Boolean(anfrageId),
+    timePreference: null,
+  });
 
   if (targetStep === null) return;
 
@@ -931,7 +942,7 @@ useEffect(() => {
   setStep(targetStep);
 
   // ❌ URL HIER NICHT mehr aufräumen
-}, []);
+}, [anfrageId]);
 
   // -------------------------------------
 // -------------------------------------

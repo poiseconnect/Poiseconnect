@@ -24,6 +24,17 @@ const PREFERENCE_WINDOWS = {
 };
 
 const TIME_PATTERN = /^([01]\d|2[0-3]):([0-5]\d)$/;
+const CALENDAR_MODES = new Set(["booking", "proposal", "ics"]);
+
+export function resolveCalendarMode(profileMode, legacyMode) {
+  const normalizedProfileMode = String(profileMode || "").trim().toLowerCase();
+  if (CALENDAR_MODES.has(normalizedProfileMode)) return normalizedProfileMode;
+
+  const normalizedLegacyMode = String(legacyMode || "").trim().toLowerCase();
+  if (CALENDAR_MODES.has(normalizedLegacyMode)) return normalizedLegacyMode;
+
+  return "proposal";
+}
 
 function isValidTime(value) {
   return typeof value === "string" && TIME_PATTERN.test(value.trim());
@@ -38,6 +49,32 @@ function timeToMinutes(value) {
 export function sanitizeTimePreference(value) {
   if (!Array.isArray(value)) return [];
   return [...new Set(value.filter((v) => TIME_PREFERENCE_KEYS.includes(v)))];
+}
+
+export function hasTimePreference(value) {
+  return sanitizeTimePreference(value).length > 0;
+}
+
+// Bestimmt den Ziel-Step für einen Resume-Link, ohne bestehende Step-Nummern
+// zu verschieben. Coach-Auswahl-Resumes (admin/5/8) fragen die grobe
+// Zeitpräferenz zuerst ab (Step 7), wenn sie noch fehlt und keine Anfrage
+// geladen werden kann bzw. die geladene Anfrage keine Präferenz besitzt.
+// Bereits vorhandene Präferenz wird nicht erneut abgefragt.
+export function resolveResumeStep({ resume, hasAnfrageId, timePreference } = {}) {
+  if (!resume) return null;
+
+  const n = Number.parseInt(resume, 10);
+  const isCoachSelectionResume = resume === "admin" || n === 5 || n === 8;
+
+  if (isCoachSelectionResume) {
+    if (!hasAnfrageId) return 7;
+    return hasTimePreference(timePreference) ? 8 : 7;
+  }
+
+  if (n === 10) return 10;
+  if (!Number.isNaN(n)) return n;
+
+  return null;
 }
 
 export function formatTimePreference(value) {

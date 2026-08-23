@@ -3,6 +3,7 @@ export const revalidate = 0;
 
 import { createClient } from "@supabase/supabase-js";
 import { teamData } from "../../lib/teamData";
+import { resolveCalendarMode } from "../../lib/proposalTimePreference";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -133,11 +134,10 @@ export async function GET() {
         ? bookingSettingsById.get(String(dbMember.id).trim())
         : null;
 
-      const calendarMode =
-        coachBookingSettings?.booking_enabled === true &&
-        Boolean(coachBookingSettings.selected_calendar_id)
-          ? "booking"
-          : "proposal";
+      const calendarMode = resolveCalendarMode(
+        dbMember?.profile_calendar_mode,
+        teamMember.calendar_mode
+      );
 
       console.log("PUBLIC TEAM MEMBER MERGE", {
         teamDataName: teamMember.name,

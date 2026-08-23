@@ -3,8 +3,37 @@ import {
   clearCoachDependentFormFields,
   formatTimePreference,
   getProposalConstraintLabel,
+  hasTimePreference,
   mayConflictWithPreference,
+  resolveCalendarMode,
+  resolveResumeStep,
 } from "../../app/lib/proposalTimePreference.js";
+
+describe("resolveCalendarMode", () => {
+  it("profil proposal bleibt proposal trotz aktivierter Booking-Settings", () => {
+    expect(resolveCalendarMode("proposal", "booking")).toBe("proposal");
+  });
+
+  it("profil booking ergibt booking", () => {
+    expect(resolveCalendarMode("booking", "proposal")).toBe("booking");
+  });
+
+  it("profil ics ergibt ics", () => {
+    expect(resolveCalendarMode("ics", "booking")).toBe("ics");
+  });
+
+  it("fehlender Profilmodus nutzt den statischen Legacy-Modus", () => {
+    expect(resolveCalendarMode(null, "booking")).toBe("booking");
+  });
+
+  it("fehlende Modi fallen auf proposal zurück", () => {
+    expect(resolveCalendarMode(null, null)).toBe("proposal");
+  });
+
+  it("ungültiger Profilmodus nutzt den gültigen Legacy-Modus", () => {
+    expect(resolveCalendarMode("unknown", "ics")).toBe("ics");
+  });
+});
 
 describe("formatTimePreference", () => {
   it("leere Auswahl -> kein Text", () => {
@@ -148,5 +177,86 @@ describe("clearCoachDependentFormFields", () => {
     expect(result.terminISO).toBe("");
     expect(result.terminDisplay).toBe("");
     expect(result.preferred_times).toBe("");
+  });
+});
+
+describe("hasTimePreference", () => {
+  it("leeres Array -> false", () => {
+    expect(hasTimePreference([])).toBe(false);
+  });
+
+  it("null/undefined -> false (alte Anfragen)", () => {
+    expect(hasTimePreference(null)).toBe(false);
+    expect(hasTimePreference(undefined)).toBe(false);
+  });
+
+  it("gültiger Wert -> true", () => {
+    expect(hasTimePreference(["abends"])).toBe(true);
+  });
+});
+
+describe("resolveResumeStep", () => {
+  it("kein resume-Parameter -> kein Zielstep", () => {
+    expect(
+      resolveResumeStep({ resume: null, hasAnfrageId: true, timePreference: [] })
+    ).toBeNull();
+  });
+
+  it("Resume zur Coach-Auswahl (n=8) ohne structured_time_preference -> Step 7 zuerst", () => {
+    expect(
+      resolveResumeStep({
+        resume: "8",
+        hasAnfrageId: true,
+        timePreference: [],
+      })
+    ).toBe(7);
+  });
+
+  it("Resume zur Coach-Auswahl (n=8) mit vorhandener Präferenz -> keine erneute Abfrage", () => {
+    expect(
+      resolveResumeStep({
+        resume: "8",
+        hasAnfrageId: true,
+        timePreference: ["vormittags"],
+      })
+    ).toBe(8);
+  });
+
+  it("resume=admin ohne Präferenz -> Step 7", () => {
+    expect(
+      resolveResumeStep({ resume: "admin", hasAnfrageId: true, timePreference: [] })
+    ).toBe(7);
+  });
+
+  it("resume=admin mit Präferenz -> Step 8", () => {
+    expect(
+      resolveResumeStep({
+        resume: "admin",
+        hasAnfrageId: true,
+        timePreference: ["abends"],
+      })
+    ).toBe(8);
+  });
+
+  it("resume=5 ohne Anfrage-ID -> Step 7 (keine Präferenz ladbar)", () => {
+    expect(
+      resolveResumeStep({
+        resume: "5",
+        hasAnfrageId: false,
+        timePreference: ["abends"],
+      })
+    ).toBe(7);
+  });
+
+  it("Resume ohne Coach-Auswahl (n=10) -> keine unnötige Verfügbarkeitsabfrage", () => {
+    expect(
+      resolveResumeStep({ resume: "10", hasAnfrageId: true, timePreference: [] })
+    ).toBe(10);
+  });
+
+  it("sonstiger numerischer Resume-Wert bleibt unverändert", () => {
+    expect(
+      resolveResumeStep({ resume: "3", hasAnfrageId: true, timePreference: [] })
+    ).toBe(3);
   });
 });
