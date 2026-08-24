@@ -1,5 +1,7 @@
 // app/lib/matchTeamMembers.js
 
+import { getQualificationBonus } from "./qualificationBonus";
+
 export function matchTeamMembers(anliegenText = "", team = []) {
   const text = anliegenText.toLowerCase().trim();
 
@@ -26,16 +28,13 @@ export function matchTeamMembers(anliegenText = "", team = []) {
         });
       }
 
-      // 3️⃣ QUALIFIKATION (sanfter Bonus)
-      if (typeof member.qualificationLevel === "number") {
-        score += member.qualificationLevel * 0.5;
-      }
+      // 3️⃣ QUALIFIKATION (sanfter Bonus, explizites Mapping mit fachlicher Richtung)
+      score += getQualificationBonus(member.qualificationLevel);
 
       return {
         ...member,
-        matchScore: score,   // 🔑 bewusst umbenannt (kein _private Feld)
+        matchScore: score,
       };
     })
-    // 🔥 WICHTIG: NICHT filtern – ALLE bleiben drin
     .sort((a, b) => b.matchScore - a.matchScore);
 }

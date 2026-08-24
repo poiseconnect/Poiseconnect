@@ -6,6 +6,7 @@ import Image from "next/image";
 
 import StepIndicator from "./components/StepIndicator";
 import TeamCarousel from "./components/TeamCarousel";
+import { getQualificationBonus } from "./lib/qualificationBonus";
 import { teamData } from "./lib/teamData";
 import {
   TIME_PREFERENCE_OPTIONS,
@@ -624,35 +625,35 @@ const matchedTeam = useMemo(() => {
   }
 
   return baseTeam
- .map((m) => {
-      let score = 0;
+    .map((m) => {
+      let themeScore = 0;
+      let roleBonus = 0;
 
       const dbScores = dbMatchingScores[String(m.id)] || {};
       const fallbackScores = m.scores || {};
 
       form.themen.forEach((t) => {
-        const basisScore =
-          dbScores[t] ?? fallbackScores[t] ?? 0;
-
-        score += Number(basisScore) || 0;
+        const basisScore = dbScores[t] ?? fallbackScores[t] ?? 0;
+        themeScore += Number(basisScore) || 0;
 
         const ausbildung = ROLE_TO_AUSBILDUNG(m.role);
-        score += AUSBILDUNGS_BONUS?.[ausbildung]?.[t] ?? 0;
+        roleBonus += AUSBILDUNGS_BONUS?.[ausbildung]?.[t] ?? 0;
       });
 
-      const q = m.qualificationLevel ?? 0;
-      score += q * 0.5;
+      const qualificationBonus = getQualificationBonus(m.qualificationLevel);
+      const finalScore = themeScore + roleBonus + qualificationBonus;
 
       return {
         ...m,
-        _score: score,
+        _themeScore: themeScore,
+        _roleBonus: roleBonus,
+        _qualificationBonus: qualificationBonus,
+        _score: finalScore,
       };
     })
     .filter((m) => {
-      // Wenn Themen ausgewählt wurden:
-      // nur Coaches mit Score > 0 anzeigen
       if (form.themen.length > 0) {
-        return m._score > 0;
+        return m._themeScore > 0;
       }
 
       return true;
