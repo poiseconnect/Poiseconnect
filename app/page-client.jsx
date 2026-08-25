@@ -6,7 +6,7 @@ import Image from "next/image";
 
 import StepIndicator from "./components/StepIndicator";
 import TeamCarousel from "./components/TeamCarousel";
-import { getQualificationBonus } from "./lib/qualificationBonus";
+import { getWeightedQualificationBonus } from "./lib/qualificationBonus";
 import { teamData } from "./lib/teamData";
 import {
   TIME_PREFERENCE_OPTIONS,
@@ -640,7 +640,11 @@ const matchedTeam = useMemo(() => {
         roleBonus += AUSBILDUNGS_BONUS?.[ausbildung]?.[t] ?? 0;
       });
 
-      const qualificationBonus = getQualificationBonus(m.qualificationLevel);
+      const qualificationBonus = getWeightedQualificationBonus({
+        qualificationLevel: m.qualificationLevel,
+        leidensdruck: form.leidensdruck,
+        diagnose: form.diagnose,
+      });
       const finalScore = themeScore + roleBonus + qualificationBonus;
 
       return {
@@ -661,6 +665,8 @@ const matchedTeam = useMemo(() => {
     .sort((a, b) => b._score - a._score);
 }, [
   form.themen,
+  form.leidensdruck,
+  form.diagnose,
   form.coaching_typ,
   dbMatchingScores,
   teamMembers,

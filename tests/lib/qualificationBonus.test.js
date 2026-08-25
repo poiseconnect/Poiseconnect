@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
 import {
   calculateThemeScore,
   getQualificationBonus,
+  getQualificationWeight,
+  getWeightedQualificationBonus,
   hasPositiveThemeMatch,
   calculateFinalCoachScore,
 } from "../../app/lib/qualificationBonus.js";
@@ -92,6 +95,114 @@ describe("theme scoring", () => {
     });
 
     expect(higherThemeMatch.finalScore).toBeGreaterThan(betterQualification.finalScore);
+  });
+});
+
+describe("severity-weighted qualification", () => {
+  it("verwendet die existierende Leidensdruck-Skala mit neutralem Fallback", () => {
+    expect(getQualificationWeight({ leidensdruck: "niedrig", diagnose: "nein" })).toBe(0.5);
+    expect(getQualificationWeight({ leidensdruck: "mittel", diagnose: "nein" })).toBe(1.0);
+    expect(getQualificationWeight({ leidensdruck: "hoch", diagnose: "nein" })).toBe(1.5);
+    expect(getQualificationWeight({ leidensdruck: "sehr hoch", diagnose: "nein" })).toBe(2.0);
+    expect(getQualificationWeight({ leidensdruck: null, diagnose: "nein" })).toBe(1.0);
+    expect(getQualificationWeight({ leidensdruck: undefined, diagnose: null })).toBe(1.0);
+  });
+
+  it("diagnose=ja erhöht den Qualification-Multiplikator zusätzlich", () => {
+    expect(getQualificationWeight({ leidensdruck: "niedrig", diagnose: "Ja" })).toBe(1.0);
+    expect(getQualificationWeight({ leidensdruck: "mittel", diagnose: "ja" })).toBe(1.5);
+    expect(getQualificationWeight({ leidensdruck: "hoch", diagnose: "Ja" })).toBe(2.0);
+    expect(getQualificationWeight({ leidensdruck: "sehr hoch", diagnose: "ja" })).toBe(2.5);
+    expect(getQualificationWeight({ leidensdruck: "mittel", diagnose: "nein" })).toBe(1.0);
+    expect(getQualificationWeight({ leidensdruck: "mittel", diagnose: null })).toBe(1.0);
+  });
+
+  it("weighted bonus bleibt auf der bestehenden Basis und darf keinen Themenlosen Match erzeugen", () => {
+    const lowSeverity = getWeightedQualificationBonus({
+      qualificationLevel: 1,
+      leidensdruck: "niedrig",
+      diagnose: "nein",
+    });
+    const highSeverity = getWeightedQualificationBonus({
+      qualificationLevel: 1,
+      leidensdruck: "sehr hoch",
+      diagnose: "ja",
+    });
+
+    expect(lowSeverity).toBe(1.0);
+    expect(highSeverity).toBe(5.0);
+    expect(highSeverity).toBeGreaterThan(lowSeverity);
+
+    const noThemeCoach = calculateFinalCoachScore({
+      selectedThemes: ["stress"],
+      themeScores: { angst: 0 },
+      roleBonus: 0,
+      qualificationLevel: 1,
+      leidensdruck: "sehr hoch",
+      diagnose: "ja",
+    });
+
+    expect(noThemeCoach.isVisible).toBe(false);
+  });
+
+  it("wendet die neuen Dependencies für Leidensdruck und Diagnose im aktiven useMemo an", () => {
+    const pageClientSource = readFileSync(
+      new URL("../../app/page-client.jsx", import.meta.url),
+      "utf8"
+    );
+
+    expect(pageClientSource).toMatch(
+      /form\.themen,\s*form\.leidensdruck,\s*form\.diagnose,/
+    );
+  });
+
+  it("behandelt leere und unbekannte Leidensdruckwerte neutral", () => {
+    expect(getQualificationWeight({ leidensdruck: "", diagnose: "nein" })).toBe(1.0);
+    expect(getQualificationWeight({ leidensdruck: "unbekannt", diagnose: "nein" })).toBe(1.0);
+  });
+
+  it("Themenpassung bleibt der Sichtbarkeitsfilter, auch wenn Qualification dynamisch steigt", () => {
+    const matchingCoach = calculateFinalCoachScore({
+      selectedThemes: ["stress"],
+      themeScores: { stress: 7 },
+      roleBonus: 0,
+      qualificationLevel: 5,
+      leidensdruck: "niedrig",
+      diagnose: "nein",
+    });
+    const severeCoach = calculateFinalCoachScore({
+      selectedThemes: ["stress"],
+      themeScores: { stress: 5 },
+      roleBonus: 0,
+      qualificationLevel: 1,
+      leidensdruck: "sehr hoch",
+      diagnose: "ja",
+    });
+
+    expect(matchingCoach.isVisible).toBe(true);
+    expect(severeCoach.isVisible).toBe(true);
+    expect(matchingCoach.themeScore).toBeGreaterThan(severeCoach.themeScore);
+  });
+
+  it("bei hohem Leidensdruck verschiebt sich der Ranking stärker zugunsten höherer Qualifikation", () => {
+    const mildCase = calculateFinalCoachScore({
+      selectedThemes: ["stress"],
+      themeScores: { stress: 5 },
+      roleBonus: 0,
+      qualificationLevel: 1,
+      leidensdruck: "mittel",
+      diagnose: "nein",
+    });
+    const severeCase = calculateFinalCoachScore({
+      selectedThemes: ["stress"],
+      themeScores: { stress: 5 },
+      roleBonus: 0,
+      qualificationLevel: 1,
+      leidensdruck: "sehr hoch",
+      diagnose: "ja",
+    });
+
+    expect(severeCase.finalScore).toBeGreaterThan(mildCase.finalScore);
   });
 });
 
