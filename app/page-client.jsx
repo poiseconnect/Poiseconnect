@@ -6,7 +6,9 @@ import Image from "next/image";
 
 import StepIndicator from "./components/StepIndicator";
 import TeamCarousel from "./components/TeamCarousel";
+import { mergeFormTeamMembers } from "./lib/formTeamMembers";
 import { getWeightedQualificationBonus } from "./lib/qualificationBonus";
+import { MATCHING_TOPICS } from "./lib/matchingTopics";
 import { teamData } from "./lib/teamData";
 import {
   TIME_PREFERENCE_OPTIONS,
@@ -46,86 +48,7 @@ const RED_FLAGS = [
   "borderline",
   "svv",
 ];
-const THEMEN = [
-  {
-    key: "partnerschaft_beziehung",
-    label: "Partnerschaft & Beziehung",
-    description:
-      "Trennung, Kinderwunsch, toxische Beziehungen, Konflikte, Freundschaften",
-  },
-  {
-    key: "beruf_ziele_orientierung",
-    label: "Beruf, Ziele & Orientierung",
-    description:
-      "Jobwechsel, Beförderung, Umzug, Orientierungslosigkeit",
-  },
-  {
-    key: "emotionales_essen",
-    label: "Emotionales Essen",
-    description:
-      "Fressanfälle, kontrolliertes Essen, Emotionsregulation",
-  },
-  {
-    key: "depressive_verstimmung",
-    label: "Depressive Verstimmung",
-    description:
-      "Erschöpfung, Antriebslosigkeit, Schlafstörungen, innere Leere",
-  },
-  {
-    key: "stress",
-    label: "Stress",
-    description:
-      "Schlafprobleme, körperliche Beschwerden, Gedankenkreisen",
-  },
-  {
-    key: "burnout",
-    label: "Burnout",
-    description:
-      "Überforderung, Leistungsabfall, Erschöpfung",
-  },
-  {
-    key: "selbstwert_selbstliebe",
-    label: "Selbstwert & Selbstliebe",
-    description:
-      "Selbstvertrauen, innere Kritiker, Gefühl nicht gut genug zu sein",
-  },
-  {
-    key: "angst_panik",
-    label: "Angst & Panikattacken",
-    description:
-      "Herzrasen, Atemnot, Prüfungsangst, Panik",
-  },
-  {
-    key: "krankheit_psychosomatik",
-    label: "Krankheit & Psychosomatik",
-    description:
-      "Umgang mit Diagnosen, Körper & Psyche stärken",
-  },
-  {
-    key: "angehoerige",
-    label: "Angehörige",
-    description:
-      "Grenzen setzen, Selbstfürsorge",
-  },
-  {
-    key: "sexualitaet",
-    label: "Sexualität",
-    description:
-      "Lustlosigkeit, Libido, Schmerzen, Orientierung",
-  },
-  {
-    key: "trauer",
-    label: "Trauer",
-    description:
-      "Verlust, Fehlgeburt, Abschied",
-  },
- {
-  key: "mutterschaft",
-  label: "Mutterschaft",
-  description:
-    "Kinderwunsch, Elternschaft, Mutterschaft, Geburtstrauma",
-},
-];
+const THEMEN = MATCHING_TOPICS;
 
 
 
@@ -495,37 +418,29 @@ const [selectedDay, setSelectedDay] = useState(null);
 const [blockedOldTerminISO, setBlockedOldTerminISO] = useState("");
   const [bookingWindowDays, setBookingWindowDays] = useState(21);
 const [dbMatchingScores, setDbMatchingScores] = useState({});
- useEffect(() => {
+useEffect(() => {
   let isMounted = true;
 
-  async function loadPublicTeamMembers() {
+  async function loadFormTeamMembers() {
     try {
-const res = await fetch(
-  `/api/public-team-members?t=${Date.now()}`,
-  {
-    cache: "no-store",
-    headers: {
-      "Cache-Control": "no-cache",
-    },
-  }
-);
-
+      const res = await fetch("/api/form-team-members", {
+        cache: "no-store",
+      });
       const json = await res.json();
 
-      if (!res.ok) {
-        console.error("PUBLIC TEAM MEMBERS LOAD ERROR:", json);
+      if (!res.ok || !Array.isArray(json.members)) {
         return;
       }
 
-      if (isMounted && Array.isArray(json.members)) {
-        setTeamMembers(json.members);
+      if (isMounted) {
+        setTeamMembers(mergeFormTeamMembers(teamData, json.members));
       }
-    } catch (err) {
-      console.error("PUBLIC TEAM MEMBERS LOAD ERROR:", err);
+    } catch (error) {
+      console.error("FORM TEAM MEMBERS LOAD ERROR:", error);
     }
   }
 
-  loadPublicTeamMembers();
+  loadFormTeamMembers();
 
   return () => {
     isMounted = false;

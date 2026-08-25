@@ -3,7 +3,7 @@ export const revalidate = 0;
 
 import { createClient } from "@supabase/supabase-js";
 import { teamData } from "../../lib/teamData";
-import { resolveCalendarMode } from "../../lib/proposalTimePreference";
+import { toPublicCoachMember } from "../../lib/publicCoachDirectory";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -18,21 +18,6 @@ const supabase = createClient(
 
 function normalize(value) {
   return String(value || "").trim().toLowerCase();
-}
-
-function normalizePrice(value, fallback = null) {
-  if (value === null || value === undefined || value === "") {
-    return fallback;
-  }
-
-  const normalized =
-    typeof value === "string"
-      ? value.replace(",", ".").trim()
-      : value;
-
-  const number = Number(normalized);
-
-  return Number.isFinite(number) ? number : fallback;
 }
 
 function json(data, status = 200) {
@@ -53,20 +38,15 @@ export async function GET() {
   .from("team_members")
   .select(`
     id,
-    email,
+    active,
+    available_for_intake,
     profile_name,
     profile_role,
-    profile_calendar_mode,
     profile_short,
-    profile_keywords,
-    profile_preis_std,
-    profile_preis_ermaessigt,
-    paarcoaching,
-    paarcoaching_preis,
-    paarcoaching_dauer_min,
-    proposal_earliest_time,
-    proposal_latest_time
-  `);
+    matching_scores
+  `)
+  .eq("active", true)
+  .eq("available_for_intake", true);
     
     if (error) {
       console.error("PUBLIC TEAM MEMBERS ERROR:", error);
@@ -75,36 +55,10 @@ export async function GET() {
 
     const dbMembers = members || [];
 
-    const { data: bookingSettings, error: bookingSettingsError } =
-      await supabase
-        .from("therapist_booking_settings")
-        .select("therapist_id, booking_enabled, selected_calendar_id");
-
-    if (bookingSettingsError) {
-      console.error(
-        "PUBLIC TEAM MEMBERS BOOKING SETTINGS ERROR:",
-        bookingSettingsError
-      );
-      return json({ error: bookingSettingsError.message }, 500);
-    }
-
-    const bookingSettingsById = new Map(
-      (bookingSettings || []).map((settings) => [
-        String(settings.therapist_id).trim(),
-        settings,
-      ])
-    );
-
     const dbById = new Map(
       dbMembers
         .filter((member) => member.id != null)
         .map((member) => [String(member.id).trim(), member])
-    );
-
-    const dbByEmail = new Map(
-      dbMembers
-        .filter((member) => member.email)
-        .map((member) => [normalize(member.email), member])
     );
 
     const dbByName = new Map(
@@ -116,98 +70,11 @@ export async function GET() {
     const merged = teamData.map((teamMember) => {
       const dbMember =
         dbById.get(String(teamMember.id || "").trim()) ||
-        dbByEmail.get(normalize(teamMember.email)) ||
         dbByName.get(normalize(teamMember.name)) ||
         null;
 
-      const preisStd = normalizePrice(
-        dbMember?.profile_preis_std,
-        teamMember.preis_std ?? null
-      );
-
-      const preisErmaessigt = normalizePrice(
-        dbMember?.profile_preis_ermaessigt,
-        teamMember.preis_ermaessigt ?? null
-      );
-
-      const coachBookingSettings = dbMember?.id
-        ? bookingSettingsById.get(String(dbMember.id).trim())
-        : null;
-
-      const calendarMode = resolveCalendarMode(
-        dbMember?.profile_calendar_mode,
-        teamMember.calendar_mode
-      );
-
-      console.log("PUBLIC TEAM MEMBER MERGE", {
-        teamDataName: teamMember.name,
-        teamDataId: teamMember.id,
-        teamDataEmail: teamMember.email,
-        dbFound: !!dbMember,
-        dbId: dbMember?.id,
-        dbEmail: dbMember?.email,
-        dbName: dbMember?.profile_name,
-        dbPreisStd: dbMember?.profile_preis_std,
-        dbPreisErmaessigt: dbMember?.profile_preis_ermaessigt,
-        returnedPreisStd: preisStd,
-        returnedPreisErmaessigt: preisErmaessigt,
-      });
-
-      return {
-        ...teamMember,
-
-        id: dbMember?.id ?? teamMember.id,
-        email: dbMember?.email ?? teamMember.email,
-
-        name:
-          dbMember?.profile_name?.trim() ||
-          teamMember.name,
-
-        role:
-          dbMember?.profile_role?.trim() ||
-          teamMember.role,
-
-        calendar_mode: calendarMode,
-
-        short:
-          dbMember?.profile_short?.trim() ||
-          teamMember.short,
-
-        keywords:
-          Array.isArray(dbMember?.profile_keywords)
-            ? dbMember.profile_keywords
-            : teamMember.keywords || [],
-
-        tags:
-          Array.isArray(dbMember?.profile_keywords)
-            ? dbMember.profile_keywords
-            : teamMember.tags || teamMember.keywords || [],
-
-preis_std: preisStd,
-
-preis_ermaessigt: preisErmaessigt,
-
-paarcoaching: dbMember?.paarcoaching ?? false,
-
-paarcoaching_preis: normalizePrice(
-  dbMember?.paarcoaching_preis,
-  null
-),
-
-paarcoaching_dauer_min:
-  dbMember?.paarcoaching_dauer_min != null
-    ? Number(dbMember.paarcoaching_dauer_min)
-    : null,
-
-booking_window_days:
-  teamMember.booking_window_days ?? 90,
-
-// Nur ein optionaler Proposal-Zeitrahmen (Version 1), keine Booking-Slots.
-proposal_earliest_time: dbMember?.proposal_earliest_time || null,
-proposal_latest_time: dbMember?.proposal_latest_time || null,
-        
-      };
-    });
+      return toPublicCoachMember(teamMember, dbMember);
+    }).filter(Boolean);
 
     return json({ members: merged });
   } catch (err) {
