@@ -131,6 +131,44 @@ Wichtige Statuswerte:
 Vor Statusänderungen prüfen, in welchen Tabs die Anfrage anschließend
 sichtbar oder unsichtbar wird.
 
+## Teamdaten und Public APIs
+
+- `teamData` ist ein statischer Fallback- und Matchingbestand, aber nicht die
+	alleinige Source of Truth für laufende Coach-Profile oder Betriebsdaten.
+- Dashboard-Änderungen in `team_members` und `therapist_booking_settings`
+	werden dynamisch gelesen und erzeugen keinen Git-Commit.
+- `/api/public-team-members` ist ausschließlich der whitelisted
+	WordPress-Websitevertrag. Niemals dort `qualificationLevel`, numerische
+	Scores, `matching_scores`, E-Mail, ICS, Calendar Mode, Booking-/Proposal-
+	Daten, Preise, Sessions oder Rechnungsdaten ergänzen.
+- Das Anfrageformular verwendet `/api/public-team-members` nicht. Es kombiniert
+	`teamData`, `/api/form-team-members` und `/api/public-availability`.
+- `available_for_intake` bedeutet neue Klient:innen annehmen. Es darf weder aus
+	Calendar Mode noch aus konkreten freien Slots abgeleitet werden.
+- `profile_role` ist die berufliche Profilbeschreibung; `team_members.role`
+	kann eine Systemrolle für Autorisierung sein. Diese Bedeutungen nicht
+	vermischen.
+- `app/lib/matchingTopics.js` ist die gemeinsame Themenquelle. Keine weitere
+	Themenliste für Formular oder Website einführen.
+- `qualificationLevel` ist internes Ranking und niemals ein Public-Filter oder
+	Public-Feld.
+- Matching Phase 1/2 nur über die zentralen Helper ändern. Keine parallele
+	lokale Qualification- oder Leidensdrucklogik ergänzen.
+- Bestehende historische Admin-Auswahlen nicht durch Regeln für neue
+	Vermittlungen entfernen.
+
+## WordPress-Grenze
+
+- `mypoise.de` ist die öffentliche WordPress-/Elementor-Seite; `app.mypoise.de`
+	ist Poise Connect.
+- Keine zweite produktive Next.js-Teamseite erstellen.
+- Das spätere WordPress-Plugin nutzt serverseitiges `wp_remote_get()` auf die
+	Public-Team-API. Keine CORS-Freigabe nur für diesen Server-zu-Server-Request
+	hinzufügen.
+- WordPress bleibt führend für Coach-Detailseiten. Die spätere Zuordnung erfolgt
+	über WordPress Post Meta `poise_coach_id`; keine Name-zu-Slug-Heuristik oder
+	URL-Duplikation in Poise Connect einführen.
+
 ## Zeitzonenregel
 
 - In der Datenbank UTC speichern.

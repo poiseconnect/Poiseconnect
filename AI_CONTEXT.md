@@ -172,6 +172,40 @@ Bei einer Terminänderung:
 - Google-Kalenderdaten sind nicht die führende Abrechnungsquelle.
 - `blocked_slots` ist ausschließlich für Verfügbarkeiten und Kollisionsschutz zuständig.
 
+## Öffentliche Website und Teamdaten
+
+Die öffentliche Website `mypoise.de` läuft auf WordPress/Elementor bei
+Raidboxes. `app.mypoise.de` ist die Next.js-Poise-Connect-App. Es gibt keine
+produktive Next.js-Teamseite; ein späteres WordPress-Plugin rendert das
+Teamverzeichnis serverseitig aus `/api/public-team-members`.
+
+`/api/public-team-members` ist ein strikt whitelisted Website-Vertrag. Er gibt
+nur ID, Name, Profilrolle, normalisierte Ausbildungskategorien, Kurzprofil,
+Bild, Video, abgeleitete Topic-Keys und eine absolute Anfrage-URL aus. Er darf
+keine Qualification-, Score-, Kalender-, Booking-, Preis-, Kontakt- oder
+Abrechnungsdaten ausgeben.
+
+Das Anfrageformular nutzt diesen Public-Vertrag nicht. Es kombiniert
+`teamData`, `/api/form-team-members` für dynamische Profil-Overrides und
+`/api/public-availability` für Intake-/Score-/Bookingdaten. `teamData` ist
+daher kein alleiniger Source of Truth: Dashboard-Änderungen in Supabase müssen
+respektiert werden.
+
+`available_for_intake` beantwortet ausschließlich, ob neue Klient:innen
+angenommen werden. Calendar Mode und konkrete freie Kalenderzeiten sind davon
+getrennte Konzepte.
+
+## Matching
+
+`app/lib/matchingTopics.js` ist die gemeinsame Themenquelle für Anfrageformular
+und Public Directory. Positive Scores bedeuten Themenpassung; im Websitevertrag
+werden nur die Topic-Keys, niemals numerische Scores ausgegeben.
+
+`qualificationLevel` ist ausschließlich ein internes Rankingsignal. Level 1
+erhält den Basisbonus 2.0, Level 5 den Bonus 0. Die dynamische Gewichtung hängt
+von Leidensdruck und Diagnose ab, darf aber nie einen Coach ohne positiven
+Themenmatch sichtbar machen.
+
 ## Sicherheitsregel für KI
 
 KI-Zugriffe beginnen ausschließlich lesend.
