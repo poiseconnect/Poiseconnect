@@ -206,6 +206,23 @@ erhält den Basisbonus 2.0, Level 5 den Bonus 0. Die dynamische Gewichtung häng
 von Leidensdruck und Diagnose ab, darf aber nie einen Coach ohne positiven
 Themenmatch sichtbar machen.
 
+## Zukunftskonzept: Coach Knowledge Base
+
+Die geplante Coach Knowledge Base („Vorstellungsgespräch 2.0“) ist noch nicht
+implementiert. Sie soll künftig ausdrücklich vom Coach bestätigte,
+themenspezifische Informationen zu Arbeitsweise, Haltung, Methoden, Übungen,
+Passung und Grenzen ergänzen. Der geplante Ablauf ist Interview oder
+Sprachnachricht, Transkript, KI-Strukturierung, Coach-Prüfung und ausdrückliche
+Freigabe. Rohmaterial darf nicht direkt für Website oder Matching verwendet
+werden.
+
+Öffentliche themenspezifische Beschreibungen und interne Matching-Informationen
+müssen getrennt bleiben. Das bestehende deterministische Matching bleibt der
+fachliche Rahmen; eine spätere KI-Ebene darf nur freigegebene Inhalte zur
+qualitativen Differenzierung verwenden und keine Kompetenzen oder Eignungen
+erfinden. Keine API, Migration oder Änderung am aktuellen Matching aus diesem
+Konzept ableiten.
+
 ## Sicherheitsregel für KI
 
 KI-Zugriffe beginnen ausschließlich lesend.
