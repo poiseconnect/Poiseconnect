@@ -123,6 +123,15 @@ export function derivePublicTopics(scores = {}) {
   });
 }
 
+export function derivePublicTopicRelevance(scores = {}) {
+  return Object.fromEntries(
+    MATCHING_TOPIC_KEYS.flatMap((topicKey) => {
+      const value = Number(scores?.[topicKey] ?? 0);
+      return Number.isFinite(value) && value > 0 ? [[topicKey, value]] : [];
+    })
+  );
+}
+
 function chooseScores(dbMember, teamMember) {
   const dbScores = dbMember?.matching_scores;
 
@@ -153,7 +162,8 @@ export function toPublicCoachMember(teamMember = {}, dbMember = {}) {
   }
 
   const id = dbMember?.id ?? teamMember.id ?? name;
-  const topics = derivePublicTopics(chooseScores(dbMember, teamMember));
+  const scores = chooseScores(dbMember, teamMember);
+  const topics = derivePublicTopics(scores);
 
   return {
     id,
@@ -164,6 +174,7 @@ export function toPublicCoachMember(teamMember = {}, dbMember = {}) {
     image: teamMember.image || "",
     video: teamMember.video || "",
     topics,
+    topicRelevance: derivePublicTopicRelevance(scores),
     requestUrl: buildRequestUrl(name),
   };
 }

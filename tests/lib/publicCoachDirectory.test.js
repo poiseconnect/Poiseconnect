@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import {
   derivePublicTopics,
+  derivePublicTopicRelevance,
   filterPublicCoaches,
   isPubliclyVisibleCoach,
   normalizeEducationRole,
@@ -111,6 +112,12 @@ describe("public topic derivation", () => {
   it("höhere Themen-Scores bleiben positive Passung ohne Invertierung", () => {
     expect(derivePublicTopics({ stress: 5 })).toEqual(["stress"]);
   });
+
+  it("gibt nur positive zentrale Themenwerte als Relevanz aus", () => {
+    expect(
+      derivePublicTopicRelevance({ stress: 5, burnout: 0, unbekannt: 9 })
+    ).toEqual({ stress: 5 });
+  });
 });
 
 describe("public coach filtering", () => {
@@ -204,6 +211,7 @@ describe("public API serialization", () => {
       image: "https://example.invalid/coach.jpg",
       video: "https://youtu.be/example",
       topics: ["stress"],
+      topicRelevance: { stress: 4 },
       requestUrl: "https://app.mypoise.de/?therapist=Coach+One",
     });
 
@@ -215,6 +223,24 @@ describe("public API serialization", () => {
     expect(publicMember).not.toHaveProperty("scores");
     expect(publicMember).not.toHaveProperty("matching_scores");
     expect(publicMember).not.toHaveProperty("calendar_mode");
+  });
+
+  it("verwendet für topicRelevance die DB-Scores vor dem teamData-Fallback", () => {
+    const publicMember = toPublicCoachMember(
+      teamMember({ scores: { stress: 1, burnout: 5 } }),
+      dbMember({ matching_scores: { stress: 4, burnout: 0 } })
+    );
+
+    expect(publicMember.topicRelevance).toEqual({ stress: 4 });
+  });
+
+  it("verwendet teamData-Scores, wenn keine DB-Scores vorhanden sind", () => {
+    const publicMember = toPublicCoachMember(
+      teamMember({ scores: { stress: 3, burnout: 0 } }),
+      dbMember({ matching_scores: {} })
+    );
+
+    expect(publicMember.topicRelevance).toEqual({ stress: 3 });
   });
 
   it("erzeugt eine sichere absolute Anfrage-URL für Namen mit Sonderzeichen", () => {

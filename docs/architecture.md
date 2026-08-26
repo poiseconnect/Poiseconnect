@@ -169,7 +169,8 @@ Testprofil-Erkennung aus `publicCoachDirectory` an.
 Der Response ist explizit auf folgende Felder begrenzt:
 
 ```text
-id, name, role, educationCategories, short, image, video, topics, requestUrl
+id, name, role, educationCategories, short, image, video, topics,
+topicRelevance, requestUrl
 ```
 
 `requestUrl` ist eine absolute URL zu `https://app.mypoise.de/` mit der
@@ -177,6 +178,14 @@ bestehenden `therapist`-Query-Vorauswahl. Nicht ausgegeben werden
 `qualificationLevel`, numerische Scores, `matching_scores`, E-Mail, ICS,
 Calendar Mode, Booking-/Proposal-Daten, Preise, Sessions, Rechnungen oder
 interne Statusdaten.
+
+`topicRelevance` ist eine reduzierte öffentliche Ableitung der positiven
+Themenwerte. Sie verwendet ausschließlich gültige Keys aus
+`app/lib/matchingTopics.js`, bevorzugt `team_members.matching_scores` und fällt
+auf `teamData.scores` zurück. Das Feld dient ausschließlich dem sanften
+öffentlichen Themenranking; es enthält keine Qualification-, Diagnose-,
+Leidensdruck- oder Gesamtscores und wird nicht als Qualitätsrangliste
+dargestellt.
 
 ### Formularverträge
 
