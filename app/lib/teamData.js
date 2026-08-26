@@ -1053,7 +1053,7 @@ scores: {
   image: "https://mypoise.de/wp-content/uploads/2023/05/Bildschirmfoto-2023-05-09-um-09.56.38.png",
   video: "https://youtu.be/G5bZTo-cHI4?si=hozvsunESg9495iQ",
   email: "vivienne@matev.at",
-  short: "ich bin Vivienne, Psychologin und systemischer Coach.",
+  short: "Ich unterstütze dich dabei, dich selbst und deine Denk- und Verhaltensmuster besser zu verstehen und daraus konkrete Veränderungen entstehen zu lassen. Dabei arbeite ich als Psychologin wissenschaftlich fundiert, strukturiert und lösungsorientiert. Besonders wichtig sind mir eine vertrauensvolle Beziehung, Empathie und auch eine gute Portion Humor..",
   themes: {},
   keywords: [],
   preis_std: null,
