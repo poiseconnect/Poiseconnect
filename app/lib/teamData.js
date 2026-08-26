@@ -1038,7 +1038,7 @@ scores: {
   image: "https://mypoise.de/wp-content/uploads/2023/05/Bildschirmfoto-2023-05-09-um-09.56.38.png",
   video: "https://youtu.be/G5bZTo-cHI4?si=hozvsunESg9495iQ",
   email: "vivienne@matev.at",
-  short: "Interner Test-Therapeut für Dashboard-Tests.",
+  short: "ich bin Vivienne, Psychologin und systemischer Coach.",
   themes: {},
   keywords: [],
   preis_std: null,
