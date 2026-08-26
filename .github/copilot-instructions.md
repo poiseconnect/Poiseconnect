@@ -154,6 +154,9 @@ sichtbar oder unsichtbar wird.
 	Public-Feld.
 - Matching Phase 1/2 nur über die zentralen Helper ändern. Keine parallele
 	lokale Qualification- oder Leidensdrucklogik ergänzen.
+- Coach-Arbeitsweisen, Methoden, Kompetenzen, Passungen oder Grenzen niemals
+	aus KI ableiten oder erfinden. Für Website, Matching und Empfehlungen nur
+	ausdrücklich vom Coach bestätigte und freigegebene Inhalte verwenden.
 - Bestehende historische Admin-Auswahlen nicht durch Regeln für neue
 	Vermittlungen entfernen.
 

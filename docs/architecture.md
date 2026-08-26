@@ -247,6 +247,130 @@ null. Der maximale Qualification-Bonus ist daher `2.0 × 2.5 = 5.0`. Diese
 Gewichtung verändert nur das Ranking innerhalb geeigneter Coaches, nie das
 Themen-Gate.
 
+## Future Architecture – Coach Knowledge Base
+
+### Status und Zielbild
+
+Die Coach Knowledge Base, Arbeitstitel „Vorstellungsgespräch 2.0“, ist ein
+Produkt- und Architekturkonzept für eine spätere Ausbaustufe. Sie ist noch
+nicht implementiert und verändert die aktuelle Matching-Architektur nicht.
+
+Poise soll Coaches langfristig zusätzlich zu Themen-Scores,
+`qualificationLevel`, Leidensdruck, Diagnose und Verfügbarkeit über ausdrücklich
+bestätigte qualitative Informationen kennen: Arbeitsweise und Haltung je
+Themenfeld, Methoden und Übungen, typische Anliegen und besondere Passung
+sowie Grenzen und Kriterien für Weitervermittlung. Die fachliche Einheit soll
+Coach x Themenfeld sein; der allgemeine Coach-Kurztext (`short`) bleibt davon
+getrennt.
+
+### Erhebung und Freigabe
+
+Bevorzugt wird ein strukturiertes Coach-Interview mit Einwilligung zur Audio-
+oder Videoaufzeichnung. Der geplante Ablauf ist:
+
+```text
+Interview oder kurze Sprachnachricht
+	-> Transkript
+	-> KI strukturiert die Aussagen
+	-> Coach prüft und korrigiert
+	-> Coach gibt die Inhalte ausdrücklich frei
+	-> freigegebene strukturierte Knowledge Base
+```
+
+Spätere Aktualisierung, Korrektur und Rücknahme müssen möglich sein. Audio,
+Video und Transkript sind Rohmaterial und werden nicht ungefiltert für Website
+oder Matching verwendet. Eine KI-Zusammenfassung ist erst nach Prüfung und
+Freigabe fachlich nutzbar.
+
+### Öffentliche und interne Ebene
+
+Die Wissensbasis muss zwei klar getrennte Ebenen unterstützen:
+
+- **Öffentlich:** `public_topic_description` kann bei einem ausgewählten
+	Themenfilter auf der Website erscheinen.
+- **Intern:** Arbeitsweise, Methoden, Übungen, bevorzugte Fälle, Grenzen und
+	Weitervermittlungskriterien können später für interne qualitative
+	Matching-Unterstützung genutzt werden, ohne öffentlich angezeigt zu werden.
+
+Perspektivischer Website-Fallback:
+
+```text
+kein Themenfilter
+	-> allgemeiner short-Text
+
+Themenfilter ausgewählt und public_topic_description vorhanden
+	-> themenspezifische Beschreibung
+
+Themenfilter ausgewählt, aber keine public_topic_description vorhanden
+	-> Fallback auf allgemeinen short-Text
+```
+
+Die bestehende Public-API-Whitelist bleibt verbindlich. Interne
+Matching-Informationen, Rohmaterial, Scores und Freigabemetadaten dürfen nicht
+versehentlich in den Website-Vertrag gelangen.
+
+### Spätere Nutzung im Matching
+
+Das bestehende deterministische Matching bleibt der fachliche Rahmen. Die
+heutigen Signale werden weder ersetzt noch durch eine KI-Entscheidung
+überschrieben:
+
+```text
+freies Klientenanliegen
+	-> Themen und Bedürfnisse
+	-> bestehendes regelbasiertes Matching
+	+  freigegebene Coach Knowledge Base
+	-> qualitative Zusatzpassung und differenziertere Reihenfolge
+```
+
+Denkbare spätere Formen sind strukturierte Subkriterien pro Coach/Thema,
+manuell gepflegte Tags, Embeddings oder semantische Suche sowie ein
+LLM-gestützter Vergleich. Keine dieser Formen ist festgelegt oder
+implementiert. Die KI darf differenzieren, aber allein keine Eignung,
+Kompetenz oder Weitervermittlung ableiten.
+
+### Konzeptionelle Datenstruktur
+
+Noch ohne Festlegung und ohne Migration ist eine eigene Coach-x-Thema-Struktur
+vorzusehen, nicht nur ein einzelnes JSON-Feld:
+
+```text
+coach_topic_knowledge
+	coach_id
+	topic_key
+	public_description
+	approach
+	methods
+	exercises
+	preferred_cases
+	boundaries
+	approved_at
+	updated_at
+```
+
+Die konkrete Tabelle, Versionierung, Rollenfreigabe und Speicherung müssen in
+einem späteren, ausdrücklich freigegebenen Architektur- und Datenschutz-Task
+entschieden werden.
+
+### KI-Guardrails und Governance
+
+- KI darf keine Arbeitsweisen, Methoden, Kompetenzen, Passungen oder Grenzen
+	eines Coaches erfinden oder stillschweigend inferieren.
+- Für Website, Matching und Empfehlungen dürfen nur explizit vom Coach
+	bestätigte und freigegebene Inhalte verwendet werden.
+- Rohaufnahmen und Transkripte sind von der fachlichen Source of Truth zu
+	trennen.
+- Aufnahmen erfolgen nur mit Einwilligung.
+- Keine Klientendaten, Diagnosen oder Gesprächsnotizen in Coach-Profilen oder
+	Interviewmaterialien der Knowledge Base speichern.
+- Öffentliche und interne Informationen müssen technisch und organisatorisch
+	getrennt bleiben.
+- Freigegebene Inhalte müssen aktualisierbar und widerrufbar sein.
+
+Dieses Konzept ist **Future Architecture / Product Concept**. Es umfasst
+keine aktuelle API, keine Datenbankmigration, keine Änderung am Matching und
+keine Implementierung.
+
 ## Verfügbarkeit, Admin und Termine
 
 Folgende Konzepte sind strikt getrennt:
