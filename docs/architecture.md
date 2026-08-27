@@ -380,6 +380,269 @@ Dieses Konzept ist **Future Architecture / Product Concept**. Es umfasst
 keine aktuelle API, keine Datenbankmigration, keine Änderung am Matching und
 keine Implementierung.
 
+## Future Architecture – Poise Messaging V1 / Request Conversations
+
+### Status, Zweck und Umfang
+
+Poise Messaging V1 ist eine geplante Request-basierte Kommunikationsarchitektur.
+Sie ist nicht implementiert und darf bestehende Proposal-, Booking-, Kalender-,
+Safety- oder Abrechnungsabläufe nicht umgehen. Sie dient nur organisatorischer
+Kommunikation wie Terminfindung, Terminänderungen und kurzen Rückfragen; sie ist
+kein Therapiechat, Krisenkanal, Notfallsystem oder Klientenportal.
+
+Coach-Nachrichten werden im Dashboard verfasst, an die normale Mailbox der
+Klientin oder des Klienten versendet und dort beantwortet. Klient:innen benötigen
+keinen Poise-Login und keinen eigenen Chat.
+
+```text
+Coach Dashboard
+	-> Poise API -> request_messages -> E-Mail-Provider -> Klient:innen-Mailbox
+	<- Reply-Alias <- Inbound-Provider <- signierter Webhook <- Poise API
+	<- request_messages <- Coach Dashboard
+```
+
+### Bestehender Mailstand und Provider
+
+Resend ist heute ausschließlich für Outbound-E-Mails in Request-, Proposal-,
+Booking-, Reminder- und Coach-Benachrichtigungsrouten eingesetzt. Die From-
+Adresse ist überwiegend `Poise <noreply@mypoise.de>`; die bestehende persönliche
+Nachrichtenroute setzt Reply-To auf die Coach-Adresse und speichert keinen
+Verlauf. Es gibt aktuell keine Conversation-/Message-Tabellen, keine Inbound-
+Route, keinen Receiving-Webhook und keine Header-basierte Thread-Zuordnung.
+
+Resend bietet laut Provider-Dokumentation Inbound-Empfang für verifizierte
+Domains, Receiving-Webhooks und den Abruf von Text, HTML und Headers. Ob der
+bestehende Account und die Domainverwaltung dafür freigegeben sind, ist im
+Repository nicht verifizierbar. Das ist eine spätere Infrastrukturentscheidung,
+keine bestehende Projektfunktion.
+
+### Request als Einheit und Conversation-Erstellung
+
+Eine Conversation gehört zu `anfragen.id`, nicht nur zu einem Coach. Sie entsteht
+erst nach einer eindeutigen und serverseitig gespeicherten Coach-Zuordnung über
+`assigned_therapist_id`. Eine unverbindliche Liste in `admin_therapeuten` darf
+nie eine Conversation, Kontaktfreigabe oder Reply-Adresse erzeugen.
+
+Geeignete spätere Erzeugungspunkte sind der Abschluss eines eindeutig
+zugeordneten Formular-/Draft-Flows sowie die endgültige Zuweisung bei Proposal-
+Bestätigung oder Booking. Die konkrete Aktivierungsregel für Booking ist zu
+entscheiden: Empfehlung ist ab bestätigter Buchung, weil dort die Zuordnung und
+der organisatorische Bedarf eindeutig sind. Proposal-Messaging darf nach
+eindeutiger Zuordnung ergänzend nachfassen, bestätigt Termine aber weiterhin nur
+über den bestehenden Proposal-Flow.
+
+Bei Handover oder Coach-Wechsel ist keine automatische Verlaufsfreigabe zulässig.
+Zu entscheiden sind: neue Conversation, Zugriff ab Übergabe oder gezielte
+Admin-Freigabe des bisherigen Verlaufs. Empfehlung: standardmäßig neue
+Conversation oder Zugriff ab Übergabe, da der alte Verlauf sensible Inhalte
+enthalten kann.
+
+### Konzeptionelles Datenmodell
+
+Noch ohne Migration sind zwei getrennte Tabellen vorzusehen:
+
+```text
+request_conversations
+	id, request_id, therapist_id, client_email_snapshot
+	reply_token_hash, reply_alias, status, created_at, updated_at, closed_at
+
+request_messages
+	id, conversation_id, direction, sender_type
+	from_email, to_email, subject, body_text
+	provider_message_id, in_reply_to, created_at, read_at, delivery_status
+```
+
+`request_id` referenziert `anfragen.id`. Der Server bestimmt Empfängeradresse,
+zugehörigen Coach und Reply-Alias aus Conversation und Anfrage; der Client darf
+nie eine freie `to_email` übermitteln. Für Inbound-Deduplizierung ist eine
+eindeutige Provider-Message-ID erforderlich. Technische Audit-Ereignisse wie
+send, failed, inbound received und closed dürfen gespeichert werden, aber nie
+Nachrichtenkörper in Serverlogs.
+
+### Reply-Alias, Domain und Threading
+
+Jede Conversation benötigt einen nicht erratbaren Alias wie
+`r-<opaque-token>@reply.mypoise.de`. Der Token muss mit einem kryptografisch
+sicheren Zufallsgenerator erstellt werden, mindestens 128 Bit Entropie besitzen,
+nur gehasht gespeichert werden und bei Abschluss, Handover oder Missbrauch
+widerrufbar beziehungsweise rotierbar sein. Der lokale Teil darf keine
+vorhersagbare Anfrage-ID enthalten.
+
+`reply.mypoise.de` kann als getrennte Subdomain betrieben werden. Dafür sind
+Provider-spezifische Receiving-/MX-DNS-Einträge, Domainverifikation und ein
+signierter Receiving-Webhook erforderlich. SPF, DKIM und DMARC für den
+Outbound-Absender müssen getrennt geprüft werden; Auswirkungen auf bestehende
+Domainverwaltung, Checkdomain oder mailbox.org sind nicht aus dem Repository
+ableitbar und vor Umsetzung zu klären.
+
+Outbound-Nachrichten sollen Provider-Message-ID, `In-Reply-To`, `References` und
+einen stabilen Subject-Stamm verwenden, soweit Resend dies unterstützt. Das
+verbessert E-Mail-Threading, ersetzt aber nicht die Alias-/Token-Zuordnung.
+
+### Inbound, Datenschutz und Berechtigungen
+
+Der Webhook akzeptiert nur gültig signierte Provider-Events, prüft Replay-Schutz,
+dedupliziert per Event- und Provider-Message-ID, begrenzt Requests und verarbeitet
+idempotent. Der Alias ist nur ein Routinghinweis: Der erwartete Absender wird mit
+dem gespeicherten Client-E-Mail-Snapshot verglichen. Abweichende From-Adressen,
+Weiterleitungen oder Aliasse müssen in einen sicheren Prüfstatus fallen und
+dürfen nicht automatisch als Klientennachricht veröffentlicht werden.
+
+V1 speichert als Source den Plaintext-Body und rendert kein rohes HTML. Der
+vollständige Plaintext ist zunächst robuster als fehleranfälliges Entfernen
+zitierter Antworten; eine spätere Quoted-Reply-Heuristik darf nur eine Anzeige-
+Optimierung sein, nie Datenverlust verursachen. Anhänge werden in V1 weder
+gespeichert noch zugänglich gemacht; sie werden verworfen und gegebenenfalls als
+technischer Hinweis behandelt.
+
+RLS muss Coach-Zugriff auf Conversations und Messages strikt auf den aktuell
+berechtigten `therapist_id` begrenzen. Klient:innen erhalten keinen Datenbank-
+oder API-Zugriff. Inbound-Verarbeitung erfolgt serverseitig privilegiert,
+authentifiziert aber niemals über einen Client-Request. Admin-Sichtbarkeit ist
+offen: volle Einsicht, Metadaten mit Support-Eskalation oder kein Standardzugriff
+sind getrennt gegen Datenschutz und Supportbedarf zu entscheiden.
+
+Nachrichten können Gesundheitsdaten enthalten. Vor Umsetzung sind Zugriff,
+RLS, Backups, Retention, Export, Löschung und Support-Zugriff datenschutzrechtlich
+zu entscheiden. Mögliche Retention-Strategien sind Löschen, Anonymisieren oder
+befristete Aufbewahrung nach Abschluss; keine Frist wird hier festgelegt.
+
+### Dashboard, Zustellung und Umsetzung
+
+Der spätere Coach-Bereich gehört an eine berechtigte Anfrage in
+`DashboardFull.jsx`: chronologischer ruhiger Verlauf, Absender, Zeit, gelesen/
+ungelesen und Composer. Bei Inbound erhält der Coach eine bestehende
+E-Mail-Benachrichtigung mit minimalem sicherem Preview und Dashboard-Link.
+Unreads benötigen `read_at` und einen Count; mindestens Provider-Ablehnung oder
+Sendefehler muss sichtbar sein. Automatische Follow-ups und editierbare Templates
+sind spätere Komfortfunktionen, keine V1-Pflicht.
+
+Empfohlene Umsetzungsphasen nach Freigabe:
+
+1. Datenschutz-, Retention-, Handover- und Admin-Sichtbarkeitsentscheidung.
+2. Schema, RLS, serverseitige Conversation-Erstellung und Outbound mit
+	 Reply-Alias sowie Sendefehlerstatus.
+3. Receiving-Domain, DNS, signierter Inbound-Webhook und Idempotenz.
+4. Dashboard-Verlauf, Composer, Unread und Coach-Benachrichtigung.
+5. Delivery-Events, Support-Audit und optionale Follow-up-/Template-Funktionen.
+
+Dieses Konzept umfasst keine aktuelle Migration, API-Route, Resend-Konfiguration,
+DNS-Änderung, Webhook, UI oder Deployment. **ENTSCHEIDUNG ERFORDERLICH:**
+Handover-Sichtbarkeit, Admin-Einsicht, Retention, zulässige Aktivierungszeitpunkte
+und Infrastruktur-/Domainverantwortung.
+
+### Beschlossene V1-Leitplanken
+
+- **Admin-Zugriff:** Autorisierte Poise-Admins haben technisch vollständige
+	Inhaltseinsicht für Support, Qualitätssicherung, Vermittlungsabwicklung und
+	Problemklärung. Die normale Admin-UI zeigt zunächst Metadaten wie Coach,
+	Klient:in, Anzahl Nachrichten, letzte Aktivität und Ungelesenstatus; Inhalte
+	öffnen sich erst durch eine bewusste Aktion. Admin-Inhaltszugriffe sollen
+	später auditierbar werden.
+- **Proposal:** Messaging wird verfügbar, sobald `anfragen.assigned_therapist_id`
+	eindeutig und serverseitig gesetzt ist. In `/api/form-submit` wird dies beim
+	finalisierten Request gesetzt; bei `/api/confirm-proposal` wird es spätestens
+	zusammen mit `status = termin_bestaetigt` aus `appointment_proposals.therapist_id`
+	gesetzt. `admin_therapeuten` ist unverbindlich und niemals ein Trigger.
+- **Booking:** Messaging startet erst, wenn `/api/booking/book` die Anfrage mit
+	`assigned_therapist_id` auf `status = termin_bestaetigt` aktualisiert hat.
+- **Handover:** Der neue Coach erhält eine neue Conversation und niemals
+	automatisch den bisherigen Verlauf. Die alte Conversation wird geschlossen;
+	ihr Reply-Alias wird widerrufen. Antworten an einen widerrufenen Alias werden
+	nicht an den neuen Coach weitergereicht, sondern als geschlossener/reviewbarer
+	Inbound-Vorgang für berechtigte Admins behandelt.
+- **Anhänge:** V1 speichert, verarbeitet und zeigt keine Anhänge.
+- **Abweichende Absender:** Weicht der Inbound-From vom gespeicherten
+	Client-E-Mail-Snapshot ab, entsteht keine normale Coach-sichtbare Nachricht,
+	sondern ein Review-Status.
+- **Empfänger:** Client-Aufrufe übermitteln nur Conversation-/Request-Referenz
+	und Nachrichtentext. Client-E-Mail, Coach, Berechtigung und Reply-Alias werden
+	ausschließlich serverseitig geladen.
+
+Eine spätere technische Kennzeichnung `possible_external_contact` darf als
+Review-Signal für bewusst ausgetauschte externe Kontaktdaten erwogen werden. V1
+blockiert oder überwacht E-Mail-Adressen, Telefonnummern und URLs nicht
+automatisch, kennzeichnet Messaging aber transparent als Poise-Kommunikationskanal.
+
+### Receiving, DNS und Tokenmodell
+
+Resend dokumentiert als Receiving-Webhook-Event `email.received`. Der Webhook
+liefert Metadaten einschließlich `email_id` und `message_id`, jedoch weder Body,
+Headers noch Anhänge. Die serverseitige Verarbeitung lädt diese anschließend über
+die Receiving-API. Webhook-Signaturen müssen nach der aktuellen
+Provider-Spezifikation validiert werden; Event-ID und Provider-Message-ID dienen
+der idempotenten Verarbeitung.
+
+Resend Receiving benötigt eine verifizierte Domain und einen providerseitig
+vorgegebenen MX-Record. Bei bestehenden MX-Records empfiehlt Resend eine eigene
+Subdomain, weil konkurrierende MX-Prioritäten Empfang verhindern oder die
+bestehende Mailzustellung stören können. `reply.mypoise.de` ist daher die
+bevorzugte isolierte Receiving-Subdomain; die konkrete Catch-all-Unterstützung,
+Account-/Tarif-Freigabe sowie alle Recordwerte müssen im Resend-Dashboard
+verifiziert werden.
+
+Späterer DNS-Plan, ohne konkrete Providerwerte vorwegzunehmen:
+
+| Bereich | Record-Typ | Host | Zweck | Wertquelle |
+| --- | --- | --- | --- | --- |
+| Resend Sending | TXT/CNAME nach Provideranweisung | bestehende Sending-Domain | SPF/DKIM/Domainverifikation | Resend-Dashboard |
+| Resend Receiving | MX | `reply.mypoise.de` | Inbound an Resend | Resend Receiving-Dashboard |
+| Receiving-Verifikation | TXT/CNAME, falls verlangt | `reply.mypoise.de` | Domain-/MX-Verifikation | Resend-Dashboard |
+| Bestehende Firmenmail | unveränderte MX/TXT/CNAME | `mypoise.de` | mailbox.org/sonstige Mailzustellung | bestehende DNS-Verwaltung |
+
+DMARC-Policy, Return-Path und Wechselwirkungen mit bestehender mailbox.org- oder
+Checkdomain-Verwaltung sind vor Umsetzung mit der zuständigen Domainverwaltung
+zu prüfen. Sie sind im Repository nicht verifizierbar.
+
+Für V1 ist die kleinste robuste Alias-Lösung: Alias vollständig und eindeutig
+speichern, den zufälligen Token nur als Hash speichern und den vollständigen Alias
+bei der Conversation-Erstellung einmalig für `Reply-To` erzeugen. Ein Klartext-
+Token muss danach nicht rekonstruiert werden. Das vermeidet reversibel gespeicherte
+Tokens und ist einfacher als eine zusätzliche Verschlüsselungs- oder HMAC-Schicht.
+
+### Lifecycle, Retention und Transparenz
+
+`open` bezeichnet eine aktive Conversation; `closed` beendet Outbound und
+widerruft den Alias; `review` hält Senderabweichungen oder Antworten auf alte
+Aliases für Admin-Prüfung zurück. Reopen ist nur über eine bewusst autorisierte
+neue Conversation oder Alias-Rotation zulässig, nicht durch eine beliebige
+eingehende E-Mail.
+
+`closed_at` und `retention_until` sollten von Anfang an im konzeptionellen Modell
+vorgesehen werden, obwohl die Retention-Frist erst nach Datenschutz- und
+Rechtsprüfung festgelegt wird. Ein separates `conversation_access_log` für
+`admin_user_id`, `conversation_id`, `accessed_at` und optionalen Grund ist für
+V1 empfohlen, aber kein Blocker, sofern die administrative Einsicht ausdrücklich
+eingeschränkt und der Zugriff technisch nachvollziehbar umgesetzt wird.
+
+Vorgeschlagener, noch rechtlich zu prüfender Hinweis für Composer und Mailfooter:
+„Dieser Nachrichtenweg dient organisatorischen Absprachen rund um Anfrage und
+Termine. Bitte sende keine sensiblen gesundheitlichen Informationen per E-Mail.“
+
+Vorgeschlagener Transparenzhinweis: „Nachrichten werden über Poise verarbeitet
+und können von autorisierten Poise-Mitarbeitenden im Rahmen von Support,
+Qualitätssicherung und Vermittlungsabwicklung eingesehen werden.“
+
+### Vor Implementierung zu bereinigende Logs
+
+Messaging darf nicht auf den bestehenden PII-Logging-Mustern aufbauen. Der Audit
+identifizierte folgende priorisierte Beispiele:
+
+- **P0:** vollständige Request-Bodies in `/api/booking/book`,
+	`/api/proposals/create`, `/api/new-appointment`, `/api/add-session`,
+	`/api/add-sessions-batch`, `/api/confirm-appointment`, `/api/match-client` und
+	`/api/reject-appointment`; diese können Anliegen, Diagnose, Kontaktdaten oder
+	Termin-/Tokeninformationen enthalten.
+- **P1:** geladene Request-/Client-Objekte und Mailziele in `/api/booking/book`,
+	E-Mail-/Videolink-Werte in `/api/confirm-proposal` sowie E-Mail-Antworttexte in
+	`/api/admin-forward`.
+- **P2:** technische IDs, Status und Fehlercodes sind zulässig, sofern keine
+	personenbeziehbaren Zusatzwerte mitgeloggt werden.
+
+Die P0-/P1-Logs sind ein Sicherheitsblocker für die Messaging-Implementierung und
+müssen als separater Security-Task vor der Speicherung oder Verarbeitung von
+Nachrichtenkörpern bereinigt werden.
+
 ## Collaboration Architecture – Poise Partner / Poise Netzwerk
 
 ### Status und Modelle

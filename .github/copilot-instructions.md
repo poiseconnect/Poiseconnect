@@ -161,6 +161,14 @@ sichtbar oder unsichtbar wird.
 	Netzwerkstatus niemals als Qualitätsminderung interpretieren. Technische
 	Umsetzung der Modelle erst nach bestätigter tatsächlicher Nutzung beider
 	Modelle planen.
+- Messaging-Conversations nur nach eindeutiger serverseitiger Coach-Zuordnung
+	zu einer Anfrage erzeugen. Niemals Message-Bodies loggen und niemals
+	Client-gelieferte Empfängeradressen, Reply-Aliasse oder Webhooks ungeprüft
+	vertrauen.
+- Bei Messaging-Handover neue Conversation für den neuen Coach erzeugen und
+	den bisherigen Verlauf nicht automatisch freigeben. Administrativer
+	Inhaltszugriff ist zweckgebunden, bewusst auszulösen und später auditierbar
+	zu gestalten.
 - Bestehende historische Admin-Auswahlen nicht durch Regeln für neue
 	Vermittlungen entfernen.
 

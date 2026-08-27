@@ -240,6 +240,33 @@ Coaches umgesetzt werden. Falls alle Partner werden, kann eine technische
 Abbildung entfallen. Keine API, Migration, UI oder Änderung am Matching aus
 diesem Konzept ableiten.
 
+## Zukunftskonzept: Poise Messaging V1 / Request Conversations
+
+Poise Messaging V1 ist noch nicht implementiert. Es soll organisatorische
+Kommunikation pro `anfragen.id` ermöglichen: Coach schreibt im Dashboard,
+Klient:in erhält eine normale E-Mail und antwortet über einen nicht erratbaren
+Reply-Alias. Inbound-E-Mails müssen über einen signierten Provider-Webhook einer
+Conversation zugeordnet und ohne Klientenlogin im Dashboard sichtbar werden.
+
+Resend wird heute nur für Outbound verwendet; Inbound, Webhooks, Conversation-
+und Message-Tabellen existieren nicht. Eine Conversation darf erst nach
+eindeutiger serverseitiger Coach-Zuordnung entstehen, nie aus unverbindlichen
+Admin-Vorschlägen. Messaging ist kein Therapiechat, Krisenkanal oder
+Klientenportal. Nachrichten können sensible Daten enthalten: kein Logging von
+Bodies, strikte RLS, keine Client-kontrollierte Empfängeradresse und eine
+ausdrückliche Entscheidung zu Handover, Admin-Sichtbarkeit und Retention sind
+Voraussetzungen.
+
+Beschlossene V1-Richtung: Admins erhalten zweckgebundene technische
+Inhaltseinsicht, aber keine prominente Standardansicht aller Inhalte. Proposal-
+Messaging beginnt bei eindeutiger `assigned_therapist_id`-Zuordnung, Booking-
+Messaging nach `termin_bestaetigt`; ein Handover erzeugt eine neue Conversation
+ohne alten Verlauf für den neuen Coach. Ein individueller, kryptografischer
+Reply-Alias unter einer getrennten Receiving-Subdomain ist vorgesehen. Resend-
+Account-/Tarif, Catch-all, DNS und Signaturvalidierung müssen vor Umsetzung im
+Provider-Dashboard bestätigt werden. Bestehende PII-Logs sind vorher als
+separater Security-Task zu bereinigen.
+
 ## Sicherheitsregel für KI
 
 KI-Zugriffe beginnen ausschließlich lesend.
