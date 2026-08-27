@@ -64,7 +64,7 @@ function viennaLocalToUtc(value) {
 export async function POST(req) {
   try {
     const body = await req.json();
-    console.log("📥 BODY:", body);
+    console.log("CREATE PROPOSALS REQUEST RECEIVED");
 
     const { requestId, therapist_id, proposals } = body;
 
@@ -297,15 +297,10 @@ end: {
 
     console.log("✅ PROPOSAL CREATED:", {
       proposalId: insertedProposal.id,
-      googleEventId,
-      date: row.date,
     });
   }
 } catch (proposalCreateError) {
-  console.error(
-    "❌ PROPOSAL CREATE FAILED:",
-    proposalCreateError
-  );
+  console.error("PROPOSAL CREATE FAILED:", { code: proposalCreateError?.code || null });
 
   // Google-Events zurückrollen
   for (const eventId of createdGoogleEventIds) {
@@ -356,7 +351,7 @@ const { data: request, error: reqError } = await supabase
   .single();
 
 if (reqError || !request?.email || !request?.booking_token) {
-  console.error("❌ REQUEST LOAD ERROR:", reqError);
+  console.error("REQUEST LOAD ERROR:", { code: reqError?.code || null });
 
   return json(
     { error: "client_or_booking_token_missing" },
@@ -445,7 +440,7 @@ const link =
 
 if (!mailRes.ok) {
   const mailText = await mailRes.text();
-  console.error("❌ MAIL ERROR:", mailText);
+  console.error("PROPOSAL MAIL ERROR:", { providerStatus: mailRes.status });
 
   return json({
     ok: true,
@@ -454,7 +449,7 @@ if (!mailRes.ok) {
   });
 }
 
-console.log("✅ MAIL SENT TO:", request.email);
+console.log("PROPOSAL MAIL SENT");
 
 const sentAt = new Date().toISOString();
 
@@ -493,7 +488,7 @@ return json({
   proposals_count: rows.length,
 });
   } catch (e) {
-    console.error("SERVER ERROR:", e);
+    console.error("PROPOSALS CREATE SERVER ERROR");
     return json({ error: "server_error", detail: String(e) }, 500);
   }
 }

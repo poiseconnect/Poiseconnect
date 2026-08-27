@@ -15,7 +15,7 @@ export async function POST(request) {
   try {
     const body = await request.json();
 
-    console.log("REJECT BODY:", body);
+    console.log("REJECT APPOINTMENT REQUEST RECEIVED");
 
     const {
       requestId,
@@ -41,7 +41,7 @@ export async function POST(request) {
       .eq("id", requestId);
 
     if (updateError) {
-      console.error("REJECT UPDATE ERROR:", updateError);
+      console.error("REJECT UPDATE ERROR:", { code: updateError?.code || null });
       return new Response(
         JSON.stringify({
           error: "update_failed",
@@ -83,7 +83,7 @@ export async function POST(request) {
       { status: 200 }
     );
   } catch (err) {
-    console.error("REJECT SERVER ERROR:", err);
+    console.error("REJECT SERVER ERROR");
     return new Response(
       JSON.stringify({
         error: "server_error",

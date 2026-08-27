@@ -270,7 +270,7 @@ export async function GET(req) {
       coachChecks,
     });
   } catch (err) {
-    console.error("SYSTEM CHECK ERROR:", err);
+    console.error("SYSTEM CHECK ERROR");
     return json({ ok: false, error: "server_error", detail: String(err) }, 500);
   }
 }

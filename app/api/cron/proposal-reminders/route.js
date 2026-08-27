@@ -43,16 +43,7 @@ async function sendMail({
   );
 
   if (!res.ok) {
-    const errorText = await res.text();
-
-    console.error(
-      "❌ PROPOSAL REMINDER MAIL ERROR:",
-      {
-        to,
-        subject,
-        error: errorText,
-      }
-    );
+    console.error("PROPOSAL REMINDER MAIL ERROR:", { providerStatus: res.status });
 
     return false;
   }

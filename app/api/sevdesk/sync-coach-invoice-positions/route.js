@@ -29,7 +29,7 @@ async function getUserFromBearer(req) {
   } = await supabase.auth.getUser(token);
 
   if (error || !user) {
-    console.error("GET USER FROM TOKEN ERROR:", error);
+    console.error("GET USER FROM TOKEN ERROR:", { code: error?.code || null });
     return null;
   }
 
@@ -291,7 +291,7 @@ export async function POST(req) {
       created_count: created.length,
     });
   } catch (err) {
-    console.error("SYNC COACH INVOICE POSITIONS ERROR:", err);
+    console.error("SYNC COACH INVOICE POSITIONS ERROR");
     return json(
       {
         ok: false,

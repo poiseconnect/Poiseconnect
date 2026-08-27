@@ -27,7 +27,7 @@ export async function POST(req) {
     });
 
     if (error) {
-      console.error("Magic Link Error:", error);
+      console.error("Magic Link Error:", { code: error?.code || null });
       return NextResponse.json(
         { error: "SEND_FAILED", detail: error.message },
         { status: 500 }
@@ -36,7 +36,7 @@ export async function POST(req) {
 
     return NextResponse.json({ ok: true });
   } catch (err) {
-    console.error("Login Route Error:", err);
+    console.error("Login Route Error");
     return NextResponse.json(
       { error: "SERVER_ERROR", detail: String(err) },
       { status: 500 }

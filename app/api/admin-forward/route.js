@@ -158,8 +158,7 @@ export async function POST(request) {
     });
 
     if (!mailRes.ok) {
-      const mailText = await mailRes.text();
-      console.warn("FORWARD MAIL FAILED – DB UPDATE OK:", mailText);
+      console.warn("FORWARD MAIL FAILED – DB UPDATE OK");
       return json({ error: "FORWARD_MAIL_FAILED" }, 502);
     }
 

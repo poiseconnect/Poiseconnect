@@ -74,7 +74,7 @@ match_state: "draft",
         .single();
 
       if (error) {
-        console.error("DRAFT UPDATE ERROR:", error);
+        console.error("DRAFT UPDATE ERROR:", { code: error?.code || null });
         return json({ error: error.message }, 500);
       }
 
@@ -96,7 +96,7 @@ match_state: "draft",
       .single();
 
     if (error) {
-      console.error("DRAFT INSERT ERROR:", error);
+      console.error("DRAFT INSERT ERROR:", { code: error?.code || null });
       return json({ error: error.message }, 500);
     }
 
@@ -107,7 +107,7 @@ match_state: "draft",
       assigned_therapist_id: data.assigned_therapist_id,
     });
   } catch (err) {
-    console.error("CREATE REQUEST DRAFT ERROR:", err);
+    console.error("CREATE REQUEST DRAFT ERROR");
     return json({ error: "SERVER_ERROR", detail: String(err) }, 500);
   }
 }

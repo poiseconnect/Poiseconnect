@@ -41,7 +41,7 @@ async function sendEmail(to, subject, text) {
 
     return res.ok;
   } catch (err) {
-    console.error("❌ Email send error:", err);
+    console.error("EMAIL SEND ERROR");
     return false;
   }
 }
@@ -59,13 +59,7 @@ export async function GET(req) {
     const therapistEmail = url.searchParams.get("tEmail");  // E-Mail Therapeut
     const slot = url.searchParams.get("slot");              // ISO-String
 
-    console.log("📩 therapist-response:", {
-      action,
-      clientEmail,
-      therapist,
-      therapistEmail,
-      slot
-    });
+    console.log("THERAPIST RESPONSE RECEIVED:", { action, hasSlot: !!slot });
 
     const supabase = getSupabase();
     if (!supabase) {
@@ -96,7 +90,7 @@ export async function GET(req) {
         });
 
       if (error) {
-        console.error("❌ DB ERROR:", error);
+        console.error("DB ERROR:", { code: error?.code || null });
         return NextResponse.json(
           { error: "DB_INSERT_FAILED" },
           { status: 500 }
@@ -186,7 +180,7 @@ Poise`
 
     return NextResponse.json({ error: "UNKNOWN_ACTION" }, { status: 400 });
   } catch (err) {
-    console.error("❌ SERVER ERROR:", err);
+    console.error("THERAPIST RESPONSE SERVER ERROR");
     return NextResponse.json(
       { error: "SERVER_ERROR", detail: String(err) },
       { status: 500 }

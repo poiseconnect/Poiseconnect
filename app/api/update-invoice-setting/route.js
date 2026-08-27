@@ -35,13 +35,13 @@ export async function POST(request) {
       .single();
 
     if (error) {
-      console.error("UPDATE INVOICE SETTING SUPABASE ERROR:", error);
+      console.error("UPDATE INVOICE SETTING SUPABASE ERROR:", { code: error?.code || null });
       return sendJson({ error: error.message }, 500);
     }
 
     return sendJson({ ok: true, data });
   } catch (error) {
-    console.error("UPDATE INVOICE SETTING SERVER ERROR:", error);
+    console.error("UPDATE INVOICE SETTING SERVER ERROR");
 
     return sendJson(
       {

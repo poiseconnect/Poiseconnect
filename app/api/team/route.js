@@ -54,7 +54,7 @@ export async function GET() {
 
     return NextResponse.json(list);
   } catch (err) {
-    console.error("Team API Fehler:", err);
+    console.error("TEAM API ERROR");
     return NextResponse.json(
       { error: "Serverfehler beim Laden des Team-Sheets" },
       { status: 500 }

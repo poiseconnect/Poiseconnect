@@ -53,13 +53,13 @@ export async function POST(req) {
       .eq("id", anfrageId);
 
     if (updErr) {
-      console.error("update-client-vat error", updErr);
+      console.error("update-client-vat error", { code: updErr?.code || null });
       return NextResponse.json({ error: "UPDATE_FAILED" }, { status: 500 });
     }
 
     return NextResponse.json({ ok: true }, { status: 200 });
   } catch (err) {
-    console.error("update-client-vat server error", err);
+    console.error("update-client-vat server error");
     return NextResponse.json({ error: "SERVER_ERROR" }, { status: 500 });
   }
 }

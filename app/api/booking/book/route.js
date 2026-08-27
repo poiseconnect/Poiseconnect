@@ -20,7 +20,6 @@ export async function POST(req) {
 
     const sb = supabaseAdmin();
     const body = await req.json();
-    console.log("BOOKING BODY:", JSON.stringify(body, null, 2));
 
     const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -33,13 +32,7 @@ export async function POST(req) {
       Number(body?.durationMin) ||
       (bookingType === "erstgespraech" ? 30 : 60);
 
-    console.log("BOOKING INPUT PARSED:", {
-      token,
-      googleEventIdFromBody,
-      startFromBody,
-      bookingType,
-      durationMin,
-    });
+    console.log("BOOKING INPUT PARSED:", { bookingType, durationMin });
 
     if (!token) {
       console.log("BOOKING FAIL: MISSING_TOKEN");
@@ -69,10 +62,7 @@ export async function POST(req) {
       .eq("booking_token", token)
       .single();
 
-    console.log("BOOKING ANFRAGE:", {
-      anfrage,
-      anfrageErr: anfrageErr?.message || null,
-    });
+    console.log("BOOKING REQUEST LOOKUP:", { found: !!anfrage, hasError: !!anfrageErr });
 
     if (anfrageErr || !anfrage) {
       console.log("BOOKING FAIL: INVALID_TOKEN");
@@ -98,10 +88,7 @@ export async function POST(req) {
       .eq("therapist_id", therapistId)
       .single();
 
-    console.log("BOOKING SETTINGS:", {
-      settings,
-      settingsErr: settingsErr?.message || null,
-    });
+    console.log("BOOKING SETTINGS LOOKUP:", { found: !!settings, hasError: !!settingsErr });
 
     if (settingsErr || !settings) {
       console.log("BOOKING FAIL: BOOKING_SETTINGS_NOT_FOUND");
@@ -143,10 +130,7 @@ export async function POST(req) {
       .eq("id", therapistId)
       .single();
 
-    console.log("BOOKING THERAPIST:", {
-      therapistMember,
-      therapistErr: therapistErr?.message || null,
-    });
+    console.log("BOOKING THERAPIST LOOKUP:", { found: !!therapistMember, hasError: !!therapistErr });
 
     if (therapistErr || !therapistMember) {
       console.log("BOOKING FAIL: THERAPIST_NOT_FOUND");
@@ -164,17 +148,14 @@ export async function POST(req) {
       auth: oauth,
     });
 
-    console.log("BOOKING CALENDAR READY:", {
-      calendarId: settings.selected_calendar_id,
-      timeZone: settings.time_zone || "Europe/Vienna",
-    });
+    console.log("BOOKING CALENDAR READY");
 
     // 6) Google Event finden
     let ev = null;
     let googleEventId = googleEventIdFromBody || null;
 
     if (googleEventIdFromBody) {
-      console.log("BOOKING LOOKUP BY GOOGLE EVENT ID:", googleEventIdFromBody);
+      console.log("BOOKING LOOKUP BY GOOGLE EVENT ID");
 
       try {
         const evRes = await calendar.events.get({
@@ -183,14 +164,9 @@ export async function POST(req) {
         });
         ev = evRes.data;
 
-        console.log("BOOKING EVENT FOUND BY ID:", {
-          id: ev?.id,
-          summary: ev?.summary,
-          start: ev?.start?.dateTime,
-          end: ev?.end?.dateTime,
-        });
+        console.log("BOOKING EVENT FOUND BY ID:", { found: !!ev?.id });
       } catch (err) {
-        console.error("BOOKING GOOGLE EVENT GET ERROR:", err);
+        console.error("BOOKING GOOGLE EVENT GET ERROR");
         return json(
           {
             error: "GOOGLE_EVENT_NOT_FOUND",
@@ -202,10 +178,7 @@ export async function POST(req) {
     } else {
       const wantedStartIso = normalizeIso(startFromBody);
 
-      console.log("BOOKING LOOKUP BY START:", {
-        startFromBody,
-        wantedStartIso,
-      });
+      console.log("BOOKING LOOKUP BY START");
 
       if (!wantedStartIso) {
         console.log("BOOKING FAIL: INVALID_START");
@@ -216,10 +189,7 @@ export async function POST(req) {
         new Date(wantedStartIso).getTime() + 2 * 60 * 60 * 1000
       ).toISOString();
 
-      console.log("BOOKING GOOGLE LIST SEARCH:", {
-        timeMin: wantedStartIso,
-        timeMax: endSearchIso,
-      });
+      console.log("BOOKING GOOGLE LIST SEARCH");
 
       const listRes = await calendar.events.list({
         calendarId: settings.selected_calendar_id,
@@ -232,15 +202,7 @@ export async function POST(req) {
 
       const candidates = listRes.data.items || [];
 
-      console.log(
-        "BOOKING CANDIDATES:",
-        candidates.map((item) => ({
-          id: item?.id,
-          summary: item?.summary,
-          start: item?.start?.dateTime,
-          end: item?.end?.dateTime,
-        }))
-      );
+      console.log("BOOKING CANDIDATES:", { count: candidates.length });
 
       ev =
         candidates.find((item) => {
@@ -250,12 +212,7 @@ return (
 );
         }) || null;
 
-      console.log("BOOKING MATCHED EVENT:", {
-        id: ev?.id,
-        summary: ev?.summary,
-        start: ev?.start?.dateTime,
-        end: ev?.end?.dateTime,
-      });
+      console.log("BOOKING MATCHED EVENT:", { found: !!ev?.id });
 
       if (!ev?.id) {
         console.log("BOOKING FAIL: slot_taken (no matching POISE SLOT found)");
@@ -267,10 +224,7 @@ return (
 
     const eventTitle = String(ev?.summary || "").trim().toUpperCase();
 
-    console.log("BOOKING EVENT TITLE:", {
-      eventTitle,
-      originalSummary: ev?.summary,
-    });
+    console.log("BOOKING EVENT AVAILABILITY CHECK");
 
 if ( !eventTitle.startsWith("POISE VERFÜGBAR")) {
       console.log("BOOKING FAIL: SLOT_NOT_AVAILABLE");
@@ -324,12 +278,7 @@ if (
   bookingStartMs < availabilityStartMs ||
   bookingEndMs > availabilityEndMs
 ) {
-  console.log("BOOKING FAIL: SELECTED_SLOT_OUTSIDE_AVAILABILITY", {
-    availabilityStartISO,
-    availabilityEndISO,
-    startISO,
-    endISO,
-  });
+  console.log("BOOKING FAIL: SELECTED_SLOT_OUTSIDE_AVAILABILITY");
 
   return json(
     { error: "SELECTED_SLOT_OUTSIDE_AVAILABILITY" },
@@ -339,12 +288,7 @@ if (
     const clientName =
       `${anfrage.vorname || ""} ${anfrage.nachname || ""}`.trim() || "Klient";
 
-    console.log("BOOKING FINAL SLOT:", {
-      startISO,
-      endISO,
-      clientName,
-      googleEventId,
-    });
+    console.log("BOOKING FINAL SLOT READY");
 
     // 7) Doppelbuchungsschutz
     if (bookingType === "erstgespraech") {
@@ -354,10 +298,7 @@ if (
         .eq("therapist_id", therapistId)
         .eq("start_at", startISO);
 
-      console.log("BOOKING BLOCKED SLOT CHECK:", {
-        existingBlocked,
-        blockedErr: blockedErr?.message || null,
-      });
+      console.log("BOOKING BLOCKED SLOT CHECK:", { found: (existingBlocked || []).length > 0, hasError: !!blockedErr });
 
       if (blockedErr) {
         console.log("BOOKING FAIL: BLOCKED_CHECK_FAILED");
@@ -381,10 +322,7 @@ if (
         .eq("therapist_id", therapistId)
         .eq("date", startISO);
 
-      console.log("BOOKING SESSION CHECK:", {
-        existingSessions,
-        existingErr: existingErr?.message || null,
-      });
+      console.log("BOOKING SESSION CHECK:", { found: (existingSessions || []).length > 0, hasError: !!existingErr });
 
       if (existingErr) {
         console.log("BOOKING FAIL: SESSION_CHECK_FAILED");
@@ -415,9 +353,7 @@ if (
         reason: "erstgespraech_booking",
       });
 
-      console.log("BOOKING BLOCKED SLOT INSERT:", {
-        blockErr: blockErr?.message || null,
-      });
+      console.log("BOOKING BLOCKED SLOT INSERT:", { hasError: !!blockErr });
 
       if (blockErr) {
         console.log("BOOKING FAIL: BLOCKED_SLOT_INSERT_FAILED");
@@ -439,11 +375,7 @@ if (
         })
         .eq("id", anfrage.id);
 
-      console.log("BOOKING ANFRAGE UPDATE:", {
-        updateReqErr: updateReqErr?.message || null,
-        newStatus: "termin_bestaetigt",
-        bevorzugte_zeit: startISO,
-      });
+      console.log("BOOKING REQUEST STATUS UPDATE:", { hasError: !!updateReqErr });
 
       if (updateReqErr) {
         console.log("BOOKING FAIL: REQUEST_UPDATE_FAILED");
@@ -460,13 +392,7 @@ if (
         ? Number(anfrage.honorar_klient)
         : null;
 
-      console.log("BOOKING SESSION INSERT TRY:", {
-        anfrage_id: anfrage.id,
-        therapist_id: therapistId,
-        date: startISO,
-        duration_min: durationMin,
-        price,
-      });
+      console.log("BOOKING SESSION INSERT TRY:", { bookingType, durationMin });
 
       const { data: inserted, error: sessionInsertErr } = await sb
         .from("sessions")
@@ -480,10 +406,7 @@ if (
         .select()
         .single();
 
-      console.log("BOOKING SESSION INSERT RESULT:", {
-        inserted,
-        sessionInsertErr: sessionInsertErr?.message || null,
-      });
+      console.log("BOOKING SESSION INSERT RESULT:", { inserted: !!inserted, hasError: !!sessionInsertErr });
 
       if (sessionInsertErr || !inserted) {
         console.log("BOOKING FAIL: SESSION_INSERT_FAILED");
@@ -505,12 +428,10 @@ if (
         })
         .eq("id", anfrage.id);
 
-      console.log("BOOKING STATUS UPDATE AFTER SESSION:", {
-        statusErr: statusErr?.message || null,
-      });
+      console.log("BOOKING STATUS UPDATE AFTER SESSION:", { hasError: !!statusErr });
 
       if (statusErr) {
-        console.error("BOOKING STATUS UPDATE FAILED:", statusErr);
+        console.error("BOOKING STATUS UPDATE FAILED");
       }
     }
 
@@ -546,13 +467,7 @@ try {
       ? `Poise Erstgespräch – ${clientName}`
       : `Poise Sitzung – ${clientName}`;
 
-  console.log("BOOKING GOOGLE INSERT PAYLOAD:", {
-    calendarId: settings.selected_calendar_id,
-    summary: googleSummary,
-    startISO,
-    endISO,
-    availabilityEventId: googleEventId,
-  });
+  console.log("BOOKING GOOGLE INSERT STARTED");
 
   /*
    * Wichtig:
@@ -586,11 +501,7 @@ try {
   bookedGoogleEventId =
     bookedEventRes.data.id || null;
 
-  console.log("BOOKING GOOGLE INSERT SUCCESS:", {
-    bookedGoogleEventId,
-    startISO,
-    endISO,
-  });
+  console.log("BOOKING GOOGLE INSERT SUCCESS");
 
   /*
    * Google-ID beim geblockten Erstgespräch speichern.
@@ -615,10 +526,7 @@ try {
       .select();
 
     if (eventIdUpdateError) {
-      console.error(
-        "BOOKING GOOGLE EVENT ID SAVE FAILED:",
-        eventIdUpdateError
-      );
+      console.error("BOOKING GOOGLE EVENT ID SAVE FAILED");
 
       return json(
         {
@@ -633,15 +541,7 @@ try {
       !updatedBlockedSlots ||
       updatedBlockedSlots.length === 0
     ) {
-      console.error(
-        "BOOKING GOOGLE EVENT ID SAVE FAILED: BLOCKED SLOT NOT FOUND",
-        {
-          anfrageId: anfrage.id,
-          therapistId,
-          startISO,
-          bookedGoogleEventId,
-        }
-      );
+      console.error("BOOKING GOOGLE EVENT ID SAVE FAILED: BLOCKED SLOT NOT FOUND");
 
       return json(
         {
@@ -651,17 +551,10 @@ try {
       );
     }
 
-    console.log("BOOKING GOOGLE EVENT ID SAVED:", {
-      bookedGoogleEventId,
-      blockedSlotId:
-        updatedBlockedSlots[0]?.id || null,
-    });
+    console.log("BOOKING GOOGLE EVENT ID SAVED");
   }
 } catch (googleInsertErr) {
-  console.error(
-    "GOOGLE EVENT INSERT FAILED:",
-    googleInsertErr
-  );
+  console.error("GOOGLE EVENT INSERT FAILED");
 
   return json(
     {
@@ -703,13 +596,7 @@ try {
 
       const from = "Poise <noreply@mypoise.de>";
 
-      console.log("BOOKING MAIL PREP:", {
-        clientEmail: anfrage.email || null,
-        therapistEmail: therapistMember?.email || null,
-        dateString,
-        timeString,
-        endTimeString,
-      });
+      console.log("BOOKING MAIL PREPARED");
 
 
 
@@ -788,23 +675,14 @@ try {
 
           console.log("BOOKING CLIENT MAIL SENT");
         }
-      } catch (clientMailErr) {
-        console.error("BOOKING CLIENT MAIL ERROR:", clientMailErr);
+      } catch {
+        console.error("BOOKING CLIENT MAIL ERROR");
       }
-    } catch (mailErr) {
-      console.error("BOOKING MAIL ERROR:", mailErr);
+    } catch {
+      console.error("BOOKING MAIL ERROR");
     }
 
-console.log("=== BOOKING POST SUCCESS ===", {
-  bookingType,
-  sessionId: insertedSession?.id || null,
-  anfrageId: anfrage.id,
-  therapistId,
-  availabilityGoogleEventId: googleEventId,
-  bookedGoogleEventId,
-  startISO,
-  endISO,
-});
+console.log("=== BOOKING POST SUCCESS ===", { bookingType });
 
     return json({
       ok: true,
@@ -820,7 +698,7 @@ availability_event_id: googleEventId,
       },
     });
   } catch (err) {
-    console.error("BOOKING BOOK ROUTE ERROR:", err);
+    console.error("BOOKING BOOK ROUTE ERROR");
     return json(
       {
         error: "SERVER_ERROR",

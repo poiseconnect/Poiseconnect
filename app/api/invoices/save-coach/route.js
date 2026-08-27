@@ -28,7 +28,7 @@ async function getUserFromBearer(req) {
   } = await supabase.auth.getUser(token);
 
   if (error || !user) {
-    console.error("GET USER FROM TOKEN ERROR:", error);
+    console.error("GET USER FROM TOKEN ERROR:", { code: error?.code || null });
     return null;
   }
 
@@ -163,7 +163,7 @@ export async function POST(req) {
       .maybeSingle();
 
     if (existingError) {
-      console.error("SAVE COACH INVOICE EXISTING CHECK ERROR:", existingError);
+      console.error("SAVE COACH INVOICE EXISTING CHECK ERROR:", { code: existingError?.code || null });
       return json(
         {
           error: "existing_check_failed",
@@ -204,7 +204,7 @@ export async function POST(req) {
     }
 
     if (saveError) {
-      console.error("SAVE COACH INVOICE ERROR:", saveError);
+      console.error("SAVE COACH INVOICE ERROR:", { code: saveError?.code || null });
       return json(
         {
           error: "save_failed",
@@ -219,7 +219,7 @@ export async function POST(req) {
       data: result,
     });
   } catch (err) {
-    console.error("SAVE COACH INVOICE SERVER ERROR:", err);
+    console.error("SAVE COACH INVOICE SERVER ERROR");
     return json(
       {
         error: "server_error",

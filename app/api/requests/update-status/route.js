@@ -75,7 +75,7 @@ const { error } = await supabase
     );
 
   } catch (err) {
-    console.error("🔥 update-status error:", err);
+    console.error("UPDATE STATUS SERVER ERROR");
     return new Response(
       JSON.stringify({ error: "server_error" }),
       { status: 500 }

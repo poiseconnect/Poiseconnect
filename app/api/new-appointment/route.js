@@ -34,7 +34,7 @@ export async function POST(req) {
   try {
     const body = await req.json();
 
-    console.log("📥 NEW APPOINTMENT BODY:", body);
+    console.log("NEW APPOINTMENT REQUEST RECEIVED");
 
     const {
       requestId,
@@ -112,10 +112,7 @@ export async function POST(req) {
     } = await blockedSlotQuery;
 
     if (blockedSlotLoadError) {
-      console.error(
-        "❌ BLOCKED SLOT LOAD ERROR:",
-        blockedSlotLoadError
-      );
+      console.error("BLOCKED SLOT LOAD ERROR:", { code: blockedSlotLoadError?.code || null });
 
       return json(
         {
@@ -131,11 +128,7 @@ export async function POST(req) {
         ? blockedSlots[0]
         : null;
 
-    console.log("🔎 OLD BLOCKED SLOT:", {
-      requestId,
-      oldStartIso,
-      blockedSlot,
-    });
+    console.log("OLD BLOCKED SLOT LOOKUP:", { found: !!blockedSlot });
 
     /* ===============================
        3️⃣ Konkreten Kliententermin
@@ -159,10 +152,7 @@ export async function POST(req) {
         bookingSettingsError ||
         !bookingSettings?.selected_calendar_id
       ) {
-        console.error(
-          "❌ BOOKING SETTINGS LOAD ERROR:",
-          bookingSettingsError
-        );
+        console.error("BOOKING SETTINGS LOAD ERROR:", { code: bookingSettingsError?.code || null });
 
         return json(
           {
@@ -197,14 +187,7 @@ export async function POST(req) {
             blockedSlot.google_event_id,
         });
 
-        console.log(
-          "✅ GOOGLE CLIENT EVENT DELETED:",
-          {
-            requestId,
-            googleEventId:
-              blockedSlot.google_event_id,
-          }
-        );
+        console.log("GOOGLE CLIENT EVENT DELETED");
       } catch (googleDeleteError) {
         const googleStatus =
           googleDeleteError?.response?.status ||
@@ -220,10 +203,7 @@ export async function POST(req) {
           Number(googleStatus) !== 404 &&
           Number(googleStatus) !== 410
         ) {
-          console.error(
-            "❌ GOOGLE EVENT DELETE ERROR:",
-            googleDeleteError
-          );
+          console.error("GOOGLE EVENT DELETE ERROR:", { code: googleDeleteError?.code || null });
 
           return json(
             {
@@ -236,24 +216,10 @@ export async function POST(req) {
           );
         }
 
-        console.warn(
-          "⚠️ GOOGLE EVENT ALREADY MISSING:",
-          {
-            googleEventId:
-              blockedSlot.google_event_id,
-            googleStatus,
-          }
-        );
+        console.warn("GOOGLE EVENT ALREADY MISSING:", { status: googleStatus });
       }
     } else {
-      console.warn(
-        "⚠️ Keine google_event_id gefunden. Google-Termin kann nicht automatisch gelöscht werden.",
-        {
-          requestId,
-          blockedSlotId:
-            blockedSlot?.id || null,
-        }
-      );
+      console.warn("GOOGLE EVENT ID MISSING FOR RESCHEDULE");
     }
 
     /* ===============================
@@ -276,10 +242,7 @@ export async function POST(req) {
         .eq("id", blockedSlot.id);
 
       if (blockedSlotDeleteError) {
-        console.error(
-          "❌ BLOCKED SLOT DELETE ERROR:",
-          blockedSlotDeleteError
-        );
+        console.error("BLOCKED SLOT DELETE ERROR:", { code: blockedSlotDeleteError?.code || null });
 
         return json(
           {
@@ -292,25 +255,13 @@ export async function POST(req) {
         );
       }
 
-      console.log("✅ OLD SLOT RELEASED:", {
-        requestId,
-        blockedSlotId: blockedSlot.id,
-        startAt: blockedSlot.start_at,
-        endAt: blockedSlot.end_at,
-      });
+      console.log("OLD SLOT RELEASED");
     } else {
       /*
        * Kein Abbruch:
        * Der Link kann trotzdem erneut versendet werden.
        */
-      console.warn(
-        "⚠️ Kein blocked_slots-Eintrag gefunden – Reschedule wird trotzdem fortgesetzt",
-        {
-          requestId,
-          therapistId,
-          oldStartIso,
-        }
-      );
+      console.warn("BLOCKED SLOT MISSING FOR RESCHEDULE");
     }
 
     /* ===============================
@@ -332,10 +283,7 @@ export async function POST(req) {
         .eq("id", requestId);
 
     if (updateError) {
-      console.error(
-        "❌ UPDATE REQUEST ERROR:",
-        updateError
-      );
+      console.error("UPDATE REQUEST ERROR:", { code: updateError?.code || null });
 
       return json(
         {
@@ -346,12 +294,7 @@ export async function POST(req) {
       );
     }
 
-    console.log("✅ REQUEST UPDATED:", {
-      requestId,
-      therapistName,
-      therapistId,
-      updatePayload,
-    });
+    console.log("REQUEST UPDATED", { requestId });
 
     /* ===============================
        6️⃣ Neuen Buchungslink erstellen
@@ -366,7 +309,7 @@ export async function POST(req) {
         therapistName
       )}`;
 
-    console.log("🔗 RESCHEDULE LINK:", link);
+    console.log("RESCHEDULE LINK CREATED");
 
     /* ===============================
        7️⃣ E-Mail versenden
@@ -423,13 +366,7 @@ export async function POST(req) {
     );
 
     if (!mailRes.ok) {
-      const mailText =
-        await mailRes.text().catch(() => "");
-
-      console.warn(
-        "⚠️ MAIL FAILED – DB UPDATE WAR ERFOLGREICH:",
-        mailText
-      );
+      console.warn("RESCHEDULE MAIL FAILED – DB UPDATE WAS SUCCESSFUL");
     } else {
       console.log("📧 MAIL SENT");
     }
@@ -451,10 +388,7 @@ export async function POST(req) {
         : null,
     });
   } catch (err) {
-    console.error(
-      "🔥 NEW APPOINTMENT SERVER ERROR:",
-      err
-    );
+    console.error("NEW APPOINTMENT SERVER ERROR");
 
     return json(
       {

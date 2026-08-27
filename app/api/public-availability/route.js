@@ -11,7 +11,7 @@ const { data: members, error: membersError } = await sb
   .select("id, available_for_intake, active, matching_scores");
 
     if (membersError) {
-      console.error("PUBLIC AVAILABILITY members ERROR:", membersError);
+      console.error("PUBLIC AVAILABILITY MEMBERS ERROR:", { code: membersError?.code || null });
       return json(
         { error: "MEMBERS_LOAD_FAILED", detail: membersError.message },
         500
@@ -23,7 +23,7 @@ const { data: members, error: membersError } = await sb
       .select("therapist_id, booking_enabled");
 
     if (bookingError) {
-      console.error("PUBLIC AVAILABILITY booking ERROR:", bookingError);
+      console.error("PUBLIC AVAILABILITY BOOKING ERROR:", { code: bookingError?.code || null });
       return json(
         { error: "BOOKING_LOAD_FAILED", detail: bookingError.message },
         500
@@ -36,7 +36,7 @@ const { data: members, error: membersError } = await sb
       bookingSettings: bookingSettings || [],
     });
   } catch (e) {
-    console.error("PUBLIC AVAILABILITY SERVER ERROR:", e);
+    console.error("PUBLIC AVAILABILITY SERVER ERROR");
     return json(
       { error: "SERVER_ERROR", detail: String(e) },
       500

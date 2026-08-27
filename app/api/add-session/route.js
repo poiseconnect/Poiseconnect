@@ -41,7 +41,7 @@ export async function POST(req) {
   try {
     const body = await req.json();
 
-    console.log("ADD-SESSION BODY:", body);
+    console.log("ADD-SESSION REQUEST RECEIVED");
 
     const {
       anfrageId,
@@ -102,14 +102,7 @@ export async function POST(req) {
     const commission = p * 0.3;
     const payout = p * 0.7;
 
-    console.log("ADD-SESSION NORMALIZED:", {
-      anfrageId,
-      therapist_id,
-      startISO,
-      endISO,
-      durationMin,
-      price: p,
-    });
+    console.log("ADD-SESSION INPUT NORMALIZED", { durationMin });
 
     /* -----------------------------------------
        2. Anfrage und Klient:in laden
@@ -429,11 +422,7 @@ export async function POST(req) {
     insertedBlockedSlotId =
       insertedBlockedSlot.id;
 
-    console.log("ADD SESSION SLOT BLOCKED:", {
-      insertedBlockedSlotId,
-      startISO,
-      endISO,
-    });
+    console.log("ADD SESSION SLOT BLOCKED");
 
     /* -----------------------------------------
        8. Eigenen Google-Kalendertermin erstellen
@@ -494,19 +483,9 @@ export async function POST(req) {
         );
       }
 
-      console.log(
-        "ADD SESSION GOOGLE EVENT CREATED:",
-        {
-          bookedGoogleEventId,
-          startISO,
-          endISO,
-        }
-      );
-    } catch (googleInsertError) {
-      console.error(
-        "ADD SESSION GOOGLE EVENT ERROR:",
-        googleInsertError
-      );
+      console.log("ADD SESSION GOOGLE EVENT CREATED");
+    } catch {
+      console.error("ADD SESSION GOOGLE EVENT ERROR");
 
       // Rollback: blocked_slot entfernen
       if (insertedBlockedSlotId) {
@@ -611,13 +590,7 @@ export async function POST(req) {
        11. Erfolgreiche Antwort
     ----------------------------------------- */
 
-    console.log("ADD SESSION SUCCESS:", {
-      sessionId: insertedSessionId,
-      blockedSlotId: insertedBlockedSlotId,
-      googleEventId: bookedGoogleEventId,
-      startISO,
-      endISO,
-    });
+    console.log("ADD SESSION SUCCESS");
 
     return json({
       ok: true,

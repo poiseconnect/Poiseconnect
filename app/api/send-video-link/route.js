@@ -69,7 +69,7 @@ await sb
   .eq("id", requestId);
     return json({ ok: true, videoLink });
   } catch (e) {
-    console.error("SEND VIDEO LINK ERROR:", e);
+    console.error("SEND VIDEO LINK ERROR");
     return json({ error: "SERVER_ERROR", detail: String(e) }, 500);
   }
 }

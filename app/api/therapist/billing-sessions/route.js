@@ -84,7 +84,7 @@ export async function GET(req) {
     return json({ data: data || [] });
 
   } catch (err) {
-    console.error("THERAPIST BILLING ERROR:", err);
+    console.error("THERAPIST BILLING ERROR");
     return json({ error: "SERVER_ERROR", detail: String(err) }, 500);
   }
 }

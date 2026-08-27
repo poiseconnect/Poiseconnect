@@ -61,7 +61,7 @@ async function getUserFromBearer(req) {
   } = await supabase.auth.getUser(token);
 
   if (error || !user) {
-    console.error("GET USER FROM TOKEN ERROR:", error);
+    console.error("GET USER FROM TOKEN ERROR:", { code: error?.code || null });
     return null;
   }
 
@@ -223,7 +223,7 @@ export async function POST(req) {
       .single();
 
     if (coachError || !coachMember) {
-      console.error("COACH LOAD ERROR:", coachError);
+      console.error("COACH LOAD ERROR:", { code: coachError?.code || null });
       return json(
         {
           error: "coach_not_found",
@@ -272,7 +272,7 @@ export async function POST(req) {
     );
 
     if (!orderRes.ok) {
-      console.error("SEVDESK CREATE ORDER ERROR:", orderJson);
+      console.error("SEVDESK CREATE ORDER ERROR:", { providerStatus: orderRes.status });
       return json(
         {
           error: "sevdesk_create_order_failed",
@@ -317,7 +317,7 @@ export async function POST(req) {
       );
 
       if (!posRes.ok) {
-        console.error("SEVDESK CREATE ORDER POSITION ERROR:", posJson);
+        console.error("SEVDESK CREATE ORDER POSITION ERROR:", { providerStatus: posRes.status });
         return json(
           {
             error: "sevdesk_create_order_position_failed",
@@ -347,7 +347,7 @@ export async function POST(req) {
     );
 
     if (!invoiceRes.ok) {
-      console.error("SEVDESK CREATE INVOICE FROM ORDER ERROR:", invoiceJson);
+      console.error("SEVDESK CREATE INVOICE FROM ORDER ERROR:", { providerStatus: invoiceRes.status });
       return json(
         {
           error: "sevdesk_create_invoice_from_order_failed",
@@ -372,7 +372,7 @@ export async function POST(req) {
       positions_created: createdPositions.length,
     });
   } catch (err) {
-    console.error("SEVDESK EXPORT COACH QUARTERLY ERROR:", err);
+    console.error("SEVDESK EXPORT COACH QUARTERLY ERROR");
     return json(
       {
         error: "server_error",

@@ -43,7 +43,7 @@ export async function GET(req) {
 
     return json({ request: data });
   } catch (err) {
-    console.error("PUBLIC REQUEST ERROR:", err);
+    console.error("PUBLIC REQUEST ERROR");
     return json(
       { error: "SERVER_ERROR", detail: String(err) },
       500

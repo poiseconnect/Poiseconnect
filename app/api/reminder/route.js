@@ -61,7 +61,7 @@ export async function POST(req) {
       .lte("date", in24.toISOString());
 
     if (error) {
-      console.error("reminder query error", error);
+      console.error("reminder query error", { code: error?.code || null });
       return NextResponse.json({ error: "QUERY_FAILED" }, { status: 500 });
     }
 
@@ -121,7 +121,7 @@ export async function POST(req) {
 
     return NextResponse.json({ ok: true, sent }, { status: 200 });
   } catch (err) {
-    console.error("reminder server error", err);
+    console.error("reminder server error");
     return NextResponse.json({ error: "SERVER_ERROR" }, { status: 500 });
   }
 }

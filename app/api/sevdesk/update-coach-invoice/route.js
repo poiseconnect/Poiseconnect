@@ -29,7 +29,7 @@ async function getUserFromBearer(req) {
   } = await supabase.auth.getUser(token);
 
   if (error || !user) {
-    console.error("GET USER FROM TOKEN ERROR:", error);
+    console.error("GET USER FROM TOKEN ERROR:", { code: error?.code || null });
     return null;
   }
 
@@ -130,7 +130,7 @@ export async function POST(req) {
       .single();
 
     if (invoiceError || !coachInvoice) {
-      console.error("LOAD COACH INVOICE ERROR:", invoiceError);
+      console.error("LOAD COACH INVOICE ERROR:", { code: invoiceError?.code || null });
       return json(
         {
           error: "coach_invoice_not_found",
@@ -169,7 +169,7 @@ export async function POST(req) {
     });
 
     if (!res.ok) {
-      console.error("SEVDESK UPDATE COACH INVOICE ERROR:", data);
+      console.error("SEVDESK UPDATE COACH INVOICE ERROR", { providerStatus: res.status });
       return json(
         {
           ok: false,
@@ -191,7 +191,7 @@ export async function POST(req) {
       .eq("id", coachInvoiceId);
 
     if (updateError) {
-      console.error("UPDATE COACH INVOICE SYNC ERROR:", updateError);
+      console.error("UPDATE COACH INVOICE SYNC ERROR:", { code: updateError?.code || null });
       return json(
         {
           ok: false,
@@ -210,7 +210,7 @@ export async function POST(req) {
       raw: data,
     });
   } catch (err) {
-    console.error("UPDATE COACH INVOICE SERVER ERROR:", err);
+    console.error("UPDATE COACH INVOICE SERVER ERROR");
     return json(
       {
         ok: false,

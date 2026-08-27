@@ -41,7 +41,7 @@ if (requestError || !request) {
 
     return json(data || []);
   } catch (e) {
-    console.error("LIST ERROR:", e);
+    console.error("PROPOSALS LIST ERROR");
     return json({ error: "server_error" }, 500);
   }
 }

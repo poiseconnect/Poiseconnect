@@ -94,8 +94,6 @@ console.log("BOOKING WINDOW DEBUG", {
   bookingWindowDays,
   requestedDays,
   safeDays,
-  startDate: startDate.toISOString(),
-  endDate: endDate.toISOString(),
 });
 const oauth = oauthClient();
 
@@ -126,8 +124,6 @@ oauth.setCredentials({
     const rawEvents = res.data.items || [];
     console.log("GOOGLE EVENTS DEBUG", {
   count: rawEvents.length,
-  first: rawEvents[0]?.start?.dateTime,
-  last: rawEvents.at(-1)?.start?.dateTime,
 });
 
     // Nur freie POISE SLOT Events

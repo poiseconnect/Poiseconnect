@@ -70,7 +70,7 @@ export async function POST(req) {
       .limit(1);
 
     if (blockedLoadError) {
-      console.error("CANCEL BLOCK LOAD FAILED:", blockedLoadError);
+      console.error("CANCEL BLOCK LOAD FAILED:", { code: blockedLoadError?.code || null });
 
       return json(
         {
@@ -106,7 +106,7 @@ export async function POST(req) {
       settingsError ||
       !bookingSettings?.selected_calendar_id
     ) {
-      console.error("CANCEL SETTINGS LOAD FAILED:", settingsError);
+      console.error("CANCEL SETTINGS LOAD FAILED:", { code: settingsError?.code || null });
 
       return json(
         {
@@ -127,7 +127,7 @@ export async function POST(req) {
       .single();
 
     if (coachError) {
-      console.warn("CANCEL COACH LOAD FAILED:", coachError);
+      console.warn("CANCEL COACH LOAD FAILED:", { code: coachError?.code || null });
     }
 
     // ------------------------------------------------
@@ -163,10 +163,7 @@ export async function POST(req) {
           Number(googleStatus) !== 404 &&
           Number(googleStatus) !== 410
         ) {
-          console.error(
-            "CANCEL GOOGLE EVENT DELETE FAILED:",
-            googleDeleteError
-          );
+          console.error("CANCEL GOOGLE EVENT DELETE FAILED:", { code: googleDeleteError?.code || null });
 
           return json(
             {
@@ -188,10 +185,7 @@ export async function POST(req) {
       .eq("id", blockedSlot.id);
 
     if (blockedDeleteError) {
-      console.error(
-        "CANCEL BLOCKED SLOT DELETE FAILED:",
-        blockedDeleteError
-      );
+      console.error("CANCEL BLOCKED SLOT DELETE FAILED:", { code: blockedDeleteError?.code || null });
 
       return json(
         {
@@ -305,7 +299,7 @@ export async function POST(req) {
         });
       }
     } catch (mailError) {
-      console.error("CANCEL MAIL FAILED:", mailError);
+      console.error("CANCEL MAIL FAILED");
     }
 
     return json({
@@ -313,7 +307,7 @@ export async function POST(req) {
       cancelled: true,
     });
   } catch (err) {
-    console.error("CLIENT CANCEL ROUTE ERROR:", err);
+    console.error("CLIENT CANCEL ROUTE ERROR");
 
     return json(
       {

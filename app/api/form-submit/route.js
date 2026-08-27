@@ -170,7 +170,7 @@ check_datenschutz: Boolean(body.check_datenschutz),
         .eq("id", requestId);
 
       if (updateError) {
-        console.error("UPDATE ERROR:", updateError);
+        console.error("UPDATE ERROR:", { code: updateError?.code || null });
         return JSONResponse({ error: updateError.message }, 500);
       }
     } else {
@@ -184,7 +184,7 @@ check_datenschutz: Boolean(body.check_datenschutz),
         .single();
 
       if (insertError) {
-        console.error("INSERT ERROR:", insertError);
+        console.error("INSERT ERROR:", { code: insertError?.code || null });
         return JSONResponse({ error: insertError.message }, 500);
       }
 
@@ -314,7 +314,7 @@ if (!coachEmail && assignedTherapistId) {
     .single();
 
   if (coachError) {
-    console.warn("COACH LOAD FAILED:", coachError);
+    console.warn("COACH LOAD FAILED");
   }
 
   coachEmail = coachData?.email || null;
@@ -343,20 +343,17 @@ if (coachEmail) {
     `,
   });
 
-  console.log("✅ COACH MAIL SENT TO:", coachEmail);
+  console.log("COACH MAIL SENT");
 } else {
-  console.warn("⚠️ Keine Coach-E-Mail gefunden", {
-    assignedTherapistId,
-    finalTherapistName,
-  });
+  console.warn("COACH EMAIL MISSING");
 }
-    } catch (mailErr) {
-      console.warn("MAIL FAILED (but DB ok):", mailErr);
+    } catch {
+      console.warn("MAIL FAILED (but DB ok)");
     }
 
     return JSONResponse({ ok: true, id: finalRequestId });
-  } catch (err) {
-    console.error("SERVER ERROR:", err);
+    } catch (err) {
+    console.error("SERVER ERROR");
     return JSONResponse(
       { error: "SERVER_ERROR", detail: String(err) },
       500

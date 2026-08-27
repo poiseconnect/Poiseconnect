@@ -15,7 +15,7 @@ export async function GET() {
       .order("date", { ascending: true });
 
     if (error) {
-      console.error("ADMIN SESSIONS ERROR", error);
+      console.error("ADMIN SESSIONS ERROR", { code: error?.code || null });
       return new Response(
         JSON.stringify({ error: error.message }),
         { status: 500 }

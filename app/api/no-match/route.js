@@ -33,7 +33,7 @@ export async function POST(req) {
       .eq("id", anfrageId);
 
     if (error) {
-      console.error("NO-MATCH ERROR:", error);
+      console.error("NO-MATCH ERROR:", { code: error?.code || null });
       return json({ error: "update_failed" }, 500);
     }
 
@@ -162,12 +162,12 @@ export async function POST(req) {
 
     if (!mailRes.ok) {
       const text = await mailRes.text();
-      console.warn("NO-MATCH MAIL FAILED – DB UPDATE OK:", text);
+      console.warn("NO-MATCH MAIL FAILED – DB UPDATE OK");
     }
 
     return json({ ok: true });
   } catch (e) {
-    console.error("NO-MATCH SERVER ERROR:", e);
+    console.error("NO-MATCH SERVER ERROR");
     return json({ error: "server_error" }, 500);
   }
 }

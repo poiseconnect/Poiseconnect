@@ -62,7 +62,7 @@ export async function POST(request) {
     const text = await klaviyoRes.text();
 
     if (!klaviyoRes.ok) {
-      console.error("Klaviyo error:", text);
+      console.error("KLAVIYO ERROR", { providerStatus: klaviyoRes.status });
       return new Response(
         JSON.stringify({ ok: false, error: text }),
         { status: klaviyoRes.status, headers: { "Content-Type": "application/json" } }
@@ -74,7 +74,7 @@ export async function POST(request) {
       { status: 200, headers: { "Content-Type": "application/json" } }
     );
   } catch (error) {
-    console.error("Klaviyo subscribe error:", error);
+    console.error("KLAVIYO SUBSCRIBE ERROR");
     return new Response(
       JSON.stringify({ ok: false, error: String(error) }),
       { status: 500, headers: { "Content-Type": "application/json" } }

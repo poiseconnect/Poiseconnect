@@ -26,7 +26,7 @@ export async function POST(request) {
       .eq("id", anfrageId);
 
     if (error) {
-      console.error("REASSIGN UPDATE ERROR:", error);
+      console.error("REASSIGN UPDATE ERROR:", { code: error?.code || null });
       return NextResponse.json(
         { error: "update_failed", detail: error.message },
         { status: 500 }
@@ -35,7 +35,7 @@ export async function POST(request) {
 
     return NextResponse.json({ success: true });
   } catch (err) {
-    console.error("REASSIGN SERVER ERROR:", err);
+    console.error("REASSIGN SERVER ERROR");
     return NextResponse.json(
       { error: "Therapeut konnte nicht gewechselt werden" },
       { status: 500 }

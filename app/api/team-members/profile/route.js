@@ -26,7 +26,7 @@ async function getUserFromBearer(req) {
   } = await supabase.auth.getUser(token);
 
   if (error || !user) {
-    console.error("GET USER FROM TOKEN ERROR:", error);
+    console.error("GET USER FROM TOKEN ERROR:", { code: error?.code || null });
     return null;
   }
 
@@ -64,13 +64,13 @@ const { data: member, error } = await supabase
   .single();
 
     if (error) {
-      console.error("PROFILE GET ERROR:", error);
+      console.error("PROFILE GET ERROR:", { code: error?.code || null });
       return json({ error: "load_failed", detail: error.message }, 500);
     }
 
     return json({ member });
   } catch (err) {
-    console.error("PROFILE GET SERVER ERROR:", err);
+    console.error("PROFILE GET SERVER ERROR");
     return json({ error: "server_error", detail: String(err) }, 500);
   }
 }
@@ -161,13 +161,13 @@ const payload = {
       .single();
 
     if (error) {
-      console.error("PROFILE SAVE ERROR:", error);
+      console.error("PROFILE SAVE ERROR:", { code: error?.code || null });
       return json({ error: "save_failed", detail: error.message }, 500);
     }
 
     return json({ ok: true, member });
   } catch (err) {
-    console.error("PROFILE POST SERVER ERROR:", err);
+    console.error("PROFILE POST SERVER ERROR");
     return json({ error: "server_error", detail: String(err) }, 500);
   }
 }

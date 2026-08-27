@@ -73,11 +73,11 @@ export async function POST(req) {
       `,
     });
 
-    console.log("SEND BOOKING LINK MAIL RESULT:", mailResult);
+    console.log("SEND BOOKING LINK MAIL RESULT:", { accepted: !mailResult?.error });
 
     return json({ ok: true, bookingUrl });
   } catch (err) {
-    console.error("SEND BOOKING LINK ERROR:", err);
+    console.error("SEND BOOKING LINK ERROR");
     return json(
       { error: "server_error", detail: String(err) },
       500

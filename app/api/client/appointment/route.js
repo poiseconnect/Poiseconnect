@@ -63,7 +63,7 @@ export async function GET(req) {
       .limit(1);
 
     if (blockedError) {
-      console.error("CLIENT APPOINTMENT BLOCK LOAD FAILED:", blockedError);
+      console.error("CLIENT APPOINTMENT BLOCK LOAD FAILED:", { code: blockedError?.code || null });
 
       return json(
         {
@@ -97,7 +97,7 @@ export async function GET(req) {
       .single();
 
     if (coachError || !coach) {
-      console.error("CLIENT APPOINTMENT COACH LOAD FAILED:", coachError);
+      console.error("CLIENT APPOINTMENT COACH LOAD FAILED:", { code: coachError?.code || null });
 
       return json(
         {
@@ -114,7 +114,7 @@ export async function GET(req) {
       calendarMode: coach.profile_calendar_mode || null,
     });
   } catch (err) {
-    console.error("CLIENT APPOINTMENT ROUTE ERROR:", err);
+    console.error("CLIENT APPOINTMENT ROUTE ERROR");
 
     return json(
       {

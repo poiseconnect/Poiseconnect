@@ -79,7 +79,7 @@ export async function POST(req) {
       .eq("id", request.id);
 
     if (updateError) {
-      console.error("RESCHEDULE REQUEST UPDATE FAILED:", updateError);
+      console.error("RESCHEDULE REQUEST UPDATE FAILED:", { code: updateError?.code || null });
 
       return json(
         {
@@ -127,7 +127,7 @@ export async function POST(req) {
           }),
         });
       } catch (mailError) {
-        console.error("RESCHEDULE REQUEST MAIL FAILED:", mailError);
+        console.error("RESCHEDULE REQUEST MAIL FAILED");
       }
     }
 
@@ -136,7 +136,7 @@ export async function POST(req) {
       requested: true,
     });
   } catch (err) {
-    console.error("RESCHEDULE REQUEST ERROR:", err);
+    console.error("RESCHEDULE REQUEST ERROR");
 
     return json(
       {

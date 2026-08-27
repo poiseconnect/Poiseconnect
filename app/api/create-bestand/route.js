@@ -51,7 +51,7 @@ export async function POST(request) {
     });
 
     if (error) {
-      console.error("CREATE BESTAND DB ERROR:", error);
+      console.error("CREATE BESTAND DB ERROR:", { code: error?.code || null });
       return json(
         { error: "DB_ERROR", detail: error.message },
         500
@@ -60,7 +60,7 @@ export async function POST(request) {
 
     return json({ ok: true });
   } catch (err) {
-    console.error("CREATE BESTAND SERVER ERROR:", err);
+    console.error("CREATE BESTAND SERVER ERROR");
     return json(
       { error: "SERVER_ERROR", detail: String(err) },
       500

@@ -24,7 +24,7 @@ export async function POST(req) {
       .eq("id", requestId);
 
     if (error) {
-      console.error("DELETE ERROR:", error);
+      console.error("DELETE ERROR:", { code: error?.code || null });
       return new Response(
         JSON.stringify({ error: "db_delete_failed" }),
         { status: 500 }
@@ -33,7 +33,7 @@ export async function POST(req) {
 
     return new Response(JSON.stringify({ ok: true }), { status: 200 });
   } catch (err) {
-    console.error("DELETE SERVER ERROR:", err);
+    console.error("DELETE SERVER ERROR");
     return new Response(
       JSON.stringify({ error: "server_error" }),
       { status: 500 }

@@ -40,7 +40,7 @@ async function getUserFromBearer(req) {
   } = await supabase.auth.getUser(token);
 
   if (error || !user) {
-    console.error("GET USER FROM TOKEN ERROR:", error);
+    console.error("GET USER FROM TOKEN ERROR:", { code: error?.code || null });
     return null;
   }
 
@@ -253,7 +253,7 @@ export async function GET(req) {
       .single();
 
     if (coachError || !coach) {
-      console.error("LOAD COACH ERROR:", coachError);
+      console.error("LOAD COACH ERROR:", { code: coachError?.code || null });
       return json(
         {
           error: "coach_not_found",
@@ -270,7 +270,7 @@ export async function GET(req) {
       .maybeSingle();
 
     if (settingsError) {
-      console.error("LOAD COACH INVOICE SETTINGS ERROR:", settingsError);
+      console.error("LOAD COACH INVOICE SETTINGS ERROR:", { code: settingsError?.code || null });
       return json(
         {
           error: "settings_load_failed",
@@ -393,7 +393,7 @@ export async function GET(req) {
       .order("date", { ascending: true });
 
     if (sessionsError) {
-      console.error("LOAD COACH BILLING SESSIONS ERROR:", sessionsError);
+      console.error("LOAD COACH BILLING SESSIONS ERROR:", { code: sessionsError?.code || null });
       return json(
         {
           error: "billing_sessions_load_failed",
@@ -482,7 +482,7 @@ export async function GET(req) {
       },
     });
   } catch (err) {
-    console.error("LOAD COACH INVOICE SERVER ERROR:", err);
+    console.error("LOAD COACH INVOICE SERVER ERROR");
     return json(
       {
         error: "server_error",

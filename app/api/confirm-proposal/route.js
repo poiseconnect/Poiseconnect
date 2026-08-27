@@ -55,7 +55,7 @@ const { data: tokenRequest, error: tokenRequestError } = await supabase
   .single();
 
 if (tokenRequestError || !tokenRequest) {
-  console.error("invalid_booking_token", tokenRequestError);
+  console.error("invalid_booking_token", { code: tokenRequestError?.code || null });
   return json({ error: "invalid_token" }, 404);
 }
 
@@ -73,7 +73,7 @@ const { data: proposal, error: pError } = await supabase
   .single();
 
     if (pError || !proposal) {
-      console.error("proposal_not_found", pError);
+      console.error("proposal_not_found", { code: pError?.code || null });
       return json({ error: "proposal_not_found" }, 404);
     }
 if (!proposal.google_event_id) {
@@ -132,7 +132,7 @@ if (
       .single();
 
     if (reqLoadError || !existingRequest) {
-      console.error("request_load_failed", reqLoadError);
+      console.error("request_load_failed", { code: reqLoadError?.code || null });
       return json({ error: "request_not_found" }, 404);
     }
 
@@ -154,7 +154,7 @@ const { data: overlappingSlots, error: overlapError } = await supabase
   .limit(1);
 
 if (overlapError) {
-  console.error("overlap_check_failed", overlapError);
+  console.error("overlap_check_failed", { code: overlapError?.code || null });
 
   return json(
     {
@@ -200,7 +200,7 @@ const { data: blockedSlot, error: blockError } = await supabase
   .single();
 
 if (blockError || !blockedSlot) {
-  console.error("blocked_slot_insert_failed", blockError);
+  console.error("blocked_slot_insert_failed", { code: blockError?.code || null });
 
   return json(
     {
@@ -363,11 +363,8 @@ try {
     blockedSlotId: blockedSlot.id,
     bookedGoogleEventId,
   });
-} catch (googlePatchError) {
-  console.error(
-    "❌ PROPOSAL GOOGLE EVENT PATCH FAILED:",
-    googlePatchError
-  );
+} catch {
+  console.error("PROPOSAL GOOGLE EVENT PATCH FAILED");
 
   // blocked_slot wieder entfernen,
   // weil die Reservierung nicht bestätigt werden konnte
@@ -377,10 +374,7 @@ try {
     .eq("id", blockedSlot.id);
 
   if (rollbackError) {
-    console.error(
-      "❌ BLOCKED SLOT ROLLBACK FAILED:",
-      rollbackError
-    );
+    console.error("BLOCKED SLOT ROLLBACK FAILED");
   }
 
   return json(
@@ -392,12 +386,7 @@ try {
   );
 }
 
-    console.log("📧 about to send mail", {
-      to: existingRequest.email,
-      therapistName,
-      terminText,
-      videoLink,
-    });
+    console.log("CONFIRM PROPOSAL MAIL PREPARED");
 
     // ------------------------------------------------
 // Anfrage erst nach erfolgreicher Kalenderbuchung bestätigen
@@ -412,7 +401,7 @@ const { error: updateError } = await supabase
   .eq("id", requestId);
 
 if (updateError) {
-  console.error("request_update_failed", updateError);
+  console.error("request_update_failed");
 
   // ------------------------------------------------
   // Google-Termin wieder zur Reservierung zurücksetzen
@@ -443,15 +432,9 @@ if (updateError) {
       },
     });
 
-    console.log(
-      "↩️ GOOGLE EVENT BACK TO PROPOSAL:",
-      bookedGoogleEventId
-    );
-  } catch (googleRollbackError) {
-    console.error(
-      "❌ GOOGLE EVENT ROLLBACK AFTER REQUEST UPDATE FAILED:",
-      googleRollbackError
-    );
+    console.log("GOOGLE EVENT RESTORED TO PROPOSAL");
+  } catch {
+    console.error("GOOGLE EVENT ROLLBACK AFTER REQUEST UPDATE FAILED");
   }
 
   // ------------------------------------------------
@@ -463,10 +446,7 @@ if (updateError) {
     .eq("id", blockedSlot.id);
 
   if (blockedRollbackError) {
-    console.error(
-      "❌ BLOCKED SLOT ROLLBACK AFTER REQUEST UPDATE FAILED:",
-      blockedRollbackError
-    );
+    console.error("BLOCKED SLOT ROLLBACK AFTER REQUEST UPDATE FAILED");
   }
 
   return json(
@@ -489,20 +469,14 @@ const { data: otherProposals, error: otherProposalsError } =
     .neq("id", proposalId);
 
 if (otherProposalsError) {
-  console.error(
-    "❌ OTHER PROPOSALS LOAD FAILED:",
-    otherProposalsError
-  );
+  console.error("OTHER PROPOSALS LOAD FAILED");
 } else {
   // ----------------------------------------------
   // zuerst Google-Events löschen
   // ----------------------------------------------
   for (const otherProposal of otherProposals || []) {
     if (!otherProposal.google_event_id) {
-      console.warn(
-        "⚠️ OTHER PROPOSAL WITHOUT GOOGLE EVENT:",
-        otherProposal.id
-      );
+      console.warn("OTHER PROPOSAL WITHOUT GOOGLE EVENT");
       continue;
     }
 
@@ -512,19 +486,9 @@ if (otherProposalsError) {
         eventId: otherProposal.google_event_id,
       });
 
-      console.log(
-        "🗑️ UNUSED GOOGLE PROPOSAL DELETED:",
-        otherProposal.google_event_id
-      );
-    } catch (googleDeleteError) {
-      console.error(
-        "❌ UNUSED GOOGLE PROPOSAL DELETE FAILED:",
-        {
-          proposalId: otherProposal.id,
-          googleEventId: otherProposal.google_event_id,
-          error: googleDeleteError,
-        }
-      );
+      console.log("UNUSED GOOGLE PROPOSAL DELETED");
+    } catch {
+      console.error("UNUSED GOOGLE PROPOSAL DELETE FAILED");
     }
   }
 
@@ -538,10 +502,7 @@ if (otherProposalsError) {
     .neq("id", proposalId);
 
   if (delError) {
-    console.error(
-      "❌ OTHER PROPOSALS DELETE FAILED:",
-      delError
-    );
+    console.error("OTHER PROPOSALS DELETE FAILED");
   }
 }
 // ------------------------------------------------
@@ -556,10 +517,7 @@ const { error: selectedProposalDeleteError } =
     .eq("id", proposalId);
 
 if (selectedProposalDeleteError) {
-  console.error(
-    "❌ SELECTED PROPOSAL DELETE FAILED:",
-    selectedProposalDeleteError
-  );
+  console.error("SELECTED PROPOSAL DELETE FAILED");
 }
     // ------------------------------------------------
     // Mail senden
@@ -650,9 +608,7 @@ if (selectedProposalDeleteError) {
         }),
       });
 
-      const resendText = await mailRes.text();
       console.log("📧 RESEND STATUS:", mailRes.status);
-      console.log("📧 RESEND RESPONSE:", resendText);
     }
 if (coach?.email) {
 
@@ -710,7 +666,7 @@ html: `
 }
     return json({ ok: true });
   } catch (e) {
-    console.error("CONFIRM ERROR:", e);
+    console.error("CONFIRM ERROR");
     return json({ error: "server_error", detail: String(e) }, 500);
   }
 }

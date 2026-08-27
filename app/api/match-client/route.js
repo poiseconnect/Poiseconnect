@@ -20,7 +20,7 @@ const supabase = createClient(
 export async function POST(req) {
   try {
     const body = await req.json(); // ✅ genau ein json()
-    console.log("📥 MATCH BODY:", body);
+    console.log("MATCH CLIENT REQUEST RECEIVED");
 
 
     const { anfrageId, therapistEmail, honorar } = body || {};
@@ -80,7 +80,7 @@ if (!normalizedStatus.includes("termin")) {
       .eq("id", anfrageId);
 
     if (updateError) {
-      console.error("MATCH UPDATE ERROR:", updateError);
+      console.error("MATCH UPDATE ERROR:", { code: updateError?.code || null });
       return NextResponse.json(
         { error: "UPDATE_FAILED", detail: updateError.message },
         { status: 500 }
@@ -96,7 +96,7 @@ return new Response(
 );
 
   } catch (err) {
-    console.error("MATCH CLIENT ERROR:", err);
+    console.error("MATCH CLIENT ERROR");
     return NextResponse.json(
       { error: "SERVER_ERROR", detail: String(err) },
       { status: 500 }

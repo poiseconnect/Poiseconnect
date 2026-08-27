@@ -29,7 +29,7 @@ export async function POST(req) {
       .single();
 
     if (error || !request?.booking_token) {
-      console.error("LEGACY LINK RESOLVE ERROR:", error);
+      console.error("LEGACY LINK RESOLVE ERROR:", { code: error?.code || null });
 
       return json(
         { error: "request_not_found" },
@@ -41,7 +41,7 @@ export async function POST(req) {
       token: request.booking_token,
     });
   } catch (e) {
-    console.error("LEGACY LINK SERVER ERROR:", e);
+    console.error("LEGACY LINK SERVER ERROR");
 
     return json(
       {

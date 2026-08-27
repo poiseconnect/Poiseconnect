@@ -58,7 +58,7 @@ export async function POST(req) {
       .insert(inserts);
 
     if (error) {
-      console.error(error);
+      console.error("SEND PROPOSALS DB ERROR", { code: error?.code || null });
       return json({ error: "DB_ERROR" }, 500);
     }
 
@@ -99,7 +99,7 @@ const links = inserts
 
     return json({ ok: true });
   } catch (err) {
-    console.error(err);
+    console.error("SEND PROPOSALS SERVER ERROR");
     return json({ error: "SERVER_ERROR" }, 500);
   }
 }

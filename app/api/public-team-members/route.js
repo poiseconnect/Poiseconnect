@@ -49,7 +49,7 @@ export async function GET() {
   .eq("available_for_intake", true);
     
     if (error) {
-      console.error("PUBLIC TEAM MEMBERS ERROR:", error);
+      console.error("PUBLIC TEAM MEMBERS ERROR:", { code: error?.code || null });
       return json({ error: error.message }, 500);
     }
 
@@ -78,7 +78,7 @@ export async function GET() {
 
     return json({ members: merged });
   } catch (err) {
-    console.error("PUBLIC TEAM MEMBERS SERVER ERROR:", err);
+    console.error("PUBLIC TEAM MEMBERS SERVER ERROR");
     return json({ error: String(err) }, 500);
   }
 }

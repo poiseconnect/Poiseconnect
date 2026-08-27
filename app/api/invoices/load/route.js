@@ -122,7 +122,7 @@ const { data: sessions, error: sessErr } = await sessionsQuery.order("date", {
         .maybeSingle();
 
       if (invoiceError) {
-        console.error("LOAD INVOICE ERROR:", invoiceError);
+        console.error("LOAD INVOICE ERROR:", { code: invoiceError?.code || null });
         return json(
           {
             error: "invoice_load_failed",

@@ -28,7 +28,7 @@ export async function POST(request) {
   try {
     const body = await request.json();
 
-    console.log("✅ CONFIRM-APPOINTMENT BODY:", body);
+    console.log("CONFIRM APPOINTMENT REQUEST RECEIVED");
 
     const { requestId, client, vorname } = body || {};
 
@@ -57,7 +57,7 @@ export async function POST(request) {
       .single();
 
     if (loadError || !existing) {
-      console.error("❌ LOAD REQUEST ERROR:", loadError);
+      console.error("CONFIRM APPOINTMENT REQUEST LOAD ERROR:", { code: loadError?.code || null });
       return new Response(
         JSON.stringify({ error: "request_not_found" }),
         { status: 404 }
@@ -85,7 +85,7 @@ export async function POST(request) {
       .eq("id", requestId);
 
     if (updateError) {
-      console.error("❌ CONFIRM UPDATE ERROR:", updateError);
+      console.error("CONFIRM APPOINTMENT UPDATE ERROR:", { code: updateError?.code || null });
       return new Response(
         JSON.stringify({
           error: "update_failed",
@@ -110,7 +110,7 @@ export async function POST(request) {
         .single();
 
       if (bookingError) {
-        console.warn("⚠️ BOOKING SETTINGS LOAD FAILED:", bookingError);
+        console.warn("BOOKING SETTINGS LOAD FAILED:", { code: bookingError?.code || null });
       } else {
         bookingSettings = bookingData;
       }
@@ -237,8 +237,7 @@ ${
     });
 
     if (!mailRes.ok) {
-      const mailText = await mailRes.text();
-      console.warn("⚠️ MAIL FAILED – STATUS IST ABER KORREKT:", mailText);
+      console.warn("MAIL FAILED – STATUS IS STILL CORRECT");
     }
 
     return new Response(
@@ -246,7 +245,7 @@ ${
       { status: 200 }
     );
   } catch (err) {
-    console.error("🔥 CONFIRM SERVER ERROR:", err);
+    console.error("CONFIRM APPOINTMENT SERVER ERROR");
     return new Response(
       JSON.stringify({
         error: "server_error",

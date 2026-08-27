@@ -49,7 +49,7 @@ export async function POST(request) {
       .eq("id", anfrageId);
 
     if (error) {
-      console.error("UPDATE CLIENT DB ERROR:", error);
+      console.error("UPDATE CLIENT DB ERROR:", { code: error?.code || null });
       return json(
         {
           error: "DB_ERROR",
@@ -61,7 +61,7 @@ export async function POST(request) {
 
     return json({ ok: true });
   } catch (err) {
-    console.error("UPDATE CLIENT SERVER ERROR:", err);
+    console.error("UPDATE CLIENT SERVER ERROR");
     return json(
       {
         error: "SERVER_ERROR",

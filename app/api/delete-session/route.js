@@ -58,7 +58,7 @@ export async function POST(req) {
     .eq("id", sessionId);
 
   if (error) {
-    console.error(error);
+    console.error("DELETE SESSION ERROR");
     return json({ error: error.message }, 500);
   }
 

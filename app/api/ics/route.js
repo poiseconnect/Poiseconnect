@@ -40,14 +40,10 @@ if (
 
 const text = await upstream.text();
 
-console.log(
-  "✅ ICS FETCH OK",
-  target.href,
-  "LENGTH:",
-  text.length,
-  "HAS VEVENT:",
-  text.includes("BEGIN:VEVENT")
-);
+console.log("ICS FETCH OK", {
+  length: text.length,
+  hasVevent: text.includes("BEGIN:VEVENT"),
+});
 
 return new Response(text, {
   status: 200,

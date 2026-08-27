@@ -47,7 +47,7 @@ export async function GET(req) {
       .eq("therapist", therapist);
 
     if (error) {
-      console.error("❌ Supabase Load Error:", error);
+      console.error("SUPABASE LOAD ERROR:", { code: error?.code || null });
       return NextResponse.json(
         { error: "DB_ERROR", detail: error.message },
         { status: 500 }
@@ -62,7 +62,7 @@ export async function GET(req) {
     return NextResponse.json({ slots }, { status: 200 });
 
   } catch (err) {
-    console.error("❌ BOOKED API ERROR:", err);
+    console.error("BOOKED API ERROR");
     return NextResponse.json(
       { error: "SERVER_ERROR", detail: String(err) },
       { status: 500 }

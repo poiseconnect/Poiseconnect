@@ -46,13 +46,13 @@ export async function GET() {
       .order("date", { ascending: false });
 
     if (error) {
-      console.error("ADMIN BILLING ERROR:", error);
+      console.error("ADMIN BILLING ERROR:", { code: error?.code || null });
       return json({ error: error.message }, 500);
     }
 
     return json({ data });
   } catch (err) {
-    console.error("ADMIN BILLING SERVER ERROR:", err);
+    console.error("ADMIN BILLING SERVER ERROR");
     return json({ error: "SERVER_ERROR" }, 500);
   }
 }

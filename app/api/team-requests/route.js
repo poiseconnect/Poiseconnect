@@ -42,13 +42,13 @@ export async function POST(request) {
       .order("created_at", { ascending: false });
 
     if (error) {
-      console.error("TEAM REQUEST DB ERROR:", error);
+      console.error("TEAM REQUEST DB ERROR:", { code: error?.code || null });
       return json({ error: "db_error" }, 500);
     }
 
     return json({ requests: data });
   } catch (err) {
-    console.error("TEAM REQUEST SERVER ERROR:", err);
+    console.error("TEAM REQUEST SERVER ERROR");
     return json(
       { error: "server_error", detail: String(err) },
       500

@@ -128,10 +128,7 @@ export async function POST(req) {
   try {
     const body = await req.json();
 
-    console.log(
-      "📥 ADD SESSIONS BATCH BODY:",
-      JSON.stringify(body, null, 2)
-    );
+    console.log("ADD SESSIONS BATCH REQUEST RECEIVED");
 
     /* ===============================
        0️⃣ Authentifizierung & Rolle

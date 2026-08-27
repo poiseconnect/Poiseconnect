@@ -76,7 +76,7 @@ async function getVideoLink(anfrage) {
     .maybeSingle();
 
   if (error) {
-    console.warn("booking_settings_load_failed", error);
+    console.warn("booking_settings_load_failed", { code: error?.code || null });
     return "";
   }
 
@@ -112,7 +112,7 @@ export async function GET(req) {
       .not("bevorzugte_zeit", "is", null);
 
     if (error) {
-      console.error("REMINDER LOAD ERROR:", error);
+      console.error("REMINDER LOAD ERROR:", { code: error?.code || null });
       return json({ error: error.message }, 500);
     }
 
@@ -137,11 +137,9 @@ export async function GET(req) {
 
         console.log("REMINDER CHECK", {
           id: anfrage.id,
-          email: anfrage.email,
           hrs,
           reminder_24h_sent: anfrage.reminder_24h_sent,
           reminder_2h_sent: anfrage.reminder_2h_sent,
-          videoLink,
         });
 
         // 24h Reminder
@@ -270,7 +268,7 @@ export async function GET(req) {
           }
         }
       } catch (itemError) {
-        console.error("REMINDER ITEM ERROR", anfrage?.id, itemError);
+        console.error("REMINDER ITEM ERROR", { requestId: anfrage?.id || null, code: itemError?.code || null });
       }
     }
 
@@ -282,7 +280,7 @@ export async function GET(req) {
       logs,
     });
   } catch (e) {
-    console.error("REMINDER SERVER ERROR:", e);
+    console.error("REMINDER SERVER ERROR");
     return json(
       { error: "server_error", detail: String(e) },
       500
