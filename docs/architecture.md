@@ -380,6 +380,72 @@ Dieses Konzept ist **Future Architecture / Product Concept**. Es umfasst
 keine aktuelle API, keine Datenbankmigration, keine Änderung am Matching und
 keine Implementierung.
 
+## Collaboration Architecture – Poise Partner / Poise Netzwerk
+
+### Status und Modelle
+
+Poise Partner und Poise Netzwerk sind ein **Product / Collaboration
+Architecture**-Konzept. Es ist noch nicht implementiert und hängt davon ab, ob
+Coaches künftig tatsächlich zwischen beiden Modellen wählen. Es verändert weder
+das aktuelle Matching noch die öffentliche Website oder Datenstruktur.
+
+- **Poise Partner:** enge, kontinuierliche persönliche und fachliche
+	Zusammenarbeit mit Poise. Orientierung sind etwa ein gemeinsames Austausch-
+	oder Supervisionsformat pro Quartal, ein Teamtreffen mindestens alle zwei
+	Jahre, Fortbildungen, Impulse und gemeinsame Qualitätssicherung.
+- **Poise Netzwerk:** flexiblere Zusammenarbeit. Netzwerk-Coaches sind von
+	Poise ausgewählt, fachlich passend, sichtbar und vermittelbar, arbeiten aber
+	eigenständiger und ohne verpflichtende regelmäßige Supervision oder
+	Teamtreffen.
+
+Die Orientierungswerte für Partner:innen sind bewusst weich. Partnerstatus ist
+gelebte Zusammenarbeit und keine Checklisten-Zertifizierung; bei nachlassendem
+Kontakt soll die Verbindung angesprochen und gemeinsam überprüft werden.
+
+### Vermittlungsprinzip
+
+Partnerstatus ist kein fachlicher Matchingbonus und kein Ersatz für
+Themenpassung, `qualificationLevel`, diagnostische Eignung, fachliche Kompetenz
+oder die Coach Knowledge Base. Netzwerkstatus ist keine Qualitätsminderung und
+darf nie als zweite Kategorie, geringere Verifikation oder geringere
+Vertrauenswürdigkeit kommuniziert oder interpretiert werden.
+
+Die fachliche Passung und Eignung für das konkrete Anliegen bleiben primär. Bei
+vergleichbarer fachlicher Passung kann eine engere und aktuellere Kenntnis der
+Arbeitsweise eines Coaches als nachrangiges Kriterium berücksichtigt werden.
+Damit wird nicht der Status „Partner“ bevorzugt, sondern die belegbare Kenntnis
+über Arbeitsweise und Zusammenarbeit als Vermittlungssicherheit genutzt.
+
+Langfristig kann diese Kenntnis mit der Coach Knowledge Base zusammenwachsen:
+Entscheidend soll nicht nur sein, dass ein Coach Partner ist, sondern wie gut
+Poise die freigegebene Arbeitsweise, Haltung, Methoden, Passung und Grenzen
+kennt. Ein möglicher späterer Wert „Knowledge Confidence“ ist nur eine
+konzeptionelle Idee und darf weder jetzt als Score noch als Ranking implementiert
+werden.
+
+### Mögliche öffentliche Darstellung
+
+Eine spätere Website-Kennzeichnung ist optional: Nur Poise Partner:innen könnten
+ein kleines positives Kennzeichen wie „Poise Partner“ erhalten. Netzwerk-Coaches
+erhalten kein gegenteiliges Badge. Eine mögliche Erklärung ist, dass Poise
+Partner:innen durch regelmäßigen persönlichen und fachlichen Austausch,
+Supervision, Fortbildungen und Qualitätssicherung besonders gut bekannt sind.
+
+Es darf nicht kommuniziert werden, dass Partner pauschal bevorzugt oder
+Netzwerk-Coaches nachrangig vermittelt werden. Bestehende WordPress-
+Detailseiten, Public-API und Karten werden dafür jetzt nicht geändert.
+
+### Spätere technische Entscheidung
+
+Falls beide Modelle nach den Coach-Rückmeldungen tatsächlich genutzt werden,
+könnte ein projekttypisches Feld wie `collaboration_model` mit den Werten
+`partner` und `network` sinnvoll sein. Es gibt hierfür keine festgelegte
+Datenstruktur, Migration, API, UI oder Matchinglogik.
+
+Falls alle Coaches Poise Partner wählen, kann eine technische Abbildung des
+Netzwerkstatus, ein Badge auf jeder Karte und zusätzliche Matching- oder
+UI-Logik entfallen. Implementierung erst nach den Rückmeldungen entscheiden.
+
 ## Verfügbarkeit, Admin und Termine
 
 Folgende Konzepte sind strikt getrennt:

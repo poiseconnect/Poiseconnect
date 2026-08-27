@@ -157,6 +157,10 @@ sichtbar oder unsichtbar wird.
 - Coach-Arbeitsweisen, Methoden, Kompetenzen, Passungen oder Grenzen niemals
 	aus KI ableiten oder erfinden. Für Website, Matching und Empfehlungen nur
 	ausdrücklich vom Coach bestätigte und freigegebene Inhalte verwenden.
+- Partnerstatus niemals automatisch als fachlichen Matchingbonus verwenden;
+	Netzwerkstatus niemals als Qualitätsminderung interpretieren. Technische
+	Umsetzung der Modelle erst nach bestätigter tatsächlicher Nutzung beider
+	Modelle planen.
 - Bestehende historische Admin-Auswahlen nicht durch Regeln für neue
 	Vermittlungen entfernen.
 

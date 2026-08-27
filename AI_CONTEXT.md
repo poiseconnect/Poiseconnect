@@ -223,6 +223,23 @@ qualitativen Differenzierung verwenden und keine Kompetenzen oder Eignungen
 erfinden. Keine API, Migration oder Änderung am aktuellen Matching aus diesem
 Konzept ableiten.
 
+## Zukunftskonzept: Poise Partner / Poise Netzwerk
+
+Poise Partner und Poise Netzwerk sind noch nicht implementierte
+Zusammenarbeitsmodelle. Partner:innen stehen in besonders engem persönlichen
+und fachlichen Austausch mit Poise; Netzwerk-Coaches arbeiten eigenständiger,
+sind aber weiterhin ausgewählt, fachlich passend und voll vermittelbar.
+Partnerstatus ist kein fachlicher Matchingbonus, Netzwerkstatus keine
+Qualitätsminderung. Bei vergleichbarer fachlicher Passung darf künftig nur die
+tatsächlich bessere und aktuellere Kenntnis der Arbeitsweise als nachrangiges
+Vermittlungssignal berücksichtigt werden.
+
+Eine Partner-Kennzeichnung auf der Website sowie eine Datenstruktur wie
+`collaboration_model` bleiben optional und dürfen erst nach Rückmeldungen der
+Coaches umgesetzt werden. Falls alle Partner werden, kann eine technische
+Abbildung entfallen. Keine API, Migration, UI oder Änderung am Matching aus
+diesem Konzept ableiten.
+
 ## Sicherheitsregel für KI
 
 KI-Zugriffe beginnen ausschließlich lesend.
