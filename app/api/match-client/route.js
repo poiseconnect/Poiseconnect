@@ -82,7 +82,7 @@ if (!normalizedStatus.includes("termin")) {
     if (updateError) {
       console.error("MATCH UPDATE ERROR:", { code: updateError?.code || null });
       return NextResponse.json(
-        { error: "UPDATE_FAILED", detail: updateError.message },
+        { error: "UPDATE_FAILED", detail: "INTERNAL_ERROR" },
         { status: 500 }
       );
     }
@@ -98,7 +98,7 @@ return new Response(
   } catch (err) {
     console.error("MATCH CLIENT ERROR");
     return NextResponse.json(
-      { error: "SERVER_ERROR", detail: String(err) },
+      { error: "SERVER_ERROR", detail: "INTERNAL_ERROR" },
       { status: 500 }
     );
   }

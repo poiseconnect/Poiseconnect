@@ -22,7 +22,7 @@ export async function GET(req) {
     .order("created_at", { ascending: false });
 
   if (error) {
-    return new Response(JSON.stringify({ error: error.message }), {
+    return new Response(JSON.stringify({ error: "INTERNAL_ERROR" }), {
       status: 400,
     });
   }

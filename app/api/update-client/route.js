@@ -53,19 +53,19 @@ export async function POST(request) {
       return json(
         {
           error: "DB_ERROR",
-          detail: error.message,
+          detail: "INTERNAL_ERROR",
         },
         500
       );
     }
 
     return json({ ok: true });
-  } catch (err) {
+  } catch {
     console.error("UPDATE CLIENT SERVER ERROR");
     return json(
       {
         error: "SERVER_ERROR",
-        detail: String(err),
+        detail: "INTERNAL_ERROR",
       },
       500
     );

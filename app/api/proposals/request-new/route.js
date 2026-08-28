@@ -117,7 +117,7 @@ export async function POST(req) {
           error:
             "request_update_failed",
           detail:
-            updateError.message,
+            "INTERNAL_ERROR",
         },
         500
       );
@@ -324,7 +324,7 @@ const dashboardLink =
     return json(
       {
         error: "server_error",
-        detail: String(e),
+        detail: "INTERNAL_ERROR",
       },
       500
     );

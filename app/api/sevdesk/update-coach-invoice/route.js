@@ -134,7 +134,7 @@ export async function POST(req) {
       return json(
         {
           error: "coach_invoice_not_found",
-          detail: invoiceError?.message || null,
+          detail: "INTERNAL_ERROR",
         },
         404
       );
@@ -174,8 +174,7 @@ export async function POST(req) {
         {
           ok: false,
           error: "sevdesk_update_invoice_failed",
-          detail: data,
-          sent_payload: payload,
+          detail: "INTERNAL_ERROR",
         },
         500
       );
@@ -196,8 +195,7 @@ export async function POST(req) {
         {
           ok: false,
           error: "supabase_sync_update_failed",
-          detail: updateError.message,
-          raw: data,
+          detail: "INTERNAL_ERROR",
         },
         500
       );
@@ -207,7 +205,6 @@ export async function POST(req) {
       ok: true,
       message: "sevDesk-Rechnung erfolgreich aktualisiert",
       sevdesk_invoice_id: sevdeskInvoiceId,
-      raw: data,
     });
   } catch (err) {
     console.error("UPDATE COACH INVOICE SERVER ERROR");
@@ -215,7 +212,7 @@ export async function POST(req) {
       {
         ok: false,
         error: "server_error",
-        detail: String(err),
+        detail: "INTERNAL_ERROR",
       },
       500
     );

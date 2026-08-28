@@ -28,7 +28,7 @@ export async function POST(request) {
     if (error) {
       console.error("REASSIGN UPDATE ERROR:", { code: error?.code || null });
       return NextResponse.json(
-        { error: "update_failed", detail: error.message },
+        { error: "update_failed", detail: "INTERNAL_ERROR" },
         { status: 500 }
       );
     }

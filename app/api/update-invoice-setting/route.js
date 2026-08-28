@@ -36,17 +36,17 @@ export async function POST(request) {
 
     if (error) {
       console.error("UPDATE INVOICE SETTING SUPABASE ERROR:", { code: error?.code || null });
-      return sendJson({ error: error.message }, 500);
+      return sendJson({ error: "UPDATE_FAILED" }, 500);
     }
 
     return sendJson({ ok: true, data });
-  } catch (error) {
+  } catch {
     console.error("UPDATE INVOICE SETTING SERVER ERROR");
 
     return sendJson(
       {
         error: "SERVER_ERROR",
-        message: error?.message || String(error),
+        message: "INTERNAL_ERROR",
       },
       500
     );

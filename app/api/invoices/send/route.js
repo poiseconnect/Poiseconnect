@@ -169,7 +169,7 @@ filename: `Rechnung_${invoice.invoice_number || "rechnung"}.pdf`,
     });
     return json({ ok: true });
   } catch (e) {
-    return json({ error: "SERVER_ERROR", detail: String(e) }, 500);
+    return json({ error: "SERVER_ERROR", detail: "INTERNAL_ERROR" }, 500);
   }
 }
 

@@ -54,7 +54,7 @@ return new Response(text, {
 });
   } catch (err) {
     return new Response(
-      "ICS proxy error: " + String(err),
+      "ICS proxy error",
       { status: 500 }
     );
   }

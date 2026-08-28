@@ -167,7 +167,7 @@ export async function POST(req) {
       return json(
         {
           error: "existing_check_failed",
-          detail: existingError.message,
+          detail: "INTERNAL_ERROR",
         },
         500
       );
@@ -208,7 +208,7 @@ export async function POST(req) {
       return json(
         {
           error: "save_failed",
-          detail: saveError.message,
+          detail: "INTERNAL_ERROR",
         },
         500
       );
@@ -223,7 +223,7 @@ export async function POST(req) {
     return json(
       {
         error: "server_error",
-        detail: String(err),
+        detail: "INTERNAL_ERROR",
       },
       500
     );

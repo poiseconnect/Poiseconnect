@@ -84,7 +84,7 @@ export async function POST(req) {
       return json(
         {
           error: "request_update_failed",
-          detail: updateError.message,
+          detail: "INTERNAL_ERROR",
         },
         500
       );
@@ -141,7 +141,7 @@ export async function POST(req) {
     return json(
       {
         error: "server_error",
-        detail: String(err),
+        detail: "INTERNAL_ERROR",
       },
       500
     );

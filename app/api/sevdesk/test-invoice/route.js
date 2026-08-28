@@ -97,8 +97,6 @@ async function runTestInvoice() {
       {
         ok: false,
         error: "sevdesk_save_invoice_failed",
-        detail: data,
-        sent_payload: payload,
       },
       500
     );
@@ -108,19 +106,17 @@ async function runTestInvoice() {
     ok: true,
     message: "Testrechnung in sevDesk angelegt",
     sevdesk_invoice_id: extractId(data),
-    raw: data,
   });
 }
 
 export async function GET() {
   try {
     return await runTestInvoice();
-  } catch (err) {
+  } catch {
     return json(
       {
         ok: false,
         error: "server_error",
-        detail: String(err),
       },
       500
     );
@@ -130,12 +126,11 @@ export async function GET() {
 export async function POST() {
   try {
     return await runTestInvoice();
-  } catch (err) {
+  } catch {
     return json(
       {
         ok: false,
         error: "server_error",
-        detail: String(err),
       },
       500
     );

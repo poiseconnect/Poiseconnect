@@ -306,7 +306,7 @@ export async function POST(req) {
         {
           error: "REQUEST_NOT_FOUND",
           detail:
-            anfrageError?.message || null,
+            "INTERNAL_ERROR",
         },
         404
       );
@@ -476,8 +476,6 @@ export async function POST(req) {
               "SLOT_ALREADY_BOOKED",
             start: startISO,
             end: endISO,
-            conflictingSlots:
-              overlappingBlockedSlots,
           },
           409
         );
@@ -567,7 +565,6 @@ export async function POST(req) {
               "SESSION_ALREADY_EXISTS",
             start: startISO,
             end: endISO,
-            conflictingSession,
           },
           409
         );
@@ -793,7 +790,7 @@ export async function POST(req) {
     return json(
       {
         error: "SERVER_ERROR",
-        detail: String(err),
+        detail: "INTERNAL_ERROR",
       },
       500
     );

@@ -50,7 +50,7 @@ export async function GET() {
     
     if (error) {
       console.error("PUBLIC TEAM MEMBERS ERROR:", { code: error?.code || null });
-      return json({ error: error.message }, 500);
+      return json({ error: "INTERNAL_ERROR" }, 500);
     }
 
     const dbMembers = members || [];
@@ -79,6 +79,6 @@ export async function GET() {
     return json({ members: merged });
   } catch (err) {
     console.error("PUBLIC TEAM MEMBERS SERVER ERROR");
-    return json({ error: String(err) }, 500);
+    return json({ error: "INTERNAL_ERROR" }, 500);
   }
 }

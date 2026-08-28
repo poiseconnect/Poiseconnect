@@ -55,8 +55,8 @@ export async function GET(req) {
       ok: true,
       matching_scores: member.matching_scores || {},
     });
-  } catch (e) {
-    return json({ error: "SERVER_ERROR", detail: String(e) }, 500);
+  } catch {
+    return json({ error: "SERVER_ERROR", detail: "INTERNAL_ERROR" }, 500);
   }
 }
 
@@ -94,14 +94,14 @@ export async function POST(req) {
       .single();
 
     if (updateErr) {
-      return json({ error: updateErr.message }, 400);
+      return json({ error: "UPDATE_FAILED" }, 400);
     }
 
     return json({
       ok: true,
       matching_scores: data.matching_scores || {},
     });
-  } catch (e) {
-    return json({ error: "SERVER_ERROR", detail: String(e) }, 500);
+  } catch {
+    return json({ error: "SERVER_ERROR", detail: "INTERNAL_ERROR" }, 500);
   }
 }

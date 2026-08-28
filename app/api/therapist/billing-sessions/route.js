@@ -78,13 +78,13 @@ export async function GET(req) {
       .order("date", { ascending: false });
 
     if (error) {
-      return json({ error: error.message }, 500);
+      return json({ error: "SESSIONS_LOAD_FAILED" }, 500);
     }
 
     return json({ data: data || [] });
 
-  } catch (err) {
+  } catch {
     console.error("THERAPIST BILLING ERROR");
-    return json({ error: "SERVER_ERROR", detail: String(err) }, 500);
+    return json({ error: "SERVER_ERROR", detail: "INTERNAL_ERROR" }, 500);
   }
 }

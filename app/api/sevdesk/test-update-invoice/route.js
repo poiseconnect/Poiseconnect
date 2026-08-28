@@ -74,8 +74,6 @@ async function runTest() {
       {
         ok: false,
         error: "sevdesk_save_invoice_failed",
-        detail: data,
-        sent_payload: payload,
       },
       500
     );
@@ -84,19 +82,17 @@ async function runTest() {
   return json({
     ok: true,
     message: "Bestehende sevDesk-Rechnung erfolgreich aktualisiert",
-    raw: data,
   });
 }
 
 export async function GET() {
   try {
     return await runTest();
-  } catch (err) {
+  } catch {
     return json(
       {
         ok: false,
         error: "server_error",
-        detail: String(err),
       },
       500
     );
@@ -106,12 +102,11 @@ export async function GET() {
 export async function POST() {
   try {
     return await runTest();
-  } catch (err) {
+  } catch {
     return json(
       {
         ok: false,
         error: "server_error",
-        detail: String(err),
       },
       500
     );

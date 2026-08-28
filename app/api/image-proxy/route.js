@@ -26,6 +26,6 @@ export async function GET(req) {
       },
     });
   } catch (err) {
-    return new Response(String(err), { status: 500 });
+    return new Response("Image proxy error", { status: 500 });
   }
 }

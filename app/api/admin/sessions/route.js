@@ -17,7 +17,7 @@ export async function GET() {
     if (error) {
       console.error("ADMIN SESSIONS ERROR", { code: error?.code || null });
       return new Response(
-        JSON.stringify({ error: error.message }),
+        JSON.stringify({ error: "INTERNAL_ERROR" }),
         { status: 500 }
       );
     }
@@ -28,7 +28,7 @@ export async function GET() {
     );
   } catch (err) {
     return new Response(
-      JSON.stringify({ error: String(err) }),
+      JSON.stringify({ error: "INTERNAL_ERROR" }),
       { status: 500 }
     );
   }

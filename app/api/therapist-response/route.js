@@ -179,10 +179,10 @@ Poise`
     }
 
     return NextResponse.json({ error: "UNKNOWN_ACTION" }, { status: 400 });
-  } catch (err) {
+  } catch {
     console.error("THERAPIST RESPONSE SERVER ERROR");
     return NextResponse.json(
-      { error: "SERVER_ERROR", detail: String(err) },
+      { error: "SERVER_ERROR", detail: "INTERNAL_ERROR" },
       { status: 500 }
     );
   }

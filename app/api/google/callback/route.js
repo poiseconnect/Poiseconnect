@@ -38,7 +38,7 @@ export async function GET(req) {
     );
 
   if (upErr) {
-    return new Response("Token save failed: " + upErr.message, {
+    return new Response("Token save failed", {
       status: 500,
     });
   }

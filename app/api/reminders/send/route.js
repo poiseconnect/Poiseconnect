@@ -113,7 +113,7 @@ export async function GET(req) {
 
     if (error) {
       console.error("REMINDER LOAD ERROR:", { code: error?.code || null });
-      return json({ error: error.message }, 500);
+      return json({ error: "INTERNAL_ERROR" }, 500);
     }
 
     let sent24 = 0;
@@ -282,7 +282,7 @@ export async function GET(req) {
   } catch (e) {
     console.error("REMINDER SERVER ERROR");
     return json(
-      { error: "server_error", detail: String(e) },
+      { error: "server_error", detail: "INTERNAL_ERROR" },
       500
     );
   }

@@ -13,7 +13,7 @@ const { data: members, error: membersError } = await sb
     if (membersError) {
       console.error("PUBLIC AVAILABILITY MEMBERS ERROR:", { code: membersError?.code || null });
       return json(
-        { error: "MEMBERS_LOAD_FAILED", detail: membersError.message },
+        { error: "MEMBERS_LOAD_FAILED", detail: "INTERNAL_ERROR" },
         500
       );
     }
@@ -25,7 +25,7 @@ const { data: members, error: membersError } = await sb
     if (bookingError) {
       console.error("PUBLIC AVAILABILITY BOOKING ERROR:", { code: bookingError?.code || null });
       return json(
-        { error: "BOOKING_LOAD_FAILED", detail: bookingError.message },
+        { error: "BOOKING_LOAD_FAILED", detail: "INTERNAL_ERROR" },
         500
       );
     }
@@ -38,7 +38,7 @@ const { data: members, error: membersError } = await sb
   } catch (e) {
     console.error("PUBLIC AVAILABILITY SERVER ERROR");
     return json(
-      { error: "SERVER_ERROR", detail: String(e) },
+      { error: "SERVER_ERROR", detail: "INTERNAL_ERROR" },
       500
     );
   }

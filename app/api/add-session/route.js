@@ -133,7 +133,7 @@ export async function POST(req) {
       return json(
         {
           error: "REQUEST_NOT_FOUND",
-          detail: anfrageError?.message || null,
+          detail: "INTERNAL_ERROR",
         },
         404
       );
@@ -173,8 +173,7 @@ export async function POST(req) {
         {
           error: "BOOKING_SETTINGS_NOT_FOUND",
           detail:
-            settingsError?.message ||
-            "Kein Google-Kalender ausgewählt",
+            "INTERNAL_ERROR",
         },
         400
       );
@@ -220,7 +219,7 @@ export async function POST(req) {
       return json(
         {
           error: "OVERLAP_CHECK_FAILED",
-          detail: overlapError.message,
+          detail: "INTERNAL_ERROR",
         },
         500
       );
@@ -238,8 +237,6 @@ export async function POST(req) {
       return json(
         {
           error: "SLOT_ALREADY_BOOKED",
-          conflictingSlots:
-            overlappingBlockedSlots,
         },
         409
       );
@@ -284,7 +281,7 @@ export async function POST(req) {
       return json(
         {
           error: "SESSION_OVERLAP_CHECK_FAILED",
-          detail: sessionOverlapError.message,
+          detail: "INTERNAL_ERROR",
         },
         500
       );
@@ -317,7 +314,6 @@ export async function POST(req) {
       return json(
         {
           error: "SESSION_ALREADY_EXISTS",
-          conflictingSession,
         },
         409
       );
@@ -506,7 +502,7 @@ export async function POST(req) {
       return json(
         {
           error: "GOOGLE_EVENT_FAILED",
-          detail: String(googleInsertError),
+          detail: "INTERNAL_ERROR",
         },
         500
       );
@@ -540,8 +536,7 @@ export async function POST(req) {
         {
           error:
             "SESSION_GOOGLE_EVENT_ID_SAVE_FAILED",
-          detail:
-            sessionGoogleIdError.message,
+          detail: "INTERNAL_ERROR",
           sessionId: insertedSessionId,
           googleEventId:
             bookedGoogleEventId,
@@ -574,8 +569,7 @@ export async function POST(req) {
         {
           error:
             "BLOCKED_SLOT_GOOGLE_EVENT_ID_SAVE_FAILED",
-          detail:
-            blockedGoogleIdError.message,
+          detail: "INTERNAL_ERROR",
           sessionId: insertedSessionId,
           blockedSlotId:
             insertedBlockedSlotId,
@@ -682,7 +676,7 @@ export async function POST(req) {
     return json(
       {
         error: "SERVER_ERROR",
-        detail: String(err),
+        detail: "INTERNAL_ERROR",
       },
       500
     );

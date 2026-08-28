@@ -48,10 +48,10 @@ const payload = {
       .select()
       .single();
 
-    if (upErr) return json({ error: upErr.message }, 400);
+    if (upErr) return json({ error: "BOOKING_SETTINGS_SAVE_FAILED" }, 400);
 
     return json({ ok: true, data });
   } catch (e) {
-    return json({ error: "SERVER_ERROR", detail: String(e) }, 500);
+    return json({ error: "SERVER_ERROR", detail: "INTERNAL_ERROR" }, 500);
   }
 }

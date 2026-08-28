@@ -257,7 +257,7 @@ export async function GET(req) {
       return json(
         {
           error: "coach_not_found",
-          detail: coachError?.message || null,
+          detail: "INTERNAL_ERROR",
         },
         404
       );
@@ -274,7 +274,7 @@ export async function GET(req) {
       return json(
         {
           error: "settings_load_failed",
-          detail: settingsError.message,
+          detail: "INTERNAL_ERROR",
         },
         500
       );
@@ -304,7 +304,7 @@ export async function GET(req) {
       return json(
         {
           error: "existing_invoice_load_failed",
-          detail: existingInvoiceError.message,
+          detail: "INTERNAL_ERROR",
         },
         500
       );
@@ -397,7 +397,7 @@ export async function GET(req) {
       return json(
         {
           error: "billing_sessions_load_failed",
-          detail: sessionsError.message,
+          detail: "INTERNAL_ERROR",
         },
         500
       );
@@ -486,7 +486,7 @@ export async function GET(req) {
     return json(
       {
         error: "server_error",
-        detail: String(err),
+        detail: "INTERNAL_ERROR",
       },
       500
     );

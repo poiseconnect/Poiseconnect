@@ -171,7 +171,7 @@ check_datenschutz: Boolean(body.check_datenschutz),
 
       if (updateError) {
         console.error("UPDATE ERROR:", { code: updateError?.code || null });
-        return JSONResponse({ error: updateError.message }, 500);
+        return JSONResponse({ error: "REQUEST_UPDATE_FAILED" }, 500);
       }
     } else {
       const { data: inserted, error: insertError } = await supabase
@@ -185,7 +185,7 @@ check_datenschutz: Boolean(body.check_datenschutz),
 
       if (insertError) {
         console.error("INSERT ERROR:", { code: insertError?.code || null });
-        return JSONResponse({ error: insertError.message }, 500);
+        return JSONResponse({ error: "REQUEST_INSERT_FAILED" }, 500);
       }
 
       finalRequestId = inserted.id;
@@ -355,7 +355,7 @@ if (coachEmail) {
     } catch (err) {
     console.error("SERVER ERROR");
     return JSONResponse(
-      { error: "SERVER_ERROR", detail: String(err) },
+      { error: "SERVER_ERROR", detail: "INTERNAL_ERROR" },
       500
     );
   }

@@ -167,7 +167,7 @@ if (oldProposalsError) {
   return json(
     {
       error: "old_proposals_load_failed",
-      detail: oldProposalsError.message,
+      detail: "INTERNAL_ERROR",
     },
     500
   );
@@ -209,7 +209,7 @@ if (deleteOldError) {
   return json(
     {
       error: "delete_old_proposals_failed",
-      detail: deleteOldError.message,
+      detail: "INTERNAL_ERROR",
     },
     500
   );
@@ -336,7 +336,7 @@ end: {
   return json(
     {
       error: "proposal_creation_failed",
-      detail: String(proposalCreateError),
+      detail: "INTERNAL_ERROR",
     },
     500
   );
@@ -445,7 +445,7 @@ if (!mailRes.ok) {
   return json({
     ok: true,
     warning: "proposal_saved_but_mail_failed",
-    detail: mailText,
+    detail: "INTERNAL_ERROR",
   });
 }
 
@@ -476,7 +476,7 @@ if (proposalStatusError) {
   return json(
     {
       error: "proposal_status_update_failed",
-      detail: proposalStatusError.message,
+      detail: "INTERNAL_ERROR",
     },
     500
   );
@@ -489,6 +489,6 @@ return json({
 });
   } catch (e) {
     console.error("PROPOSALS CREATE SERVER ERROR");
-    return json({ error: "server_error", detail: String(e) }, 500);
+    return json({ error: "server_error", detail: "INTERNAL_ERROR" }, 500);
   }
 }

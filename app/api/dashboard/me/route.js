@@ -55,9 +55,9 @@ export async function GET(req) {
         email: user.email,
       },
       member: member || null,
-      error: memberErr ? memberErr.message : null,
+      error: memberErr ? "INTERNAL_ERROR" : null,
     });
   } catch (e) {
-    return json({ error: "SERVER_ERROR", detail: String(e) }, 500);
+    return json({ error: "SERVER_ERROR", detail: "INTERNAL_ERROR" }, 500);
   }
 }

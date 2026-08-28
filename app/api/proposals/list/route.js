@@ -37,7 +37,7 @@ if (requestError || !request) {
 .eq("anfrage_id", request.id)
       .order("date", { ascending: true });
 
-    if (error) return json({ error: error.message }, 500);
+    if (error) return json({ error: "INTERNAL_ERROR" }, 500);
 
     return json(data || []);
   } catch (e) {

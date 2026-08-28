@@ -54,7 +54,7 @@ export async function GET(req) {
       return json(
         {
           error: "expired_proposals_load_failed",
-          detail: loadError.message,
+          detail: "INTERNAL_ERROR",
         },
         500
       );
@@ -179,7 +179,7 @@ export async function GET(req) {
         return json(
           {
             error: "expired_proposals_db_delete_failed",
-            detail: deleteDbError.message,
+            detail: "INTERNAL_ERROR",
           },
           500
         );
@@ -202,7 +202,7 @@ export async function GET(req) {
     return json(
       {
         error: "server_error",
-        detail: String(e),
+        detail: "INTERNAL_ERROR",
       },
       500
     );
