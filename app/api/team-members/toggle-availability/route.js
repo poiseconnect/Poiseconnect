@@ -32,14 +32,14 @@ export async function POST(req) {
 
     if (error) {
       console.error("TOGGLE AVAILABILITY ERROR:", { code: error?.code || null });
-      return json({ error: error.message }, 500);
+      return json({ error: "UPDATE_FAILED" }, 500);
     }
 
     return json({ ok: true });
-  } catch (err) {
+  } catch {
     console.error("TOGGLE AVAILABILITY SERVER ERROR");
     return json(
-      { error: "server_error", detail: String(err) },
+      { error: "server_error", detail: "INTERNAL_ERROR" },
       500
     );
   }

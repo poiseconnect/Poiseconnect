@@ -49,7 +49,7 @@ export async function GET(req) {
     if (error) {
       console.error("SUPABASE LOAD ERROR:", { code: error?.code || null });
       return NextResponse.json(
-        { error: "DB_ERROR", detail: error.message },
+        { error: "DB_ERROR", detail: "INTERNAL_ERROR" },
         { status: 500 }
       );
     }
@@ -64,7 +64,7 @@ export async function GET(req) {
   } catch (err) {
     console.error("BOOKED API ERROR");
     return NextResponse.json(
-      { error: "SERVER_ERROR", detail: String(err) },
+      { error: "SERVER_ERROR", detail: "INTERNAL_ERROR" },
       { status: 500 }
     );
   }

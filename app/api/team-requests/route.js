@@ -47,10 +47,10 @@ export async function POST(request) {
     }
 
     return json({ requests: data });
-  } catch (err) {
+  } catch {
     console.error("TEAM REQUEST SERVER ERROR");
     return json(
-      { error: "server_error", detail: String(err) },
+      { error: "server_error", detail: "INTERNAL_ERROR" },
       500
     );
   }

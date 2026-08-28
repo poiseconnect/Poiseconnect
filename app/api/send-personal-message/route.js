@@ -100,8 +100,8 @@ export async function POST(req) {
     });
 
     return json({ ok: true });
-  } catch (err) {
+  } catch {
     console.error("SEND PERSONAL MESSAGE ERROR");
-    return json({ error: "server_error", detail: String(err) }, 500);
+    return json({ error: "server_error", detail: "INTERNAL_ERROR" }, 500);
   }
 }

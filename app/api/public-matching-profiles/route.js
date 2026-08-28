@@ -14,7 +14,7 @@ export async function GET() {
       .select("id, matching_scores");
 
     if (error) {
-      return json({ error: error.message }, 400);
+      return json({ error: "INTERNAL_ERROR" }, 400);
     }
 
     return json({
@@ -22,6 +22,6 @@ export async function GET() {
       members: data || [],
     });
   } catch (e) {
-    return json({ error: "SERVER_ERROR", detail: String(e) }, 500);
+    return json({ error: "SERVER_ERROR", detail: "INTERNAL_ERROR" }, 500);
   }
 }

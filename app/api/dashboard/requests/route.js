@@ -89,7 +89,7 @@ export async function GET(req) {
     const { data, error: reqErr } = await query;
 
     if (reqErr) {
-      return json({ error: reqErr.message }, 400);
+      return json({ error: "REQUESTS_LOAD_FAILED" }, 400);
     }
 
 const requestIds = (data || [])
@@ -148,6 +148,6 @@ return json({
   requests,
 });
   } catch (e) {
-    return json({ error: "SERVER_ERROR", detail: String(e) }, 500);
+    return json({ error: "SERVER_ERROR", detail: "INTERNAL_ERROR" }, 500);
   }
 }

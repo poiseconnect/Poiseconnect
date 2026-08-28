@@ -47,7 +47,7 @@ export async function GET() {
 
     if (error) {
       console.error("ADMIN BILLING ERROR:", { code: error?.code || null });
-      return json({ error: error.message }, 500);
+      return json({ error: "INTERNAL_ERROR" }, 500);
     }
 
     return json({ data });

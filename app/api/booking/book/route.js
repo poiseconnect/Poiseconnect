@@ -69,7 +69,7 @@ export async function POST(req) {
       return json(
         {
           error: "INVALID_TOKEN",
-          detail: anfrageErr?.message || null,
+          detail: "INTERNAL_ERROR",
         },
         404
       );
@@ -95,7 +95,7 @@ export async function POST(req) {
       return json(
         {
           error: "BOOKING_SETTINGS_NOT_FOUND",
-          detail: settingsErr?.message || null,
+          detail: "INTERNAL_ERROR",
         },
         400
       );
@@ -137,7 +137,7 @@ export async function POST(req) {
       return json(
         {
           error: "THERAPIST_NOT_FOUND",
-          detail: therapistErr?.message || null,
+          detail: "INTERNAL_ERROR",
         },
         404
       );
@@ -170,7 +170,7 @@ export async function POST(req) {
         return json(
           {
             error: "GOOGLE_EVENT_NOT_FOUND",
-            detail: String(err),
+            detail: "INTERNAL_ERROR",
           },
           404
         );
@@ -305,7 +305,7 @@ if (
         return json(
           {
             error: "BLOCKED_CHECK_FAILED",
-            detail: blockedErr.message,
+            detail: "INTERNAL_ERROR",
           },
           500
         );
@@ -329,7 +329,7 @@ if (
         return json(
           {
             error: "SESSION_CHECK_FAILED",
-            detail: existingErr.message,
+            detail: "INTERNAL_ERROR",
           },
           500
         );
@@ -360,7 +360,7 @@ if (
         return json(
           {
             error: "BLOCKED_SLOT_INSERT_FAILED",
-            detail: blockErr.message,
+            detail: "INTERNAL_ERROR",
           },
           400
         );
@@ -382,7 +382,7 @@ if (
         return json(
           {
             error: "REQUEST_UPDATE_FAILED",
-            detail: updateReqErr.message,
+            detail: "INTERNAL_ERROR",
           },
           500
         );
@@ -413,7 +413,7 @@ if (
         return json(
           {
             error: "SESSION_INSERT_FAILED",
-            detail: sessionInsertErr?.message || null,
+            detail: "INTERNAL_ERROR",
           },
           400
         );
@@ -531,7 +531,7 @@ try {
       return json(
         {
           error: "GOOGLE_EVENT_ID_SAVE_FAILED",
-          detail: eventIdUpdateError.message,
+          detail: "INTERNAL_ERROR",
         },
         500
       );
@@ -559,7 +559,7 @@ try {
   return json(
     {
       error: "GOOGLE_EVENT_INSERT_FAILED",
-      detail: String(googleInsertErr),
+      detail: "INTERNAL_ERROR",
     },
     500
   );
@@ -702,7 +702,7 @@ availability_event_id: googleEventId,
     return json(
       {
         error: "SERVER_ERROR",
-        detail: String(err),
+        detail: "INTERNAL_ERROR",
       },
       500
     );

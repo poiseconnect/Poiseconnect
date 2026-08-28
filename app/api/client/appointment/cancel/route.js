@@ -75,7 +75,7 @@ export async function POST(req) {
       return json(
         {
           error: "appointment_load_failed",
-          detail: blockedLoadError.message,
+          detail: "INTERNAL_ERROR",
         },
         500
       );
@@ -168,7 +168,7 @@ export async function POST(req) {
           return json(
             {
               error: "google_event_delete_failed",
-              detail: String(googleDeleteError),
+              detail: "INTERNAL_ERROR",
             },
             500
           );
@@ -190,7 +190,7 @@ export async function POST(req) {
       return json(
         {
           error: "blocked_slot_delete_failed",
-          detail: blockedDeleteError.message,
+          detail: "INTERNAL_ERROR",
         },
         500
       );
@@ -216,7 +216,7 @@ export async function POST(req) {
       return json(
         {
           error: "request_update_failed",
-          detail: requestUpdateError.message,
+          detail: "INTERNAL_ERROR",
         },
         500
       );
@@ -312,7 +312,7 @@ export async function POST(req) {
     return json(
       {
         error: "server_error",
-        detail: String(err),
+        detail: "INTERNAL_ERROR",
       },
       500
     );

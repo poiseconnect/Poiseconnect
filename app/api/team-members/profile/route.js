@@ -65,13 +65,13 @@ const { data: member, error } = await supabase
 
     if (error) {
       console.error("PROFILE GET ERROR:", { code: error?.code || null });
-      return json({ error: "load_failed", detail: error.message }, 500);
+      return json({ error: "load_failed", detail: "INTERNAL_ERROR" }, 500);
     }
 
     return json({ member });
-  } catch (err) {
+  } catch {
     console.error("PROFILE GET SERVER ERROR");
-    return json({ error: "server_error", detail: String(err) }, 500);
+    return json({ error: "server_error", detail: "INTERNAL_ERROR" }, 500);
   }
 }
 
@@ -162,12 +162,12 @@ const payload = {
 
     if (error) {
       console.error("PROFILE SAVE ERROR:", { code: error?.code || null });
-      return json({ error: "save_failed", detail: error.message }, 500);
+      return json({ error: "save_failed", detail: "INTERNAL_ERROR" }, 500);
     }
 
     return json({ ok: true, member });
-  } catch (err) {
+  } catch {
     console.error("PROFILE POST SERVER ERROR");
-    return json({ error: "server_error", detail: String(err) }, 500);
+    return json({ error: "server_error", detail: "INTERNAL_ERROR" }, 500);
   }
 }

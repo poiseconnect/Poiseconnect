@@ -45,7 +45,7 @@ export async function POST(request) {
       return new Response(
         JSON.stringify({
           error: "update_failed",
-          detail: updateError.message,
+          detail: "INTERNAL_ERROR",
         }),
         { status: 500 }
       );
@@ -87,7 +87,7 @@ export async function POST(request) {
     return new Response(
       JSON.stringify({
         error: "server_error",
-        detail: String(err),
+        detail: "INTERNAL_ERROR",
       }),
       { status: 500 }
     );

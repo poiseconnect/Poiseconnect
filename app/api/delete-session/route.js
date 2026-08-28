@@ -59,7 +59,7 @@ export async function POST(req) {
 
   if (error) {
     console.error("DELETE SESSION ERROR");
-    return json({ error: error.message }, 500);
+    return json({ error: "DELETE_SESSION_FAILED" }, 500);
   }
 
   return json({ success: true });

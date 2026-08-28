@@ -57,9 +57,9 @@ export async function POST(req) {
     const data = await res.json();
 
     return NextResponse.json({ ok: true, data });
-  } catch (e) {
+  } catch {
     return NextResponse.json(
-      { ok: false, error: e.message },
+      { ok: false, error: "INTERNAL_ERROR" },
       { status: 500 }
     );
   }

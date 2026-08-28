@@ -26,7 +26,7 @@ export async function POST(req) {
 
     if (error && error.code !== "PGRST116") {
       return new Response(
-        JSON.stringify({ error: error.message }),
+        JSON.stringify({ error: "INTERNAL_ERROR" }),
         { status: 500 }
       );
     }

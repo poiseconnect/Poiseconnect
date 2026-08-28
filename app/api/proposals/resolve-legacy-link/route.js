@@ -46,7 +46,7 @@ export async function POST(req) {
     return json(
       {
         error: "server_error",
-        detail: String(e),
+        detail: "INTERNAL_ERROR",
       },
       500
     );

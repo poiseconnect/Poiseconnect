@@ -227,7 +227,7 @@ export async function POST(req) {
       return json(
         {
           error: "coach_not_found",
-          detail: coachError?.message || null,
+          detail: "INTERNAL_ERROR",
         },
         404
       );
@@ -276,8 +276,7 @@ export async function POST(req) {
       return json(
         {
           error: "sevdesk_create_order_failed",
-          detail: orderJson,
-          sent_payload: sent,
+          detail: "INTERNAL_ERROR",
         },
         500
       );
@@ -289,7 +288,7 @@ export async function POST(req) {
       return json(
         {
           error: "missing_order_id",
-          detail: orderJson,
+          detail: "INTERNAL_ERROR",
         },
         500
       );
@@ -322,8 +321,7 @@ export async function POST(req) {
           {
             error: "sevdesk_create_order_position_failed",
             orderId,
-            detail: posJson,
-            sent_payload: orderPosPayload,
+            detail: "INTERNAL_ERROR",
           },
           500
         );
@@ -352,8 +350,7 @@ export async function POST(req) {
         {
           error: "sevdesk_create_invoice_from_order_failed",
           orderId,
-          detail: invoiceJson,
-          sent_payload: createInvoicePayload,
+          detail: "INTERNAL_ERROR",
         },
         500
       );
@@ -376,7 +373,7 @@ export async function POST(req) {
     return json(
       {
         error: "server_error",
-        detail: String(err),
+        detail: "INTERNAL_ERROR",
       },
       500
     );

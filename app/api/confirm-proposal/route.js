@@ -159,7 +159,7 @@ if (overlapError) {
   return json(
     {
       error: "overlap_check_failed",
-      detail: overlapError.message,
+      detail: "INTERNAL_ERROR",
     },
     500
   );
@@ -205,7 +205,7 @@ if (blockError || !blockedSlot) {
   return json(
     {
       error: "blocked_slot_insert_failed",
-      detail: blockError?.message || null,
+      detail: "INTERNAL_ERROR",
     },
     500
   );
@@ -380,7 +380,7 @@ try {
   return json(
     {
       error: "google_event_patch_failed",
-      detail: String(googlePatchError),
+      detail: "INTERNAL_ERROR",
     },
     500
   );
@@ -452,7 +452,7 @@ if (updateError) {
   return json(
     {
       error: "request_update_failed",
-      detail: updateError.message,
+      detail: "INTERNAL_ERROR",
     },
     500
   );
@@ -667,6 +667,6 @@ html: `
     return json({ ok: true });
   } catch (e) {
     console.error("CONFIRM ERROR");
-    return json({ error: "server_error", detail: String(e) }, 500);
+    return json({ error: "server_error", detail: "INTERNAL_ERROR" }, 500);
   }
 }

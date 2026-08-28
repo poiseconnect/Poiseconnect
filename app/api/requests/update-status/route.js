@@ -64,7 +64,7 @@ const { error } = await supabase
 
     if (error) {
       return new Response(
-        JSON.stringify({ error: error.message }),
+        JSON.stringify({ error: "UPDATE_FAILED" }),
         { status: 500 }
       );
     }

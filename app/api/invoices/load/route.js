@@ -83,7 +83,7 @@ const { data: sessions, error: sessErr } = await sessionsQuery.order("date", {
 });
 
     if (sessErr) {
-      return json({ error: sessErr.message }, 400);
+      return json({ error: "SESSIONS_LOAD_FAILED" }, 400);
     }
     const therapistId =
       anfrage.assigned_therapist_id ||
@@ -126,7 +126,7 @@ const { data: sessions, error: sessErr } = await sessionsQuery.order("date", {
         return json(
           {
             error: "invoice_load_failed",
-            detail: invoiceError.message,
+            detail: "INTERNAL_ERROR",
           },
           500
         );
@@ -143,6 +143,6 @@ const { data: sessions, error: sessErr } = await sessionsQuery.order("date", {
       invoice,
     });
   } catch (e) {
-    return json({ error: "SERVER_ERROR", detail: String(e) }, 500);
+    return json({ error: "SERVER_ERROR", detail: "INTERNAL_ERROR" }, 500);
   }
 }

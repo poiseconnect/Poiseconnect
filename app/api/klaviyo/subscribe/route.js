@@ -76,7 +76,7 @@ export async function POST(request) {
   } catch (error) {
     console.error("KLAVIYO SUBSCRIBE ERROR");
     return new Response(
-      JSON.stringify({ ok: false, error: String(error) }),
+      JSON.stringify({ ok: false, error: "INTERNAL_ERROR" }),
       { status: 500, headers: { "Content-Type": "application/json" } }
     );
   }

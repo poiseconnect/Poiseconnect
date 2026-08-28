@@ -68,7 +68,7 @@ export async function GET(req) {
       return json(
         {
           error: "appointment_load_failed",
-          detail: blockedError.message,
+          detail: "INTERNAL_ERROR",
         },
         500
       );
@@ -119,7 +119,7 @@ export async function GET(req) {
     return json(
       {
         error: "server_error",
-        detail: String(err),
+        detail: "INTERNAL_ERROR",
       },
       500
     );

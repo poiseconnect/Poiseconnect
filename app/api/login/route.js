@@ -29,7 +29,7 @@ export async function POST(req) {
     if (error) {
       console.error("Magic Link Error:", { code: error?.code || null });
       return NextResponse.json(
-        { error: "SEND_FAILED", detail: error.message },
+        { error: "SEND_FAILED", detail: "INTERNAL_ERROR" },
         { status: 500 }
       );
     }
@@ -38,7 +38,7 @@ export async function POST(req) {
   } catch (err) {
     console.error("Login Route Error");
     return NextResponse.json(
-      { error: "SERVER_ERROR", detail: String(err) },
+      { error: "SERVER_ERROR", detail: "INTERNAL_ERROR" },
       { status: 500 }
     );
   }

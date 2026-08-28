@@ -75,7 +75,7 @@ match_state: "draft",
 
       if (error) {
         console.error("DRAFT UPDATE ERROR:", { code: error?.code || null });
-        return json({ error: error.message }, 500);
+        return json({ error: "DRAFT_UPDATE_FAILED" }, 500);
       }
 
       return json({
@@ -97,7 +97,7 @@ match_state: "draft",
 
     if (error) {
       console.error("DRAFT INSERT ERROR:", { code: error?.code || null });
-      return json({ error: error.message }, 500);
+      return json({ error: "DRAFT_INSERT_FAILED" }, 500);
     }
 
     return json({
@@ -108,6 +108,6 @@ match_state: "draft",
     });
   } catch (err) {
     console.error("CREATE REQUEST DRAFT ERROR");
-    return json({ error: "SERVER_ERROR", detail: String(err) }, 500);
+    return json({ error: "SERVER_ERROR", detail: "INTERNAL_ERROR" }, 500);
   }
 }

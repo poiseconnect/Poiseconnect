@@ -53,7 +53,7 @@ export async function POST(request) {
     if (error) {
       console.error("CREATE BESTAND DB ERROR:", { code: error?.code || null });
       return json(
-        { error: "DB_ERROR", detail: error.message },
+        { error: "DB_ERROR", detail: "INTERNAL_ERROR" },
         500
       );
     }
@@ -62,7 +62,7 @@ export async function POST(request) {
   } catch (err) {
     console.error("CREATE BESTAND SERVER ERROR");
     return json(
-      { error: "SERVER_ERROR", detail: String(err) },
+      { error: "SERVER_ERROR", detail: "INTERNAL_ERROR" },
       500
     );
   }

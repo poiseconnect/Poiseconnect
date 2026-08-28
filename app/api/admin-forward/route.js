@@ -110,7 +110,7 @@ export async function POST(request) {
       .eq("id", requestId);
 
     if (updateError) {
-      return json({ error: "UPDATE_FAILED", detail: updateError.message }, 500);
+      return json({ error: "UPDATE_FAILED", detail: "INTERNAL_ERROR" }, 500);
     }
 
     const mailRes = await fetch("https://api.resend.com/emails", {
@@ -173,6 +173,6 @@ export async function POST(request) {
 
     return json({ ok: true });
   } catch (err) {
-    return json({ error: "SERVER_ERROR", detail: String(err) }, 500);
+    return json({ error: "SERVER_ERROR", detail: "INTERNAL_ERROR" }, 500);
   }
 }
