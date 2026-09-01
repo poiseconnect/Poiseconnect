@@ -1,6 +1,7 @@
 export const dynamic = "force-dynamic";
 
 import { createClient } from "@supabase/supabase-js";
+import { ensureOpenConversation } from "../../lib/messaging/conversations";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -35,7 +36,7 @@ export async function POST(request) {
       return json({ error: "MISSING_FIELDS" }, 400);
     }
 
-    const { error } = await supabase.from("anfragen").insert({
+    const { data: created, error } = await supabase.from("anfragen").insert({
       vorname,
       nachname,
       email: email || null,
@@ -48,7 +49,7 @@ export async function POST(request) {
       assigned_therapist_id: therapist_id,
       status: "active",
       quelle: "bestand",
-    });
+    }).select("id").single();
 
     if (error) {
       console.error("CREATE BESTAND DB ERROR:", { code: error?.code || null });
@@ -57,6 +58,12 @@ export async function POST(request) {
         500
       );
     }
+
+    await ensureOpenConversation({
+      supabase,
+      anfrageId: created.id,
+      therapistId: therapist_id,
+    });
 
     return json({ ok: true });
   } catch (err) {

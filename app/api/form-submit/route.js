@@ -3,6 +3,7 @@ export const dynamic = "force-dynamic";
 import { createClient } from "@supabase/supabase-js";
 import { Resend } from "resend";
 import { teamData } from "../../lib/teamData";
+import { ensureOpenConversation } from "../../lib/messaging/conversations";
 
 function JSONResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -190,6 +191,12 @@ check_datenschutz: Boolean(body.check_datenschutz),
 
       finalRequestId = inserted.id;
     }
+
+    await ensureOpenConversation({
+      supabase,
+      anfrageId: finalRequestId,
+      therapistId: assignedTherapistId,
+    });
 
     // Mail (optional – darf DB nicht killen)
     try {

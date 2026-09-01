@@ -1,6 +1,7 @@
 export const dynamic = "force-dynamic";
 
 import { createClient } from "@supabase/supabase-js";
+import { ensureOpenConversation } from "../../lib/messaging/conversations";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -96,6 +97,14 @@ export async function POST(request) {
     }
 
     console.log("✅ STATUS UPDATED → termin_bestaetigt:", requestId);
+
+    if (existing.assigned_therapist_id) {
+      await ensureOpenConversation({
+        supabase,
+        anfrageId: requestId,
+        therapistId: existing.assigned_therapist_id,
+      });
+    }
 
     /* --------------------------------------------------
        3️⃣ BOOKING SETTINGS DES COACHS LADEN

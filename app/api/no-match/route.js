@@ -1,6 +1,7 @@
 export const dynamic = "force-dynamic";
 
 import { createClient } from "@supabase/supabase-js";
+import { closeConversation } from "../../lib/messaging/conversations";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -23,6 +24,12 @@ export async function POST(req) {
     if (!anfrageId || !client) {
       return json({ error: "missing_fields" }, 400);
     }
+
+    await closeConversation({
+      supabase,
+      anfrageId,
+      reason: "papierkorb",
+    });
 
     const { error } = await supabase
       .from("anfragen")

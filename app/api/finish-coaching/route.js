@@ -5,6 +5,7 @@ import {
   json,
   supabaseAdmin,
 } from "../_lib/server";
+import { closeConversation } from "../../lib/messaging/conversations";
 
 // 🔗 Feedback-Link (Microsoft Forms)
 const FEEDBACK_URL =
@@ -64,6 +65,12 @@ export async function POST(req) {
     ) {
       return json({ error: "NO_ACCESS" }, 403);
     }
+
+    await closeConversation({
+      supabase: sb,
+      anfrageId,
+      reason: "beendet",
+    });
 
     const { data: anfrage, error: updateError } = await sb
       .from("anfragen")
