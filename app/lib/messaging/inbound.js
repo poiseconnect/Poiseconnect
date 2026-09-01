@@ -38,6 +38,10 @@ function hasOwnSender(email) {
   return Boolean(from && messagingFrom && from === messagingFrom);
 }
 
+function isValidRecipient(value) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value || "").trim());
+}
+
 export function verifyResendWebhook({ rawBody, headers, secret }) {
   if (!secret) throw new Error("WEBHOOK_SECRET_MISSING");
 
@@ -181,7 +185,7 @@ export async function processInboundResendEvent({ supabase, event, fetchImpl, re
 
     const { data: anfrage, error: requestError } = await supabase
       .from("anfragen")
-      .select("id, assigned_therapist_id")
+      .select("id, email, assigned_therapist_id")
       .eq("id", conversation.anfrage_id)
       .single();
     const { data: coach, error: coachError } = await supabase
@@ -205,17 +209,59 @@ export async function processInboundResendEvent({ supabase, event, fetchImpl, re
     }
 
     if (normalizeAddress(email?.from) === normalizeAddress(coach.email)) {
-      await persistReviewMessage({
-        supabase,
-        email,
-        providerEmailId,
-        providerEventId: eventId,
-        replyAlias,
-        conversation,
-        anfrageId: conversation.anfrage_id,
+      if (!isValidRecipient(anfrage.email)) {
+        await persistReviewMessage({
+          supabase,
+          email,
+          providerEmailId,
+          providerEventId: eventId,
+          replyAlias,
+          conversation,
+          anfrageId: conversation.anfrage_id,
+        });
+        await completeEvent(supabase, ledger.eventId, "CLIENT_EMAIL_UNAVAILABLE");
+        return { ok: true, review: true };
+      }
+
+      const persistedCoachReply = await persistInboundMessage(supabase, {
+        conversation_id: conversation.id,
+        anfrage_id: conversation.anfrage_id,
+        direction: "outbound",
+        sender_role: "coach",
+        delivery_status: "queued",
+        provider_message_id: providerEmailId,
+        provider_email_id: providerEmailId,
+        provider_event_id: eventId,
+        subject: String(email?.subject || "").slice(0, 200),
+        text_body: String(email?.text || ""),
+        html_body: email?.html || null,
+        received_to_alias: replyAlias,
       });
-      await completeEvent(supabase, ledger.eventId, "COACH_REPLY_REQUIRES_OUTBOUND_FLOW");
-      return { ok: true, review: true };
+
+      if (persistedCoachReply.duplicate) {
+        await completeEvent(supabase, ledger.eventId);
+        return { ok: true, duplicate: true };
+      }
+
+      try {
+        const sendResult = await sendOutboundMail({
+          from: getMessagingFrom(),
+          to: anfrage.email,
+          replyTo: replyAlias,
+          subject: String(email?.subject || "").slice(0, 200),
+          text: String(email?.text || ""),
+          html: email?.html || undefined,
+        }, resendClient);
+
+        if (sendResult?.error) throw new Error("COACH_REPLY_SEND_FAILED");
+        await markMessage(supabase, persistedCoachReply.messageId, "sent");
+        await completeEvent(supabase, ledger.eventId);
+        return { ok: true, sent: true };
+      } catch {
+        await markMessage(supabase, persistedCoachReply.messageId, "failed");
+        await completeEvent(supabase, ledger.eventId, "COACH_REPLY_SEND_FAILED");
+        return { ok: true, failed: true };
+      }
     }
 
     const persisted = await persistInboundMessage(supabase, {

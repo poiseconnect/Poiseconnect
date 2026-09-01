@@ -14,7 +14,7 @@ const receivedEmail = {
 function createSupabase({
   eventInsert = { data: { id: "ledger-1" }, error: null },
   conversation = { id: "conversation-1", anfrage_id: "request-1", therapist_id: "coach-1", status: "open", alias_revoked_at: null },
-  anfrage = { id: "request-1", assigned_therapist_id: "coach-1" },
+  anfrage = { id: "request-1", email: "client@example.invalid", assigned_therapist_id: "coach-1" },
   coach = { id: "coach-1", email: "coach@example.invalid", active: true, role: "therapist" },
   messageInsert = { data: { id: "message-1" }, error: null },
 } = {}) {
@@ -213,7 +213,7 @@ describe("inbound messaging", () => {
     }));
   });
 
-  it("leitet eine Nachricht der eigenen Coach-Adresse nicht erneut an den Coach weiter", async () => {
+  it("leitet eine Antwort des aktuellen Coachs als Outbound-Nachricht an die DB-Klient:innenadresse weiter", async () => {
     setupEnvironment();
     const supabase = createSupabase();
     const resendClient = { emails: { send: vi.fn() } };
@@ -225,8 +225,15 @@ describe("inbound messaging", () => {
       resendClient,
     });
 
-    expect(result).toEqual({ ok: true, review: true });
-    expect(resendClient.emails.send).not.toHaveBeenCalled();
+    expect(result).toEqual({ ok: true, sent: true });
+    expect(resendClient.emails.send).toHaveBeenCalledWith(expect.objectContaining({
+      to: "client@example.invalid",
+      replyTo: replyAlias,
+    }));
+    expect(supabase.inserts).toContainEqual(expect.objectContaining({
+      table: "request_messages",
+      payload: expect.objectContaining({ direction: "outbound", sender_role: "coach" }),
+    }));
   });
 
   it("leitet eigene Forwarding-Nachrichten nicht erneut weiter", async () => {
