@@ -6188,7 +6188,7 @@ setRequests((prev) =>
       <div style={{ marginBottom: 16, display: "grid", gap: 8 }}>
         {personalMessageHistory.map((message) => (
           <div key={message.id} style={{ padding: "10px 12px", border: "1px solid #eee", borderRadius: 8 }}>
-            <strong>{message.subject}</strong>
+            <strong>{message.sender_role === "client" ? "Klient:in" : "Coach"}: {message.subject}</strong>
             <div style={{ whiteSpace: "pre-line", marginTop: 4 }}>{message.text_body}</div>
           </div>
         ))}

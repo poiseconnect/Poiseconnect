@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   createReplyAlias,
   hashReplyToken,
+  parseReplyAlias,
 } from "../../app/lib/messaging/aliases.js";
 
 describe("messaging reply aliases", () => {
@@ -35,5 +36,16 @@ describe("messaging reply aliases", () => {
     expect(() => createReplyAlias()).toThrow("RESEND_REPLY_DOMAIN_MISSING");
 
     process.env.RESEND_REPLY_DOMAIN = previousDomain;
+  });
+
+  it("erhält die Groß- und Kleinschreibung des Alias-Tokens", () => {
+    const token = `${"Ab".repeat(21)}A`;
+    const parsed = parseReplyAlias(`r-${token}@REPLY.MYPOISE.DE`, "reply.mypoise.de");
+
+    expect(parsed).toEqual({
+      replyAlias: `r-${token}@reply.mypoise.de`,
+      replyToken: token,
+    });
+    expect(hashReplyToken(parsed.replyToken)).toBe(hashReplyToken(token));
   });
 });

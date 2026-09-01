@@ -35,3 +35,13 @@ export function createReplyAlias(domain) {
     replyTokenHash: hashReplyToken(token),
   };
 }
+
+export function parseReplyAlias(value, domain) {
+  const replyDomain = getReplyDomain(domain);
+  const normalized = String(value || "").trim();
+  const match = normalized.match(new RegExp(`^r-([A-Za-z0-9_-]{43})@${replyDomain.replaceAll(".", "\\.")}$`, "i"));
+
+  return match
+    ? { replyAlias: `r-${match[1]}@${replyDomain}`, replyToken: match[1] }
+    : null;
+}
