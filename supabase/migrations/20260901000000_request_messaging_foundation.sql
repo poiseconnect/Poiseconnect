@@ -44,6 +44,7 @@ create table public.request_messages (
   provider_message_id text,
   provider_email_id text,
   provider_event_id text,
+  client_request_id uuid,
   subject text,
   text_body text,
   html_body text,
@@ -55,6 +56,10 @@ create table public.request_messages (
 create unique index request_messages_provider_email_id_key
   on public.request_messages (provider_email_id)
   where provider_email_id is not null;
+
+create unique index request_messages_conversation_client_request_id_key
+  on public.request_messages (conversation_id, client_request_id)
+  where client_request_id is not null;
 
 create index request_messages_conversation_created_at_idx
   on public.request_messages (conversation_id, created_at);

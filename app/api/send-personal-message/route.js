@@ -1,43 +1,15 @@
 export const dynamic = "force-dynamic";
 
-import { createClient } from "@supabase/supabase-js";
 import { Resend } from "resend";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-);
-
-const resend = new Resend(process.env.RESEND_API_KEY);
-
-function json(data, status = 200) {
-  return new Response(JSON.stringify(data), {
-    status,
-    headers: { "Content-Type": "application/json" },
-  });
-}
-
-async function getUserFromBearer(req) {
-  const authHeader = req.headers.get("authorization") || "";
-  const token = authHeader.replace("Bearer ", "").trim();
-
-  if (!token) return null;
-
-  const {
-    data: { user },
-    error,
-  } = await supabase.auth.getUser(token);
-
-  if (error || !user) return null;
-  return user;
-}
+import { getUserFromBearer, json, supabaseAdmin } from "../_lib/server";
+import { sendCoachMessage } from "../../lib/messaging/outbound";
 
 export async function POST(req) {
   try {
-    const user = await getUserFromBearer(req);
+    const { user } = await getUserFromBearer(req);
 
     if (!user) {
-      return json({ error: "unauthorized" }, 401);
+      return json({ error: "NO_TOKEN" }, 401);
     }
 
     const body = await req.json();
@@ -47,61 +19,42 @@ export async function POST(req) {
       return json({ error: "missing_data" }, 400);
     }
 
+    const supabase = supabaseAdmin();
     const { data: coach, error: coachError } = await supabase
       .from("team_members")
-      .select("id, name, email")
+      .select("id, role, active")
       .eq("user_id", user.id)
       .single();
 
-    if (coachError || !coach) {
-      return json({ error: "coach_not_found" }, 404);
+    if (coachError || !coach || coach.active !== true || coach.role !== "therapist") {
+      return json({ error: "NO_ACCESS" }, 403);
     }
 
-    const { data: request, error: requestError } = await supabase
-      .from("anfragen")
-      .select("id, vorname, email, assigned_therapist_id, status")
-      .eq("id", requestId)
+    const { data: conversation, error: conversationError } = await supabase
+      .from("request_conversations")
+      .select("id")
+      .eq("anfrage_id", requestId)
+      .eq("therapist_id", coach.id)
+      .eq("status", "open")
       .single();
 
-    if (requestError || !request?.email) {
-      return json({ error: "request_not_found" }, 404);
+    if (conversationError || !conversation) {
+      return json({ error: "CONVERSATION_NOT_FOUND" }, 404);
     }
 
-    if (String(request.assigned_therapist_id) !== String(coach.id)) {
-      return json({ error: "not_allowed" }, 403);
-    }
-
-    if (request.status !== "termin_bestaetigt") {
-      return json({ error: "wrong_status" }, 400);
-    }
-
-    await resend.emails.send({
-      from: "Poise <noreply@mypoise.de>",
-      to: request.email,
-      replyTo: coach.email || undefined,
-      subject,
-      html: `
-        <div style="font-family: Arial, sans-serif; line-height:1.6; color:#111;">
-          <p>Hallo ${request.vorname || ""},</p>
-
-          <div style="white-space: pre-line;">
-            ${String(message)
-              .replaceAll("&", "&amp;")
-              .replaceAll("<", "&lt;")
-              .replaceAll(">", "&gt;")}
-          </div>
-
-          <p style="margin-top:24px;">
-            Liebe Grüße<br/>
-            ${coach.name || "dein Coach"}
-          </p>
-        </div>
-      `,
+    const result = await sendCoachMessage({
+      supabase,
+      resendClient: new Resend(process.env.RESEND_API_KEY),
+      coachId: coach.id,
+      conversationId: conversation.id,
+      subject: String(subject || "").trim(),
+      text: String(message || "").trim(),
+      clientRequestId: null,
     });
 
-    return json({ ok: true });
+    if (!result.ok) return json({ error: result.error }, 409);
+    return json({ ok: true, message: result.message });
   } catch {
-    console.error("SEND PERSONAL MESSAGE ERROR");
-    return json({ error: "server_error", detail: "INTERNAL_ERROR" }, 500);
+    return json({ error: "MESSAGE_SEND_UNAVAILABLE" }, 500);
   }
 }
