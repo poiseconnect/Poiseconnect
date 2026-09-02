@@ -10,6 +10,10 @@ const receivedEmail = {
   text: "Danke für die Nachricht.",
   html: "<p>Danke für die Nachricht.</p>",
 };
+const validCoachAuthHeaders = {
+  "Authentication-Results":
+    "mx.resend.com; dkim=pass header.d=example.invalid header.s=selector1; spf=pass smtp.mailfrom=coach@example.invalid",
+};
 
 function createSupabase({
   eventInsert = { data: { id: "ledger-1" }, error: null },
@@ -17,6 +21,7 @@ function createSupabase({
   anfrage = { id: "request-1", email: "client@example.invalid", assigned_therapist_id: "coach-1" },
   coach = { id: "coach-1", email: "coach@example.invalid", active: true, role: "therapist" },
   messageInsert = { data: { id: "message-1" }, error: null },
+  existingMessageByProviderEmailId = null,
 } = {}) {
   const inserts = [];
   const updates = [];
@@ -50,6 +55,7 @@ function createSupabase({
       if (table === "team_members") return chain({ data: coach, error: null });
       if (table === "request_messages") {
         return {
+          select: vi.fn(() => ({ eq: () => ({ maybeSingle: async () => ({ data: existingMessageByProviderEmailId, error: null }) }) })),
           insert: vi.fn((payload) => {
             inserts.push({ table, payload });
             return { select: () => ({ single: async () => messageInsert }) };
@@ -221,7 +227,10 @@ describe("inbound messaging", () => {
     const result = await processInboundResendEvent({
       supabase,
       event,
-      fetchImpl: vi.fn().mockResolvedValue({ ok: true, json: async () => ({ ...receivedEmail, from: "coach@example.invalid" }) }),
+      fetchImpl: vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ ...receivedEmail, from: "coach@example.invalid", headers: validCoachAuthHeaders }),
+      }),
       resendClient,
     });
 
@@ -234,6 +243,71 @@ describe("inbound messaging", () => {
       table: "request_messages",
       payload: expect.objectContaining({ direction: "outbound", sender_role: "coach" }),
     }));
+  });
+
+  it("verweigert Coach-Weiterleitung ohne jede Authentifizierung (spoofed From)", async () => {
+    setupEnvironment();
+    const supabase = createSupabase();
+    const resendClient = { emails: { send: vi.fn() } };
+
+    const result = await processInboundResendEvent({
+      supabase,
+      event,
+      fetchImpl: vi.fn().mockResolvedValue({ ok: true, json: async () => ({ ...receivedEmail, from: "coach@example.invalid" }) }),
+      resendClient,
+    });
+
+    expect(result).toEqual({ ok: true, review: true });
+    expect(resendClient.emails.send).not.toHaveBeenCalled();
+    expect(supabase.inserts).toContainEqual(expect.objectContaining({
+      table: "request_messages",
+      payload: expect.objectContaining({ delivery_status: "review", sender_role: "client" }),
+    }));
+  });
+
+  it("verweigert Coach-Weiterleitung bei fehlgeschlagener DKIM/SPF-Authentifizierung", async () => {
+    setupEnvironment();
+    const supabase = createSupabase();
+    const resendClient = { emails: { send: vi.fn() } };
+
+    const result = await processInboundResendEvent({
+      supabase,
+      event,
+      fetchImpl: vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          ...receivedEmail,
+          from: "coach@example.invalid",
+          headers: {
+            "Authentication-Results":
+              "mx.resend.com; dkim=fail header.d=example.invalid; spf=fail smtp.mailfrom=coach@example.invalid",
+          },
+        }),
+      }),
+      resendClient,
+    });
+
+    expect(result).toEqual({ ok: true, review: true });
+    expect(resendClient.emails.send).not.toHaveBeenCalled();
+  });
+
+  it("legt automatische Antworten (Auto-Submitted) als Review ohne Weiterleitung an", async () => {
+    setupEnvironment();
+    const supabase = createSupabase();
+    const resendClient = { emails: { send: vi.fn() } };
+
+    const result = await processInboundResendEvent({
+      supabase,
+      event,
+      fetchImpl: vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ ...receivedEmail, headers: { "Auto-Submitted": "auto-replied" } }),
+      }),
+      resendClient,
+    });
+
+    expect(result).toEqual({ ok: true, review: true });
+    expect(resendClient.emails.send).not.toHaveBeenCalled();
   });
 
   it("leitet eigene Forwarding-Nachrichten nicht erneut weiter", async () => {
@@ -256,5 +330,116 @@ describe("inbound messaging", () => {
 
     expect(result).toEqual({ ok: true, review: true });
     expect(resendClient.emails.send).not.toHaveBeenCalled();
+  });
+});
+
+function createRetrySupabase({ existingMessage, conversation, anfrage, coach }) {
+  const updates = [];
+  const singleQuery = (data) => ({ select: () => ({ eq: () => ({ single: async () => ({ data, error: null }) }) }) });
+  return {
+    updates,
+    from: vi.fn((table) => {
+      if (table === "request_message_events") {
+        return { insert: () => ({ select: () => ({ single: async () => ({ data: null, error: { code: "23505" } }) }) }) };
+      }
+      if (table === "request_messages") {
+        return {
+          select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: existingMessage, error: null }) }) }),
+          update: (payload) => {
+            updates.push(payload);
+            return { eq: () => ({}) };
+          },
+        };
+      }
+      if (table === "request_conversations") {
+        return { select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: conversation, error: null }) }) }) };
+      }
+      if (table === "anfragen") return singleQuery(anfrage);
+      if (table === "team_members") return singleQuery(coach);
+      throw new Error(`Unexpected table ${table}`);
+    }),
+  };
+}
+
+describe("failed forward retry on provider event replay", () => {
+  it("versucht eine failed Klient:in-zu-Coach-Nachricht erneut zuzustellen, ohne die E-Mail erneut abzurufen", async () => {
+    setupEnvironment();
+    const supabase = createRetrySupabase({
+      existingMessage: {
+        id: "message-1",
+        conversation_id: "conversation-1",
+        anfrage_id: "request-1",
+        direction: "inbound",
+        sender_role: "client",
+        delivery_status: "failed",
+        subject: "R\u00fcckfrage",
+        text_body: "Danke f\u00fcr die Nachricht.",
+        html_body: null,
+        received_to_alias: replyAlias,
+      },
+      conversation: { id: "conversation-1", anfrage_id: "request-1", therapist_id: "coach-1", status: "open", alias_revoked_at: null },
+      anfrage: { id: "request-1", assigned_therapist_id: "coach-1" },
+      coach: { id: "coach-1", email: "coach@example.invalid", active: true, role: "therapist" },
+    });
+    const fetchImpl = vi.fn();
+    const resendClient = { emails: { send: vi.fn().mockResolvedValue({ data: { id: "forward-2" }, error: null }) } };
+
+    const result = await processInboundResendEvent({ supabase, event, fetchImpl, resendClient });
+
+    expect(result).toEqual({ ok: true, forwarded: true });
+    expect(fetchImpl).not.toHaveBeenCalled();
+    expect(resendClient.emails.send).toHaveBeenCalledWith(expect.objectContaining({ to: "coach@example.invalid", replyTo: replyAlias }));
+    expect(supabase.updates).toContainEqual({ delivery_status: "forwarded" });
+  });
+
+  it("versucht eine failed Coach-zu-Klient:in-Nachricht erneut zuzustellen", async () => {
+    setupEnvironment();
+    const supabase = createRetrySupabase({
+      existingMessage: {
+        id: "message-2",
+        conversation_id: "conversation-1",
+        anfrage_id: "request-1",
+        direction: "outbound",
+        sender_role: "coach",
+        delivery_status: "failed",
+        subject: "Antwort",
+        text_body: "Alles klar.",
+        html_body: null,
+        received_to_alias: replyAlias,
+      },
+      anfrage: { id: "request-1", email: "client@example.invalid" },
+    });
+    const resendClient = { emails: { send: vi.fn().mockResolvedValue({ data: { id: "send-2" }, error: null }) } };
+
+    const result = await processInboundResendEvent({ supabase, event, fetchImpl: vi.fn(), resendClient });
+
+    expect(result).toEqual({ ok: true, sent: true });
+    expect(resendClient.emails.send).toHaveBeenCalledWith(expect.objectContaining({ to: "client@example.invalid", replyTo: replyAlias }));
+    expect(supabase.updates).toContainEqual({ delivery_status: "sent" });
+  });
+
+  it("versendet eine bereits forwarded/sent Nachricht bei Event-Replay nicht erneut", async () => {
+    setupEnvironment();
+    const supabase = createRetrySupabase({
+      existingMessage: {
+        id: "message-3",
+        conversation_id: "conversation-1",
+        anfrage_id: "request-1",
+        direction: "inbound",
+        sender_role: "client",
+        delivery_status: "forwarded",
+        subject: "R\u00fcckfrage",
+        text_body: "Danke.",
+        html_body: null,
+        received_to_alias: replyAlias,
+      },
+    });
+    const resendClient = { emails: { send: vi.fn() } };
+
+    const result = await processInboundResendEvent({ supabase, event, fetchImpl: vi.fn(), resendClient });
+
+    expect(result).toEqual({ ok: true, duplicate: true });
+    expect(resendClient.emails.send).not.toHaveBeenCalled();
+    expect(supabase.updates).toEqual([]);
   });
 });

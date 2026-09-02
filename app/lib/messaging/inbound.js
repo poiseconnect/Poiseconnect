@@ -38,6 +38,70 @@ function hasOwnSender(email) {
   return Boolean(from && messagingFrom && from === messagingFrom);
 }
 
+function getHeaderValue(headers, name) {
+  if (!headers) return null;
+  const key = Object.keys(headers).find((candidate) => candidate.toLowerCase() === name.toLowerCase());
+  if (!key) return null;
+  const value = headers[key];
+  return Array.isArray(value) ? value.join(" ") : value;
+}
+
+function isAutoReply(email) {
+  const headers = email?.headers || {};
+  const autoSubmitted = getHeaderValue(headers, "auto-submitted");
+  if (autoSubmitted && autoSubmitted.trim().toLowerCase() !== "no") return true;
+
+  const precedence = getHeaderValue(headers, "precedence");
+  if (precedence && ["bulk", "list", "junk", "auto_reply", "auto-reply"].includes(precedence.trim().toLowerCase())) return true;
+
+  if (getHeaderValue(headers, "x-autoreply")) return true;
+  if (getHeaderValue(headers, "x-autorespond")) return true;
+  return false;
+}
+
+function getDomain(address) {
+  const normalized = normalizeAddress(address);
+  if (!normalized) return null;
+  const at = normalized.lastIndexOf("@");
+  return at === -1 ? null : normalized.slice(at + 1);
+}
+
+function domainMatches(candidate, expected) {
+  if (!candidate || !expected) return false;
+  if (candidate === expected) return true;
+  return candidate.endsWith(`.${expected}`) || expected.endsWith(`.${candidate}`);
+}
+
+// RFC 8601 Authentication-Results ist die einzige providerunabhängige Auth-Quelle.
+function parseAuthenticationResults(value) {
+  const text = String(value || "");
+  const dkimResult = text.match(/\bdkim=(\w+)/i);
+  const dkimDomain = text.match(/header\.d=([^\s;]+)/i) || text.match(/header\.i=(?:[^@\s;]*@)?([^\s;]+)/i);
+  const spfResult = text.match(/\bspf=(\w+)/i);
+  const spfDomain = text.match(/smtp\.mailfrom=(?:[^@\s;]*@)?([^\s;]+)/i) || text.match(/header\.from=([^\s;]+)/i);
+
+  return {
+    dkim: dkimResult ? dkimResult[1].toLowerCase() : null,
+    dkimDomain: dkimDomain ? dkimDomain[1].toLowerCase() : null,
+    spf: spfResult ? spfResult[1].toLowerCase() : null,
+    spfDomain: spfDomain ? spfDomain[1].toLowerCase() : null,
+  };
+}
+
+// Fail-closed: fehlende Authentication-Results gelten als nicht authentifiziert.
+function isSenderAuthenticated(email) {
+  const authHeader = getHeaderValue(email?.headers, "authentication-results");
+  if (!authHeader) return false;
+
+  const { dkim, dkimDomain, spf, spfDomain } = parseAuthenticationResults(authHeader);
+  const fromDomain = getDomain(email?.from);
+  if (!fromDomain) return false;
+
+  if (dkim === "pass" && domainMatches(dkimDomain, fromDomain)) return true;
+  if (spf === "pass" && domainMatches(spfDomain, fromDomain)) return true;
+  return false;
+}
+
 function isValidRecipient(value) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value || "").trim());
 }
@@ -126,12 +190,111 @@ async function persistReviewMessage({ supabase, email, providerEmailId, provider
   });
 }
 
+// Erneut zugestelltes Provider-Event darf eine failed Message erneut versuchen, aber nie eine zweite Zeile anlegen.
+async function retryFailedMessage({ supabase, resendClient, message }) {
+  if (message.direction === "outbound" && message.sender_role === "coach") {
+    const { data: anfrage } = await supabase
+      .from("anfragen")
+      .select("id, email")
+      .eq("id", message.anfrage_id)
+      .single();
+
+    if (!anfrage || !isValidRecipient(anfrage.email)) {
+      return { ok: true, failed: true };
+    }
+
+    try {
+      const sendResult = await sendOutboundMail({
+        from: getMessagingFrom(),
+        to: anfrage.email,
+        replyTo: message.received_to_alias,
+        subject: message.subject || "",
+        text: message.text_body || "",
+        html: message.html_body || undefined,
+      }, resendClient);
+
+      if (sendResult?.error) throw new Error("RETRY_SEND_FAILED");
+      await markMessage(supabase, message.id, "sent");
+      return { ok: true, sent: true };
+    } catch {
+      await markMessage(supabase, message.id, "failed");
+      return { ok: true, failed: true };
+    }
+  }
+
+  if (message.direction === "inbound" && message.sender_role === "client") {
+    const { data: conversation } = await supabase
+      .from("request_conversations")
+      .select("id, anfrage_id, therapist_id, status, alias_revoked_at")
+      .eq("id", message.conversation_id)
+      .maybeSingle();
+
+    if (!conversation || conversation.status !== "open" || conversation.alias_revoked_at) {
+      return { ok: true, failed: true };
+    }
+
+    const { data: anfrage } = await supabase
+      .from("anfragen")
+      .select("id, assigned_therapist_id")
+      .eq("id", conversation.anfrage_id)
+      .single();
+    const { data: coach } = await supabase
+      .from("team_members")
+      .select("id, email, active, role")
+      .eq("id", conversation.therapist_id)
+      .single();
+
+    if (!anfrage || !coach || coach.active !== true || coach.role !== "therapist" || String(anfrage.assigned_therapist_id) !== String(conversation.therapist_id) || !normalizeAddress(coach.email)) {
+      return { ok: true, failed: true };
+    }
+
+    try {
+      const forwardResult = await sendOutboundMail({
+        from: getMessagingFrom(),
+        to: coach.email,
+        replyTo: message.received_to_alias,
+        subject: message.subject || "",
+        text: message.text_body || "",
+        html: message.html_body || undefined,
+        headers: { [FORWARD_HEADER]: FORWARD_VALUE },
+      }, resendClient);
+
+      if (forwardResult?.error) throw new Error("RETRY_FORWARD_FAILED");
+      await markMessage(supabase, message.id, "forwarded");
+      return { ok: true, forwarded: true };
+    } catch {
+      await markMessage(supabase, message.id, "failed");
+      return { ok: true, failed: true };
+    }
+  }
+
+  return { ok: true, duplicate: true };
+}
+
+// Derselbe Provider-Event-Retry darf eine vorhandene failed Message erneut zustellen, niemals eine zweite Zeile anlegen.
+async function handleDuplicateEvent({ supabase, resendClient, event }) {
+  const providerEmailId = getProviderEmailId(event);
+  if (!providerEmailId) return { ok: true, duplicate: true };
+
+  const { data: existingMessage, error } = await supabase
+    .from("request_messages")
+    .select("id, conversation_id, anfrage_id, direction, sender_role, delivery_status, subject, text_body, html_body, received_to_alias")
+    .eq("provider_email_id", providerEmailId)
+    .maybeSingle();
+
+  if (error || !existingMessage || existingMessage.delivery_status !== "failed") {
+    return { ok: true, duplicate: true };
+  }
+
+  return retryFailedMessage({ supabase, resendClient, message: existingMessage });
+}
+
 export async function processInboundResendEvent({ supabase, event, fetchImpl, resendClient }) {
   const eventId = getEventId(event);
   if (!eventId) return { error: "EVENT_ID_MISSING" };
 
   const ledger = await createEvent(supabase, event);
-  if (ledger.duplicate) return { ok: true, duplicate: true };
+  if (ledger.duplicate) return handleDuplicateEvent({ supabase, resendClient, event });
   if (event?.type !== "email.received") {
     await completeEvent(supabase, ledger.eventId);
     return { ok: true, ignored: true };
@@ -150,7 +313,13 @@ export async function processInboundResendEvent({ supabase, event, fetchImpl, re
       .map((recipient) => parseReplyAlias(recipient))
       .filter(Boolean);
 
-    if (hasForwardLoopMarker(email) || hasOwnSender(email) || parsedAliases.length !== 1) {
+    let unsafeReason = null;
+    if (hasForwardLoopMarker(email)) unsafeReason = "LOOP_MARKER_DETECTED";
+    else if (hasOwnSender(email)) unsafeReason = "OWN_SENDER_DETECTED";
+    else if (isAutoReply(email)) unsafeReason = "AUTO_REPLY_DETECTED";
+    else if (parsedAliases.length !== 1) unsafeReason = "ALIAS_AMBIGUOUS";
+
+    if (unsafeReason) {
       await persistReviewMessage({
         supabase,
         email,
@@ -158,7 +327,7 @@ export async function processInboundResendEvent({ supabase, event, fetchImpl, re
         providerEventId: eventId,
         replyAlias: parsedAliases[0]?.replyAlias || null,
       });
-      await completeEvent(supabase, ledger.eventId, "UNSAFE_INBOUND_MESSAGE");
+      await completeEvent(supabase, ledger.eventId, unsafeReason);
       return { ok: true, review: true };
     }
 
@@ -209,6 +378,20 @@ export async function processInboundResendEvent({ supabase, event, fetchImpl, re
     }
 
     if (normalizeAddress(email?.from) === normalizeAddress(coach.email)) {
+      if (!isSenderAuthenticated(email)) {
+        await persistReviewMessage({
+          supabase,
+          email,
+          providerEmailId,
+          providerEventId: eventId,
+          replyAlias,
+          conversation,
+          anfrageId: conversation.anfrage_id,
+        });
+        await completeEvent(supabase, ledger.eventId, "COACH_AUTH_UNVERIFIED");
+        return { ok: true, review: true };
+      }
+
       if (!isValidRecipient(anfrage.email)) {
         await persistReviewMessage({
           supabase,
