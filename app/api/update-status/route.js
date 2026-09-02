@@ -5,6 +5,7 @@ import {
   supabaseAdmin,
   getUserFromBearer,
 } from "../_lib/server";
+import { closeConversation } from "../../lib/messaging/conversations";
 
 export async function POST(req) {
   try {
@@ -71,6 +72,14 @@ export async function POST(req) {
 
     if (!allowedStatuses.includes(String(status))) {
       return json({ error: "INVALID_STATUS" }, 400);
+    }
+
+    if (["beendet", "papierkorb", "kein_match", "abgelehnt"].includes(String(status))) {
+      await closeConversation({
+        supabase: sb,
+        anfrageId: requestId,
+        reason: String(status),
+      });
     }
 
     // 5) Update

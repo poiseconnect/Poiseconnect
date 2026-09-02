@@ -5,6 +5,7 @@ import {
   json,
   supabaseAdmin,
 } from "../_lib/server";
+import { closeConversation } from "../../lib/messaging/conversations";
 
 export async function POST(request) {
   try {
@@ -71,6 +72,12 @@ export async function POST(request) {
       "https://app.mypoise.de";
 
     const link = `${baseUrl}?resume=8&rid=${requestId}`;
+
+    await closeConversation({
+      supabase: sb,
+      anfrageId: anfrage.id,
+      reason: "assignment_removed",
+    });
 
     // 1️⃣ Anfrage korrekt weiterleiten
     const { error: updateError } = await sb

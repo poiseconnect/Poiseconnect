@@ -7,6 +7,7 @@ import {
   oauthClient,
   supabaseAdmin,
 } from "../../_lib/server";
+import { ensureOpenConversation } from "../../../lib/messaging/conversations";
 
 function normalizeIso(value) {
   const d = new Date(value);
@@ -387,6 +388,12 @@ if (
           500
         );
       }
+
+      await ensureOpenConversation({
+        supabase: sb,
+        anfrageId: anfrage.id,
+        therapistId,
+      });
     } else {
       const price = anfrage.honorar_klient
         ? Number(anfrage.honorar_klient)

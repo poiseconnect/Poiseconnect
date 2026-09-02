@@ -1,3 +1,5 @@
+import { ensureOpenConversation } from "../messaging/conversations";
+
 function safeDateString(v) {
   if (!v) return "";
 
@@ -61,6 +63,14 @@ export async function confirmAppointment({
 
   if (updateError) {
     throw new Error(updateError.message);
+  }
+
+  if (existing.assigned_therapist_id) {
+    await ensureOpenConversation({
+      supabase,
+      anfrageId: requestId,
+      therapistId: existing.assigned_therapist_id,
+    });
   }
 
   /* --------------------------------------------------

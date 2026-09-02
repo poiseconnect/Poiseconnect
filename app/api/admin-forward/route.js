@@ -6,6 +6,7 @@ import {
   supabaseAdmin,
 } from "../_lib/server";
 import { getInvalidNewClientCoachIds } from "../../lib/intakeAvailability";
+import { closeConversation } from "../../lib/messaging/conversations";
 
 export async function POST(request) {
   try {
@@ -94,6 +95,12 @@ export async function POST(request) {
       "https://app.mypoise.de";
 
     const link = `${baseUrl}?resume=8&rid=${requestId}`;
+
+    await closeConversation({
+      supabase: sb,
+      anfrageId: requestId,
+      reason: "assignment_removed",
+    });
 
     const { error: updateError } = await sb
       .from("anfragen")

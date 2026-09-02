@@ -1294,6 +1294,10 @@ const [personalMessageRequest, setPersonalMessageRequest] = useState(null);
 const [personalMessageSubject, setPersonalMessageSubject] = useState("");
 const [personalMessageBody, setPersonalMessageBody] = useState("");
 const [sendingPersonalMessage, setSendingPersonalMessage] = useState(false);
+const [personalMessageConversation, setPersonalMessageConversation] = useState(null);
+const [personalMessageHistory, setPersonalMessageHistory] = useState([]);
+const [personalMessageError, setPersonalMessageError] = useState("");
+const [personalMessageRequestId, setPersonalMessageRequestId] = useState("");
 
 const [editClientForm, setEditClientForm] = useState({
   vorname: "",
@@ -2395,13 +2399,33 @@ async function sendBookingLink(r) {
 
   alert("✅ Videolink gesendet");
 }
-  function openPersonalMessageModal(r) {
+  async function openPersonalMessageModal(r) {
   setPersonalMessageRequest(r);
   setPersonalMessageSubject("Persönliche Nachricht vor unserem Erstgespräch");
   setPersonalMessageBody(
 `ich freue mich darauf, dich bei unserem Erstgespräch kennenzulernen.`
   );
+  setPersonalMessageConversation(null);
+  setPersonalMessageHistory([]);
+  setPersonalMessageError("");
+  setPersonalMessageRequestId(crypto.randomUUID());
   setPersonalMessageOpen(true);
+
+  try {
+    const token = await getAccessToken();
+    const res = await fetch(`/api/messages/conversations?anfrageId=${encodeURIComponent(r.id)}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const json = await res.json().catch(() => null);
+    if (!res.ok || !json?.conversation?.id) {
+      setPersonalMessageError("Für diese Anfrage ist aktuell keine offene Nachrichtenzuordnung verfügbar.");
+      return;
+    }
+    setPersonalMessageConversation(json.conversation);
+    setPersonalMessageHistory(json.messages || []);
+  } catch {
+    setPersonalMessageError("Nachrichten konnten nicht geladen werden.");
+  }
 }
 
 async function sendPersonalMessage() {
@@ -2412,16 +2436,17 @@ async function sendPersonalMessage() {
 
     const token = await getAccessToken();
 
-    const res = await fetch("/api/send-personal-message", {
+    const res = await fetch("/api/messages/send", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${token}`,
+        "Idempotency-Key": personalMessageRequestId,
       },
       body: JSON.stringify({
-        requestId: personalMessageRequest.id,
+        conversationId: personalMessageConversation?.id,
         subject: personalMessageSubject,
-        message: personalMessageBody,
+        text: personalMessageBody,
       }),
     });
 
@@ -2433,8 +2458,11 @@ async function sendPersonalMessage() {
       return;
     }
 
-    alert("✅ Nachricht wurde gesendet.");
-    setPersonalMessageOpen(false);
+    if (!json?.duplicate) {
+      setPersonalMessageHistory((prev) => [...prev, json.message]);
+    }
+    setPersonalMessageBody("");
+    setPersonalMessageRequestId(crypto.randomUUID());
   } finally {
     setSendingPersonalMessage(false);
   }
@@ -6149,10 +6177,23 @@ setRequests((prev) =>
     <h3>💬 Persönliche Nachricht senden</h3>
 
     <div style={{ marginBottom: 12, fontSize: 13, color: "#666" }}>
-      Empfänger: Klient:in
-      <br />
-      
+      Für organisatorische Nachrichten. Bitte keine sensiblen Gesundheitsinformationen per E-Mail senden.
     </div>
+
+    {personalMessageError && (
+      <p style={{ marginBottom: 12, color: "#8E3A4A" }}>{personalMessageError}</p>
+    )}
+
+    {personalMessageHistory.length > 0 && (
+      <div style={{ marginBottom: 16, display: "grid", gap: 8 }}>
+        {personalMessageHistory.map((message) => (
+          <div key={message.id} style={{ padding: "10px 12px", border: "1px solid #eee", borderRadius: 8 }}>
+            <strong>{message.sender_role === "client" ? "Klient:in" : "Coach"}: {message.subject}</strong>
+            <div style={{ whiteSpace: "pre-line", marginTop: 4 }}>{message.text_body}</div>
+          </div>
+        ))}
+      </div>
+    )}
 
     <label>Betreff</label>
     <input
@@ -6186,6 +6227,8 @@ setRequests((prev) =>
         onClick={sendPersonalMessage}
         disabled={
           sendingPersonalMessage ||
+          !personalMessageConversation?.id ||
+          personalMessageConversation.status !== "open" ||
           !personalMessageSubject ||
           !personalMessageBody
         }

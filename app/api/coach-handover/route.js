@@ -5,6 +5,7 @@ import {
   json,
   supabaseAdmin,
 } from "../_lib/server";
+import { closeConversation } from "../../lib/messaging/conversations";
 
 export async function POST(request) {
   try {
@@ -73,6 +74,12 @@ export async function POST(request) {
     if (sessions?.length > 0 && handoverType !== "therapist_change") {
       return json({ error: "SESSION_HISTORY_REQUIRES_THERAPIST_CHANGE" }, 409);
     }
+
+    await closeConversation({
+      supabase: sb,
+      anfrageId: anfrage.id,
+      reason: "coach_handover",
+    });
 
     const excludedTherapist = anfrage.wunschtherapeut || null;
     const existingExcluded = Array.isArray(anfrage.excluded_therapeuten)

@@ -1,6 +1,7 @@
 export const dynamic = "force-dynamic";
 
 import { createClient } from "@supabase/supabase-js";
+import { closeConversation } from "../../lib/messaging/conversations";
 
 /**
  * ⚠️ WICHTIG:
@@ -30,6 +31,12 @@ export async function POST(request) {
         { status: 400 }
       );
     }
+
+    await closeConversation({
+      supabase,
+      anfrageId: requestId,
+      reason: "abgelehnt",
+    });
 
     // 1️⃣ Anfrage updaten
     const { error: updateError } = await supabase
