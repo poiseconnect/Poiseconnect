@@ -5,6 +5,7 @@ import { processInboundResendEvent, verifyResendWebhook } from "../../../lib/mes
 
 export async function POST(request) {
   const rawBody = await request.text();
+  const providerEventId = request.headers.get("svix-id");
 
   let event;
   try {
@@ -18,10 +19,16 @@ export async function POST(request) {
   }
 
   try {
-    await processInboundResendEvent({
+    const result = await processInboundResendEvent({
       supabase: supabaseAdmin(),
       event,
+      providerEventId,
     });
+
+    if (result?.error === "EVENT_ID_MISSING") {
+      return json({ error: "EVENT_ID_MISSING" }, 400);
+    }
+
     return json({ ok: true });
   } catch {
     return json({ error: "WEBHOOK_UNAVAILABLE" }, 500);

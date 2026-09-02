@@ -93,6 +93,28 @@ describe("inbound messaging", () => {
     }));
   });
 
+  it("verwendet die verifizierte Svix-ID, wenn der Payload keine Event-ID enthält", async () => {
+    setupEnvironment();
+    const supabase = createSupabase();
+    const fetchImpl = vi.fn().mockResolvedValue({ ok: true, json: async () => receivedEmail });
+    const resendClient = { emails: { send: vi.fn().mockResolvedValue({ data: { id: "forward-1" }, error: null }) } };
+
+    const result = await processInboundResendEvent({
+      supabase,
+      event: { type: "email.received", data: { email_id: "email-1" } },
+      providerEventId: "svix-event-1",
+      fetchImpl,
+      resendClient,
+    });
+
+    expect(result).toEqual({ ok: true, forwarded: true });
+    expect(fetchImpl).toHaveBeenCalled();
+    expect(supabase.inserts).toContainEqual(expect.objectContaining({
+      table: "request_message_events",
+      payload: expect.objectContaining({ provider_event_id: "svix-event-1" }),
+    }));
+  });
+
   it("beendet doppelte Events ohne einen zweiten Abruf oder Forward", async () => {
     setupEnvironment();
     const supabase = createSupabase({ eventInsert: { data: null, error: { code: "23505" } } });

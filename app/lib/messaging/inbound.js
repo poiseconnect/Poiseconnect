@@ -21,8 +21,8 @@ function getProviderEmailId(event) {
   return event?.data?.email_id || event?.data?.email?.id || event?.data?.id || null;
 }
 
-function getEventId(event) {
-  return event?.id || event?.data?.event_id || null;
+function getEventId(event, providerEventId = null) {
+  return providerEventId || event?.id || event?.data?.event_id || null;
 }
 
 function hasForwardLoopMarker(email) {
@@ -131,12 +131,12 @@ export async function fetchReceivedEmail(emailId, fetchImpl = fetch) {
   return response.json();
 }
 
-async function createEvent(supabase, event) {
+async function createEvent(supabase, event, eventId) {
   const { data, error } = await supabase
     .from("request_message_events")
     .insert({
       provider: "resend",
-      provider_event_id: getEventId(event),
+      provider_event_id: eventId,
       event_type: String(event?.type || "unknown"),
     })
     .select("id")
@@ -289,11 +289,11 @@ async function handleDuplicateEvent({ supabase, resendClient, event }) {
   return retryFailedMessage({ supabase, resendClient, message: existingMessage });
 }
 
-export async function processInboundResendEvent({ supabase, event, fetchImpl, resendClient }) {
-  const eventId = getEventId(event);
+export async function processInboundResendEvent({ supabase, event, providerEventId, fetchImpl, resendClient }) {
+  const eventId = getEventId(event, providerEventId);
   if (!eventId) return { error: "EVENT_ID_MISSING" };
 
-  const ledger = await createEvent(supabase, event);
+  const ledger = await createEvent(supabase, event, eventId);
   if (ledger.duplicate) return handleDuplicateEvent({ supabase, resendClient, event });
   if (event?.type !== "email.received") {
     await completeEvent(supabase, ledger.eventId);
