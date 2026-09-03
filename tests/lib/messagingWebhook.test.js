@@ -45,7 +45,8 @@ describe("Resend inbound webhook", () => {
   });
 
   it("gibt bei gültiger Svix-Signatur das echte geparste Event zurück", () => {
-    const secret = "whsec_dGVzdC1zZWNyZXQtZm9yLXVuaXQtdGVzdHM=";
+    // Kein "whsec_"-Präfix: Svix akzeptiert auch reines Base64 als Testsecret.
+    const secret = Buffer.from("not-a-real-secret-e2e-test-fixture", "utf8").toString("base64");
     const rawBody = JSON.stringify({ type: "email.received", data: { email_id: "email-test-1" } });
     const svixId = "msg_test_1";
     const svixTimestamp = String(Math.floor(Date.now() / 1000));
