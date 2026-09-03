@@ -6,15 +6,20 @@ const RESEND_EMAILS_URL = "https://api.resend.com/emails";
 const FORWARD_HEADER = "X-Poise-Messaging";
 const FORWARD_VALUE = "inbound-forward-v1";
 
-function normalizeAddress(value) {
+function extractAddress(value) {
   const match = String(value || "").match(/<?([^<>\s]+@[^<>\s]+)>?/);
-  return match ? match[1].trim().toLowerCase() : null;
+  return match ? match[1].trim() : null;
+}
+
+function normalizeAddress(value) {
+  const address = extractAddress(value);
+  return address ? address.toLowerCase() : null;
 }
 
 function getRecipientAddresses(email) {
   const rawRecipients = email?.to || email?.recipients || email?.headers?.to || [];
   const recipients = Array.isArray(rawRecipients) ? rawRecipients : [rawRecipients];
-  return recipients.map(normalizeAddress).filter(Boolean);
+  return recipients.map(extractAddress).filter(Boolean);
 }
 
 function getProviderEmailId(event) {

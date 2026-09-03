@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { fetchReceivedEmail, processInboundResendEvent } from "../../app/lib/messaging/inbound.js";
+import { hashReplyToken, parseReplyAlias } from "../../app/lib/messaging/aliases.js";
 
 const event = { id: "event-1", type: "email.received", data: { email_id: "email-1" } };
 const replyAlias = "r-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa@reply.mypoise.de";
@@ -25,6 +26,7 @@ function createSupabase({
 } = {}) {
   const inserts = [];
   const updates = [];
+  const conversationLookupHashes = [];
   const chain = (result, method = "single") => {
     const query = {
       select: vi.fn(() => query),
@@ -50,7 +52,18 @@ function createSupabase({
           }),
         };
       }
-      if (table === "request_conversations") return chain({ data: conversation, error: null }, "maybeSingle");
+      if (table === "request_conversations") {
+        const result = { data: conversation, error: null };
+        const query = {
+          select: vi.fn(() => query),
+          eq: vi.fn((field, value) => {
+          if (field === "reply_token_hash") conversationLookupHashes.push(value);
+            return query;
+          }),
+          maybeSingle: vi.fn().mockResolvedValue(result),
+        };
+        return query;
+      }
       if (table === "anfragen") return chain({ data: anfrage, error: null });
       if (table === "team_members") return chain({ data: coach, error: null });
       if (table === "request_messages") {
@@ -68,6 +81,7 @@ function createSupabase({
       }
       throw new Error(`Unexpected table ${table}`);
     }),
+    conversationLookupHashes,
   };
 }
 
@@ -194,6 +208,31 @@ describe("inbound messaging", () => {
         delivery_status: "review",
       }),
     }));
+  });
+
+  it.each([
+    ["reinen Alias", (alias) => alias],
+    ["Alias mit Anzeigename", (alias) => `Poise <${alias}>`],
+    ["Alias in einem Empfänger-Array", (alias) => [alias]],
+  ])("bewahrt den Token bei %s für den Conversation-Lookup", async (_label, to) => {
+    setupEnvironment();
+    const token = "AbCdEfGhIjKlMnOpQrStUvWxYz0123456789_-aBcDeFg".slice(0, 43);
+    const alias = `r-${token}@reply.mypoise.de`;
+    const supabase = createSupabase();
+
+    const result = await processInboundResendEvent({
+      supabase,
+      event,
+      fetchImpl: vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ ...receivedEmail, to: to(alias.replace("reply.mypoise.de", "REPLY.MYPOISE.DE")) }),
+      }),
+      resendClient: { emails: { send: vi.fn().mockResolvedValue({ data: { id: "forward-1" }, error: null }) } },
+    });
+
+    expect(result).toEqual({ ok: true, forwarded: true });
+    expect(hashReplyToken(parseReplyAlias(alias).replyToken)).toBe(hashReplyToken(token));
+    expect(supabase.conversationLookupHashes).toEqual([hashReplyToken(token)]);
   });
 
   it.each([
