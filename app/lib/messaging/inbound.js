@@ -114,11 +114,14 @@ export function verifyResendWebhook({ rawBody, headers, secret }) {
   const svixSignature = headers.get("svix-signature");
   if (!svixId || !svixTimestamp || !svixSignature) throw new Error("WEBHOOK_SIGNATURE_MISSING");
 
-  return new Webhook(secret).verify(rawBody, {
+  new Webhook(secret).verify(rawBody, {
     "svix-id": svixId,
     "svix-timestamp": svixTimestamp,
     "svix-signature": svixSignature,
   });
+
+  // svix.verify() bestätigt nur die Signatur und gibt kein Payload zurück.
+  return JSON.parse(rawBody);
 }
 
 export async function fetchReceivedEmail(emailId, fetchImpl = fetch) {
