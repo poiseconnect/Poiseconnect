@@ -19,7 +19,7 @@ export function createOutboundMail({ to, subject, text, replyAlias }) {
   return {
     from: getMessagingFrom(),
     to,
-    replyTo: replyAlias,
+    reply_to: replyAlias,
     subject,
     text: `${text}\n\nDiese Nachricht wurde über Poise übermittelt. Du kannst direkt auf diese E-Mail antworten. Bitte keine sensiblen Gesundheitsinformationen per E-Mail senden.`,
     html: `<div style="font-family:Arial,sans-serif;line-height:1.6;color:#111;"><div style="white-space:pre-line;">${escapeHtml(text)}</div><p style="margin-top:24px;font-size:13px;color:#666;">Diese Nachricht wurde über Poise übermittelt. Du kannst direkt auf diese E-Mail antworten.</p><p style="font-size:13px;color:#666;">Bitte keine sensiblen Gesundheitsinformationen per E-Mail senden.</p></div>`,

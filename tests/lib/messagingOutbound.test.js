@@ -103,9 +103,10 @@ describe("outbound messaging", () => {
     expect(resendClient.emails.send).toHaveBeenCalledWith(expect.objectContaining({
       from: "Poise <noreply@mypoise.de>",
       to: "client@example.invalid",
-      replyTo: "r-safe-token@reply.mypoise.de",
+      reply_to: "r-safe-token@reply.mypoise.de",
       subject: input.subject,
     }));
+    expect(resendClient.emails.send.mock.calls[0][0]).not.toHaveProperty("replyTo");
     expect(JSON.stringify(resendClient.emails.send.mock.calls)).not.toContain("coach-a@example");
     expect(updates).toContainEqual({
       delivery_status: "sent",
@@ -172,7 +173,7 @@ describe("outbound messaging", () => {
     expect(resendClient.emails.send).not.toHaveBeenCalled();
   });
 
-  it("enthält keinen Coach-Absender im Mail-Payload", () => {
+  it("verwendet den Resend reply_to-Contract ohne camelCase-Alternative", () => {
     const mail = createOutboundMail({
       to: "client@example.invalid",
       subject: "Betreff",
@@ -181,7 +182,8 @@ describe("outbound messaging", () => {
     });
 
     expect(mail.from).toBe("Poise <noreply@mypoise.de>");
-    expect(mail.replyTo).toBe("r-safe-token@reply.mypoise.de");
+    expect(mail.reply_to).toBe("r-safe-token@reply.mypoise.de");
+    expect(mail).not.toHaveProperty("replyTo");
     expect(mail).not.toHaveProperty("coachEmail");
   });
 });
