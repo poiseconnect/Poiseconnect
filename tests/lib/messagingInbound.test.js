@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { processInboundResendEvent } from "../../app/lib/messaging/inbound.js";
+import { fetchReceivedEmail, processInboundResendEvent } from "../../app/lib/messaging/inbound.js";
 
 const event = { id: "event-1", type: "email.received", data: { email_id: "email-1" } };
 const replyAlias = "r-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa@reply.mypoise.de";
@@ -108,11 +108,26 @@ describe("inbound messaging", () => {
     });
 
     expect(result).toEqual({ ok: true, forwarded: true });
-    expect(fetchImpl).toHaveBeenCalled();
+    expect(fetchImpl).toHaveBeenCalledWith(
+      "https://api.resend.com/emails/receiving/email-1",
+      expect.any(Object)
+    );
     expect(supabase.inserts).toContainEqual(expect.objectContaining({
       table: "request_message_events",
       payload: expect.objectContaining({ provider_event_id: "svix-event-1" }),
     }));
+  });
+
+  it("ruft für empfangene E-Mails den Receiving-Endpoint auf, nicht den Sent-Email-Endpoint", async () => {
+    setupEnvironment();
+    const fetchImpl = vi.fn().mockResolvedValue({ ok: true, json: async () => receivedEmail });
+
+    await fetchReceivedEmail("email-test-1", fetchImpl);
+
+    expect(fetchImpl).toHaveBeenCalledWith(
+      "https://api.resend.com/emails/receiving/email-test-1",
+      expect.objectContaining({ headers: expect.objectContaining({ Authorization: expect.stringContaining("Bearer ") }) })
+    );
   });
 
   it("beendet doppelte Events ohne einen zweiten Abruf oder Forward", async () => {

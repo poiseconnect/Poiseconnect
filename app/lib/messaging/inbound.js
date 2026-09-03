@@ -140,7 +140,8 @@ export function verifyResendWebhook({ rawBody, headers, secret }) {
 }
 
 export async function fetchReceivedEmail(emailId, fetchImpl = fetch) {
-  const response = await fetchImpl(`${RESEND_EMAILS_URL}/${encodeURIComponent(emailId)}`, {
+  // /emails/{id} ist der Sent-Email-Endpoint; empfangene Mails liegen unter /emails/receiving/{id}.
+  const response = await fetchImpl(`${RESEND_EMAILS_URL}/receiving/${encodeURIComponent(emailId)}`, {
     headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY}` },
     cache: "no-store",
   });
