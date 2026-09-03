@@ -106,6 +106,21 @@ function isValidRecipient(value) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value || "").trim());
 }
 
+const KNOWN_PROCESSING_ERROR_PREFIXES = [
+  "RECEIVED_EMAIL_FETCH_FAILED_",
+  "INBOUND_MESSAGE_PERSIST_FAILED",
+  "COACH_REPLY_SEND_FAILED",
+  "FORWARD_FAILED",
+  "EVENT_LEDGER_FAILED",
+];
+
+// Nur bekannte, statische Fehlerklassen dürfen als processing_error gespeichert werden.
+function getSafeProcessingError(err) {
+  const message = String(err?.message || "");
+  const isKnown = KNOWN_PROCESSING_ERROR_PREFIXES.some((prefix) => message.startsWith(prefix));
+  return isKnown ? message : "INBOUND_PROCESSING_FAILED";
+}
+
 export function verifyResendWebhook({ rawBody, headers, secret }) {
   if (!secret) throw new Error("WEBHOOK_SECRET_MISSING");
 
@@ -130,7 +145,7 @@ export async function fetchReceivedEmail(emailId, fetchImpl = fetch) {
     cache: "no-store",
   });
 
-  if (!response.ok) throw new Error("RECEIVED_EMAIL_FETCH_FAILED");
+  if (!response.ok) throw new Error(`RECEIVED_EMAIL_FETCH_FAILED_${response.status}`);
   return response.json();
 }
 
@@ -496,8 +511,8 @@ export async function processInboundResendEvent({ supabase, event, providerEvent
       await completeEvent(supabase, ledger.eventId, "FORWARD_FAILED");
       return { ok: true, failed: true };
     }
-  } catch {
-    await completeEvent(supabase, ledger.eventId, "INBOUND_PROCESSING_FAILED");
+  } catch (err) {
+    await completeEvent(supabase, ledger.eventId, getSafeProcessingError(err));
     return { ok: true, failed: true };
   }
 }

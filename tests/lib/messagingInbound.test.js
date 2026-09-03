@@ -128,6 +128,36 @@ describe("inbound messaging", () => {
     expect(resendClient.emails.send).not.toHaveBeenCalled();
   });
 
+  it("speichert bei einem 404 vom Received-Email-Fetch einen sicheren, statuscodetragenden Fehlercode", async () => {
+    setupEnvironment();
+    const supabase = createSupabase();
+    const fetchImpl = vi.fn().mockResolvedValue({ ok: false, status: 404, json: async () => ({}) });
+    const resendClient = { emails: { send: vi.fn() } };
+
+    const result = await processInboundResendEvent({ supabase, event, fetchImpl, resendClient });
+
+    expect(result).toEqual({ ok: true, failed: true });
+    expect(supabase.updates).toContainEqual(expect.objectContaining({
+      table: "request_message_events",
+      payload: expect.objectContaining({ processing_error: "RECEIVED_EMAIL_FETCH_FAILED_404" }),
+    }));
+  });
+
+  it("normalisiert unbekannte Fehler weiterhin zu INBOUND_PROCESSING_FAILED", async () => {
+    setupEnvironment();
+    const supabase = createSupabase();
+    const fetchImpl = vi.fn().mockRejectedValue(new Error("Cannot read properties of undefined (reading 'foo')"));
+    const resendClient = { emails: { send: vi.fn() } };
+
+    const result = await processInboundResendEvent({ supabase, event, fetchImpl, resendClient });
+
+    expect(result).toEqual({ ok: true, failed: true });
+    expect(supabase.updates).toContainEqual(expect.objectContaining({
+      table: "request_message_events",
+      payload: expect.objectContaining({ processing_error: "INBOUND_PROCESSING_FAILED" }),
+    }));
+  });
+
   it("legt unbekannte Aliase als Review ohne Anfragezuordnung an", async () => {
     setupEnvironment();
     const supabase = createSupabase({ conversation: null });
