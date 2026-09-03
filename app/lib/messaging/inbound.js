@@ -231,7 +231,7 @@ async function retryFailedMessage({ supabase, resendClient, message }) {
       const sendResult = await sendOutboundMail({
         from: getMessagingFrom(),
         to: anfrage.email,
-        replyTo: message.received_to_alias,
+        reply_to: message.received_to_alias,
         subject: message.subject || "",
         text: message.text_body || "",
         html: message.html_body || undefined,
@@ -276,7 +276,7 @@ async function retryFailedMessage({ supabase, resendClient, message }) {
       const forwardResult = await sendOutboundMail({
         from: getMessagingFrom(),
         to: coach.email,
-        replyTo: message.received_to_alias,
+        reply_to: message.received_to_alias,
         subject: message.subject || "",
         text: message.text_body || "",
         html: message.html_body || undefined,
@@ -454,7 +454,7 @@ export async function processInboundResendEvent({ supabase, event, providerEvent
         const sendResult = await sendOutboundMail({
           from: getMessagingFrom(),
           to: anfrage.email,
-          replyTo: replyAlias,
+          reply_to: replyAlias,
           subject: String(email?.subject || "").slice(0, 200),
           text: String(email?.text || ""),
           html: email?.html || undefined,
@@ -501,7 +501,7 @@ export async function processInboundResendEvent({ supabase, event, providerEvent
       const forwardResult = await sendOutboundMail({
         from: getMessagingFrom(),
         to: coach.email,
-        replyTo: replyAlias,
+        reply_to: replyAlias,
         subject: `Nachricht von Klient:in: ${String(email?.subject || "").slice(0, 160)}`,
         text: `Nachricht von Klient:in:\n\n${String(email?.text || "")}`,
         html: `<div style="font-family:Arial,sans-serif;line-height:1.6"><p><strong>Nachricht von Klient:in</strong></p><div style="white-space:pre-line">${String(email?.text || "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;")}</div></div>`,

@@ -275,9 +275,10 @@ describe("inbound messaging", () => {
     }));
     expect(resendClient.emails.send).toHaveBeenCalledWith(expect.objectContaining({
       to: "coach@example.invalid",
-      replyTo: replyAlias,
+      reply_to: replyAlias,
       headers: { "X-Poise-Messaging": "inbound-forward-v1" },
     }));
+    expect(resendClient.emails.send.mock.calls[0][0]).not.toHaveProperty("replyTo");
     expect(supabase.updates).toContainEqual(expect.objectContaining({
       table: "request_messages",
       payload: { delivery_status: "forwarded" },
@@ -343,8 +344,9 @@ describe("inbound messaging", () => {
     expect(result).toEqual({ ok: true, sent: true });
     expect(resendClient.emails.send).toHaveBeenCalledWith(expect.objectContaining({
       to: "client@example.invalid",
-      replyTo: replyAlias,
+      reply_to: replyAlias,
     }));
+    expect(resendClient.emails.send.mock.calls[0][0]).not.toHaveProperty("replyTo");
     expect(supabase.inserts).toContainEqual(expect.objectContaining({
       table: "request_messages",
       payload: expect.objectContaining({ direction: "outbound", sender_role: "coach" }),
@@ -494,7 +496,8 @@ describe("failed forward retry on provider event replay", () => {
 
     expect(result).toEqual({ ok: true, forwarded: true });
     expect(fetchImpl).not.toHaveBeenCalled();
-    expect(resendClient.emails.send).toHaveBeenCalledWith(expect.objectContaining({ to: "coach@example.invalid", replyTo: replyAlias }));
+    expect(resendClient.emails.send).toHaveBeenCalledWith(expect.objectContaining({ to: "coach@example.invalid", reply_to: replyAlias }));
+    expect(resendClient.emails.send.mock.calls[0][0]).not.toHaveProperty("replyTo");
     expect(supabase.updates).toContainEqual({ delivery_status: "forwarded" });
   });
 
@@ -520,7 +523,8 @@ describe("failed forward retry on provider event replay", () => {
     const result = await processInboundResendEvent({ supabase, event, fetchImpl: vi.fn(), resendClient });
 
     expect(result).toEqual({ ok: true, sent: true });
-    expect(resendClient.emails.send).toHaveBeenCalledWith(expect.objectContaining({ to: "client@example.invalid", replyTo: replyAlias }));
+    expect(resendClient.emails.send).toHaveBeenCalledWith(expect.objectContaining({ to: "client@example.invalid", reply_to: replyAlias }));
+    expect(resendClient.emails.send.mock.calls[0][0]).not.toHaveProperty("replyTo");
     expect(supabase.updates).toContainEqual({ delivery_status: "sent" });
   });
 
