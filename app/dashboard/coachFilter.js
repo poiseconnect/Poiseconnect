@@ -5,6 +5,14 @@ const REQUEST_FILTER_TABS = new Set([
   "beendet",
 ]);
 
+export function canUseMessagingForRequest({ request, role, therapistId }) {
+  return (
+    role === "therapist" &&
+    Boolean(therapistId) &&
+    String(request?.assigned_therapist_id) === String(therapistId)
+  );
+}
+
 export function matchesCoachFilter({
   request,
   tab,

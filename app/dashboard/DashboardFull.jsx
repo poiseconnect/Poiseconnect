@@ -12,7 +12,7 @@ import jsPDF from "jspdf";
 import "jspdf-autotable";
 import ActionMenu from "../components/ActionMenu";
 import CoachOnboardingTour from "../components/CoachOnboardingTour";
-import { matchesCoachFilter } from "./coachFilter";
+import { canUseMessagingForRequest, matchesCoachFilter } from "./coachFilter";
 
 import { supabase } from "../lib/supabase";
 
@@ -1027,10 +1027,15 @@ sessionStorage.setItem(
 
 location.reload();
 }
-function getActionsForRequest(r, sessionList = []) {
+function getActionsForRequest(r, sessionList = [], messagingAccess) {
   const status = normalizeStatus(r._status || r.status);
 
 const calendarMode = getCalendarModeForRequest(r, sessionList);
+  const canUseMessaging = canUseMessagingForRequest({
+    request: { ...r, _status: status },
+    role: messagingAccess?.role,
+    therapistId: messagingAccess?.therapistId,
+  });
   if (status === "neu" || status === "termin_neu") {
     const actions = [];
 
@@ -1083,6 +1088,14 @@ const calendarMode = getCalendarModeForRequest(r, sessionList);
       hint: "Alle Angaben und Verlauf ansehen",
     });
 
+    if (canUseMessaging) {
+      actions.splice(-1, 0, {
+        key: "personal_message",
+        label: "💬 Persönliche Nachricht senden",
+        hint: "Nachricht an Klient:in senden",
+      });
+    }
+
     return actions;
   }
 
@@ -1093,17 +1106,20 @@ if (status === "termin_bestaetigt") {
       label: "❤️ Match",
       hint: "Erstgespräch war passend – Begleitung startet",
     },
-        {
-      key: "personal_message",
-      label: "💬 Persönliche Nachricht senden",
-      hint: "Nachricht vor dem Erstgespräch senden",
-    },
     {
       key: "reassign",
       label: "👥 Therapeut wechseln",
       hint: "An Admin zur Neuverteilung geben",
     },
   ];
+
+  if (canUseMessaging) {
+    actions.splice(1, 0, {
+      key: "personal_message",
+      label: "💬 Persönliche Nachricht senden",
+      hint: "Nachricht vor dem Erstgespräch senden",
+    });
+  }
 
 if (calendarMode === "booking") {
   actions.push({
@@ -1170,6 +1186,14 @@ if (status === "active") {
       hint: "An Admin zur Neuverteilung geben",
     },
   ];
+
+  if (canUseMessaging) {
+    actions.splice(1, 0, {
+      key: "personal_message",
+      label: "💬 Persönliche Nachricht senden",
+      hint: "Nachricht an Klient:in senden",
+    });
+  }
 
 if (calendarMode === "booking") {
   actions.push({
@@ -4742,7 +4766,10 @@ const calendarMode =
 
 {openMenuId === r.id && (
   <ActionMenu
-    actions={getActionsForRequest(r, sessionList)}
+    actions={getActionsForRequest(r, sessionList, {
+      role,
+      therapistId: myTeamMemberId,
+    })}
     onAction={(action) => handleAction(action, r, sessionList, calendarMode)}
     color={POISE_COLORS[filter] || POISE_COLORS.alle}
   />

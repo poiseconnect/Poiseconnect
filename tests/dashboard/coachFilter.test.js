@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { matchesCoachFilter } from "../../app/dashboard/coachFilter.js";
+import {
+  canUseMessagingForRequest,
+  matchesCoachFilter,
+} from "../../app/dashboard/coachFilter.js";
 
 const coachId = "coach-a";
 const otherCoachId = "coach-b";
@@ -83,5 +86,34 @@ describe("matchesCoachFilter", () => {
     expect(matches("papierkorb", coachId, {
       assigned_therapist_id: otherCoachId,
     })).toBe(true);
+  });
+});
+
+describe("canUseMessagingForRequest", () => {
+  function canUse(status, overrides = {}) {
+    return canUseMessagingForRequest({
+      request: { ...request, status, ...overrides },
+      role: overrides.role || "therapist",
+      therapistId: overrides.therapistId || coachId,
+    });
+  }
+
+  it.each(["active", "termin_bestaetigt", "termin_neu", "future_status"])(
+    "permits assigned therapists to use messaging for %s",
+    (status) => {
+      expect(canUse(status)).toBe(true);
+    }
+  );
+
+  it("rejects another therapist", () => {
+    expect(canUse("active", { therapistId: otherCoachId })).toBe(false);
+  });
+
+  it("rejects requests without an assigned therapist", () => {
+    expect(canUse("active", { assigned_therapist_id: null })).toBe(false);
+  });
+
+  it("rejects admin access", () => {
+    expect(canUse("active", { role: "admin" })).toBe(false);
   });
 });
