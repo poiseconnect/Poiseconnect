@@ -40,6 +40,12 @@ export default function ConfirmProposalPage() {
 const [newRequested, setNewRequested] =
   useState(false);
 
+  const [messagePanelOpen, setMessagePanelOpen] = useState(false);
+  const [messageText, setMessageText] = useState("");
+  const [messageSending, setMessageSending] = useState(false);
+  const [messageSent, setMessageSent] = useState(false);
+  const [messageError, setMessageError] = useState("");
+
   // ------------------------------------------------
   // ALTEN ?request=... LINK AUFLÖSEN
   // ------------------------------------------------
@@ -136,6 +142,47 @@ const [newRequested, setNewRequested] =
       }
     })();
   }, [token]);
+
+  // ------------------------------------------------
+  // NACHRICHT AN COACH (KEINER DER TERMINE PASST)
+  // ------------------------------------------------
+  async function sendProposalMessage() {
+    if (!token || messageSending || !messageText.trim()) return;
+
+    setMessageSending(true);
+    setMessageError("");
+
+    try {
+      const res = await fetch("/api/proposals/message", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Idempotency-Key": crypto.randomUUID(),
+        },
+        body: JSON.stringify({
+          token,
+          text: messageText.trim(),
+        }),
+      });
+
+      const data = await res.json().catch(() => null);
+
+      if (!res.ok) {
+        console.error("PROPOSAL MESSAGE FAILED:", data);
+        setMessageError("Die Nachricht konnte leider nicht gesendet werden.");
+        return;
+      }
+
+      setMessageSent(true);
+      setMessagePanelOpen(false);
+      setMessageText("");
+    } catch (e) {
+      console.error("PROPOSAL MESSAGE ERROR:", e);
+      setMessageError("Die Nachricht konnte leider nicht gesendet werden.");
+    } finally {
+      setMessageSending(false);
+    }
+  }
 
   // ------------------------------------------------
   // TERMIN BESTÄTIGEN
@@ -396,6 +443,85 @@ return (
         </button>
       </div>
     ))}
+
+{proposals.length > 0 && (
+  <div
+    style={{
+      marginTop: 28,
+      paddingTop: 20,
+      borderTop: "1px solid #eee",
+    }}
+  >
+    <h3>Keiner der Termine passt?</h3>
+
+    <p style={{ marginTop: 8 }}>
+      Schreib deinem Coach direkt hier eine Nachricht oder antworte einfach auf
+      die E-Mail mit den Terminvorschlägen.
+    </p>
+
+    {!messagePanelOpen && !messageSent && (
+      <button
+        onClick={() => setMessagePanelOpen(true)}
+        style={{
+          marginTop: 12,
+          padding: "10px 16px",
+          borderRadius: 10,
+          border: "1px solid #ccc",
+          cursor: "pointer",
+        }}
+      >
+        Nachricht schreiben
+      </button>
+    )}
+
+    {messagePanelOpen && !messageSent && (
+      <div style={{ marginTop: 12 }}>
+        <label>Nachricht an deinen Coach</label>
+
+        <textarea
+          value={messageText}
+          onChange={(e) => setMessageText(e.target.value)}
+          placeholder="Zum Beispiel: Nächste Woche würde es bei mir vormittags besser passen."
+          rows={4}
+          style={{
+            width: "100%",
+            marginTop: 8,
+            padding: 10,
+            borderRadius: 10,
+            border: "1px solid #ccc",
+          }}
+        />
+
+        {messageError && (
+          <p style={{ marginTop: 8, color: "#8E3A4A" }}>{messageError}</p>
+        )}
+
+        <button
+          onClick={sendProposalMessage}
+          disabled={messageSending || !messageText.trim()}
+          style={{
+            marginTop: 8,
+            padding: "10px 16px",
+            borderRadius: 10,
+            border: "none",
+            background: "#111",
+            color: "#fff",
+            cursor: messageSending ? "default" : "pointer",
+            fontWeight: 600,
+          }}
+        >
+          {messageSending ? "Wird gesendet..." : "Nachricht senden"}
+        </button>
+      </div>
+    )}
+
+    {messageSent && (
+      <p style={{ marginTop: 12, fontWeight: 500 }}>
+        Nachricht gesendet. Dein Coach kann dir neue Terminvorschläge schicken.
+      </p>
+    )}
+  </div>
+)}
   </div>
 );
 }

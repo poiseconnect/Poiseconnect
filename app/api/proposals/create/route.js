@@ -3,6 +3,8 @@ export const dynamic = "force-dynamic";
 import { createClient } from "@supabase/supabase-js";
 import { google } from "googleapis";
 import { oauthClient } from "../../_lib/server";
+import { ensureOpenConversation } from "../../../lib/messaging/conversations";
+import { createProposalMail } from "../../../lib/messaging/proposalMail";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -71,6 +73,20 @@ export async function POST(req) {
     if (!requestId || !therapist_id || !Array.isArray(proposals)) {
       return json({ error: "missing_data" }, 400);
     }
+
+const { data: assignedRequest, error: assignedRequestError } = await supabase
+  .from("anfragen")
+  .select("id, assigned_therapist_id")
+  .eq("id", requestId)
+  .single();
+
+if (assignedRequestError || !assignedRequest || !assignedRequest.assigned_therapist_id) {
+  return json({ error: "request_or_assignment_not_found" }, 404);
+}
+
+if (String(assignedRequest.assigned_therapist_id) !== String(therapist_id)) {
+  return json({ error: "assignment_mismatch" }, 403);
+}
 // ------------------------------------------------
 // POISE-GOOGLE-KONTO + KALENDER DES COACHS LADEN
 // ------------------------------------------------
@@ -346,17 +362,28 @@ end: {
     // ------------------------------------------------
 const { data: request, error: reqError } = await supabase
   .from("anfragen")
-  .select("email, vorname, wunschtherapeut, booking_token")
+  .select("id, email, vorname, wunschtherapeut, booking_token, assigned_therapist_id")
   .eq("id", requestId)
   .single();
 
-if (reqError || !request?.email || !request?.booking_token) {
+if (reqError || !request?.email || !request?.booking_token || !request?.assigned_therapist_id) {
   console.error("REQUEST LOAD ERROR:", { code: reqError?.code || null });
 
   return json(
     { error: "client_or_booking_token_missing" },
     500
   );
+}
+
+let conversation;
+try {
+  conversation = await ensureOpenConversation({
+    supabase,
+    anfrageId: request.id,
+    therapistId: request.assigned_therapist_id,
+  });
+} catch {
+  return json({ error: "CONVERSATION_ENSURE_FAILED" }, 409);
 }
 
     // ------------------------------------------------
@@ -381,61 +408,13 @@ const link =
         Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        from: "Poise <hallo@mypoise.de>",
+      body: JSON.stringify(createProposalMail({
         to: request.email,
-        subject: "Deine Terminvorschläge 🤍",
-        html: `
-          <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #111;">
-            <h2 style="margin-bottom: 16px;">Deine Terminvorschläge 🤍</h2>
-
-            <p>Hallo ${request.vorname || "du"},</p>
-
-            <p>
-              ich habe dir passende Terminvorschläge für unser Erstgespräch vorbereitet.
-            </p>
-
-            <p>
-              Such dir gerne den Termin aus, der für dich am besten passt.
-            </p>
-
-            <p>
-  Die Terminvorschläge sind für die nächsten 4 Tage gültig.
-</p>
-
-            <p style="margin: 24px 0;">
-              <a
-                href="${link}"
-                style="
-                  background:#111;
-                  color:#fff;
-                  padding:12px 18px;
-                  border-radius:999px;
-                  text-decoration:none;
-                  display:inline-block;
-                  font-weight:600;
-                "
-              >
-                Terminvorschläge ansehen
-              </a>
-            </p>
-
-            <p>
-              Sobald du einen Termin ausgewählt hast, erhältst du anschließend noch eine separate Bestätigungsmail mit dem Link zum Erstgespräch.
-            </p>
-
-            <p>
-              Falls du zu den vorgeschlagenen Zeiten keine Zeit hast oder sonst etwas nicht passt, melde dich bitte einfach unter
-              <a href="mailto:hallo@mypoise.de">hallo@mypoise.de</a>.
-            </p>
-
-            <p style="margin-top: 24px;">
-              Alles Liebe<br />
-              ${coachName} 🤍
-            </p>
-          </div>
-        `,
-      }),
+        replyAlias: conversation.reply_alias,
+        clientName: request.vorname,
+        coachName,
+        link,
+      })),
     });
 
 if (!mailRes.ok) {

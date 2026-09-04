@@ -134,3 +134,108 @@ export async function sendCoachMessage({
     return { error: "MESSAGE_SEND_FAILED" };
   }
 }
+
+// Muss mit dem Loop-Marker in app/lib/messaging/inbound.js übereinstimmen.
+const FORWARD_HEADER = "X-Poise-Messaging";
+const FORWARD_VALUE = "inbound-forward-v1";
+
+// Client-initiierter Fallback-Kanal (z. B. Proposal-Seite), keine Alias-Mail-Verarbeitung.
+export async function sendClientMessage({
+  supabase,
+  resendClient,
+  anfrageId,
+  subject,
+  text,
+  clientRequestId,
+}) {
+  const { data: anfrage, error: requestError } = await supabase
+    .from("anfragen")
+    .select("id, assigned_therapist_id")
+    .eq("id", anfrageId)
+    .single();
+
+  if (requestError || !anfrage || !anfrage.assigned_therapist_id) return { error: "REQUEST_NOT_FOUND" };
+
+  const { data: conversation, error: conversationError } = await supabase
+    .from("request_conversations")
+    .select("id, anfrage_id, therapist_id, status, reply_alias, alias_revoked_at")
+    .eq("anfrage_id", anfrageId)
+    .eq("status", "open")
+    .maybeSingle();
+
+  if (conversationError || !conversation) return { error: "CONVERSATION_NOT_FOUND" };
+  if (conversation.alias_revoked_at) return { error: "CONVERSATION_ALIAS_REVOKED" };
+  if (String(conversation.therapist_id) !== String(anfrage.assigned_therapist_id)) return { error: "ASSIGNMENT_MISMATCH" };
+
+  const { data: coach, error: coachError } = await supabase
+    .from("team_members")
+    .select("id, email, active, role")
+    .eq("id", conversation.therapist_id)
+    .single();
+
+  if (coachError || !coach || coach.active !== true || coach.role !== "therapist") return { error: "COACH_UNAVAILABLE" };
+  if (!isValidRecipient(coach.email)) return { error: "RECIPIENT_UNAVAILABLE" };
+
+  const messageSubject = subject || "Nachricht von Klient:in";
+
+  const { data: queuedMessage, error: insertError } = await supabase
+    .from("request_messages")
+    .insert({
+      conversation_id: conversation.id,
+      anfrage_id: anfrage.id,
+      direction: "inbound",
+      sender_role: "client",
+      delivery_status: "received",
+      client_request_id: clientRequestId,
+      subject: messageSubject,
+      text_body: text,
+    })
+    .select("id, delivery_status")
+    .single();
+
+  if (insertError) {
+    if (insertError.code === "23505" && clientRequestId) {
+      const existingMessage = await findExistingMessage(
+        supabase,
+        conversation.id,
+        clientRequestId
+      );
+      if (existingMessage) return { ok: true, message: existingMessage, duplicate: true };
+    }
+    return { error: "MESSAGE_QUEUE_FAILED" };
+  }
+
+  try {
+    const result = await sendOutboundMail({
+      from: getMessagingFrom(),
+      to: coach.email,
+      reply_to: conversation.reply_alias,
+      subject: `Nachricht von Klient:in: ${messageSubject}`,
+      text: `Nachricht von Klient:in:\n\n${text}`,
+      html: `<div style="font-family:Arial,sans-serif;line-height:1.6"><p><strong>Nachricht von Klient:in</strong></p><div style="white-space:pre-line">${escapeHtml(text)}</div></div>`,
+      headers: { [FORWARD_HEADER]: FORWARD_VALUE },
+    }, resendClient);
+
+    if (result?.error) throw new Error("RESEND_SEND_FAILED");
+
+    const { data: sentMessage, error: sentUpdateError } = await supabase
+      .from("request_messages")
+      .update({
+        delivery_status: "forwarded",
+        provider_message_id: result?.data?.id || null,
+      })
+      .eq("id", queuedMessage.id)
+      .select("id, delivery_status, created_at")
+      .single();
+
+    if (sentUpdateError || !sentMessage) return { error: "MESSAGE_STATUS_UPDATE_FAILED" };
+    return { ok: true, message: sentMessage };
+  } catch {
+    await supabase
+      .from("request_messages")
+      .update({ delivery_status: "failed" })
+      .eq("id", queuedMessage.id);
+
+    return { error: "MESSAGE_SEND_FAILED" };
+  }
+}
