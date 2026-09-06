@@ -181,7 +181,7 @@ scores: {
  calendar_mode: "proposal",
   role: "Psychologin, Systemischer Coach",
   qualificationLevel: 4,
-  image: "https://mypoise.de/wp-content/uploads/2023/09/163_Portrait-Juni2023__pp-1300x1300.jpg",
+  image: "https://mypoise.de/wp-content/uploads/2026/09/Foto-Carolin-Heemann.png",
   video: "https://youtu.be/bjJ76067_j0",
     email: "info@carolinheemann.com",
   short:
