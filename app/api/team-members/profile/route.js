@@ -93,6 +93,19 @@ const sanitizeProposalTime = (value) =>
     ? value.trim()
     : null;
 
+const earliest = sanitizeProposalTime(body.proposal_earliest_time);
+const latest = sanitizeProposalTime(body.proposal_latest_time);
+
+if (earliest && latest && earliest > latest) {
+  return json(
+    {
+      error: "invalid_time_range",
+      message: "Die früheste Uhrzeit muss vor der spätesten Uhrzeit liegen.",
+    },
+    400
+  );
+}
+
 const payload = {
   profile_name: body.profile_name || null,
   profile_role: body.profile_role || null,
@@ -133,8 +146,8 @@ const payload = {
       ? null
       : String(body.sevdesk_contact_id).trim(),
 
-  proposal_earliest_time: sanitizeProposalTime(body.proposal_earliest_time),
-  proposal_latest_time: sanitizeProposalTime(body.proposal_latest_time),
+  proposal_earliest_time: earliest,
+  proposal_latest_time: latest,
 };
 
     const { data: member, error } = await supabase

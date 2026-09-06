@@ -351,6 +351,18 @@ describe("getProposalConstraintLabel", () => {
       getProposalConstraintLabel({ earliestTime: null, latestTime: "16:00" })
     ).toBe("Termine grundsätzlich bis spätestens 16:00 Uhr");
   });
+
+  it("beschreibt eine Earliest-Time-Constraint", () => {
+    expect(
+      getProposalConstraintLabel({ earliestTime: "10:00", latestTime: null })
+    ).toBe("Termine grundsätzlich ab 10:00 Uhr");
+  });
+
+  it("beschreibt eine Earliest- und Latest-Time-Constraint", () => {
+    expect(
+      getProposalConstraintLabel({ earliestTime: "10:00", latestTime: "16:00" })
+    ).toBe("Termine grundsätzlich zwischen 10:00 und 16:00 Uhr");
+  });
 });
 
 describe("clearCoachDependentFormFields", () => {

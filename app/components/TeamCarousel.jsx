@@ -205,17 +205,28 @@ export default function TeamCarousel({ members, onSelect }) {
               )}
 
               {m.short && (
-                <p
+                <div
                   style={{
                     fontSize: ".95rem",
                     marginTop: 8,
                     marginBottom: 0,
                     lineHeight: 1.4,
+                    maxHeight: "calc(5 * 1.4em)",
+                    overflowY: "auto",
                     overflowWrap: "anywhere",
                   }}
                 >
-                  {m.short}
-                </p>
+                  <p
+                    style={{
+                      margin: 0,
+                      fontSize: "inherit",
+                      lineHeight: "inherit",
+                      overflowWrap: "anywhere",
+                    }}
+                  >
+                    {m.short}
+                  </p>
+                </div>
               )}
 
               {m.proposalConstraintLabel && (

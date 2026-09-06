@@ -1363,6 +1363,8 @@ const [profileForm, setProfileForm] = useState({
   profile_name: "",
   profile_role: "",
   profile_calendar_mode: "booking",
+  proposal_earliest_time: "",
+  proposal_latest_time: "",
   profile_short: "",
   profile_keywords: "",
   profile_preis_std: "",
@@ -1950,6 +1952,8 @@ setProfileForm({
   profile_name: m.profile_name || "",
   profile_role: m.profile_role || "",
   profile_calendar_mode: m.profile_calendar_mode || "booking",
+  proposal_earliest_time: m.proposal_earliest_time || "",
+  proposal_latest_time: m.proposal_latest_time || "",
   profile_short: m.profile_short || "",
   profile_keywords: Array.isArray(m.profile_keywords)
     ? m.profile_keywords.join(", ")
@@ -2183,6 +2187,18 @@ async function loadBookingSettings() {
 }
 async function saveProfileSettings() {
   try {
+    const earliest = profileForm.proposal_earliest_time
+      ? profileForm.proposal_earliest_time.trim()
+      : "";
+    const latest = profileForm.proposal_latest_time
+      ? profileForm.proposal_latest_time.trim()
+      : "";
+
+    if (earliest && latest && earliest > latest) {
+      alert("Die früheste Uhrzeit muss vor der spätesten Uhrzeit liegen.");
+      return;
+    }
+
     setProfileSaving(true);
 
     const token = await getAccessToken();
@@ -2197,6 +2213,14 @@ body: JSON.stringify({
   profile_name: profileForm.profile_name,
   profile_role: profileForm.profile_role,
   profile_calendar_mode: profileForm.profile_calendar_mode,
+  proposal_earliest_time:
+    profileForm.proposal_earliest_time === ""
+      ? null
+      : profileForm.proposal_earliest_time,
+  proposal_latest_time:
+    profileForm.proposal_latest_time === ""
+      ? null
+      : profileForm.proposal_latest_time,
   profile_short: profileForm.profile_short,
 
   profile_keywords: profileForm.profile_keywords
@@ -2237,7 +2261,7 @@ body: JSON.stringify({
 
     if (!res.ok) {
       console.error("PROFILE SAVE ERROR:", json);
-      alert("Fehler beim Speichern des Profils");
+      alert(json?.message || "Fehler beim Speichern des Profils");
       return;
     }
 
@@ -3433,6 +3457,69 @@ return (
         <option value="ics">ics</option>
       </select>
     </div>
+
+    {profileForm.profile_calendar_mode === "proposal" && (
+      <div
+        style={{
+          background: "#FAFAFA",
+          border: "1px solid #eee",
+          borderRadius: 12,
+          padding: 14,
+          display: "grid",
+          gap: 10,
+        }}
+      >
+        <div style={{ fontWeight: 600, fontSize: 14 }}>
+          Verfügbarkeit für Erstgespräche
+        </div>
+
+        <p style={{ fontSize: 13, color: "#666", margin: 0, lineHeight: 1.45 }}>
+          Im Anfrageformular fragen wir Klient:innen bereits, zu welchen Zeiten
+          sie grundsätzlich Termine wahrnehmen können. Gib hier an, in welchem
+          Zeitraum du Erstgespräche anbieten kannst. Deine Verfügbarkeit wird
+          Klient:innen auch bei deinem Profil im Anfrageformular angezeigt und
+          hilft dabei, euch zeitlich passend zusammenzubringen.
+        </p>
+
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "1fr 1fr",
+            gap: 10,
+          }}
+        >
+          <div>
+            <label style={{ fontSize: 12, color: "#555" }}>Frühestens</label>
+            <input
+              type="time"
+              value={profileForm.proposal_earliest_time || ""}
+              onChange={(e) =>
+                setProfileForm((prev) => ({
+                  ...prev,
+                  proposal_earliest_time: e.target.value,
+                }))
+              }
+              style={{ width: "100%" }}
+            />
+          </div>
+
+          <div>
+            <label style={{ fontSize: 12, color: "#555" }}>Spätestens</label>
+            <input
+              type="time"
+              value={profileForm.proposal_latest_time || ""}
+              onChange={(e) =>
+                setProfileForm((prev) => ({
+                  ...prev,
+                  proposal_latest_time: e.target.value,
+                }))
+              }
+              style={{ width: "100%" }}
+            />
+          </div>
+        </div>
+      </div>
+    )}
 
     <div>
       <label>Kurzbeschreibung</label>
