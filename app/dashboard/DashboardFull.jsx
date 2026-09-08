@@ -2674,10 +2674,18 @@ if (!map[s.anfrage_id]) {
 
   return Object.values(map);
 }, [filteredBillingSessions, invoiceSettings.default_vat_rate]);
+const filteredBillingSessionsByClient = useMemo(() => {
+  if (selectedClientId === "alle") return filteredBillingSessions;
+
+  return filteredBillingSessions.filter(
+    (s) => String(s.anfrage_id) === String(selectedClientId)
+  );
+}, [filteredBillingSessions, selectedClientId]);
+
  const billingByTherapist = useMemo(() => {
   const map = {};
 
-  (filteredBillingSessions || []).forEach((s) => {
+  (filteredBillingSessionsByClient || []).forEach((s) => {
     if (!s?.therapist_id) return;
 
     if (!map[s.therapist_id]) {
@@ -2719,7 +2727,7 @@ const payout = 0;
   return Object.values(map).sort((a, b) =>
     a.therapist_name.localeCompare(b.therapist_name)
   );
-}, [filteredBillingSessions]);
+}, [filteredBillingSessionsByClient]);
 // ================= CLIENT FILTER FÜR ABRECHNUNG =================
 const visibleBillingRows = useMemo(() => {
   if (selectedClientId === "alle") {
@@ -2730,6 +2738,17 @@ const visibleBillingRows = useMemo(() => {
     (row) => String(row.anfrage_id) === String(selectedClientId)
   );
 }, [billingByClient, selectedClientId]);
+
+// Optionsliste abhängig von Zeitraum und Coach; Filterung immer über anfrage_id.
+const clientOptions = billingByClient;
+
+useEffect(() => {
+  if (selectedClientId === "alle") return;
+  const stillExists = clientOptions.some(
+    (c) => String(c.anfrage_id) === String(selectedClientId)
+  );
+  if (!stillExists) setSelectedClientId("alle");
+}, [clientOptions, selectedClientId]);
 
 const adminSelectedCoach = useMemo(() => {
   if (!isAdmin) return null;
@@ -4303,7 +4322,7 @@ if (!res.ok) {
   </div>
 )}
 {/* ================= ABRECHNUNG EXPORT & ÜBERSICHT ================= */}
-{!isAdmin && (
+{(
   <div
     style={{
       borderTop: "1px solid #eee",
@@ -4347,7 +4366,7 @@ if (!res.ok) {
           }
 
           const clientRow = visibleBillingRows[0];
-          const clientSessions = filteredBillingSessions.filter(
+          const clientSessions = filteredBillingSessionsByClient.filter(
             (s) => String(s.anfrage_id) === String(selectedClientId)
           );
 
@@ -4400,7 +4419,7 @@ if (!res.ok) {
       >
         <option value="alle">Alle</option>
 
-        {billingByClient.map((c) => (
+        {clientOptions.map((c) => (
           <option key={c.anfrage_id} value={c.anfrage_id}>
             {c.klient}
           </option>
