@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  addPersonalMessageAction,
   canUseMessagingForRequest,
   matchesCoachFilter,
 } from "../../app/dashboard/coachFilter.js";
@@ -115,5 +116,52 @@ describe("canUseMessagingForRequest", () => {
 
   it("rejects admin access", () => {
     expect(canUse("active", { role: "admin" })).toBe(false);
+  });
+});
+
+describe("addPersonalMessageAction", () => {
+  const detailsAction = {
+    key: "details",
+    label: "Details",
+    hint: "Details ansehen",
+  };
+
+  it("adds personal_message for admin_vorschlaege_gesendet when assignment allows messaging", () => {
+    expect(
+      addPersonalMessageAction([detailsAction], {
+        canUseMessaging: true,
+        status: "admin_vorschlaege_gesendet",
+      }).map((action) => action.key)
+    ).toEqual(["personal_message", "details"]);
+  });
+
+  it("adds personal_message for an unknown non-terminal future status", () => {
+    expect(
+      addPersonalMessageAction([detailsAction], {
+        canUseMessaging: true,
+        status: "future_status",
+      }).map((action) => action.key)
+    ).toEqual(["personal_message", "details"]);
+  });
+
+  it.each(["beendet", "papierkorb", "kein_match", "abgelehnt"])(
+    "does not add personal_message for terminal status %s",
+    (status) => {
+      expect(
+        addPersonalMessageAction([detailsAction], {
+          canUseMessaging: true,
+          status,
+        }).map((action) => action.key)
+      ).toEqual(["details"]);
+    }
+  );
+
+  it("does not add personal_message when assignment does not allow messaging", () => {
+    expect(
+      addPersonalMessageAction([detailsAction], {
+        canUseMessaging: false,
+        status: "admin_vorschlaege_gesendet",
+      }).map((action) => action.key)
+    ).toEqual(["details"]);
   });
 });

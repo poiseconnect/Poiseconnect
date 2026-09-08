@@ -12,7 +12,7 @@ import jsPDF from "jspdf";
 import "jspdf-autotable";
 import ActionMenu from "../components/ActionMenu";
 import CoachOnboardingTour from "../components/CoachOnboardingTour";
-import { canUseMessagingForRequest, matchesCoachFilter } from "./coachFilter";
+import { addPersonalMessageAction, canUseMessagingForRequest, matchesCoachFilter } from "./coachFilter";
 
 import { supabase } from "../lib/supabase";
 
@@ -1088,15 +1088,7 @@ const calendarMode = getCalendarModeForRequest(r, sessionList);
       hint: "Alle Angaben und Verlauf ansehen",
     });
 
-    if (canUseMessaging) {
-      actions.splice(-1, 0, {
-        key: "personal_message",
-        label: "💬 Persönliche Nachricht senden",
-        hint: "Nachricht an Klient:in senden",
-      });
-    }
-
-    return actions;
+    return addPersonalMessageAction(actions, { canUseMessaging, status });
   }
 
 if (status === "termin_bestaetigt") {
@@ -1112,14 +1104,6 @@ if (status === "termin_bestaetigt") {
       hint: "An Admin zur Neuverteilung geben",
     },
   ];
-
-  if (canUseMessaging) {
-    actions.splice(1, 0, {
-      key: "personal_message",
-      label: "💬 Persönliche Nachricht senden",
-      hint: "Nachricht vor dem Erstgespräch senden",
-    });
-  }
 
 if (calendarMode === "booking") {
   actions.push({
@@ -1155,7 +1139,11 @@ actions.push({
       hint: "Alle Angaben und Verlauf ansehen",
     });
 
-    return actions;
+    return addPersonalMessageAction(actions, {
+      canUseMessaging,
+      status,
+      hint: "Nachricht vor dem Erstgespräch senden",
+    });
   }
 
 if (status === "active") {
@@ -1187,14 +1175,6 @@ if (status === "active") {
     },
   ];
 
-  if (canUseMessaging) {
-    actions.splice(1, 0, {
-      key: "personal_message",
-      label: "💬 Persönliche Nachricht senden",
-      hint: "Nachricht an Klient:in senden",
-    });
-  }
-
 if (calendarMode === "booking") {
   actions.push({
     key: "new_appointment",
@@ -1223,7 +1203,7 @@ if (calendarMode === "booking") {
       });
     }
 
-    return actions;
+    return addPersonalMessageAction(actions, { canUseMessaging, status });
   }
 
   if (status === "beendet") {
@@ -1262,22 +1242,22 @@ if (calendarMode === "booking") {
   }
 
   if (status === "admin_pruefen") {
-    return [
+    return addPersonalMessageAction([
       {
         key: "details",
         label: "🔍 Details",
         hint: "Angaben ansehen",
       },
-    ];
+    ], { canUseMessaging, status });
   }
 
-  return [
+  return addPersonalMessageAction([
     {
       key: "details",
       label: "🔍 Details",
       hint: "Angaben ansehen",
     },
-  ];
+  ], { canUseMessaging, status });
 }
 
 /* ================= DASHBOARD ================= */

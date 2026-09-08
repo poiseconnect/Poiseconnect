@@ -1,6 +1,14 @@
 export const dynamic = "force-dynamic";
 
 import { getUserFromBearer, json, supabaseAdmin } from "../../_lib/server";
+import { ensureOpenConversation } from "../../../lib/messaging/conversations";
+
+const TERMINAL_MESSAGING_STATUSES = new Set([
+  "beendet",
+  "papierkorb",
+  "kein_match",
+  "abgelehnt",
+]);
 
 export async function GET(request) {
   try {
@@ -23,7 +31,7 @@ export async function GET(request) {
 
     const { data: anfrage, error: requestError } = await sb
       .from("anfragen")
-      .select("id, assigned_therapist_id")
+      .select("id, assigned_therapist_id, status")
       .eq("id", anfrageId)
       .single();
 
@@ -32,17 +40,33 @@ export async function GET(request) {
       return json({ error: "CONVERSATION_FORBIDDEN" }, 403);
     }
 
-    const { data: conversation, error: conversationError } = await sb
+    if (TERMINAL_MESSAGING_STATUSES.has(String(anfrage.status || ""))) {
+      return json({ conversation: null, messages: [] });
+    }
+
+    let { data: conversation, error: conversationError } = await sb
       .from("request_conversations")
       .select("id, status, therapist_id, anfrage_id, created_at, closed_at")
       .eq("anfrage_id", anfrage.id)
       .eq("therapist_id", coach.id)
+      .eq("status", "open")
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
 
     if (conversationError) return json({ error: "CONVERSATION_LOAD_FAILED" }, 500);
-    if (!conversation) return json({ conversation: null, messages: [] });
+
+    if (!conversation) {
+      try {
+        conversation = await ensureOpenConversation({
+          supabase: sb,
+          anfrageId: anfrage.id,
+          therapistId: coach.id,
+        });
+      } catch {
+        return json({ error: "CONVERSATION_ENSURE_FAILED" }, 409);
+      }
+    }
 
     const { data: messages, error: messagesError } = await sb
       .from("request_messages")
