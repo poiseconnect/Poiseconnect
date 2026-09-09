@@ -51,6 +51,15 @@ Resend versendet unter anderem:
 ## Klaviyo
 
 Klaviyo wird für Newsletter, Impulsserien und Segmentierung verwendet.
+Social-Landingpages übertragen Newsletter-Attribution über kontrollierte
+Properties wie `landing_page_topic`, `last_landing_page_topic`,
+`parent_matching_topic` und explizit erlaubte UTM-Felder. `source` beschreibt
+den Signup-Kontext und wird nicht als Themeninformation verwendet.
+
+Ein mehrwertiges Interessenmodell wie `poise_interests` darf erst ergänzt
+werden, wenn das bestehende Klaviyo-Profil gelesen und die Interessen sicher
+zusammengeführt werden können; die aktuelle Subscription-Job-Nutzung darf keine
+bestehenden Interessen blind überschreiben.
 
 ## sevDesk
 
@@ -87,6 +96,12 @@ WordPress bleibt führend für öffentliche Seiten, Detailseiten, SEO und
 Darstellung. Poise Connect ist führend für App-Workflows und liefert der
 Website ausschließlich den explizit freigegebenen Public-Datenvertrag. Es gibt
 keine produktive Next.js-Teamseite unter `app.mypoise.de/team`.
+
+Poise Connect kann zusätzlich explizite Social-Landingpages für
+Instagram-/Social-Media-Conversion enthalten. Diese Seiten sind nicht als
+SEO-Ersatz für WordPress gedacht, bleiben bewusst `noindex, follow` und nutzen
+eine zentrale Topic-Konfiguration mit `landingTopic` als feinem Content-Key und
+`parentTopic` als Verbindung zur bestehenden Matching-Taxonomie.
 
 ### WordPress-Integration (geplant, nicht Bestandteil dieses Repositories)
 
@@ -757,6 +772,7 @@ technische Referenzen, keine Abrechnungsquelle.
 | Website Public | `/api/public-team-members` | Whitelisted Website-Daten aus `team_members` und `teamData` |
 | Formular | `/api/form-team-members`, `/api/form-submit` | Profil-Overrides und Persistenz nach `anfragen` |
 | Matching/Availability | `/api/public-availability`, `/api/team-members/matching-scores` | Intake-, Booking- und Score-Daten aus `team_members` und Booking Settings |
+| Social Landingpages | `/beziehung`, `/verlustangst`, `/api/klaviyo/subscribe` | Noindex-Conversion-Seiten mit Topic-/UTM-Attribution für Klaviyo |
 | Coach | `/api/team-members/profile`, `/api/therapist/*` | Authentifiziertes Coach-Profil, Sessions und Billing |
 | Admin | `/api/admin-forward`, `/api/dashboard/*`, `/api/requests/*` | Authentifizierte Admin- und Dashboard-Workflows |
 | Proposal | `/api/proposals/*`, `/api/confirm-proposal` | Vorschläge, Reservierungen und Bestätigung |

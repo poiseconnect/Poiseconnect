@@ -179,6 +179,13 @@ Raidboxes. `app.mypoise.de` ist die Next.js-Poise-Connect-App. Es gibt keine
 produktive Next.js-Teamseite; ein späteres WordPress-Plugin rendert das
 Teamverzeichnis serverseitig aus `/api/public-team-members`.
 
+Social-Landingpages in Poise Connect sind davon getrennt. Sie dienen
+Instagram-/Social-Media-Conversion und Newsletter-Anmeldung, nicht SEO.
+Sie verwenden explizite App-Router-Routen, sind `noindex, follow` und werden
+über eine zentrale Social-Landingpage-Konfiguration gerendert. `landingTopic`
+ist dabei der feinere Content- und Interest-Key, `parentTopic` verbindet zur
+bestehenden Matching-Taxonomie aus `app/lib/matchingTopics.js`.
+
 `/api/public-team-members` ist ein strikt whitelisted Website-Vertrag. Er gibt
 nur ID, Name, Profilrolle, normalisierte Ausbildungskategorien, Kurzprofil,
 Bild, Video, abgeleitete Topic-Keys und eine absolute Anfrage-URL aus. Er darf
