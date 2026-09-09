@@ -1,7 +1,7 @@
 import SocialLandingPage from "../components/SocialLandingPage.jsx";
 import { getSocialLandingTopic } from "../lib/socialLandingTopics.js";
 
-const topic = getSocialLandingTopic("beziehung");
+const topic = getSocialLandingTopic("verlustangst");
 
 export const metadata = {
   title: topic.seoTitle,
@@ -12,6 +12,6 @@ export const metadata = {
   },
 };
 
-export default function BeziehungPage() {
+export default function VerlustangstPage() {
   return <SocialLandingPage topic={topic} />;
 }
