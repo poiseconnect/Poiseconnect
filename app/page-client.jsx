@@ -11,6 +11,9 @@ import { getWeightedQualificationBonus } from "./lib/qualificationBonus";
 import { MATCHING_TOPICS } from "./lib/matchingTopics";
 import { teamData } from "./lib/teamData";
 import {
+  DRAFT_RECOVERY_CONSENT_TEXT,
+} from "./lib/draftRecovery";
+import {
   TIME_PREFERENCE_OPTIONS,
   clearCoachDependentFormFields,
   formatTimePreference,
@@ -324,6 +327,7 @@ const [form, setForm] = useState({
   check_online_setting: false,
   check_gesundheit: false,
   newsletter_consent: false,
+  draft_recovery_consent: false,
   website: "",
   terminISO: "",
   terminDisplay: "",
@@ -1128,6 +1132,9 @@ body: JSON.stringify({
 
   structured_time_preference: form.structured_time_preference || [],
 
+  draft_recovery_consent: form.draft_recovery_consent === true,
+  draft_current_step: step,
+
   wunschtherapeut: selectedMember.name,
   assigned_therapist_id: selectedMember.id,
 }),
@@ -1874,6 +1881,19 @@ color: "#000", // ✅ FIX: Text IMMER schwarz
             Ich habe keine akuten Suizidgedanken /
             akute Selbstgefährdung.
           </label>
+                  <label className="checkbox">
+                    <input
+                      type="checkbox"
+                      checked={form.draft_recovery_consent}
+                      onChange={() =>
+                        setForm({
+                          ...form,
+                          draft_recovery_consent: !form.draft_recovery_consent,
+                        })
+                      }
+                    />
+                    {DRAFT_RECOVERY_CONSENT_TEXT}
+                  </label>
 <label className="checkbox">
   <input
     type="checkbox"

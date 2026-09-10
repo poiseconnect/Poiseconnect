@@ -70,6 +70,18 @@ Wichtige technische Felder:
 - wunschtherapeut
 - bevorzugte_zeit
 - booking_token
+- draft_recovery_consent
+- draft_recovery_consent_at
+- draft_recovery_consent_version
+- draft_last_activity_at
+- draft_current_step
+- draft_reminder_sent_at
+
+Draft-Recovery-Consent ist vom Newsletter-Consent getrennt. Neue Drafts können
+eine optionale, versionierte Zustimmung für genau eine spätere
+Fortsetzungs-Erinnerung speichern. Der Versand ist derzeit nicht aktiviert.
+Bestehende Drafts erhalten keinen impliziten Consent und bleiben effektiv
+nicht recovery-berechtigt.
 
 ### sessions
 

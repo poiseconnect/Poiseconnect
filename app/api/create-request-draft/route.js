@@ -1,6 +1,7 @@
 export const dynamic = "force-dynamic";
 
 import { createClient } from "@supabase/supabase-js";
+import { buildDraftRecoveryFields } from "../../lib/draftRecovery.js";
 
 function json(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -34,6 +35,8 @@ const {
   beschaeftigungsgrad,
 
   structured_time_preference,
+  draft_recovery_consent,
+  draft_current_step,
 } = body || {};
 
     if (!assigned_therapist_id) {
@@ -60,6 +63,13 @@ coaching_typ:
 structured_time_preference: Array.isArray(structured_time_preference)
   ? structured_time_preference
   : null,
+
+...buildDraftRecoveryFields({ consent: draft_recovery_consent }),
+draft_last_activity_at: new Date().toISOString(),
+draft_current_step:
+  Number.isInteger(draft_current_step) && draft_current_step >= 0
+    ? draft_current_step
+    : null,
 
 status: "draft",
 match_state: "draft",

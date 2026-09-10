@@ -101,6 +101,24 @@ Zulässige technische Logwerte sind beispielsweise:
 - HTTP-Status
 - Dauer einer Anfrage
 
+## Draft-Recovery-Consent
+
+Der optionale Consent für genau eine spätere Draft-Fortsetzungs-Erinnerung ist
+technisch getrennt von Datenschutz- und Newsletter-Feldern. Neue Datensätze
+speichern bei ausdrücklicher Zustimmung einen serverseitigen Zeitpunkt und
+eine stabile Consent-Version. Der eigentliche Text wird nicht pro Datensatz
+dupliziert. Bestehende Drafts erhalten keinen impliziten Consent; ihr Status
+bleibt für Recovery effektiv unbekannt bzw. nicht berechtigt. Versandstatus und
+Funnel-Messung sind separate Konzepte. Es gibt derzeit keinen Recovery-Mail-
+Versand und keinen Recovery-Cronjob.
+
+Der bestehende öffentliche Resume-Mechanismus lädt `anfragen` aktuell anhand
+von `rid` beziehungsweise `anfrageId` und verwendet `select("*")`. Der
+Endpunkt hat keine zusätzliche Token-Autorisierung. Wer eine gültige ID kennt,
+kann daher potentiell auch sensible Felder laden. Eine Token-Lösung ist eine
+separate sicherheitskritische Entscheidung und wurde in dieser Änderung nicht
+umgesetzt.
+
 ## Testdaten
 
 Tests verwenden ausschließlich künstliche Datensätze.
