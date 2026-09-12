@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { teamData } from "../lib/teamData";
 import {
   isCoachAvailableForNewClient,
@@ -8,6 +8,7 @@ import {
   getAdminCoachOptions,
   isHistoricallySelectedCoach,
 } from "../lib/intakeAvailability";
+import { shouldCloseModalFromBackdropClick } from "../lib/modalEventGuard";
 import jsPDF from "jspdf";
 import "jspdf-autotable";
 import ActionMenu from "../components/ActionMenu";
@@ -304,9 +305,68 @@ function getCardStyleByFilter(filter) {
 /* ================= MODAL ================= */
 
 function Modal({ children, onClose }) {
+  const contentRef = useRef(null);
+  const interactionRef = useRef({
+    pointerDownStartedOnBackdrop: false,
+    pointerDownStartedInsideContent: false,
+    mouseDownStartedOnBackdrop: false,
+    mouseDownStartedInsideContent: false,
+  });
+
+  function trackPointerDown(event) {
+    const startedInsideContent =
+      contentRef.current?.contains(event.target) === true;
+
+    interactionRef.current.pointerDownStartedInsideContent =
+      startedInsideContent;
+    interactionRef.current.pointerDownStartedOnBackdrop =
+      event.target === event.currentTarget && event.button === 0;
+  }
+
+  function trackMouseDown(event) {
+    const startedInsideContent =
+      contentRef.current?.contains(event.target) === true;
+
+    interactionRef.current.mouseDownStartedInsideContent =
+      startedInsideContent;
+    interactionRef.current.mouseDownStartedOnBackdrop =
+      event.target === event.currentTarget && event.button === 0;
+  }
+
+  function resetInteractionOrigin() {
+    interactionRef.current.pointerDownStartedOnBackdrop = false;
+    interactionRef.current.pointerDownStartedInsideContent = false;
+    interactionRef.current.mouseDownStartedOnBackdrop = false;
+    interactionRef.current.mouseDownStartedInsideContent = false;
+  }
+
+  function handleBackdropClick(event) {
+    const startedOnBackdrop =
+      interactionRef.current.pointerDownStartedOnBackdrop ||
+      interactionRef.current.mouseDownStartedOnBackdrop;
+
+    const startedInsideContent =
+      interactionRef.current.pointerDownStartedInsideContent ||
+      interactionRef.current.mouseDownStartedInsideContent;
+
+    const shouldClose = shouldCloseModalFromBackdropClick(event, {
+      startedOnBackdrop,
+      startedInsideContent,
+      isPointerEvent: typeof event.button === "number",
+    });
+
+    resetInteractionOrigin();
+
+    if (shouldClose) {
+      onClose();
+    }
+  }
+
   return (
     <div
-      onClick={onClose}
+      onClick={handleBackdropClick}
+      onPointerDownCapture={trackPointerDown}
+      onMouseDownCapture={trackMouseDown}
       style={{
         position: "fixed",
         inset: 0,
@@ -319,6 +379,7 @@ function Modal({ children, onClose }) {
       }}
     >
       <div
+        ref={contentRef}
         onClick={(e) => e.stopPropagation()}
         style={{
           background: "#fff",
