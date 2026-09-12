@@ -3,6 +3,7 @@ export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { Resend } from "resend";
+import { formatInViennaTime } from "../../lib/formatAppointmentTime";
 
 function getSupabase() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -83,7 +84,7 @@ export async function POST(req) {
         ? "Erinnerung: Deine Poise-Sitzung in 2 Stunden"
         : "Erinnerung: Deine Poise-Sitzung morgen";
 
-      const pretty = when.toLocaleString("de-AT", {
+      const pretty = formatInViennaTime(when, {
         weekday: "short",
         day: "2-digit",
         month: "2-digit",

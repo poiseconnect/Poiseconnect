@@ -1,6 +1,7 @@
 export const dynamic = "force-dynamic";
 
 import { createClient } from "@supabase/supabase-js";
+import { formatInViennaTime } from "../../../lib/formatAppointmentTime";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -15,10 +16,7 @@ function json(data, status = 200) {
 }
 
 function safeDateString(v) {
-  if (!v) return "";
-  const d = new Date(v);
-  if (Number.isNaN(d.getTime())) return "";
-  return d.toLocaleString("de-AT", {
+  return formatInViennaTime(v, {
     weekday: "long",
     day: "2-digit",
     month: "2-digit",

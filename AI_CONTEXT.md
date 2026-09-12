@@ -152,6 +152,11 @@ Eine Buchung erzeugt:
 - Anzeigen und E-Mails werden in `Europe/Vienna` formatiert.
 - Jede serverseitige Mailformatierung muss die Zeitzone ausdrücklich setzen.
 - Die lokale Zeitzone eines Vercel-Servers darf niemals vorausgesetzt werden.
+- Reminder-E-Mails (`app/api/reminders/send/route.js`, `app/api/reminder/route.js`)
+  formatieren Terminzeiten über `formatInViennaTime` aus
+  `app/lib/formatAppointmentTime.js`. Diese Funktion setzt `timeZone: "Europe/Vienna"`
+  zentral und muss bei neuen Reminder- oder Mail-Pfaden wiederverwendet werden,
+  statt `toLocaleString` ohne `timeZone`-Option direkt aufzurufen.
 
 ## Booking Mode
 
