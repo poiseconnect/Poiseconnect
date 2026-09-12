@@ -46,7 +46,7 @@ export async function POST(request) {
 
     const { data: anfrage, error: anfrageErr } = await sb
       .from("anfragen")
-      .select("id, assigned_therapist_id, email, vorname, wunschtherapeut")
+      .select("id, assigned_therapist_id, email, vorname, wunschtherapeut, booking_token")
       .eq("id", requestId)
       .single();
 
@@ -71,7 +71,10 @@ export async function POST(request) {
       process.env.NEXT_PUBLIC_SITE_URL ||
       "https://app.mypoise.de";
 
-    const link = `${baseUrl}?resume=8&rid=${requestId}`;
+    const tokenQuery = anfrage.booking_token
+      ? `&token=${encodeURIComponent(anfrage.booking_token)}`
+      : "";
+    const link = `${baseUrl}?resume=8&rid=${requestId}${tokenQuery}`;
 
     await closeConversation({
       supabase: sb,

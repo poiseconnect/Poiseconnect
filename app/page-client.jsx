@@ -709,13 +709,17 @@ useEffect(() => {
 
   const params = new URLSearchParams(window.location.search);
   const resume = params.get("resume");
+  const tokenFromUrl = searchParams.get("token") || params.get("token") || "";
 
   let isMounted = true;
 
   async function loadExistingRequest() {
     try {
+      const tokenQuery = tokenFromUrl
+        ? `&token=${encodeURIComponent(tokenFromUrl)}`
+        : "";
       const res = await fetch(
-        `/api/public-request?id=${encodeURIComponent(anfrageId)}`,
+        `/api/public-request?id=${encodeURIComponent(anfrageId)}${tokenQuery}`,
         { cache: "no-store" }
       );
 
