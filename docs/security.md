@@ -109,8 +109,11 @@ speichern bei ausdrücklicher Zustimmung einen serverseitigen Zeitpunkt und
 eine stabile Consent-Version. Der eigentliche Text wird nicht pro Datensatz
 dupliziert. Bestehende Drafts erhalten keinen impliziten Consent; ihr Status
 bleibt für Recovery effektiv unbekannt bzw. nicht berechtigt. Versandstatus und
-Funnel-Messung sind separate Konzepte. Es gibt derzeit keinen Recovery-Mail-
-Versand und keinen Recovery-Cronjob.
+Funnel-Messung sind separate Konzepte. Der tägliche Cronjob `/api/reminders/send`
+verarbeitet ausschließlich berechtigte Drafts (>48h inaktiv, Consent `true`,
+bisher un-erinnert) und sendet eine strikt neutrale E-Mail ohne psychologische
+Details oder Themen. Die Idempotenz wird sichergestellt, indem `draft_reminder_sent_at`
+erst nach erfolgreichem Mailversand in UTC aktualisiert wird.
 
 Der bestehende öffentliche Resume-Mechanismus lädt `anfragen` aktuell anhand
 von `rid` beziehungsweise `anfrageId` und verwendet `select("*")`. Der

@@ -79,7 +79,11 @@ Wichtige technische Felder:
 
 Draft-Recovery-Consent ist vom Newsletter-Consent getrennt. Neue Drafts können
 eine optionale, versionierte Zustimmung für genau eine spätere
-Fortsetzungs-Erinnerung speichern. Der Versand ist derzeit nicht aktiviert.
+Fortsetzungs-Erinnerung speichern. Wenn ein Draft mindestens 48 Stunden inaktiv
+ist, ausdrückliche Zustimmung besitzt und noch nicht erinnert wurde, versendet
+der tägliche Reminder-Cron (`/api/reminders/send`) genau eine neutrale
+Erinnerung ohne Themen- oder Gesundheitsdetails. Nach erfolgreichem Versand
+wird `draft_reminder_sent_at` in UTC gesetzt.
 Bestehende Drafts erhalten keinen impliziten Consent und bleiben effektiv
 nicht recovery-berechtigt.
 

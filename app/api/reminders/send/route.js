@@ -2,6 +2,7 @@ export const dynamic = "force-dynamic";
 
 import { createClient } from "@supabase/supabase-js";
 import { formatInViennaTime } from "../../../lib/formatAppointmentTime";
+import { sendDraftRecoveryReminders } from "../../../lib/draftRecovery";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -270,12 +271,20 @@ export async function GET(req) {
       }
     }
 
+    const { sentCount: sentDraftRecovery, sentLogs: draftLogs } =
+      await sendDraftRecoveryReminders({
+        supabase,
+        sendMail,
+        now: new Date(),
+      });
+
     return json({
       ok: true,
       sent24,
       sent2,
+      sentDraftRecovery,
       checked: (requests || []).length,
-      logs,
+      logs: [...logs, ...(draftLogs || [])],
     });
   } catch (e) {
     console.error("REMINDER SERVER ERROR");

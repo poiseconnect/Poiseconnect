@@ -51,9 +51,12 @@ Resend versendet unter anderem:
 Draft-Recovery-Tracking ist davon getrennt. Die Tabelle `anfragen` speichert
 für neue Drafts optional `draft_recovery_consent`, den serverseitigen
 Zeitpunkt, eine Consent-Version, die letzte beim Draft-Save bekannte Aktivität,
-den letzten bekannten Formularschritt und `draft_reminder_sent_at`. Diese
-Felder lösen keinen Versand aus. Newsletter-Consent wird weiterhin separat an
-Klaviyo übertragen und nicht als Recovery-Consent verwendet.
+den letzten bekannten Formularschritt und `draft_reminder_sent_at`. Der tägliche
+Cronjob `/api/reminders/send` prüft berechtigte Drafts (>48h Inaktivität) und
+versendet genau eine neutrale Fortsetzungs-E-Mail mit sicherem Resume-Link
+(`rid` + `token`). Erst nach erfolgreichem Versand wird `draft_reminder_sent_at`
+in Supabase gesetzt. Newsletter-Consent wird weiterhin separat an Klaviyo
+übertragen und nicht als Recovery-Consent verwendet.
 
 Der aktuelle Draft-Save erfolgt beim Auswählen eines Coaches. Dadurch ist
 `draft_last_activity_at` zunächst nur ein Checkpoint dieses bestehenden
