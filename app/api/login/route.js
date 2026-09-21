@@ -23,6 +23,8 @@ export async function POST(req) {
       options: {
         // 🔥 Der einzig korrekte Callback:
         emailRedirectTo: "https://app.mypoise.de/auth/callback",
+        // Kein Self-Signup: nur bestehende Auth-User dürfen sich einloggen
+        shouldCreateUser: false,
       },
     });
 
