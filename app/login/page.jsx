@@ -15,6 +15,8 @@ export default function LoginPage() {
       email,
       options: {
         emailRedirectTo: "https://app.mypoise.de/auth/callback",
+        // Kein Self-Signup: nur bestehende Auth-User dürfen sich einloggen
+        shouldCreateUser: false,
       },
     });
 
