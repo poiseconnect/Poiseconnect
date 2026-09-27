@@ -64,6 +64,16 @@ in einen KI-Suchindex übernommen.
 - Kein automatisches Deployment durch KI.
 - Kein automatisches Ausführen von SQL in Produktion.
 
+## SevDesk-API-Routen
+
+Die nicht authentifizierten Routen `/api/sevdesk/create-provision-invoice`
+und `/api/sevdesk/test-invoice` wurden entfernt. Sie konnten mit serverseitigen
+sevDesk-Zugangsdaten externe Rechnungsaktionen auslösen. Zum Zeitpunkt der
+Entfernung gab es keine Aufrufer im Repository und keine dokumentierte oder
+konfigurierte interne Verwendung. Neue SevDesk-Aktionen müssen authentifiziert
+und autorisiert sein und Rechnungsdaten serverseitig aus vertrauenswürdigen
+Quellen laden.
+
 ## Entwicklungsprozess
 
 1. Änderung auf einem separaten Branch.

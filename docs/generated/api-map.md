@@ -3,12 +3,12 @@
 > Diese Datei wird durch `scripts/generate-project-map.mjs` erzeugt.
 > Nicht manuell bearbeiten.
 
-Erzeugt am: 2026-07-16T04:52:34.754Z
+Erzeugt am: 2026-09-27T18:37:00.516Z
 
 ## `app/api/accounting-settings/route.js`
 
 - Methoden: `POST`
-- Supabase-Tabellen: `therapist_invoice_settings`
+- Supabase-Tabellen: `team_members`, `therapist_invoice_settings`
 - Google Calendar: keine Nutzung erkannt
 - Mail-Betreffzeilen: keine erkannt
 
@@ -22,7 +22,7 @@ Erzeugt am: 2026-07-16T04:52:34.754Z
 ## `app/api/add-sessions-batch/route.js`
 
 - Methoden: `POST`
-- Supabase-Tabellen: `anfragen`, `blocked_slots`, `sessions`, `therapist_booking_settings`
+- Supabase-Tabellen: `anfragen`, `blocked_slots`, `sessions`, `team_members`, `therapist_booking_settings`
 - Google Calendar: `events.delete`, `events.insert`
 - Mail-Betreffzeilen: keine erkannt
 
@@ -57,7 +57,7 @@ Erzeugt am: 2026-07-16T04:52:34.754Z
 ## `app/api/admin-forward/route.js`
 
 - Methoden: `POST`
-- Supabase-Tabellen: `anfragen`
+- Supabase-Tabellen: `anfragen`, `team_members`
 - Google Calendar: keine Nutzung erkannt
 - Mail-Betreffzeilen: `Bitte wähle eine neue Begleitung 🤍`
 
@@ -96,6 +96,34 @@ Erzeugt am: 2026-07-16T04:52:34.754Z
 - Google Calendar: keine Nutzung erkannt
 - Mail-Betreffzeilen: keine erkannt
 
+## `app/api/client/appointment/cancel/route.js`
+
+- Methoden: `POST`
+- Supabase-Tabellen: `anfragen`, `blocked_slots`, `team_members`, `therapist_booking_settings`
+- Google Calendar: `events.delete`
+- Mail-Betreffzeilen: `Dein Termin wurde abgesagt 🤍`, `Termin wurde abgesagt 🤍`
+
+## `app/api/client/appointment/reschedule-request/route.js`
+
+- Methoden: `POST`
+- Supabase-Tabellen: `anfragen`, `team_members`
+- Google Calendar: keine Nutzung erkannt
+- Mail-Betreffzeilen: `Neuer Termin gewünscht 🤍`
+
+## `app/api/client/appointment/route.js`
+
+- Methoden: `GET`
+- Supabase-Tabellen: `anfragen`, `blocked_slots`, `team_members`
+- Google Calendar: keine Nutzung erkannt
+- Mail-Betreffzeilen: keine erkannt
+
+## `app/api/coach-handover/route.js`
+
+- Methoden: `POST`
+- Supabase-Tabellen: `anfragen`, `sessions`, `team_members`
+- Google Calendar: keine Nutzung erkannt
+- Mail-Betreffzeilen: keine erkannt
+
 ## `app/api/confirm-appointment/route.js`
 
 - Methoden: `POST`
@@ -107,7 +135,7 @@ Erzeugt am: 2026-07-16T04:52:34.754Z
 
 - Methoden: `POST`
 - Supabase-Tabellen: `anfragen`, `appointment_proposals`, `blocked_slots`, `team_members`, `therapist_booking_settings`
-- Google Calendar: keine Nutzung erkannt
+- Google Calendar: `events.delete`, `events.patch`
 - Mail-Betreffzeilen: `Dein Erstgespräch ist bestätigt 🤍`, `Erstgespräch wurde bestätigt 🤍`
 
 ## `app/api/create-bestand/route.js`
@@ -123,6 +151,20 @@ Erzeugt am: 2026-07-16T04:52:34.754Z
 - Supabase-Tabellen: `anfragen`
 - Google Calendar: keine Nutzung erkannt
 - Mail-Betreffzeilen: keine erkannt
+
+## `app/api/cron/expire-proposals/route.js`
+
+- Methoden: `GET`
+- Supabase-Tabellen: `appointment_proposals`, `therapist_booking_settings`
+- Google Calendar: `events.delete`
+- Mail-Betreffzeilen: keine erkannt
+
+## `app/api/cron/proposal-reminders/route.js`
+
+- Methoden: `GET`
+- Supabase-Tabellen: `anfragen`, `appointment_proposals`
+- Google Calendar: keine Nutzung erkannt
+- Mail-Betreffzeilen: `Deine Terminvorschläge laufen bald ab 🤍`, `Deine Terminvorschläge sind abgelaufen 🤍`, `Deine Terminvorschläge warten auf dich 🤍`
 
 ## `app/api/dashboard/me/route.js`
 
@@ -141,14 +183,14 @@ Erzeugt am: 2026-07-16T04:52:34.754Z
 ## `app/api/delete-session/route.js`
 
 - Methoden: `POST`
-- Supabase-Tabellen: `sessions`
+- Supabase-Tabellen: `sessions`, `team_members`
 - Google Calendar: keine Nutzung erkannt
 - Mail-Betreffzeilen: keine erkannt
 
 ## `app/api/finish-coaching/route.js`
 
 - Methoden: `POST`
-- Supabase-Tabellen: `anfragen`
+- Supabase-Tabellen: `anfragen`, `team_members`
 - Google Calendar: keine Nutzung erkannt
 - Mail-Betreffzeilen: `Danke für dein Vertrauen 🤍 – kurzes Feedback`
 
@@ -159,10 +201,17 @@ Erzeugt am: 2026-07-16T04:52:34.754Z
 - Google Calendar: keine Nutzung erkannt
 - Mail-Betreffzeilen: `Deine Anfrage bei Poise 🤍`, `Neue Anfrage bei Poise 🤍`
 
+## `app/api/form-team-members/route.js`
+
+- Methoden: `GET`
+- Supabase-Tabellen: `team_members`
+- Google Calendar: keine Nutzung erkannt
+- Mail-Betreffzeilen: keine erkannt
+
 ## `app/api/forward-request/route.js`
 
 - Methoden: `POST`
-- Supabase-Tabellen: `anfragen`
+- Supabase-Tabellen: `anfragen`, `team_members`
 - Google Calendar: keine Nutzung erkannt
 - Mail-Betreffzeilen: `Wähle jetzt deine passende Begleitung 🤍`
 
@@ -218,7 +267,7 @@ Erzeugt am: 2026-07-16T04:52:34.754Z
 ## `app/api/invoices/load/route.js`
 
 - Methoden: `GET`
-- Supabase-Tabellen: `anfragen`, `sessions`, `team_members`, `therapist_invoice_settings`
+- Supabase-Tabellen: `anfragen`, `invoices`, `sessions`, `team_members`, `therapist_invoice_settings`
 - Google Calendar: keine Nutzung erkannt
 - Mail-Betreffzeilen: keine erkannt
 
@@ -232,7 +281,7 @@ Erzeugt am: 2026-07-16T04:52:34.754Z
 ## `app/api/invoices/save/route.js`
 
 - Methoden: `POST`
-- Supabase-Tabellen: `invoices`
+- Supabase-Tabellen: `anfragen`, `invoices`, `team_members`
 - Google Calendar: keine Nutzung erkannt
 - Mail-Betreffzeilen: keine erkannt
 
@@ -271,6 +320,20 @@ Erzeugt am: 2026-07-16T04:52:34.754Z
 - Google Calendar: keine Nutzung erkannt
 - Mail-Betreffzeilen: keine erkannt
 
+## `app/api/messages/conversations/route.js`
+
+- Methoden: `GET`
+- Supabase-Tabellen: `anfragen`, `request_conversations`, `request_messages`, `team_members`
+- Google Calendar: keine Nutzung erkannt
+- Mail-Betreffzeilen: keine erkannt
+
+## `app/api/messages/send/route.js`
+
+- Methoden: `POST`
+- Supabase-Tabellen: `team_members`
+- Google Calendar: keine Nutzung erkannt
+- Mail-Betreffzeilen: keine erkannt
+
 ## `app/api/new-appointment/route.js`
 
 - Methoden: `POST`
@@ -288,14 +351,36 @@ Erzeugt am: 2026-07-16T04:52:34.754Z
 ## `app/api/proposals/create/route.js`
 
 - Methoden: `POST`
-- Supabase-Tabellen: `anfragen`, `appointment_proposals`
-- Google Calendar: keine Nutzung erkannt
-- Mail-Betreffzeilen: `Deine Terminvorschläge 🤍`
+- Supabase-Tabellen: `anfragen`, `appointment_proposals`, `therapist_booking_settings`
+- Google Calendar: `events.delete`, `events.insert`
+- Mail-Betreffzeilen: keine erkannt
 
 ## `app/api/proposals/list/route.js`
 
 - Methoden: `POST`
-- Supabase-Tabellen: `appointment_proposals`
+- Supabase-Tabellen: `anfragen`, `appointment_proposals`
+- Google Calendar: keine Nutzung erkannt
+- Mail-Betreffzeilen: keine erkannt
+
+## `app/api/proposals/message/route.js`
+
+- Methoden: `POST`
+- Supabase-Tabellen: `anfragen`
+- Google Calendar: keine Nutzung erkannt
+- Mail-Betreffzeilen: `Rückmeldung zu Terminvorschlägen`
+
+## `app/api/proposals/request-new/route.js`
+
+- Methoden: `POST`
+- Supabase-Tabellen: `anfragen`, `team_members`
+- Google Calendar: keine Nutzung erkannt
+- Mail-Betreffzeilen: `Neue Terminvorschläge für ${
+            request.vorname || `
+
+## `app/api/proposals/resolve-legacy-link/route.js`
+
+- Methoden: `POST`
+- Supabase-Tabellen: `anfragen`
 - Google Calendar: keine Nutzung erkannt
 - Mail-Betreffzeilen: keine erkannt
 
@@ -379,7 +464,7 @@ Erzeugt am: 2026-07-16T04:52:34.754Z
 ## `app/api/send-personal-message/route.js`
 
 - Methoden: `POST`
-- Supabase-Tabellen: `anfragen`, `team_members`
+- Supabase-Tabellen: `request_conversations`, `team_members`
 - Google Calendar: keine Nutzung erkannt
 - Mail-Betreffzeilen: keine erkannt
 
@@ -397,24 +482,10 @@ Erzeugt am: 2026-07-16T04:52:34.754Z
 - Google Calendar: keine Nutzung erkannt
 - Mail-Betreffzeilen: `Dein Videolink für das Gespräch 🤍`
 
-## `app/api/sevdesk/create-provision-invoice/route.js`
-
-- Methoden: `POST`
-- Supabase-Tabellen: keine erkannt
-- Google Calendar: keine Nutzung erkannt
-- Mail-Betreffzeilen: keine erkannt
-
 ## `app/api/sevdesk/sync-coach-invoice-positions/route.js`
 
 - Methoden: `POST`
 - Supabase-Tabellen: `team_members`
-- Google Calendar: keine Nutzung erkannt
-- Mail-Betreffzeilen: keine erkannt
-
-## `app/api/sevdesk/test-invoice/route.js`
-
-- Methoden: `GET`, `POST`
-- Supabase-Tabellen: keine erkannt
 - Google Calendar: keine Nutzung erkannt
 - Mail-Betreffzeilen: keine erkannt
 
@@ -523,13 +594,6 @@ Erzeugt am: 2026-07-16T04:52:34.754Z
 - Google Calendar: keine Nutzung erkannt
 - Mail-Betreffzeilen: keine erkannt
 
-## `app/api/update-session/route.js`
-
-- Methoden: `POST`
-- Supabase-Tabellen: `sessions`
-- Google Calendar: keine Nutzung erkannt
-- Mail-Betreffzeilen: keine erkannt
-
 ## `app/api/update-status/route.js`
 
 - Methoden: `POST`
@@ -540,6 +604,13 @@ Erzeugt am: 2026-07-16T04:52:34.754Z
 ## `app/api/update-tarif/route.js`
 
 - Methoden: `POST`
-- Supabase-Tabellen: `anfragen`
+- Supabase-Tabellen: `anfragen`, `team_members`
+- Google Calendar: keine Nutzung erkannt
+- Mail-Betreffzeilen: keine erkannt
+
+## `app/api/webhooks/resend/route.js`
+
+- Methoden: `POST`
+- Supabase-Tabellen: keine erkannt
 - Google Calendar: keine Nutzung erkannt
 - Mail-Betreffzeilen: keine erkannt

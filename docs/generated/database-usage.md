@@ -3,7 +3,7 @@
 > Diese Datei wird durch `scripts/generate-project-map.mjs` erzeugt.
 > Nicht manuell bearbeiten.
 
-Erzeugt am: 2026-07-16T04:52:34.760Z
+Erzeugt am: 2026-09-27T18:37:00.529Z
 
 ## `anfragen`
 
@@ -13,27 +13,37 @@ Erzeugt am: 2026-07-16T04:52:34.760Z
 - `app/api/admin/form-drafts/route.js`
 - `app/api/booking/book/route.js`
 - `app/api/booking/free-slots/route.js`
+- `app/api/client/appointment/cancel/route.js`
+- `app/api/client/appointment/reschedule-request/route.js`
+- `app/api/client/appointment/route.js`
+- `app/api/coach-handover/route.js`
 - `app/api/confirm-appointment/route.js`
 - `app/api/confirm-proposal/route.js`
 - `app/api/create-bestand/route.js`
 - `app/api/create-request-draft/route.js`
+- `app/api/cron/proposal-reminders/route.js`
 - `app/api/dashboard/requests/route.js`
 - `app/api/finish-coaching/route.js`
 - `app/api/form-submit/route.js`
 - `app/api/forward-request/route.js`
 - `app/api/invoices/load/route.js`
+- `app/api/invoices/save/route.js`
 - `app/api/invoices/send/route.js`
 - `app/api/match-client/route.js`
+- `app/api/messages/conversations/route.js`
 - `app/api/new-appointment/route.js`
 - `app/api/no-match/route.js`
 - `app/api/proposals/create/route.js`
+- `app/api/proposals/list/route.js`
+- `app/api/proposals/message/route.js`
+- `app/api/proposals/request-new/route.js`
+- `app/api/proposals/resolve-legacy-link/route.js`
 - `app/api/public-request/route.js`
 - `app/api/reassign-request/route.js`
 - `app/api/reject-appointment/route.js`
 - `app/api/reminders/send/route.js`
 - `app/api/requests/delete-forever/route.js`
 - `app/api/requests/update-status/route.js`
-- `app/api/send-personal-message/route.js`
 - `app/api/send-proposals/route.js`
 - `app/api/send-video-link/route.js`
 - `app/api/team-requests/route.js`
@@ -43,11 +53,16 @@ Erzeugt am: 2026-07-16T04:52:34.760Z
 - `app/api/update-meeting-link-override/route.js`
 - `app/api/update-status/route.js`
 - `app/api/update-tarif/route.js`
+- `app/lib/draftRecovery.js`
 - `app/lib/handlers/confirmAppointment.js`
+- `app/lib/messaging/inbound.js`
+- `app/lib/messaging/outbound.js`
 
 ## `appointment_proposals`
 
 - `app/api/confirm-proposal/route.js`
+- `app/api/cron/expire-proposals/route.js`
+- `app/api/cron/proposal-reminders/route.js`
 - `app/api/dashboard/requests/route.js`
 - `app/api/proposals/create/route.js`
 - `app/api/proposals/list/route.js`
@@ -59,6 +74,8 @@ Erzeugt am: 2026-07-16T04:52:34.760Z
 - `app/api/add-sessions-batch/route.js`
 - `app/api/booking/book/route.js`
 - `app/api/booking/free-slots/route.js`
+- `app/api/client/appointment/cancel/route.js`
+- `app/api/client/appointment/route.js`
 - `app/api/confirm-proposal/route.js`
 - `app/api/new-appointment/route.js`
 
@@ -70,8 +87,26 @@ Erzeugt am: 2026-07-16T04:52:34.760Z
 ## `invoices`
 
 - `app/api/invoices/list/route.js`
+- `app/api/invoices/load/route.js`
 - `app/api/invoices/save/route.js`
 - `app/api/invoices/send/route.js`
+
+## `request_conversations`
+
+- `app/api/messages/conversations/route.js`
+- `app/api/send-personal-message/route.js`
+- `app/lib/messaging/inbound.js`
+- `app/lib/messaging/outbound.js`
+
+## `request_message_events`
+
+- `app/lib/messaging/inbound.js`
+
+## `request_messages`
+
+- `app/api/messages/conversations/route.js`
+- `app/lib/messaging/inbound.js`
+- `app/lib/messaging/outbound.js`
 
 ## `sessions`
 
@@ -80,29 +115,44 @@ Erzeugt am: 2026-07-16T04:52:34.760Z
 - `app/api/admin/billing-sessions/route.js`
 - `app/api/admin/sessions/route.js`
 - `app/api/booking/book/route.js`
+- `app/api/coach-handover/route.js`
 - `app/api/delete-session/route.js`
 - `app/api/invoices/load-coach/route.js`
 - `app/api/invoices/load/route.js`
 - `app/api/reminder/route.js`
 - `app/api/therapist/billing-sessions/route.js`
-- `app/api/update-session/route.js`
 
 ## `team_members`
 
+- `app/api/accounting-settings/route.js`
+- `app/api/add-sessions-batch/route.js`
+- `app/api/admin-forward/route.js`
 - `app/api/admin/booking-overview/route.js`
 - `app/api/booking/book/route.js`
 - `app/api/booking/settings/get/route.js`
 - `app/api/booking/settings/save/route.js`
+- `app/api/client/appointment/cancel/route.js`
+- `app/api/client/appointment/reschedule-request/route.js`
+- `app/api/client/appointment/route.js`
+- `app/api/coach-handover/route.js`
 - `app/api/confirm-proposal/route.js`
 - `app/api/dashboard/me/route.js`
 - `app/api/dashboard/requests/route.js`
+- `app/api/delete-session/route.js`
+- `app/api/finish-coaching/route.js`
 - `app/api/form-submit/route.js`
+- `app/api/form-team-members/route.js`
+- `app/api/forward-request/route.js`
 - `app/api/google/calendars/route.js`
 - `app/api/google/start/route.js`
 - `app/api/invoices/load-coach/route.js`
 - `app/api/invoices/load/route.js`
 - `app/api/invoices/save-coach/route.js`
+- `app/api/invoices/save/route.js`
 - `app/api/invoices/send/route.js`
+- `app/api/messages/conversations/route.js`
+- `app/api/messages/send/route.js`
+- `app/api/proposals/request-new/route.js`
 - `app/api/public-availability/route.js`
 - `app/api/public-matching-profiles/route.js`
 - `app/api/public-team-members/route.js`
@@ -116,6 +166,9 @@ Erzeugt am: 2026-07-16T04:52:34.760Z
 - `app/api/team-members/toggle-availability/route.js`
 - `app/api/therapist/billing-sessions/route.js`
 - `app/api/update-status/route.js`
+- `app/api/update-tarif/route.js`
+- `app/lib/messaging/inbound.js`
+- `app/lib/messaging/outbound.js`
 
 ## `therapist_booking_settings`
 
@@ -127,9 +180,12 @@ Erzeugt am: 2026-07-16T04:52:34.760Z
 - `app/api/booking/free-slots/route.js`
 - `app/api/booking/settings/get/route.js`
 - `app/api/booking/settings/save/route.js`
+- `app/api/client/appointment/cancel/route.js`
 - `app/api/confirm-appointment/route.js`
 - `app/api/confirm-proposal/route.js`
+- `app/api/cron/expire-proposals/route.js`
 - `app/api/new-appointment/route.js`
+- `app/api/proposals/create/route.js`
 - `app/api/public-availability/route.js`
 - `app/api/reminders/send/route.js`
 - `app/api/system-check/route.js`

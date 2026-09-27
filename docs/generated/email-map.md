@@ -3,11 +3,19 @@
 > Diese Datei wird durch `scripts/generate-project-map.mjs` erzeugt.
 > Nicht manuell bearbeiten.
 
-Erzeugt am: 2026-07-16T04:52:34.761Z
+Erzeugt am: 2026-09-27T18:37:00.530Z
 
 ## `app/api/admin-forward/route.js`
 
 - Betreffzeilen: `Bitte wähle eine neue Begleitung 🤍`
+
+## `app/api/client/appointment/cancel/route.js`
+
+- Betreffzeilen: `Dein Termin wurde abgesagt 🤍`, `Termin wurde abgesagt 🤍`
+
+## `app/api/client/appointment/reschedule-request/route.js`
+
+- Betreffzeilen: `Neuer Termin gewünscht 🤍`
 
 ## `app/api/confirm-appointment/route.js`
 
@@ -16,6 +24,10 @@ Erzeugt am: 2026-07-16T04:52:34.761Z
 ## `app/api/confirm-proposal/route.js`
 
 - Betreffzeilen: `Dein Erstgespräch ist bestätigt 🤍`, `Erstgespräch wurde bestätigt 🤍`
+
+## `app/api/cron/proposal-reminders/route.js`
+
+- Betreffzeilen: `Deine Terminvorschläge laufen bald ab 🤍`, `Deine Terminvorschläge sind abgelaufen 🤍`, `Deine Terminvorschläge warten auf dich 🤍`
 
 ## `app/api/finish-coaching/route.js`
 
@@ -39,7 +51,16 @@ Erzeugt am: 2026-07-16T04:52:34.761Z
 
 ## `app/api/proposals/create/route.js`
 
-- Betreffzeilen: `Deine Terminvorschläge 🤍`
+- Betreffzeilen: dynamisch oder nicht automatisch erkannt
+
+## `app/api/proposals/message/route.js`
+
+- Betreffzeilen: `Rückmeldung zu Terminvorschlägen`
+
+## `app/api/proposals/request-new/route.js`
+
+- Betreffzeilen: `Neue Terminvorschläge für ${
+            request.vorname || `
 
 ## `app/api/reject-appointment/route.js`
 
@@ -68,3 +89,35 @@ Erzeugt am: 2026-07-16T04:52:34.761Z
 ## `app/lib/handlers/confirmAppointment.js`
 
 - Betreffzeilen: `Dein Termin ist bestätigt 🤍`
+
+## `app/lib/messaging/inbound.js`
+
+- Betreffzeilen: `Nachricht von Klient:in: ${String(email?.subject || `
+
+## `app/lib/messaging/outbound.js`
+
+- Betreffzeilen: `Nachricht von Klient:in: ${messageSubject}`
+
+## `app/lib/messaging/proposalMail.js`
+
+- Betreffzeilen: `Deine Terminvorschläge 🤍`
+
+## `tests/lib/draftRecovery.test.js`
+
+- Betreffzeilen: `Deine Anfrage bei Poise 🤍`
+
+## `tests/lib/messagingInbound.test.js`
+
+- Betreffzeilen: `Antwort`, `R\u00fcckfrage`, `Rückfrage`
+
+## `tests/lib/messagingOutbound.test.js`
+
+- Betreffzeilen: `Betreff`, `Organisatorische Frage`, `Rückmeldung zu Terminvorschlägen`
+
+## `tests/lib/messagingSendRoute.test.js`
+
+- Betreffzeilen: `Betreff`
+
+## `tests/lib/proposalMessageRoute.test.js`
+
+- Betreffzeilen: `Rückmeldung zu Terminvorschlägen`
