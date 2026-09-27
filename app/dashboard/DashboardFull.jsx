@@ -82,7 +82,6 @@ const POISE_ADMIN_SETTINGS = {
   tax_number: "53 317 6657",
 };
 
-const POISE_ADMIN_VAT_RATE = 20;
 function DashboardTab({ label, value, active, onClick, color }) {
   const textColor = value === "einstellungen" ? "#000" : "#fff";
 
@@ -168,47 +167,29 @@ async function updateRequestStatus({
 function normalizeStatus(raw) {
   if (!raw) return "neu";
 
-const s = String(raw).toLowerCase().trim();
+  const s = String(raw).toLowerCase().trim();
+  if (s === "draft") return "draft";
 
-if (s === "draft") return "draft";
-
-
-
-  // ✅ NEU / UNBEARBEITET
   if (["neu", "offen", "new"].includes(s)) return "neu";
-
-if (["termin_neu", "neuer_termin"].includes(s)) return "termin_neu";
-  if (
-    ["termin_bestaetigt", "bestaetigt", "confirmed"].includes(s)
-  ) {
+  if (["termin_neu", "neuer_termin"].includes(s)) return "termin_neu";
+  if (["termin_bestaetigt", "bestaetigt", "confirmed"].includes(s)) {
     return "termin_bestaetigt";
   }
-
-  // ✅ AKTIV
   if (["active", "aktiv", "begleitung aktiv"].includes(s)) return "active";
-
-  // ❌ KEIN MATCH
   if (["kein_match", "no_match"].includes(s)) return "kein_match";
-
-// 🛂 ADMIN
-if (["admin_pruefen", "admin", "admin_weiterleiten"].includes(s)) return "admin_pruefen";
-if (s === "admin_vorschlaege_gesendet") return "admin_vorschlaege_gesendet";
-  
-  // 🗑 PAPIERKORB
+  if (["admin_pruefen", "admin", "admin_weiterleiten"].includes(s)) {
+    return "admin_pruefen";
+  }
+  if (s === "admin_vorschlaege_gesendet") return "admin_vorschlaege_gesendet";
   if (["papierkorb", "trash"].includes(s)) return "papierkorb";
-
-  // 🏁 BEENDET
   if (["beendet", "finished"].includes(s)) return "beendet";
 
   console.warn("⚠️ UNBEKANNTER STATUS:", raw);
-  return "neu"; // 🔥 Fallback, damit nichts verschwindet
+  return "neu";
 }
 
-
-
-
 const STATUS_LABEL = {
- neu: "Neu",
+  neu: "Neu",
   termin_neu: "Neuer Termin",
   termin_bestaetigt: "Termin bestätigt",
   active: "Begleitung aktiv",
@@ -217,12 +198,11 @@ const STATUS_LABEL = {
   papierkorb: "Papierkorb",
   admin_pruefen: "Admin – Weiterleitung prüfen",
   admin_vorschlaege_gesendet: "Wartet auf Klient:in",
-
 };
+
 const STATUS_FILTER_MAP = {
-  
   unbearbeitet: ["neu", "termin_neu"],
-erstgespraech: ["termin_bestaetigt"],
+  erstgespraech: ["termin_bestaetigt"],
   admin_pruefen: ["admin_pruefen", "admin_weiterleiten"],
   admin_vorschlaege_gesendet: ["admin_vorschlaege_gesendet"],
   aktiv: ["active"],
@@ -245,10 +225,6 @@ erstgespraech: ["termin_bestaetigt"],
     "admin_vorschlaege_gesendet",
   ],
 };
-
-
-
-
 
 const UNBEARBEITET = ["neu", "termin_neu"];
 const MATCHING_THEMEN = [
@@ -1335,6 +1311,9 @@ const [myUserId, setMyUserId] = useState(null);
 const [access, setAccess] = useState("loading");
   const [sessionsByRequest, setSessionsByRequest] = useState({});
   const [billingSessions, setBillingSessions] = useState([]);
+  const [adminCoachInvoiceBundles, setAdminCoachInvoiceBundles] = useState([]);
+  const [adminCoachBillingLoading, setAdminCoachBillingLoading] = useState(false);
+  const [adminCoachBillingError, setAdminCoachBillingError] = useState("");
   const [selectedClientId, setSelectedClientId] = useState("alle");
 const [filter, setFilter] = useState(() => {
   if (typeof window === "undefined") return "unbearbeitet";
@@ -1474,12 +1453,15 @@ const [invoiceSettings, setInvoiceSettings] = useState({
   logo_url: "",
   tax_number: "",        // 🔥 NEU
   vat_number: "",        // 🔥 UID Nummer
-  default_vat_country: "AT",
+  business_country_code: "",
+  uid_confirmed_at: null,
+  uid_confirmed_by: null,
   default_vat_rate: 0,
   invoice_footer_text: "",
 });
 
 const [invoiceLoading, setInvoiceLoading] = useState(false);
+const [uidConfirming, setUidConfirming] = useState(false);
 
 
 function openEditClientModal(r) {
@@ -1923,6 +1905,62 @@ useEffect(() => {
     mounted = false;
   };
 }, [user, filter, isAdmin, therapistFilter, myTeamMemberId]);
+
+useEffect(() => {
+  if (!isAdmin || filter !== "abrechnung" || therapistFilter === "alle") {
+    setAdminCoachInvoiceBundles([]);
+    setAdminCoachBillingError("");
+    return;
+  }
+
+  let active = true;
+  setAdminCoachBillingLoading(true);
+
+  (async () => {
+    try {
+      const token = await getAccessToken();
+      const params = new URLSearchParams({
+        coachId: String(therapistFilter),
+        billingMode: String(billingMode || "quartal"),
+        billingYear: String(billingYear || ""),
+        billingQuarter: String(billingQuarter || ""),
+        billingMonth: String(billingMonth || ""),
+        billingDate: String(billingDate || ""),
+      });
+      const response = await fetch(`/api/admin/coach-billing?${params}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result?.error || "billing_load_failed");
+      if (active) {
+        setAdminCoachInvoiceBundles(
+          Array.isArray(result.bundles) ? result.bundles : []
+        );
+        setAdminCoachBillingError("");
+      }
+    } catch {
+      if (active) {
+        setAdminCoachInvoiceBundles([]);
+        setAdminCoachBillingError("Abrechnungsdaten konnten nicht geladen werden.");
+      }
+    } finally {
+      if (active) setAdminCoachBillingLoading(false);
+    }
+  })();
+
+  return () => {
+    active = false;
+  };
+}, [
+  isAdmin,
+  filter,
+  therapistFilter,
+  billingMode,
+  billingYear,
+  billingQuarter,
+  billingMonth,
+  billingDate,
+]);
 
 
 
@@ -2799,27 +2837,6 @@ const adminSelectedCoach = useMemo(() => {
     teamData.find((t) => String(t.id) === String(therapistFilter)) || null
   );
 }, [isAdmin, therapistFilter]);
-
-const adminCoachInvoiceBundles = useMemo(() => {
-  if (!isAdmin) return [];
-  if (filter !== "abrechnung") return [];
-  if (therapistFilter === "alle") return [];
-
-  const coachSessions = (filteredBillingSessions || []).filter(
-    (s) => String(s.therapist_id) === String(therapistFilter)
-  );
-
-  return buildAdminCoachQuarterInvoices({
-    sessions: coachSessions,
-    coachInvoiceSettings: invoiceSettings,
-  });
-}, [
-  isAdmin,
-  filter,
-  therapistFilter,
-  filteredBillingSessions,
-  invoiceSettings,
-]);
 
 const adminPeriodLabel = useMemo(() => {
   return getBillingPeriodLabel({
@@ -4027,6 +4044,8 @@ return (
       setInvoiceSettings({
         ...invoiceSettings,
         vat_number: e.target.value,
+        uid_confirmed_at: null,
+        uid_confirmed_by: null,
       })
     }
   />
@@ -4064,23 +4083,97 @@ return (
             </div>
 
             <div>
-              <label>Land</label>
-              <select
-                value={invoiceSettings.default_vat_country}
+              <label>Steuerlicher Firmensitz (ISO-Ländercode)</label>
+              <input
+                value={invoiceSettings.business_country_code || ""}
+                maxLength={2}
+                placeholder="AT, DE, CH …"
                 onChange={(e) =>
                   setInvoiceSettings({
                     ...invoiceSettings,
-                    default_vat_country: e.target.value,
+                    business_country_code: e.target.value.toUpperCase(),
+                    uid_confirmed_at: null,
+                    uid_confirmed_by: null,
                   })
                 }
-              >
-                <option value="AT">Österreich</option>
-                <option value="DE">Deutschland</option>
-              </select>
+              />
             </div>
 
+            {isAdmin && (
+              <div style={{ gridColumn: "1 / -1" }}>
+                <div style={{ fontSize: 12, color: "#666", marginBottom: 8 }}>
+                  UID-Bestätigung: {invoiceSettings.uid_confirmed_at
+                    ? `manuell bestätigt am ${new Date(invoiceSettings.uid_confirmed_at).toLocaleDateString("de-AT")}`
+                    : "nicht bestätigt"}
+                </div>
+                <button
+                  type="button"
+                  disabled={
+                    uidConfirming ||
+                    Boolean(invoiceSettings.uid_confirmed_at) ||
+                    !invoiceSettings.vat_number ||
+                    !invoiceSettings.business_country_code
+                  }
+                  onClick={async () => {
+                    const targetTherapistId =
+                      therapistFilter !== "alle" ? therapistFilter : null;
+                    if (!targetTherapistId) {
+                      alert("Bitte zuerst eine Therapeut:in auswählen");
+                      return;
+                    }
+
+                    setUidConfirming(true);
+                    try {
+                      const accessToken = await getAccessToken();
+                      const saveResponse = await fetch("/api/accounting-settings", {
+                        method: "POST",
+                        headers: {
+                          "Content-Type": "application/json",
+                          Authorization: `Bearer ${accessToken}`,
+                        },
+                        body: JSON.stringify({
+                          ...invoiceSettings,
+                          therapist_id: targetTherapistId,
+                        }),
+                      });
+                      if (!saveResponse.ok) {
+                        throw new Error("Rechnungsdaten konnten nicht gespeichert werden");
+                      }
+
+                      const response = await fetch("/api/accounting-settings/confirm-uid", {
+                        method: "POST",
+                        headers: {
+                          "Content-Type": "application/json",
+                          Authorization: `Bearer ${accessToken}`,
+                        },
+                        body: JSON.stringify({ therapist_id: targetTherapistId }),
+                      });
+                      const result = await response.json().catch(() => null);
+                      if (!response.ok) {
+                        throw new Error(result?.error || "UID konnte nicht bestätigt werden");
+                      }
+                      setInvoiceSettings((current) => ({
+                        ...current,
+                        ...result.settings,
+                      }));
+                    } catch (error) {
+                      alert(error.message || "UID konnte nicht bestätigt werden");
+                    } finally {
+                      setUidConfirming(false);
+                    }
+                  }}
+                >
+                  {uidConfirming
+                    ? "Bestätige …"
+                    : invoiceSettings.uid_confirmed_at
+                      ? "UID bereits bestätigt"
+                      : "UID manuell bestätigen"}
+                </button>
+              </div>
+            )}
+
             <div>
-              <label>Standard USt %</label>
+              <label>Coach-USt-Satz zur Nettoermittlung (%)</label>
               <input
                 type="number"
                 value={invoiceSettings.default_vat_rate}
@@ -4220,7 +4313,11 @@ return (
       <strong>{adminPeriodLabel}</strong>
     </div>
 
-    {adminCoachInvoiceBundles.length === 0 ? (
+    {adminCoachBillingLoading ? (
+      <div style={{ color: "#777" }}>Aktuelle Sessions werden berechnet …</div>
+    ) : adminCoachBillingError ? (
+      <div style={{ color: "#a12622" }}>{adminCoachBillingError}</div>
+    ) : adminCoachInvoiceBundles.length === 0 ? (
       <div style={{ color: "#777" }}>
         Keine Rechnungsdaten für diesen Coach / Zeitraum
       </div>
@@ -4237,10 +4334,34 @@ return (
           }}
         >
           <div style={{ fontWeight: 700, marginBottom: 8 }}>
-            {bundle.key === "reverse_charge"
-              ? "Reverse Charge Rechnung"
-              : "Normale Rechnung + 20% USt"}
+            {bundle.bundle_type === "client_with_vat"
+              ? "Klient:innen mit Umsatzsteuer"
+              : "Klient:innen ohne Umsatzsteuer"}
           </div>
+          <div style={{ fontSize: 12, color: "#666", marginBottom: 8 }}>
+            Rechnungsstatus: {bundle.invoice_state === "finalized"
+              ? "Finalisiert"
+              : bundle.invoice_state === "legacy"
+                ? "Legacy, nur lesbar"
+                : bundle.invoice_state === "ambiguous"
+                  ? "Mehrdeutige historische Rechnungen"
+                  : "Entwurf"}
+            {bundle.tax_treatment === "review_required"
+              ? ` · Steuerprüfung erforderlich (${bundle.tax_reason})`
+              : bundle.tax_treatment === "reverse_charge"
+                ? " · Reverse Charge"
+                : ` · Poise USt ${bundle.vat_rate}%`}
+          </div>
+          {bundle.calculation_errors?.length > 0 && (
+            <div style={{ color: "#a12622", fontSize: 12, marginBottom: 8 }}>
+              Coach-USt-Satz fehlt; Netto-Provisionsbasis kann nicht berechnet werden.
+            </div>
+          )}
+          {!bundle.invoice_supported && (
+            <div style={{ color: "#a12622", fontSize: 12, marginBottom: 8 }}>
+              Für diese Periode ist mit dem bestehenden Rechnungsschlüssel keine eindeutige Coach-Rechnung möglich.
+            </div>
+          )}
 
           <table
             style={{
@@ -4301,6 +4422,7 @@ return (
 
           <div style={{ display: "flex", gap: 8 }}>
 <button
+  disabled={!bundle.invoice_supported}
   onClick={() => {
     if (!adminSelectedCoach?.id) {
       alert("Bitte zuerst einen Coach auswählen");
@@ -4312,6 +4434,7 @@ return (
       billingYear: String(billingYear || ""),
       billingQuarter: String(billingQuarter || ""),
       billingMonth: String(billingMonth || ""),
+      billingDate: String(billingDate || ""),
       bundleKey: String(bundle.key || "normal_ust"),
     });
 
@@ -4325,6 +4448,11 @@ return (
 </button>
 
             <button
+              disabled={
+                !bundle.invoice_supported ||
+                bundle.tax_treatment === "review_required" ||
+                bundle.calculation_errors?.length > 0
+              }
               onClick={async () => {
 const token = await getAccessToken();
 

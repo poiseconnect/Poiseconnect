@@ -3,7 +3,7 @@
 > Diese Datei wird durch `scripts/generate-project-map.mjs` erzeugt.
 > Nicht manuell bearbeiten.
 
-Erzeugt am: 2026-09-27T18:37:00.529Z
+Erzeugt am: 2026-09-27T20:13:31.312Z
 
 ## `anfragen`
 
@@ -79,6 +79,11 @@ Erzeugt am: 2026-09-27T18:37:00.529Z
 - `app/api/confirm-proposal/route.js`
 - `app/api/new-appointment/route.js`
 
+## `coach_invoices`
+
+- `app/api/invoices/_lib/coachInvoice.js`
+- `app/api/invoices/finalize-coach/route.js`
+
 ## `confirmed_appointments`
 
 - `app/api/booked/route.js`
@@ -117,17 +122,19 @@ Erzeugt am: 2026-09-27T18:37:00.529Z
 - `app/api/booking/book/route.js`
 - `app/api/coach-handover/route.js`
 - `app/api/delete-session/route.js`
-- `app/api/invoices/load-coach/route.js`
+- `app/api/invoices/_lib/coachInvoice.js`
 - `app/api/invoices/load/route.js`
 - `app/api/reminder/route.js`
 - `app/api/therapist/billing-sessions/route.js`
 
 ## `team_members`
 
+- `app/api/accounting-settings/confirm-uid/route.js`
 - `app/api/accounting-settings/route.js`
 - `app/api/add-sessions-batch/route.js`
 - `app/api/admin-forward/route.js`
 - `app/api/admin/booking-overview/route.js`
+- `app/api/admin/coach-billing/route.js`
 - `app/api/booking/book/route.js`
 - `app/api/booking/settings/get/route.js`
 - `app/api/booking/settings/save/route.js`
@@ -145,6 +152,8 @@ Erzeugt am: 2026-09-27T18:37:00.529Z
 - `app/api/forward-request/route.js`
 - `app/api/google/calendars/route.js`
 - `app/api/google/start/route.js`
+- `app/api/invoices/_lib/coachInvoice.js`
+- `app/api/invoices/finalize-coach/route.js`
 - `app/api/invoices/load-coach/route.js`
 - `app/api/invoices/load/route.js`
 - `app/api/invoices/save-coach/route.js`
@@ -200,8 +209,10 @@ Erzeugt am: 2026-09-27T18:37:00.529Z
 
 ## `therapist_invoice_settings`
 
+- `app/api/accounting-settings/confirm-uid/route.js`
 - `app/api/accounting-settings/route.js`
 - `app/api/invoice-settings/route.js`
+- `app/api/invoices/_lib/coachInvoice.js`
 - `app/api/invoices/load/route.js`
 - `app/api/invoices/send/route.js`
 - `app/api/system-check/route.js`

@@ -3,7 +3,7 @@
 > Diese Datei wird durch `scripts/generate-project-map.mjs` erzeugt.
 > Nicht manuell bearbeiten.
 
-Erzeugt am: 2026-09-27T18:37:00.531Z
+Erzeugt am: 2026-09-27T20:13:31.313Z
 
 ## `app/api/admin-forward/route.js`
 
@@ -65,6 +65,16 @@ Erzeugt am: 2026-09-27T18:37:00.531Z
 - Statuswerte: `admin_weiterleiten`
 - Match-State-Werte: keine erkannt
 
+## `app/api/invoices/finalize-coach/route.js`
+
+- Statuswerte: `finalized`
+- Match-State-Werte: keine erkannt
+
+## `app/api/invoices/save-coach/route.js`
+
+- Statuswerte: `draft`
+- Match-State-Werte: keine erkannt
+
 ## `app/api/match-client/route.js`
 
 - Statuswerte: `active`
@@ -118,6 +128,11 @@ Erzeugt am: 2026-09-27T18:37:00.531Z
 ## `tests/dashboard/coachFilter.test.js`
 
 - Statuswerte: `admin_vorschlaege_gesendet`, `future_status`
+- Match-State-Werte: keine erkannt
+
+## `tests/lib/coachBilling.test.js`
+
+- Statuswerte: `draft`, `finalized`
 - Match-State-Werte: keine erkannt
 
 ## `tests/lib/draftRecovery.test.js`

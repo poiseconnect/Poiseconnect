@@ -3,7 +3,14 @@
 > Diese Datei wird durch `scripts/generate-project-map.mjs` erzeugt.
 > Nicht manuell bearbeiten.
 
-Erzeugt am: 2026-09-27T18:37:00.516Z
+Erzeugt am: 2026-09-27T20:13:31.308Z
+
+## `app/api/accounting-settings/confirm-uid/route.js`
+
+- Methoden: `POST`
+- Supabase-Tabellen: `team_members`, `therapist_invoice_settings`
+- Google Calendar: keine Nutzung erkannt
+- Mail-Betreffzeilen: keine erkannt
 
 ## `app/api/accounting-settings/route.js`
 
@@ -37,6 +44,13 @@ Erzeugt am: 2026-09-27T18:37:00.516Z
 
 - Methoden: `GET`
 - Supabase-Tabellen: `team_members`, `therapist_booking_settings`, `therapist_google_tokens`
+- Google Calendar: keine Nutzung erkannt
+- Mail-Betreffzeilen: keine erkannt
+
+## `app/api/admin/coach-billing/route.js`
+
+- Methoden: `GET`
+- Supabase-Tabellen: `team_members`
 - Google Calendar: keine Nutzung erkannt
 - Mail-Betreffzeilen: keine erkannt
 
@@ -257,6 +271,13 @@ Erzeugt am: 2026-09-27T18:37:00.516Z
 - Google Calendar: keine Nutzung erkannt
 - Mail-Betreffzeilen: keine erkannt
 
+## `app/api/invoices/finalize-coach/route.js`
+
+- Methoden: `POST`
+- Supabase-Tabellen: `coach_invoices`, `team_members`
+- Google Calendar: keine Nutzung erkannt
+- Mail-Betreffzeilen: keine erkannt
+
 ## `app/api/invoices/list/route.js`
 
 - Methoden: `GET`
@@ -274,7 +295,7 @@ Erzeugt am: 2026-09-27T18:37:00.516Z
 ## `app/api/invoices/load-coach/route.js`
 
 - Methoden: `GET`
-- Supabase-Tabellen: `sessions`, `team_members`
+- Supabase-Tabellen: `team_members`
 - Google Calendar: keine Nutzung erkannt
 - Mail-Betreffzeilen: keine erkannt
 

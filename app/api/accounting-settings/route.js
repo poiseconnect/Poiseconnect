@@ -5,6 +5,7 @@ import {
   json,
   supabaseAdmin,
 } from "../_lib/server";
+import { uidConfirmationNeedsInvalidation } from "../../lib/coachBilling.js";
 
 export async function POST(req) {
   try {
@@ -57,12 +58,61 @@ export async function POST(req) {
       return json({ error: "THERAPIST_NOT_FOUND" }, 404);
     }
 
+    const { data: currentSettings, error: currentSettingsError } = await sb
+      .from("therapist_invoice_settings")
+      .select("therapist_id, vat_number, business_country_code, uid_confirmed_at, uid_confirmed_by")
+      .eq("therapist_id", therapist_id)
+      .maybeSingle();
+
+    if (currentSettingsError) {
+      return json({ error: "SETTINGS_LOAD_FAILED" }, 500);
+    }
+
+    const safeSettings = { ...settings };
+    delete safeSettings.uid_confirmed_at;
+    delete safeSettings.uid_confirmed_by;
+
+    if (Object.prototype.hasOwnProperty.call(safeSettings, "vat_number")) {
+      safeSettings.vat_number =
+        safeSettings.vat_number === null || safeSettings.vat_number === ""
+          ? null
+          : String(safeSettings.vat_number).trim();
+    }
+    if (Object.prototype.hasOwnProperty.call(safeSettings, "business_country_code")) {
+      safeSettings.business_country_code =
+        safeSettings.business_country_code === null ||
+        safeSettings.business_country_code === ""
+          ? null
+          : String(safeSettings.business_country_code).trim().toUpperCase();
+    }
+
+    const nextUid = Object.prototype.hasOwnProperty.call(safeSettings, "vat_number")
+      ? safeSettings.vat_number
+      : currentSettings?.vat_number;
+    const nextCountry = Object.prototype.hasOwnProperty.call(
+      safeSettings,
+      "business_country_code"
+    )
+      ? safeSettings.business_country_code
+      : currentSettings?.business_country_code;
+    const invalidateConfirmation = !currentSettings ||
+      uidConfirmationNeedsInvalidation(currentSettings, {
+        vat_number: nextUid,
+        business_country_code: nextCountry,
+      });
+
     const { error } = await sb
       .from("therapist_invoice_settings")
       .upsert(
         {
           therapist_id,
-          ...settings,
+          ...safeSettings,
+          uid_confirmed_at: invalidateConfirmation
+            ? null
+            : currentSettings.uid_confirmed_at,
+          uid_confirmed_by: invalidateConfirmation
+            ? null
+            : currentSettings.uid_confirmed_by,
         },
         { onConflict: "therapist_id" }
       );

@@ -89,6 +89,45 @@ sevDesk wird für Rechnungs- und Abrechnungsprozesse angebunden.
 - Zeitwerte für Nutzerinnen und Nutzer in `Europe/Vienna` anzeigen.
 - Produktive Zugangsdaten niemals im Repository speichern.
 
+## Coach-Abrechnung
+
+`sessions` ist die führende Quelle für abrechenbare Coach-Sitzungen.
+`anfragen.invoice_with_vat` beschreibt die Klientenart und bestimmt die
+Provisionsbasis sowie das Bundle: Bei `true` wird die enthaltene Coach-USt mit
+`therapist_invoice_settings.default_vat_rate` herausgerechnet; bei `false`
+wird der Sessionpreis vollständig als Netto-Basis verwendet. Die Coach-Rate
+ist nicht der USt-Satz der Poise-Rechnung.
+
+Die semantischen Bundletypen `client_with_vat` und `client_without_vat` werden
+über einen Adapter auf die bestehenden DB-Keys `reverse_charge` und
+`normal_ust` abgebildet. Bestehende Werte und der Unique Index
+`coach_invoices_unique_idx` bleiben unverändert.
+
+Coach-Tax-Profile verwenden `business_country_code`, `vat_number` und
+`default_vat_rate`. Für EU-Reverse-Charge ist eine manuelle Admin-Bestätigung
+der UID erforderlich; bloße Eingabe reicht nicht. Eine Änderung von UID oder
+steuerlichem Sitz löscht die Bestätigung. Österreichische Poise-Rechnungen
+verwenden 20 % USt; für andere EU-Sitze wird Reverse Charge nur mit bestätigter
+UID freigegeben. Fehlende oder nicht unterstützte Daten führen zu
+`review_required` und blockieren die Finalisierung.
+
+Rechnungszeiträume werden als `Europe/Vienna`-Kalendertage bestimmt und für
+Sessions-Abfragen in UTC-Grenzen umgerechnet. Drafts werden bei Load/Save aus
+aktuellen Sessions neu berechnet. `coach_invoices.invoice_status IS NULL`
+kennzeichnet unveränderte, read-only Legacy-Datensätze. Finalisierte neue
+Rechnungen enthalten einen Session-/Steuer-Snapshot und sind inhaltlich
+unveränderlich; der bestehende Unique Index verhindert einen zweiten Eintrag
+für denselben Coach, Zeitraum und gespeicherten Bundle-Key. Neue Periodenschlüssel
+setzen nicht relevante Quartals-/Monatsfelder auf `NULL`; Legacy-Suchen
+ignorieren diese irrelevanten Felder. Mehrere passende Legacy-Zeilen blockieren
+Änderungen statt eine Rechnung auszuwählen. Einzel-Tagesrechnungen sind mit dem
+bestehenden Schlüssel ohne `billing_date` nicht eindeutig persistierbar und
+bleiben für Save/Finalisierung/Export gesperrt.
+
+Die Umstellung von PDF- und sevDesk-Ausgabe auf den finalen Snapshot ist ein
+separater Folgeschritt und darf die hier gespeicherten finalen Werte nicht neu
+berechnen.
+
 ## Aktueller Systemzuschnitt
 
 Die öffentliche Website und die Poise-Connect-App sind getrennte Systeme.

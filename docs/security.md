@@ -74,6 +74,20 @@ konfigurierte interne Verwendung. Neue SevDesk-Aktionen müssen authentifiziert
 und autorisiert sein und Rechnungsdaten serverseitig aus vertrauenswürdigen
 Quellen laden.
 
+## Coach-Rechnungen und UID-Bestätigung
+
+Coach-UIDs werden nicht durch ihre Eingabe als bestätigt behandelt. Nur aktive
+Admins dürfen sie manuell über `/api/accounting-settings/confirm-uid`
+bestätigen. Änderungen an `vat_number` oder `business_country_code` löschen
+`uid_confirmed_at` und `uid_confirmed_by` datenbankseitig.
+
+`coach_invoices` mit `invoice_status IS NULL` sind Legacy-Datensätze und
+read-only. Finalisierte Rechnungsinhalte dürfen nicht mehr geändert oder
+gelöscht werden; die Datenbank schützt diesen Zustand zusätzlich zu den
+API-Prüfungen. `review_required` blockiert die Finalisierung. PDF- und
+sevDesk-Ausgabe müssen in einem späteren Schritt denselben finalen Snapshot
+verwenden.
+
 ## Entwicklungsprozess
 
 1. Änderung auf einem separaten Branch.
