@@ -6,9 +6,7 @@ import {
   loadCoachInvoice,
 } from "../_lib/coachInvoice";
 import {
-  getCoachInvoiceState,
-  getCoachInvoiceView,
-  resolveCoachInvoiceTax,
+  getCoachInvoiceDraftView,
   toSemanticBundleType,
 } from "../../../lib/coachBilling.js";
 
@@ -101,27 +99,19 @@ export async function GET(req) {
     const bundle = context.bundles.find(
       (candidate) => candidate.bundle_type === bundleType
     ) || null;
-    const state = getCoachInvoiceState(invoice);
-    const tax = resolveCoachInvoiceTax(context.coachTaxProfile);
-    const view = getCoachInvoiceView({
+    const view = getCoachInvoiceDraftView({
       invoice,
       calculatedBundle: bundle,
     });
+    const primaryDraft = view.primary_draft || {};
+    const primaryLineItems = storedLineItems(primaryDraft.line_items);
+    const currentCalculation = view.current_calculation;
     const storedSessionCount = invoice
-      ? Number(
-          invoice.source_snapshot?.session_count ??
-            storedLineItems(invoice.line_items).reduce(
-              (sum, item) => sum + item.qty,
-              0
-            )
+      ? storedLineItems(invoice.line_items).reduce(
+          (sum, item) => sum + item.qty,
+          0
         )
       : null;
-    const currentInvoiceTax = invoice && state !== "draft";
-    const currentLineItems = bundle
-      ? view.line_items
-      : state === "draft"
-        ? []
-        : storedLineItems(invoice?.line_items);
 
     return json({
       coach: {
@@ -133,17 +123,13 @@ export async function GET(req) {
       coachInvoiceSettings: context.coachTaxProfile,
       from_saved_invoice: Boolean(invoice),
       invoice_id: invoice?.id || null,
-      invoice_status: invoice?.invoice_status ?? null,
-      invoice_state: state,
-      read_only: state !== "draft",
+      invoice_state: invoice ? "saved_draft" : "automatic_draft",
       bundle_type: bundleType,
       bundle_key: invoice?.bundle_key || bundle?.bundle_key || null,
-      invoice_with_vat: view.invoice_with_vat,
-      tax_treatment: currentInvoiceTax
-        ? view.tax_treatment
-        : view.tax_treatment || tax.tax_treatment,
-      tax_reason: currentInvoiceTax ? view.tax_reason : view.tax_reason || tax.tax_reason,
-      vat_rate: view.vat_rate,
+      invoice_with_vat: primaryDraft.invoice_with_vat === true,
+      tax_treatment: primaryDraft.tax_treatment || null,
+      tax_reason: primaryDraft.tax_reason || null,
+      vat_rate: Number(primaryDraft.vat_rate || 0),
       invoice_number: invoice?.invoice_number || "",
       invoice_date: invoice?.invoice_date || "",
       service_period: invoice?.service_period || context.period.label,
@@ -170,21 +156,45 @@ export async function GET(req) {
       client_country: invoice?.client_country || "",
       client_email: invoice?.client_email || context.coach.email || "",
       sevdesk_invoice_id: invoice?.sevdesk_invoice_id || "",
-      lineItems: currentLineItems,
+      lineItems: primaryLineItems,
       totals: {
-        net: view.total_net,
-        vat: view.vat_amount,
-        gross: view.total_gross,
+        net: Number(primaryDraft.total_net || 0),
+        vat: Number(primaryDraft.vat_amount || 0),
+        gross: Number(primaryDraft.total_gross || 0),
       },
-      session_count: bundle?.session_count ?? null,
+      saved_draft: view.saved_draft
+        ? {
+            lineItems: storedLineItems(view.saved_draft.line_items),
+            totals: {
+              net: view.saved_draft.total_net,
+              vat: view.saved_draft.vat_amount,
+              gross: view.saved_draft.total_gross,
+            },
+            invoice_with_vat: view.saved_draft.invoice_with_vat,
+            tax_treatment: view.saved_draft.tax_treatment,
+            tax_reason: view.saved_draft.tax_reason,
+            vat_rate: view.saved_draft.vat_rate,
+          }
+        : null,
+      current_calculation: currentCalculation
+        ? {
+            ...currentCalculation,
+            lineItems: storedLineItems(currentCalculation.line_items),
+            totals: {
+              net: currentCalculation.total_net,
+              vat: currentCalculation.vat_amount,
+              gross: currentCalculation.total_gross,
+            },
+          }
+        : null,
+      has_calculation_difference: view.has_calculation_difference,
       calculation_errors: bundle?.calculation_errors || [],
-      finalization_blocked:
-        Boolean(bundle?.calculation_errors?.length) ||
-        (bundle ? bundle.tax_treatment === "review_required" : false),
+      downstream_processing_blocked:
+        !primaryDraft.tax_treatment ||
+        primaryDraft.tax_treatment === "review_required",
       current_session_ids: bundle?.session_ids || [],
       current_session_count: bundle?.session_count ?? 0,
-      stored_session_count: state === "draft" ? null : storedSessionCount,
-      finalized_at: invoice?.finalized_at || null,
+      stored_session_count: storedSessionCount,
     });
   } catch (error) {
     return json(

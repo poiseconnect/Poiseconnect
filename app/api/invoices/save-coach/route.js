@@ -2,13 +2,13 @@ export const dynamic = "force-dynamic";
 
 import { createClient } from "@supabase/supabase-js";
 import {
-  invoiceLineItemsFromBundle,
-  loadCoachBillingContext,
   loadCoachInvoice,
+  normalizeBillingPeriod,
 } from "../_lib/coachInvoice";
 import {
   toSemanticBundleType,
 } from "../../../lib/coachBilling.js";
+import { buildEditableCoachInvoicePayload } from "../../../lib/coachInvoiceDraft.js";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -101,35 +101,20 @@ export async function POST(req) {
       return json({ error: "missing_bundle_key" }, 400);
     }
 
-    const periodInput = {
+    const period = normalizeBillingPeriod({
       billingMode,
       billingYear,
       billingQuarter,
       billingMonth,
       billingDate: body.billing_date,
-    };
-    const context = await loadCoachBillingContext(supabase, {
-      coachId,
-      periodInput,
     });
-    if (context.error) {
-      return json({ error: "billing_context_load_failed" }, 500);
-    }
-    if (!context.period.invoiceSupported) {
+    if (!period.invoiceSupported) {
       return json({ error: "single_day_invoice_not_supported" }, 400);
-    }
-
-    const bundle = context.bundles.find(
-      (candidate) => candidate.bundle_type === bundleType
-    );
-    if (!bundle) return json({ error: "no_current_sessions_for_bundle" }, 409);
-    if (bundle.calculation_errors.length > 0) {
-      return json({ error: "coach_vat_rate_missing" }, 409);
     }
 
     const invoiceLookup = {
       coachId,
-      period: context.period,
+      period,
       bundleType,
     };
     const { data: existing, error: existingError } =
@@ -145,58 +130,21 @@ export async function POST(req) {
         existingError.code === "AMBIGUOUS_INVOICE_PERIOD" ? 409 : 500
       );
     }
-    if (existing && existing.invoice_status !== "draft") {
-      return json(
-        {
-          error:
-            existing.invoice_status === "finalized"
-              ? "invoice_finalized_read_only"
-              : "legacy_invoice_read_only",
-        },
-        409
-      );
-    }
 
     const now = new Date().toISOString();
-    const payload = {
-      coach_id: coachId,
-      billing_mode: context.period.billingMode,
-      billing_year: nullableNumber(context.period.billingYear),
-      billing_quarter: nullableNumber(context.period.billingQuarter),
-      billing_month: nullableNumber(context.period.billingMonth),
-      bundle_key: bundle.bundle_key,
-      invoice_status: "draft",
-      invoice_number: normalizeString(body.invoice_number),
-      invoice_date: normalizeString(body.invoice_date),
-      service_period: normalizeString(body.service_period) || context.period.label,
-      customer_number: normalizeString(body.customer_number),
-      contact_person: normalizeString(body.contact_person),
-      client_name: normalizeString(body.client_name),
-      client_street: normalizeString(body.client_street),
-      client_city: normalizeString(body.client_city),
-      client_country: normalizeString(body.client_country),
-      client_email: normalizeString(body.client_email),
-      salutation: normalizeString(body.salutation),
-      intro_text: normalizeString(body.intro_text),
-      payment_terms: normalizeString(body.payment_terms),
-      closing_text: normalizeString(body.closing_text),
-      invoice_with_vat: bundle.tax_treatment === "vat",
-      tax_treatment: bundle.tax_treatment,
-      tax_reason: bundle.tax_reason,
-      vat_rate: bundle.vat_rate,
-      total_net: bundle.subtotal_net,
-      vat_amount: bundle.vat_amount,
-      total_gross: bundle.total_gross,
-      line_items: invoiceLineItemsFromBundle(bundle),
-      source_snapshot: null,
-      finalized_at: null,
-      finalized_by: null,
-      sevdesk_invoice_id: existing?.sevdesk_invoice_id || null,
-      sevdesk_invoice_number: existing?.sevdesk_invoice_number || null,
-      sevdesk_synced_at: existing?.sevdesk_synced_at || null,
-      updated_by: auth.member.id,
-      updated_at: now,
-    };
+    let payload;
+    try {
+      payload = buildEditableCoachInvoicePayload({
+        body: { ...body, coach_id: coachId },
+        existing,
+        period,
+        bundleType,
+        updatedBy: auth.member.id,
+        updatedAt: now,
+      });
+    } catch (error) {
+      return json({ error: error.message || "invalid_invoice_data" }, 400);
+    }
 
     let result;
     let saveError;
@@ -205,7 +153,6 @@ export async function POST(req) {
         .from(TABLE_NAME)
         .update(payload)
         .eq("id", existing.id)
-        .eq("invoice_status", "draft")
         .select()
         .maybeSingle();
       result = updateResult.data;

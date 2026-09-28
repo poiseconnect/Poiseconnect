@@ -109,24 +109,27 @@ der UID erforderlich; bloße Eingabe reicht nicht. Eine Änderung von UID oder
 steuerlichem Sitz löscht die Bestätigung. Österreichische Poise-Rechnungen
 verwenden 20 % USt; für andere EU-Sitze wird Reverse Charge nur mit bestätigter
 UID freigegeben. Fehlende oder nicht unterstützte Daten führen zu
-`review_required` und blockieren die Finalisierung.
+`review_required` und blockieren die steuerlich relevante Weiterverarbeitung.
 
 Rechnungszeiträume werden als `Europe/Vienna`-Kalendertage bestimmt und für
-Sessions-Abfragen in UTC-Grenzen umgerechnet. Drafts werden bei Load/Save aus
-aktuellen Sessions neu berechnet. `coach_invoices.invoice_status IS NULL`
-kennzeichnet unveränderte, read-only Legacy-Datensätze. Finalisierte neue
-Rechnungen enthalten einen Session-/Steuer-Snapshot und sind inhaltlich
-unveränderlich; der bestehende Unique Index verhindert einen zweiten Eintrag
-für denselben Coach, Zeitraum und gespeicherten Bundle-Key. Neue Periodenschlüssel
-setzen nicht relevante Quartals-/Monatsfelder auf `NULL`; Legacy-Suchen
-ignorieren diese irrelevanten Felder. Mehrere passende Legacy-Zeilen blockieren
+Sessions-Abfragen in UTC-Grenzen umgerechnet. Die automatische Berechnung ist
+die Ausgangsbasis. Ein gespeicherter Rechnungsentwurf ist der bearbeitbare
+Arbeitsstand und wird niemals automatisch durch aktuelle Sessions
+überschrieben. Load liefert den gespeicherten Entwurf und die aktuelle
+Berechnung getrennt. Nur die ausdrückliche Admin-Aktion "Aus aktuellen
+Sitzungen neu berechnen" ersetzt Positionen, Summen und automatisch abgeleitete
+Steuerwerte im Entwurf; redaktionelle Rechnungsfelder bleiben erhalten.
+
+Der bestehende Unique Index verhindert einen zweiten Entwurf für denselben
+Coach, Zeitraum und gespeicherten Bundle-Key. Neue Periodenschlüssel setzen
+nicht relevante Quartals-/Monatsfelder auf `NULL`; Legacy-Suchen ignorieren
+diese irrelevanten Felder. Mehrere passende historische Zeilen blockieren
 Änderungen statt eine Rechnung auszuwählen. Einzel-Tagesrechnungen sind mit dem
 bestehenden Schlüssel ohne `billing_date` nicht eindeutig persistierbar und
-bleiben für Save/Finalisierung/Export gesperrt.
+bleiben für Save und Export gesperrt.
 
-Die Umstellung von PDF- und sevDesk-Ausgabe auf den finalen Snapshot ist ein
-separater Folgeschritt und darf die hier gespeicherten finalen Werte nicht neu
-berechnen.
+PDF und sevDesk sollen in späteren Phasen exakt den bewusst gespeicherten
+Rechnungsentwurf verwenden und ihn nicht zuvor aus Sessions neu berechnen.
 
 ## Aktueller Systemzuschnitt
 

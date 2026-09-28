@@ -81,12 +81,11 @@ Admins dürfen sie manuell über `/api/accounting-settings/confirm-uid`
 bestätigen. Änderungen an `vat_number` oder `business_country_code` löschen
 `uid_confirmed_at` und `uid_confirmed_by` datenbankseitig.
 
-`coach_invoices` mit `invoice_status IS NULL` sind Legacy-Datensätze und
-read-only. Finalisierte Rechnungsinhalte dürfen nicht mehr geändert oder
-gelöscht werden; die Datenbank schützt diesen Zustand zusätzlich zu den
-API-Prüfungen. `review_required` blockiert die Finalisierung. PDF- und
-sevDesk-Ausgabe müssen in einem späteren Schritt denselben finalen Snapshot
-verwenden.
+Poise→Coach-Rechnungen bleiben bearbeitbare Entwürfe. Die automatische
+Sessionberechnung darf einen gespeicherten Entwurf nur nach einer ausdrücklichen
+Admin-Aktion überschreiben. `review_required` blockiert steuerlich relevante
+Weiterverarbeitung. PDF- und sevDesk-Ausgabe müssen in einem späteren Schritt
+den bewusst gespeicherten Rechnungsstand verwenden.
 
 ## Entwicklungsprozess
 

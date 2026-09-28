@@ -1,11 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
+  applyCurrentCalculationToDraft,
   buildCoachBillingPeriod,
   calculateCoachBundles,
-  getCoachInvoiceFinalizationAction,
-  getCoachInvoiceView,
+  getCoachInvoiceDraftView,
   resolveCoachInvoiceTax,
-  serializeCoachInvoiceSnapshot,
   toSemanticBundleType,
   toStoredBundleKey,
   uidConfirmationNeedsInvalidation,
@@ -253,115 +252,192 @@ describe("coach billing calculations", () => {
     expect(period.billingMonth).toBeNull();
   });
 
-  it("keeps a serialized snapshot of session IDs and invoice values", () => {
-    const [bundle] = calculateCoachBundles({
-      sessions: [session("final-1", 100, false)],
-      coachTaxProfile: { business_country_code: "AT" },
-    });
-    const snapshot = serializeCoachInvoiceSnapshot({
-      coachId: "coach-1",
-      billingPeriod: { start: "start", end: "end" },
-      bundle,
-      coachTaxProfile: { business_country_code: "AT" },
-    });
-
-    expect(snapshot.session_ids).toEqual(["final-1"]);
-    expect(snapshot.sessions[0]).toMatchObject({
-      session_id: "final-1",
-      client_price: 100,
-      client_with_vat: false,
-      net_basis: 100,
-      commission_net: 30,
-    });
-    expect(snapshot.line_items[0].qty).toBe(1);
-    expect(snapshot.tax_treatment).toBe("vat");
-  });
-
-  it("recalculates an old draft quantity from current sessions", () => {
-    const view = getCoachInvoiceView({
-      invoice: {
-        invoice_status: "draft",
-        line_items: [{ qty: 16, unit_price: 40, total: 640 }],
-        total_net: 640,
-      },
-      calculatedBundle: {
-        rows: [{ label: "Berufstätig", qty: 14, unit_price_net: 40, total_net: 560 }],
-        subtotal_net: 560,
-        vat_amount: 112,
-        total_gross: 672,
-        tax_treatment: "vat",
-        vat_rate: 20,
-      },
-    });
-
-    expect(view.state).toBe("draft");
-    expect(view.line_items[0].qty).toBe(14);
-    expect(view.total_net).toBe(560);
-  });
-
-  it("keeps a finalized snapshot unchanged when current sessions differ", () => {
-    const view = getCoachInvoiceView({
-      invoice: {
-        invoice_status: "finalized",
-        line_items: [{ qty: 16, unit_price: 40, total: 640 }],
-        total_net: 640,
-      },
-      calculatedBundle: {
-        rows: [{ label: "Berufstätig", qty: 14, unit_price_net: 40, total_net: 560 }],
-        subtotal_net: 560,
-      },
-    });
-
-    expect(view.state).toBe("finalized");
-    expect(view.line_items[0].qty).toBe(16);
-    expect(view.total_net).toBe(640);
-  });
-
-  it("keeps the 14-session snapshot after finalization when current sessions drop", () => {
-    const view = getCoachInvoiceView({
-      invoice: {
-        invoice_status: "finalized",
-        line_items: [{ qty: 14, unit_price: 40, total: 560 }],
-        total_net: 560,
-      },
-      calculatedBundle: {
-        rows: [{ label: "Berufstätig", qty: 12, unit_price_net: 40, total_net: 480 }],
-        subtotal_net: 480,
-      },
-    });
-
-    expect(view.line_items[0].qty).toBe(14);
-    expect(view.total_net).toBe(560);
-  });
-
-  it("keeps statusless legacy invoices read-only and unchanged", () => {
-    const view = getCoachInvoiceView({
-      invoice: {
-        invoice_status: null,
-        line_items: [{ qty: 16, unit_price: 40, total: 640 }],
-        total_net: 640,
-      },
-      calculatedBundle: {
-        rows: [{ label: "Berufstätig", qty: 14, unit_price_net: 40, total_net: 560 }],
-        subtotal_net: 560,
-      },
-    });
-
-    expect(view.state).toBe("legacy");
-    expect(view.line_items[0].qty).toBe(16);
-  });
-
-  it("does not create a second invoice after finalization or for legacy records", () => {
-    expect(getCoachInvoiceFinalizationAction(null)).toBe("create_final");
-    expect(
-      getCoachInvoiceFinalizationAction({ invoice_status: "draft" })
-    ).toBe("finalize_draft");
-    expect(
-      getCoachInvoiceFinalizationAction({ invoice_status: "finalized" })
-    ).toBe("return_final");
-    expect(getCoachInvoiceFinalizationAction({ invoice_status: null })).toBe(
-      "legacy_read_only"
+  it("uses 14 current sessions as the initial draft when none is saved", () => {
+    const sessions = Array.from({ length: 14 }, (_, index) =>
+      session(`current-${index + 1}`, 100, false)
     );
+    const [bundle] = calculateCoachBundles({
+      sessions,
+      coachTaxProfile: { business_country_code: "AT" },
+    });
+    const view = getCoachInvoiceDraftView({ invoice: null, calculatedBundle: bundle });
+
+    expect(view.saved_draft).toBeNull();
+    expect(view.primary_draft.line_items[0].qty).toBe(14);
+    expect(view.current_calculation.session_count).toBe(14);
+    expect(view.has_calculation_difference).toBe(false);
+  });
+
+  it("keeps a saved 16-session draft primary while current calculation is 14", () => {
+    const view = getCoachInvoiceDraftView({
+      invoice: {
+        line_items: [{ description: "Provision", qty: 16, unit_price: 40, total: 640 }],
+        total_net: 640,
+        vat_amount: 0,
+        total_gross: 640,
+        invoice_with_vat: false,
+        tax_treatment: "reverse_charge",
+        tax_reason: "eu_uid_manually_confirmed",
+        vat_rate: 0,
+      },
+      calculatedBundle: {
+        bundle_type: "client_with_vat",
+        bundle_key: "reverse_charge",
+        session_ids: Array.from({ length: 14 }, (_, index) => `s-${index + 1}`),
+        session_count: 14,
+        rows: [{ label: "Provision", qty: 14, unit_price_net: 40, total_net: 560 }],
+        subtotal_net: 560,
+        vat_amount: 0,
+        total_gross: 560,
+        tax_treatment: "reverse_charge",
+        tax_reason: "eu_uid_manually_confirmed",
+        vat_rate: 0,
+      },
+    });
+
+    expect(view.primary_draft.line_items[0].qty).toBe(16);
+    expect(view.current_calculation.line_items[0].qty).toBe(14);
+    expect(view.has_calculation_difference).toBe(true);
+  });
+
+  it("reports no difference when the saved draft equals the current calculation", () => {
+    const view = getCoachInvoiceDraftView({
+      invoice: {
+        line_items: [{ description: "Berufstätig – Provision", qty: 14, unit_price: 40, total: 560 }],
+        total_net: 560,
+        vat_amount: 0,
+        total_gross: 560,
+        invoice_with_vat: false,
+        tax_treatment: "reverse_charge",
+        tax_reason: "eu_uid_manually_confirmed",
+        vat_rate: 0,
+      },
+      calculatedBundle: {
+        bundle_type: "client_with_vat",
+        bundle_key: "reverse_charge",
+        session_ids: Array.from({ length: 14 }, (_, index) => `s-${index + 1}`),
+        session_count: 14,
+        rows: [{ label: "Berufstätig", qty: 14, unit_price_net: 40, total_net: 560 }],
+        subtotal_net: 560,
+        vat_amount: 0,
+        total_gross: 560,
+        tax_treatment: "reverse_charge",
+        tax_reason: "eu_uid_manually_confirmed",
+        vat_rate: 0,
+      },
+    });
+
+    expect(view.has_calculation_difference).toBe(false);
+  });
+
+  it("preserves manual draft fields until explicit recalculation", () => {
+    const invoice = {
+      invoice_number: "MANUAL-1",
+      invoice_date: "2026-09-28",
+      service_period: "Q3 2026",
+      client_name: "Test Coach GmbH",
+      salutation: "Hallo,",
+      intro_text: "Manueller Text",
+      payment_terms: "30 Tage",
+      closing_text: "Danke",
+      line_items: [{ description: "Manuell", qty: 16, unit_price: 41, total: 656 }],
+      total_net: 656,
+      vat_amount: 0,
+      total_gross: 656,
+      invoice_with_vat: false,
+      tax_treatment: "reverse_charge",
+      tax_reason: "manual",
+      vat_rate: 0,
+    };
+    const view = getCoachInvoiceDraftView({
+      invoice,
+      calculatedBundle: {
+        bundle_type: "client_with_vat",
+        bundle_key: "reverse_charge",
+        session_ids: ["s-1"],
+        session_count: 1,
+        rows: [{ label: "Auto", qty: 14, unit_price_net: 40, total_net: 560 }],
+        subtotal_net: 560,
+        vat_amount: 0,
+        total_gross: 560,
+        tax_treatment: "reverse_charge",
+        tax_reason: "eu_uid_manually_confirmed",
+        vat_rate: 0,
+      },
+    });
+
+    expect(view.primary_draft).toMatchObject(invoice);
+  });
+
+  it("explicit recalculation replaces automatic values but preserves editorial fields", () => {
+    const invoice = {
+      invoice_number: "MANUAL-1",
+      invoice_date: "2026-09-28",
+      service_period: "Eigener Zeitraum",
+      client_name: "Test Coach GmbH",
+      salutation: "Hallo,",
+      intro_text: "Manueller Text",
+      payment_terms: "30 Tage",
+      closing_text: "Danke",
+      line_items: [{ description: "Manuell", qty: 16, unit_price: 41, total: 656 }],
+      total_net: 656,
+    };
+    const recalculated = applyCurrentCalculationToDraft(invoice, {
+      bundle_type: "client_with_vat",
+      bundle_key: "reverse_charge",
+      session_ids: Array.from({ length: 14 }, (_, index) => `s-${index + 1}`),
+      session_count: 14,
+      rows: [{ label: "Auto", qty: 14, unit_price_net: 40, total_net: 560 }],
+      subtotal_net: 560,
+      vat_amount: 0,
+      total_gross: 560,
+      tax_treatment: "reverse_charge",
+      tax_reason: "eu_uid_manually_confirmed",
+      vat_rate: 0,
+    });
+
+    expect(recalculated.line_items[0].qty).toBe(14);
+    expect(recalculated.total_net).toBe(560);
+    expect(recalculated.tax_treatment).toBe("reverse_charge");
+    expect(recalculated).toMatchObject({
+      invoice_number: "MANUAL-1",
+      invoice_date: "2026-09-28",
+      service_period: "Eigener Zeitraum",
+      client_name: "Test Coach GmbH",
+      salutation: "Hallo,",
+      intro_text: "Manueller Text",
+      payment_terms: "30 Tage",
+      closing_text: "Danke",
+    });
+  });
+
+  it("explicit recalculation carries review_required into the saved draft", () => {
+    const recalculated = applyCurrentCalculationToDraft(
+      {
+        invoice_number: "MANUAL-1",
+        line_items: [{ qty: 16, unit_price: 40, total: 640 }],
+      },
+      {
+        bundle_type: "client_with_vat",
+        bundle_key: "reverse_charge",
+        session_ids: ["s-1"],
+        session_count: 1,
+        rows: [{ label: "Auto", qty: 1, unit_price_net: 40, total_net: 40 }],
+        subtotal_net: 40,
+        vat_amount: 0,
+        total_gross: 40,
+        tax_treatment: "review_required",
+        tax_reason: "eu_uid_not_confirmed",
+        vat_rate: 0,
+      }
+    );
+
+    expect(recalculated).toMatchObject({
+      invoice_number: "MANUAL-1",
+      tax_treatment: "review_required",
+      tax_reason: "eu_uid_not_confirmed",
+      vat_rate: 0,
+    });
   });
 
   it("invalidates manual UID confirmation when UID or business seat changes", () => {

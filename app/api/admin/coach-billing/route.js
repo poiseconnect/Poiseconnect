@@ -4,7 +4,6 @@ import {
   loadCoachInvoicesForPeriod,
 } from "../../invoices/_lib/coachInvoice";
 import {
-  getCoachInvoiceState,
   toSemanticBundleType,
 } from "../../../lib/coachBilling.js";
 
@@ -77,7 +76,11 @@ export async function GET(req) {
           ...bundle,
           key: bundle.bundle_key,
           invoice_id: invoice?.id || null,
-          invoice_state: invoiceConflict ? "ambiguous" : getCoachInvoiceState(invoice),
+          invoice_state: invoiceConflict
+            ? "ambiguous"
+            : invoice
+              ? "saved_draft"
+              : "automatic_draft",
           invoice_conflict: invoiceConflict,
           invoice_supported: context.period.invoiceSupported && !invoiceConflict,
         };

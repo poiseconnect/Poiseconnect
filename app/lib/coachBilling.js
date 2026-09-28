@@ -159,59 +159,105 @@ export function toSemanticBundleType(bundleKey) {
   return BUNDLE_TYPE_BY_KEY[bundleKey] || null;
 }
 
-export function getCoachInvoiceState(invoice) {
-  if (!invoice) return "draft";
-  if (invoice.invoice_status === "draft") return "draft";
-  if (invoice.invoice_status === "finalized") return "finalized";
-  return "legacy";
-}
-
-export function getCoachInvoiceFinalizationAction(invoice) {
-  if (!invoice) return "create_final";
-  if (invoice.invoice_status === "finalized") return "return_final";
-  if (invoice.invoice_status === "draft") return "finalize_draft";
-  return "legacy_read_only";
-}
-
-export function getCoachInvoiceView({ invoice, calculatedBundle }) {
-  const state = getCoachInvoiceState(invoice);
-  const useStoredValues = state !== "draft";
-  const storedItems = Array.isArray(invoice?.line_items)
-    ? invoice.line_items
-    : [];
-  const calculatedItems = (calculatedBundle?.rows || []).map((row, index) => ({
+export function lineItemsFromCoachBundle(bundle) {
+  return (bundle?.rows || []).map((row, index) => ({
     id: row.id || `${index + 1}`,
     pos: index + 1,
     description: `${row.label} – Provision`,
-    qty: row.qty,
-    unit_price: row.unit_price_net,
-    total: row.total_net,
+    qty: Number(row.qty || 0),
+    unit_price: Number(row.unit_price_net || 0),
+    total: Number(row.total_net || 0),
   }));
+}
+
+function normalizeDraftLineItems(items) {
+  return (Array.isArray(items) ? items : []).map((item) => ({
+    description: String(item?.description || ""),
+    qty: Number(item?.qty || 0),
+    unit_price: Number(item?.unit_price ?? item?.unit ?? 0),
+    total: Number(item?.total || 0),
+  }));
+}
+
+function currentCalculationFromBundle(bundle) {
+  if (!bundle) return null;
+  return {
+    bundle_type: bundle.bundle_type,
+    bundle_key: bundle.bundle_key,
+    session_ids: [...bundle.session_ids],
+    session_count: bundle.session_count,
+    line_items: lineItemsFromCoachBundle(bundle),
+    total_net: Number(bundle.subtotal_net || 0),
+    vat_amount: Number(bundle.vat_amount || 0),
+    total_gross: Number(bundle.total_gross || 0),
+    invoice_with_vat: bundle.tax_treatment === "vat",
+    tax_treatment: bundle.tax_treatment,
+    tax_reason: bundle.tax_reason,
+    vat_rate: Number(bundle.vat_rate || 0),
+    calculation_errors: bundle.calculation_errors || [],
+  };
+}
+
+function savedDraftFromInvoice(invoice) {
+  if (!invoice) return null;
+  return {
+    ...invoice,
+    line_items: Array.isArray(invoice.line_items) ? invoice.line_items : [],
+    total_net: Number(invoice.total_net || 0),
+    vat_amount: Number(invoice.vat_amount || 0),
+    total_gross: Number(invoice.total_gross || 0),
+    vat_rate: Number(invoice.vat_rate || 0),
+    invoice_with_vat: invoice.invoice_with_vat === true,
+    tax_treatment: invoice.tax_treatment || null,
+    tax_reason: invoice.tax_reason || null,
+  };
+}
+
+function automaticValues(draft) {
+  if (!draft) return null;
+  return {
+    line_items: normalizeDraftLineItems(draft.line_items),
+    total_net: Number(draft.total_net || 0),
+    vat_amount: Number(draft.vat_amount || 0),
+    total_gross: Number(draft.total_gross || 0),
+    invoice_with_vat: draft.invoice_with_vat === true,
+    tax_treatment: draft.tax_treatment || null,
+    tax_reason: draft.tax_reason || null,
+    vat_rate: Number(draft.vat_rate || 0),
+  };
+}
+
+export function getCoachInvoiceDraftView({ invoice, calculatedBundle }) {
+  const savedDraft = savedDraftFromInvoice(invoice);
+  const currentCalculation = currentCalculationFromBundle(calculatedBundle);
+  const hasCalculationDifference = Boolean(
+    savedDraft &&
+      JSON.stringify(automaticValues(savedDraft)) !==
+        JSON.stringify(automaticValues(currentCalculation))
+  );
 
   return {
-    state,
-    line_items: useStoredValues ? storedItems : calculatedItems,
-    total_net: useStoredValues
-      ? Number(invoice?.total_net || 0)
-      : Number(calculatedBundle?.subtotal_net || 0),
-    vat_amount: useStoredValues
-      ? Number(invoice?.vat_amount || 0)
-      : Number(calculatedBundle?.vat_amount || 0),
-    total_gross: useStoredValues
-      ? Number(invoice?.total_gross || 0)
-      : Number(calculatedBundle?.total_gross || 0),
-    tax_treatment: useStoredValues
-      ? invoice?.tax_treatment || null
-      : calculatedBundle?.tax_treatment || null,
-    tax_reason: useStoredValues
-      ? invoice?.tax_reason || null
-      : calculatedBundle?.tax_reason || null,
-    vat_rate: useStoredValues
-      ? Number(invoice?.vat_rate || 0)
-      : Number(calculatedBundle?.vat_rate || 0),
-    invoice_with_vat: useStoredValues
-      ? invoice?.invoice_with_vat === true
-      : calculatedBundle?.tax_treatment === "vat",
+    saved_draft: savedDraft,
+    current_calculation: currentCalculation,
+    primary_draft: savedDraft || currentCalculation,
+    has_calculation_difference: hasCalculationDifference,
+  };
+}
+
+export function applyCurrentCalculationToDraft(invoice, calculatedBundle) {
+  const calculation = currentCalculationFromBundle(calculatedBundle);
+  if (!calculation) return null;
+
+  return {
+    ...invoice,
+    line_items: calculation.line_items,
+    total_net: calculation.total_net,
+    vat_amount: calculation.vat_amount,
+    total_gross: calculation.total_gross,
+    invoice_with_vat: calculation.invoice_with_vat,
+    tax_treatment: calculation.tax_treatment,
+    tax_reason: calculation.tax_reason,
+    vat_rate: calculation.vat_rate,
   };
 }
 
@@ -380,43 +426,5 @@ export function resolveCoachInvoiceTax(coachTaxProfile = {}) {
     tax_treatment: "review_required",
     vat_rate: 0,
     tax_reason: country ? "unsupported_business_country" : "business_country_missing",
-  };
-}
-
-export function serializeCoachInvoiceSnapshot({
-  coachId,
-  billingPeriod,
-  bundle,
-  coachTaxProfile,
-}) {
-  return {
-    coach_id: coachId,
-    billing_period: billingPeriod,
-    bundle_type: bundle.bundle_type,
-    bundle_key: bundle.bundle_key,
-    session_ids: [...bundle.session_ids],
-    sessions: bundle.session_snapshot.map((session) => ({ ...session })),
-    session_count: bundle.session_count,
-    line_items: bundle.rows.map((row, index) => ({
-      id: row.id,
-      pos: index + 1,
-      description: `${row.label} – Provision`,
-      qty: row.qty,
-      unit_price: row.unit_price_net,
-      total: row.total_net,
-    })),
-    subtotal_net: bundle.subtotal_net,
-    tax_treatment: bundle.tax_treatment,
-    tax_reason: bundle.tax_reason,
-    vat_rate: bundle.vat_rate,
-    vat_amount: bundle.vat_amount,
-    total_gross: bundle.total_gross,
-    coach_tax_profile: {
-      business_country_code: coachTaxProfile.business_country_code || null,
-      vat_number: coachTaxProfile.vat_number || null,
-      default_vat_rate: coachTaxProfile.default_vat_rate ?? null,
-      uid_confirmed_at: coachTaxProfile.uid_confirmed_at || null,
-      uid_confirmed_by: coachTaxProfile.uid_confirmed_by || null,
-    },
   };
 }

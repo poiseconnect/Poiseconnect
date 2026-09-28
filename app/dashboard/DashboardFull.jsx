@@ -4339,13 +4339,11 @@ return (
               : "Klient:innen ohne Umsatzsteuer"}
           </div>
           <div style={{ fontSize: 12, color: "#666", marginBottom: 8 }}>
-            Rechnungsstatus: {bundle.invoice_state === "finalized"
-              ? "Finalisiert"
-              : bundle.invoice_state === "legacy"
-                ? "Legacy, nur lesbar"
-                : bundle.invoice_state === "ambiguous"
-                  ? "Mehrdeutige historische Rechnungen"
-                  : "Entwurf"}
+            Rechnungsstatus: {bundle.invoice_state === "saved_draft"
+              ? "Gespeicherter Entwurf"
+              : bundle.invoice_state === "ambiguous"
+                ? "Mehrdeutige historische Rechnungen"
+                : "Automatischer Ausgangsentwurf"}
             {bundle.tax_treatment === "review_required"
               ? ` · Steuerprüfung erforderlich (${bundle.tax_reason})`
               : bundle.tax_treatment === "reverse_charge"

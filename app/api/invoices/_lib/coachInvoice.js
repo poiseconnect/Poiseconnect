@@ -3,6 +3,7 @@ import {
   calculateCoachBundles,
   formatCoachBillingPeriod,
   getViennaCalendarDate,
+  lineItemsFromCoachBundle,
   toStoredBundleKey,
 } from "../../../lib/coachBilling.js";
 
@@ -137,7 +138,7 @@ export async function loadCoachInvoicesForPeriod(supabase, { coachId, period }) 
 
   let query = supabase
     .from("coach_invoices")
-    .select("id, coach_id, billing_mode, billing_year, billing_quarter, billing_month, bundle_key, invoice_status")
+    .select("id, coach_id, billing_mode, billing_year, billing_quarter, billing_month, bundle_key")
     .eq("coach_id", coachId)
     .eq("billing_mode", period.billingMode)
     .in("bundle_key", ["reverse_charge", "normal_ust"]);
@@ -148,12 +149,5 @@ export async function loadCoachInvoicesForPeriod(supabase, { coachId, period }) 
 }
 
 export function invoiceLineItemsFromBundle(bundle) {
-  return (bundle?.rows || []).map((row, index) => ({
-    id: row.id || `${index + 1}`,
-    pos: index + 1,
-    description: `${row.label} – Provision`,
-    qty: Number(row.qty || 0),
-    unit_price: Number(row.unit_price_net || 0),
-    total: Number(row.total_net || 0),
-  }));
+  return lineItemsFromCoachBundle(bundle);
 }

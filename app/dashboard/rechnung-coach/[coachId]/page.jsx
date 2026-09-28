@@ -26,7 +26,7 @@ export default function RechnungCoachPage({ params, searchParams }) {
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [finalizing, setFinalizing] = useState(false);
+  const [recalculating, setRecalculating] = useState(false);
   const [updatingSevdesk, setUpdatingSevdesk] = useState(false);
 
   const [savedCoachInvoiceId, setSavedCoachInvoiceId] = useState(null);
@@ -64,10 +64,11 @@ const [sendingAllToSevdesk, setSendingAllToSevdesk] = useState(false);
   const [lineItemsState, setLineItemsState] = useState([]);
   const [invoiceWithVat, setInvoiceWithVat] = useState(true);
   const [vatRate, setVatRate] = useState(20);
-  const [storedTotals, setStoredTotals] = useState({ net: 0, vat: 0, gross: 0 });
-  const [invoiceState, setInvoiceState] = useState("draft");
+  const [invoiceState, setInvoiceState] = useState("automatic_draft");
   const [taxTreatment, setTaxTreatment] = useState("review_required");
   const [taxReason, setTaxReason] = useState("");
+  const [hasCalculationDifference, setHasCalculationDifference] = useState(false);
+  const [currentCalculation, setCurrentCalculation] = useState(null);
   const [currentSessionCount, setCurrentSessionCount] = useState(null);
   const [storedSessionCount, setStoredSessionCount] = useState(null);
   const [calculationErrors, setCalculationErrors] = useState([]);
@@ -120,17 +121,14 @@ const [sendingAllToSevdesk, setSendingAllToSevdesk] = useState(false);
 
       setInvoiceWithVat(json.invoice_with_vat === true);
       setVatRate(Number(json.vat_rate ?? 20));
-      setInvoiceState(json.invoice_state || "draft");
+      setInvoiceState(json.invoice_state || "automatic_draft");
       setTaxTreatment(
         json.tax_treatment ||
-          (json.invoice_state === "legacy" ? "legacy_unknown" : "review_required")
+          "review_required"
       );
       setTaxReason(json.tax_reason || "");
-      setStoredTotals({
-        net: Number(json.totals?.net || 0),
-        vat: Number(json.totals?.vat || 0),
-        gross: Number(json.totals?.gross || 0),
-      });
+      setHasCalculationDifference(json.has_calculation_difference === true);
+      setCurrentCalculation(json.current_calculation || null);
       setCurrentSessionCount(json.current_session_count ?? null);
       setStoredSessionCount(json.stored_session_count ?? null);
       setCalculationErrors(
@@ -244,10 +242,7 @@ const [sendingAllToSevdesk, setSendingAllToSevdesk] = useState(false);
     return { net, vat, gross };
   }, [lineItems, invoiceWithVat, vatRate]);
 
-  const totals =
-    invoiceState === "finalized" || invoiceState === "legacy"
-      ? storedTotals
-      : calculatedTotals;
+  const totals = calculatedTotals;
 async function saveInvoice() {
   setSaving(true);
 
@@ -284,12 +279,15 @@ async function saveInvoice() {
       closing_text: closingText,
 
       invoice_with_vat: invoiceWithVat,
+      tax_treatment: taxTreatment,
+      tax_reason: taxReason,
       vat_rate: vatRate,
       total_net: totals.net,
       vat_amount: totals.vat,
       total_gross: totals.gross,
 
       line_items: lineItems.map((li, idx) => ({
+        id: li.id,
         pos: idx + 1,
         description: li.description,
         qty: li.qty,
@@ -325,7 +323,7 @@ async function saveInvoice() {
     if (result?.data?.id) {
       setSavedCoachInvoiceId(result.data.id);
     }
-    setInvoiceState("draft");
+    setInvoiceState("saved_draft");
 
     if (result?.data?.sevdesk_invoice_id) {
       setSevdeskInvoiceId(result.data.sevdesk_invoice_id);
@@ -336,54 +334,45 @@ async function saveInvoice() {
     setSaving(false);
   }
 
-  async function finalizeInvoice() {
-    if (invoiceState === "legacy" || invoiceState === "finalized") return;
-    setFinalizing(true);
+}
 
-    try {
-      const saveResult = await saveInvoice();
-      if (!saveResult?.ok) throw new Error("Draft konnte nicht gespeichert werden");
+async function recalculateFromSessions() {
+  if (!savedCoachInvoiceId) return;
+  setRecalculating(true);
 
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      const res = await fetch("/api/invoices/finalize-coach", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${session?.access_token}`,
-        },
-        body: JSON.stringify({
-          coach_id: coachId,
-          billing_mode: billingMode,
-          billing_year: billingYear,
-          billing_quarter: billingQuarter,
-          billing_month: billingMonth,
-          billing_date: billingDate,
-          bundle_type:
-            bundleKey === "reverse_charge"
-              ? "client_with_vat"
-              : "client_without_vat",
-          bundle_key: bundleKey,
-          invoice_number: invoiceNumber,
-          invoice_date: invoiceDate,
-        }),
-      });
-      const result = await res.json().catch(() => null);
-      if (!res.ok) {
-        throw new Error(
-          result?.error === "tax_review_required"
-            ? `Steuerprüfung erforderlich: ${result.tax_reason || "Daten prüfen"}`
-            : result?.error || "Rechnung konnte nicht finalisiert werden"
-        );
-      }
-
-      await loadData();
-    } catch (error) {
-      alert(error.message || "Rechnung konnte nicht finalisiert werden");
-    } finally {
-      setFinalizing(false);
+  try {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    const res = await fetch("/api/invoices/recalculate-coach", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${session?.access_token}`,
+      },
+      body: JSON.stringify({
+        coach_id: coachId,
+        billing_mode: billingMode,
+        billing_year: billingYear,
+        billing_quarter: billingQuarter,
+        billing_month: billingMonth,
+        billing_date: billingDate,
+        bundle_type:
+          bundleKey === "reverse_charge"
+            ? "client_with_vat"
+            : "client_without_vat",
+        bundle_key: bundleKey,
+      }),
+    });
+    const result = await res.json().catch(() => null);
+    if (!res.ok) {
+      throw new Error(result?.error || "Neuberechnung fehlgeschlagen");
     }
+    await loadData();
+  } catch (error) {
+    alert(error.message || "Neuberechnung fehlgeschlagen");
+  } finally {
+    setRecalculating(false);
   }
 }
 
@@ -600,16 +589,8 @@ async function syncInvoicePositionsToSevdesk() {
     return <div style={{ padding: 40 }}>Keine Poise-Rechnungsdaten gefunden</div>;
   }
 
-  const invoiceReadOnly = invoiceState === "legacy" || invoiceState === "finalized";
-  const finalizationBlocked =
-    taxTreatment === "review_required" ||
-    calculationErrors.length > 0 ||
-    currentSessionCount === 0;
-  const hasSessionMismatch =
-    invoiceReadOnly &&
-    storedSessionCount !== null &&
-    currentSessionCount !== null &&
-    storedSessionCount !== currentSessionCount;
+  const downstreamProcessingBlocked =
+    !taxTreatment || taxTreatment === "review_required";
 
   const pageBg = {
     background: "#f0f0f0",
@@ -656,16 +637,16 @@ async function syncInvoicePositionsToSevdesk() {
 >
   <button
     onClick={sendAllToSevdesk}
-    disabled={sendingAllToSevdesk}
+    disabled={sendingAllToSevdesk || downstreamProcessingBlocked}
     style={{
       background: "#0B6E4F",
       color: "#fff",
       border: "none",
       padding: "12px 18px",
-      cursor: sendingAllToSevdesk ? "not-allowed" : "pointer",
+      cursor: sendingAllToSevdesk || downstreamProcessingBlocked ? "not-allowed" : "pointer",
       fontSize: 14,
       borderRadius: 6,
-      opacity: sendingAllToSevdesk ? 0.7 : 1,
+      opacity: sendingAllToSevdesk || downstreamProcessingBlocked ? 0.7 : 1,
       fontWeight: 600,
     }}
   >
@@ -674,38 +655,37 @@ async function syncInvoicePositionsToSevdesk() {
 
   <button
     onClick={saveInvoice}
-    disabled={saving || sendingAllToSevdesk || invoiceReadOnly}
+    disabled={saving || sendingAllToSevdesk}
     style={{
       background: "#111",
       color: "#fff",
       border: "none",
       padding: "10px 16px",
-      cursor: saving || sendingAllToSevdesk || invoiceReadOnly ? "not-allowed" : "pointer",
+      cursor: saving || sendingAllToSevdesk ? "not-allowed" : "pointer",
       fontSize: 13,
       borderRadius: 6,
-      opacity: saving || sendingAllToSevdesk || invoiceReadOnly ? 0.7 : 1,
+      opacity: saving || sendingAllToSevdesk ? 0.7 : 1,
     }}
   >
-    {invoiceReadOnly ? "Nicht veränderbar" : saving ? "Speichere…" : "Rechnung speichern"}
+    {saving ? "Speichere…" : "Rechnung speichern"}
   </button>
 
-  {!invoiceReadOnly && (
+  {hasCalculationDifference && savedCoachInvoiceId && (
     <button
-      onClick={finalizeInvoice}
-      disabled={finalizing || saving || finalizationBlocked}
+      onClick={recalculateFromSessions}
+      disabled={recalculating || saving || calculationErrors.length > 0}
       style={{
         background: "#0B6E4F",
         color: "#fff",
         border: "none",
         padding: "10px 16px",
-        cursor: finalizing || saving || finalizationBlocked ? "not-allowed" : "pointer",
+        cursor: recalculating || saving || calculationErrors.length > 0 ? "not-allowed" : "pointer",
         fontSize: 13,
         borderRadius: 6,
-        opacity: finalizing || saving || finalizationBlocked ? 0.7 : 1,
+        opacity: recalculating || saving || calculationErrors.length > 0 ? 0.7 : 1,
       }}
-      title={finalizationBlocked ? `Finalisierung blockiert: ${taxReason || "Steuerdaten prüfen"}` : ""}
     >
-      {finalizing ? "Finalisiere …" : "Rechnung finalisieren"}
+      {recalculating ? "Berechne …" : "Aus aktuellen Sitzungen neu berechnen"}
     </button>
   )}
 
@@ -739,22 +719,24 @@ async function syncInvoicePositionsToSevdesk() {
             <div style={{ fontWeight: 700 }}>{poiseSettings.company_name}</div>
             <div style={{ whiteSpace: "pre-line" }}>{poiseSettings.address}</div>
             <div style={{ marginTop: 8, fontWeight: 600 }}>
-              {invoiceState === "finalized"
-                ? "Finalisierte Rechnung"
-                : invoiceState === "legacy"
-                  ? "Historische Rechnung (Legacy, nur lesbar)"
-                  : "Rechnungsentwurf"}
+              {invoiceState === "saved_draft"
+                ? "Gespeicherter Rechnungsentwurf"
+                : "Automatisch berechneter Ausgangsentwurf"}
               {taxTreatment === "vat"
                 ? ` · Poise USt ${vatRate}%`
                 : taxTreatment === "reverse_charge"
                   ? " · Reverse Charge"
-                  : taxTreatment === "legacy_unknown"
-                    ? " · historische Steuerbehandlung unbekannt"
                   : " · Steuerprüfung erforderlich"}
             </div>
-            {hasSessionMismatch && (
+            {hasCalculationDifference && (
               <div style={{ color: "#a12622", marginTop: 6 }}>
-                Historischer Snapshot: {storedSessionCount} Sessions; aktuell: {currentSessionCount}. Die Rechnung bleibt unverändert.
+                Die aktuellen Sitzungsdaten weichen vom gespeicherten Rechnungsentwurf ab.
+                {storedSessionCount !== null && currentSessionCount !== null
+                  ? ` Gespeichert: ${storedSessionCount}, aktuell: ${currentSessionCount}.`
+                  : ""}
+                {currentCalculation?.totals
+                  ? ` Aktuell berechnet: ${Number(currentCalculation.totals.net || 0).toFixed(2)} EUR netto.`
+                  : ""}
               </div>
             )}
             {calculationErrors.length > 0 && (
@@ -789,7 +771,6 @@ async function syncInvoicePositionsToSevdesk() {
               <input
                 style={{ ...inputBase, width: 360 }}
                 value={clientName}
-                disabled={invoiceReadOnly}
                 onChange={(e) => setClientName(e.target.value)}
               />
             </div>
@@ -797,7 +778,6 @@ async function syncInvoicePositionsToSevdesk() {
               <input
                 style={{ ...inputBase, width: 360 }}
                 value={clientStreet}
-                disabled={invoiceReadOnly}
                 onChange={(e) => setClientStreet(e.target.value)}
               />
             </div>
@@ -805,7 +785,6 @@ async function syncInvoicePositionsToSevdesk() {
               <input
                 style={{ ...inputBase, width: 360 }}
                 value={clientZipCity}
-                disabled={invoiceReadOnly}
                 onChange={(e) => setClientZipCity(e.target.value)}
               />
             </div>
@@ -813,7 +792,6 @@ async function syncInvoicePositionsToSevdesk() {
               <input
                 style={{ ...inputBase, width: 360 }}
                 value={clientCountry}
-                disabled={invoiceReadOnly}
                 onChange={(e) => setClientCountry(e.target.value)}
                 placeholder="Land (optional)"
               />
@@ -823,7 +801,6 @@ async function syncInvoicePositionsToSevdesk() {
               <input
                 style={{ ...inputBase, width: 360 }}
                 value={clientEmail}
-                disabled={invoiceReadOnly}
                 onChange={(e) => setClientEmail(e.target.value)}
               />
             </div>
@@ -846,7 +823,6 @@ async function syncInvoicePositionsToSevdesk() {
                 <input
                   style={{ ...inputBase, width: 140, textAlign: "right" }}
                   value={invoiceNumber}
-                  disabled={invoiceReadOnly}
                   onChange={(e) => setInvoiceNumber(e.target.value)}
                 />
               </div>
@@ -857,7 +833,6 @@ async function syncInvoicePositionsToSevdesk() {
                   style={{ ...inputBase, width: 140, textAlign: "right" }}
                   type="date"
                   value={invoiceDate}
-                  disabled={invoiceReadOnly}
                   onChange={(e) => setInvoiceDate(e.target.value)}
                 />
               </div>
@@ -867,7 +842,6 @@ async function syncInvoicePositionsToSevdesk() {
                 <input
                   style={{ ...inputBase, width: 140, textAlign: "right" }}
                   value={servicePeriod}
-                  disabled={invoiceReadOnly}
                   onChange={(e) => setServicePeriod(e.target.value)}
                 />
               </div>
@@ -877,7 +851,6 @@ async function syncInvoicePositionsToSevdesk() {
                 <input
                   style={{ ...inputBase, width: 140, textAlign: "right" }}
                   value={customerNumber}
-                  disabled={invoiceReadOnly}
                   onChange={(e) => setCustomerNumber(e.target.value)}
                   placeholder="optional"
                 />
@@ -888,7 +861,6 @@ async function syncInvoicePositionsToSevdesk() {
                 <input
                   style={{ ...inputBase, width: 140, textAlign: "right" }}
                   value={contactPerson}
-                  disabled={invoiceReadOnly}
                   onChange={(e) => setContactPerson(e.target.value)}
                   placeholder="optional"
                 />
@@ -939,7 +911,6 @@ async function syncInvoicePositionsToSevdesk() {
             <input
               style={{ ...inputBase, width: "100%" }}
               value={salutation}
-              disabled={invoiceReadOnly}
               onChange={(e) => setSalutation(e.target.value)}
             />
           </div>
@@ -947,7 +918,6 @@ async function syncInvoicePositionsToSevdesk() {
           <div style={{ marginTop: 10 }}>
             <textarea
               value={introText}
-              disabled={invoiceReadOnly}
               onChange={(e) => setIntroText(e.target.value)}
               style={{
                 width: "100%",
@@ -982,7 +952,6 @@ async function syncInvoicePositionsToSevdesk() {
                   <td style={{ padding: "10px 6px" }}>
                     <input
                       value={li.description}
-                      disabled={invoiceReadOnly}
                       onChange={(e) =>
                         updateLineItem(idx, { description: e.target.value })
                       }
@@ -1002,7 +971,6 @@ async function syncInvoicePositionsToSevdesk() {
                       min="0"
                       step="1"
                       value={li.qty}
-                      disabled={invoiceReadOnly}
                       onChange={(e) =>
                         updateLineItem(idx, {
                           qty: Number(e.target.value || 0),
@@ -1018,7 +986,6 @@ async function syncInvoicePositionsToSevdesk() {
                       min="0"
                       step="0.01"
                       value={li.unit}
-                      disabled={invoiceReadOnly}
                       onChange={(e) =>
                         updateLineItem(idx, {
                           unit: Number(e.target.value || 0),
@@ -1113,7 +1080,6 @@ async function syncInvoicePositionsToSevdesk() {
         <div style={{ marginTop: 18, ...small }}>
           <textarea
             value={paymentTerms}
-            disabled={invoiceReadOnly}
             onChange={(e) => setPaymentTerms(e.target.value)}
             style={{
               width: "100%",
@@ -1127,7 +1093,6 @@ async function syncInvoicePositionsToSevdesk() {
 
           <textarea
             value={closingText}
-            disabled={invoiceReadOnly}
             onChange={(e) => setClosingText(e.target.value)}
             style={{
               width: "100%",
