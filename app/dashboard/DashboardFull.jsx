@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { teamData } from "../lib/teamData";
+import { calculateSessionCommission } from "../lib/coachBilling.js";
 import {
   getInvoiceSettingsTargetId,
   isInvoiceSettingsReady,
@@ -28,6 +29,22 @@ async function getAccessToken() {
   } = await supabase.auth.getSession();
 
   return session?.access_token || "";
+}
+
+function getBillingSessionProvision(session, invoiceSettings, loadedSettingsCoachId) {
+  const clientWithVat =
+    session?.anfragen?.invoice_with_vat === true ||
+    session?.invoice_with_vat === true;
+  const hasMatchingCoachSettings =
+    String(session?.therapist_id || "") === String(loadedSettingsCoachId || "");
+
+  return calculateSessionCommission({
+    price: session?.price,
+    clientWithVat,
+    coachVatRate: hasMatchingCoachSettings
+      ? invoiceSettings?.default_vat_rate
+      : null,
+  });
 }
 // ================= POISE DASHBOARD COLORS =================
 const POISE_COLORS = {
@@ -2806,25 +2823,33 @@ if (!map[s.anfrage_id]) {
     sessions: 0,
     umsatz: 0,
     provision: 0,
+    provision_calculation_incomplete: false,
   };
 }
 
     map[s.anfrage_id].sessions += 1;
 
     const price = Number(s.price || 0);
-    const vatRate = Number(invoiceSettings.default_vat_rate || 0);
-
-    const netBase =
-      vatRate > 0 ? price / (1 + vatRate / 100) : price;
-
-    const provisionNet = netBase * 0.3;
+    const provision = getBillingSessionProvision(
+      s,
+      invoiceSettings,
+      invoiceSettingsLoadedForId
+    );
 
     map[s.anfrage_id].umsatz += price;
-    map[s.anfrage_id].provision += provisionNet;
+    if (provision.error) {
+      map[s.anfrage_id].provision_calculation_incomplete = true;
+    } else {
+      map[s.anfrage_id].provision += provision.commissionNet;
+    }
   });
 
   return Object.values(map);
-}, [filteredBillingSessions, invoiceSettings.default_vat_rate]);
+}, [
+  filteredBillingSessions,
+  invoiceSettings,
+  invoiceSettingsLoadedForId,
+]);
 const filteredBillingSessionsByClient = useMemo(() => {
   if (selectedClientId === "alle") return filteredBillingSessions;
 
@@ -2851,34 +2876,37 @@ const filteredBillingSessionsByClient = useMemo(() => {
         umsatz: 0,
         provision: 0,
         payout: 0,
+        provision_calculation_incomplete: false,
       };
     }
 
     const price = Number(s.price || 0);
-    const invoiceWithVat =
-      s?.anfragen?.invoice_with_vat === true || s?.invoice_with_vat === true;
-
-    let provision = 0;
-
-    if (invoiceWithVat) {
-      const net = price / 1.2;
-      provision = net * 0.3;
+    const provision = getBillingSessionProvision(
+      s,
+      invoiceSettings,
+      invoiceSettingsLoadedForId
+    );
+    if (provision.error) {
+      map[s.therapist_id].provision_calculation_incomplete = true;
     } else {
-      provision = price * 0.3;
+      map[s.therapist_id].provision += provision.commissionNet;
     }
 
 const payout = 0;
     
     map[s.therapist_id].sessions += 1;
     map[s.therapist_id].umsatz += price;
-    map[s.therapist_id].provision += provision;
     map[s.therapist_id].payout += payout;
   });
 
   return Object.values(map).sort((a, b) =>
     a.therapist_name.localeCompare(b.therapist_name)
   );
-}, [filteredBillingSessionsByClient]);
+}, [
+  filteredBillingSessionsByClient,
+  invoiceSettings,
+  invoiceSettingsLoadedForId,
+]);
 // ================= CLIENT FILTER FÜR ABRECHNUNG =================
 const visibleBillingRows = useMemo(() => {
   if (selectedClientId === "alle") {
@@ -2978,23 +3006,21 @@ const controllingRows = useMemo(() => {
         umsatz: 0,
         provision: 0,
         payout: 0,
+        provision_calculation_incomplete: false,
       };
     }
 
     const price = Number(s.price || 0);
-
-const invoiceWithVat =
-  s?.anfragen?.invoice_with_vat === true ||
-  s?.invoice_with_vat === true;
-
-let provision = 0;
-
-if (invoiceWithVat) {
-  const net = price / 1.2;
-  provision = net * 0.3;
-} else {
-  provision = price * 0.3;
-}
+    const provision = getBillingSessionProvision(
+      s,
+      invoiceSettings,
+      invoiceSettingsLoadedForId
+    );
+    if (provision.error) {
+      map[therapistId].provision_calculation_incomplete = true;
+    } else {
+      map[therapistId].provision += provision.commissionNet;
+    }
 
 const payout = 0;
 
@@ -3005,7 +3031,6 @@ const payout = 0;
     }
 
     map[therapistId].umsatz += price;
-    map[therapistId].provision += provision;
     map[therapistId].payout += payout;
   });
 
@@ -3021,7 +3046,12 @@ return Object.values(map)
     };
   })
     .sort((a, b) => b.provision - a.provision);
-}, [filteredBillingSessions, responseTimeByTherapist]);
+}, [
+  filteredBillingSessions,
+  responseTimeByTherapist,
+  invoiceSettings,
+  invoiceSettingsLoadedForId,
+]);
   
 const controllingTotals = useMemo(() => {
   return controllingRows.reduce(
@@ -3030,6 +3060,7 @@ const controllingTotals = useMemo(() => {
       acc.clients += Number(row.clients || 0);
       acc.umsatz += Number(row.umsatz || 0);
       acc.provision += Number(row.provision || 0);
+      acc.provision_calculation_incomplete ||= row.provision_calculation_incomplete;
       acc.payout += Number(row.payout || 0);
       return acc;
     },
@@ -3038,6 +3069,7 @@ const controllingTotals = useMemo(() => {
       clients: 0,
       umsatz: 0,
       provision: 0,
+      provision_calculation_incomplete: false,
       payout: 0,
     }
   );
@@ -4382,7 +4414,11 @@ return (
               <td>{row.therapist_name}</td>
               <td align="center">{row.sessions}</td>
               <td align="right">{row.umsatz.toFixed(2)}</td>
-              <td align="right">{row.provision.toFixed(2)}</td>
+              <td align="right">
+                {row.provision_calculation_incomplete
+                  ? "Coach-USt-Satz fehlt"
+                  : row.provision.toFixed(2)}
+              </td>
               <td align="right">{row.payout.toFixed(2)}</td>
 
             </tr>
@@ -4612,7 +4648,10 @@ if (!res.ok) {
 
           exportBillingCSV(billingByClient);
         }}
-        disabled={!billingByClient.length}
+        disabled={
+          !billingByClient.length ||
+          billingByClient.some((row) => row.provision_calculation_incomplete)
+        }
       >
         📄 CSV exportieren
       </button>
@@ -4646,7 +4685,10 @@ if (!res.ok) {
       </button>
 
       <button
-        disabled={!invoiceSettings.sevdesk_token}
+        disabled={
+          !invoiceSettings.sevdesk_token ||
+          billingByClient.some((row) => row.provision_calculation_incomplete)
+        }
         onClick={async () => {
           const res = await fetch("/api/sevdesk-export", {
             method: "POST",
@@ -4725,7 +4767,11 @@ if (!res.ok) {
                 <td>{therapistName}</td>
                 <td align="center">{r.sessions}</td>
                 <td align="right">{r.umsatz.toFixed(2)}</td>
-                <td align="right">{r.provision.toFixed(2)}</td>
+                <td align="right">
+                  {r.provision_calculation_incomplete
+                    ? "Coach-USt-Satz fehlt"
+                    : r.provision.toFixed(2)}
+                </td>
                 <td align="right">
                   <button
                     onClick={() => {
@@ -4908,7 +4954,9 @@ gridTemplateColumns:
         >
           <div style={{ fontSize: 12, color: "#666" }}>Provision Poise</div>
           <div style={{ fontSize: 24, fontWeight: 800 }}>
-            {controllingTotals.provision.toFixed(2)} €
+            {controllingTotals.provision_calculation_incomplete
+              ? "Prüfen"
+              : `${controllingTotals.provision.toFixed(2)} €`}
           </div>
         </div>
 
@@ -4957,7 +5005,11 @@ gridTemplateColumns:
                 <td align="center">{row.clients}</td>
                 <td align="center">{row.sessions}</td>
                 <td align="right">{row.umsatz.toFixed(2)}</td>
-                <td align="right">{row.provision.toFixed(2)}</td>
+                <td align="right">
+                  {row.provision_calculation_incomplete
+                    ? "Coach-USt-Satz fehlt"
+                    : row.provision.toFixed(2)}
+                </td>
                 <td align="right">{row.payout.toFixed(2)}</td>
                 <td align="right">
   {row.avgResponseHours != null

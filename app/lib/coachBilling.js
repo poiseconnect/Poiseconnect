@@ -9,12 +9,6 @@ const BUNDLE_TYPE_BY_KEY = Object.fromEntries(
   Object.entries(BUNDLE_KEY_BY_TYPE).map(([type, key]) => [key, type])
 );
 
-const EU_COUNTRY_CODES = new Set([
-  "AT", "BE", "BG", "CY", "CZ", "DE", "DK", "EE", "ES", "FI",
-  "FR", "GR", "HR", "HU", "IE", "IT", "LT", "LU", "LV", "MT",
-  "NL", "PL", "PT", "RO", "SE", "SI", "SK",
-]);
-
 const viennaDateTimeFormatter = new Intl.DateTimeFormat("en-GB", {
   timeZone: COACH_BILLING_TIME_ZONE,
   year: "numeric",
@@ -28,6 +22,40 @@ const viennaDateTimeFormatter = new Intl.DateTimeFormat("en-GB", {
 
 function roundMoney(value) {
   return Math.round((Number(value) + Number.EPSILON) * 100) / 100;
+}
+
+export function calculateSessionCommission({
+  price,
+  clientWithVat,
+  coachVatRate,
+}) {
+  const sessionPrice = Number(price);
+  if (!Number.isFinite(sessionPrice) || sessionPrice <= 0) {
+    return {
+      error: "invalid_session_price",
+      netBasis: null,
+      commissionNet: null,
+    };
+  }
+
+  const vatRate = Number(coachVatRate);
+  if (clientWithVat && (!Number.isFinite(vatRate) || vatRate <= 0)) {
+    return {
+      error: "coach_vat_rate_missing",
+      netBasis: null,
+      commissionNet: null,
+    };
+  }
+
+  const netBasis = clientWithVat
+    ? sessionPrice / (1 + vatRate / 100)
+    : sessionPrice;
+
+  return {
+    error: null,
+    netBasis: roundMoney(netBasis),
+    commissionNet: roundMoney(netBasis * 0.3),
+  };
 }
 
 function getViennaDateParts(date) {
@@ -276,7 +304,6 @@ export function uidConfirmationNeedsInvalidation(current, next) {
 
 export function calculateCoachBundles({ sessions = [], coachTaxProfile = {} }) {
   const coachVatRate = Number(coachTaxProfile.default_vat_rate);
-  const validCoachVatRate = Number.isFinite(coachVatRate) && coachVatRate > 0;
   const bundles = {
     client_with_vat: {
       bundle_type: "client_with_vat",
@@ -309,7 +336,13 @@ export function calculateCoachBundles({ sessions = [], coachTaxProfile = {} }) {
 
     bundle.session_ids.push(session.id);
 
-    if (clientWithVat && !validCoachVatRate) {
+    const commission = calculateSessionCommission({
+      price,
+      clientWithVat,
+      coachVatRate,
+    });
+
+    if (commission.error) {
       bundle.session_snapshot.push({
         session_id: session.id,
         session_date: session.date || null,
@@ -326,10 +359,8 @@ export function calculateCoachBundles({ sessions = [], coachTaxProfile = {} }) {
       continue;
     }
 
-    const clientNet = clientWithVat
-      ? price / (1 + coachVatRate / 100)
-      : price;
-    const provisionNet = roundMoney(clientNet * 0.3);
+    const clientNet = commission.netBasis;
+    const provisionNet = commission.commissionNet;
     bundle.session_snapshot.push({
       session_id: session.id,
       session_date: session.date || null,
@@ -365,7 +396,10 @@ export function calculateCoachBundles({ sessions = [], coachTaxProfile = {} }) {
       const subtotalNet = roundMoney(
         rows.reduce((sum, row) => sum + row.total_net, 0)
       );
-      const tax = resolveCoachInvoiceTax(coachTaxProfile);
+      const tax = resolveCoachInvoiceTax({
+        coachTaxProfile,
+        bundleType: bundle.bundle_type,
+      });
       const vatAmount = roundMoney(subtotalNet * (tax.vat_rate / 100));
 
       return {
@@ -388,7 +422,26 @@ export function calculateCoachBundles({ sessions = [], coachTaxProfile = {} }) {
     .filter((bundle) => bundle.session_count > 0);
 }
 
-export function resolveCoachInvoiceTax(coachTaxProfile = {}) {
+export function resolveCoachInvoiceTax({
+  coachTaxProfile = {},
+  bundleType,
+} = {}) {
+  if (bundleType === "client_without_vat") {
+    return {
+      tax_treatment: "vat",
+      vat_rate: 20,
+      tax_reason: "client_without_vat_bundle_poise_vat",
+    };
+  }
+
+  if (bundleType !== "client_with_vat") {
+    return {
+      tax_treatment: "review_required",
+      vat_rate: 0,
+      tax_reason: "client_bundle_type_missing_or_unsupported",
+    };
+  }
+
   const country = String(coachTaxProfile.business_country_code || "")
     .trim()
     .toUpperCase();
@@ -401,7 +454,7 @@ export function resolveCoachInvoiceTax(coachTaxProfile = {}) {
     };
   }
 
-  if (EU_COUNTRY_CODES.has(country)) {
+  if (country === "DE") {
     const hasUid = Boolean(String(coachTaxProfile.vat_number || "").trim());
     const uidConfirmed = Boolean(
       coachTaxProfile.uid_confirmed_at && coachTaxProfile.uid_confirmed_by
@@ -418,13 +471,13 @@ export function resolveCoachInvoiceTax(coachTaxProfile = {}) {
     return {
       tax_treatment: "review_required",
       vat_rate: 0,
-      tax_reason: hasUid ? "eu_uid_not_confirmed" : "eu_uid_missing",
+      tax_reason: hasUid ? "de_uid_not_confirmed" : "de_uid_missing",
     };
   }
 
   return {
     tax_treatment: "review_required",
     vat_rate: 0,
-    tax_reason: country ? "unsupported_business_country" : "business_country_missing",
+    tax_reason: country ? "unsupported_client_with_vat_country" : "business_country_missing",
   };
 }

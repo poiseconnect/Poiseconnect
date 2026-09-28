@@ -67,7 +67,7 @@ describe("coach billing calculations", () => {
     expect(toSemanticBundleType("normal_ust")).toBe("client_without_vat");
   });
 
-  it("splits client VAT bundles and uses the coach rate for net commission", () => {
+  it("splits AT client bundles, keeps commission bases, and applies 20 percent Poise VAT to both", () => {
     const bundles = calculateCoachBundles({
       sessions: [session("at-in", 120, true), session("at-out", 100, false)],
       coachTaxProfile: {
@@ -85,6 +85,7 @@ describe("coach billing calculations", () => {
     expect(bundles.every((bundle) => bundle.tax_treatment === "vat")).toBe(true);
     expect(bundles.every((bundle) => bundle.vat_rate === 20)).toBe(true);
     expect(bundles[0].total_gross).toBe(36);
+    expect(bundles[1].total_gross).toBe(36);
   });
 
   it("uses 19 percent for German client prices including VAT", () => {
@@ -104,9 +105,32 @@ describe("coach billing calculations", () => {
     expect(bundle.vat_rate).toBe(0);
   });
 
-  it("uses the full German client price as commission basis without client VAT", () => {
+  it("keeps 36 German 200 euro gross sessions at 50.42 commission and Reverse Charge", () => {
+    const sessions = Array.from({ length: 36 }, (_, index) =>
+      session(`sophie-with-${index + 1}`, 200, true)
+    );
     const [bundle] = calculateCoachBundles({
-      sessions: [session("de-out", 100, false)],
+      sessions,
+      coachTaxProfile: {
+        business_country_code: "DE",
+        vat_number: "DE123456789",
+        uid_confirmed_at: "2026-01-01T00:00:00.000Z",
+        uid_confirmed_by: "admin-1",
+        default_vat_rate: 19,
+      },
+    });
+
+    expect(bundle.rows[0].qty).toBe(36);
+    expect(bundle.rows[0].unit_price_net).toBe(50.42);
+    expect(bundle.subtotal_net).toBe(1815.12);
+    expect(bundle.tax_treatment).toBe("reverse_charge");
+    expect(bundle.vat_rate).toBe(0);
+    expect(bundle.vat_amount).toBe(0);
+  });
+
+  it("uses the full German client price and 20 percent Poise VAT without client VAT", () => {
+    const [bundle] = calculateCoachBundles({
+      sessions: [session("de-out", 200, false)],
       coachTaxProfile: {
         business_country_code: "DE",
         vat_number: "DE123456789",
@@ -117,9 +141,66 @@ describe("coach billing calculations", () => {
     });
 
     expect(bundle.bundle_type).toBe("client_without_vat");
-    expect(bundle.rows[0].unit_price_net).toBe(30);
-    expect(bundle.tax_treatment).toBe("reverse_charge");
-    expect(bundle.vat_rate).toBe(0);
+    expect(bundle.rows[0].unit_price_net).toBe(60);
+    expect(bundle.subtotal_net).toBe(60);
+    expect(bundle.tax_treatment).toBe("vat");
+    expect(bundle.vat_rate).toBe(20);
+    expect(bundle.vat_amount).toBe(12);
+    expect(bundle.total_gross).toBe(72);
+  });
+
+  it("reconstructs Sophie's German without-client-VAT bundle totals without changing commission basis", () => {
+    const sessions = [
+      ...Array.from({ length: 42 }, (_, index) => session(`sophie-45-${index}`, 150, false)),
+      ...Array.from({ length: 50 }, (_, index) => session(`sophie-60-${index}`, 200, false)),
+      session("sophie-42", 140, false),
+    ];
+    const [bundle] = calculateCoachBundles({
+      sessions,
+      coachTaxProfile: {
+        business_country_code: "DE",
+        vat_number: "DE123456789",
+        uid_confirmed_at: "2026-01-01T00:00:00.000Z",
+        uid_confirmed_by: "admin-1",
+        default_vat_rate: 19,
+      },
+    });
+
+    expect(bundle.session_count).toBe(93);
+    expect(bundle.rows.map(({ qty, unit_price_net }) => [qty, unit_price_net])).toEqual([
+      [42, 45],
+      [50, 60],
+      [1, 42],
+    ]);
+    expect(bundle.subtotal_net).toBe(4932);
+    expect(bundle.tax_treatment).toBe("vat");
+    expect(bundle.vat_rate).toBe(20);
+    expect(bundle.vat_amount).toBe(986.4);
+    expect(bundle.total_gross).toBe(5918.4);
+  });
+
+  it("applies different Poise tax treatments to both bundles for one German coach", () => {
+    const bundles = calculateCoachBundles({
+      sessions: [session("de-with", 119, true), session("de-without", 200, false)],
+      coachTaxProfile: {
+        business_country_code: "DE",
+        vat_number: "DE123456789",
+        uid_confirmed_at: "2026-01-01T00:00:00.000Z",
+        uid_confirmed_by: "admin-1",
+        default_vat_rate: 19,
+      },
+    });
+
+    const withVat = bundles.find((bundle) => bundle.bundle_type === "client_with_vat");
+    const withoutVat = bundles.find((bundle) => bundle.bundle_type === "client_without_vat");
+
+    expect(withVat.rows[0].unit_price_net).toBe(30);
+    expect(withVat.tax_treatment).toBe("reverse_charge");
+    expect(withVat.vat_rate).toBe(0);
+    expect(withoutVat.rows[0].unit_price_net).toBe(60);
+    expect(withoutVat.tax_treatment).toBe("vat");
+    expect(withoutVat.vat_rate).toBe(20);
+    expect(withoutVat.total_gross).toBe(72);
   });
 
   it("blocks client-with-VAT commission calculation if coach rate is missing", () => {
@@ -138,21 +219,87 @@ describe("coach billing calculations", () => {
   it("returns review_required for an EU UID that was entered but not confirmed", () => {
     expect(
       resolveCoachInvoiceTax({
-        business_country_code: "DE",
-        vat_number: "DE123456789",
+        coachTaxProfile: {
+          business_country_code: "DE",
+          vat_number: "DE123456789",
+        },
+        bundleType: "client_with_vat",
       })
     ).toMatchObject({
       tax_treatment: "review_required",
-      tax_reason: "eu_uid_not_confirmed",
+      tax_reason: "de_uid_not_confirmed",
     });
   });
 
-  it("requires review for missing and third-country seats", () => {
-    expect(resolveCoachInvoiceTax({}).tax_reason).toBe("business_country_missing");
+  it("requires review for a DE client-with-VAT bundle with no UID", () => {
     expect(
-      resolveCoachInvoiceTax({ business_country_code: "CH", vat_number: "CHE123" })
-        .tax_treatment
-    ).toBe("review_required");
+      resolveCoachInvoiceTax({
+        coachTaxProfile: { business_country_code: "DE" },
+        bundleType: "client_with_vat",
+      })
+    ).toMatchObject({
+      tax_treatment: "review_required",
+      tax_reason: "de_uid_missing",
+    });
+  });
+
+  it("applies Austrian VAT to both bundles and does not use Reverse Charge", () => {
+    const profile = { business_country_code: "AT", default_vat_rate: 20 };
+
+    expect(
+      resolveCoachInvoiceTax({
+        coachTaxProfile: profile,
+        bundleType: "client_with_vat",
+      })
+    ).toMatchObject({ tax_treatment: "vat", vat_rate: 20 });
+    expect(
+      resolveCoachInvoiceTax({
+        coachTaxProfile: profile,
+        bundleType: "client_without_vat",
+      })
+    ).toMatchObject({ tax_treatment: "vat", vat_rate: 20 });
+  });
+
+  it("does not generalize Reverse Charge to other EU countries", () => {
+    expect(
+      resolveCoachInvoiceTax({
+        coachTaxProfile: {
+          business_country_code: "FR",
+          vat_number: "FR12345678901",
+          uid_confirmed_at: "2026-01-01T00:00:00.000Z",
+          uid_confirmed_by: "admin-1",
+        },
+        bundleType: "client_with_vat",
+      })
+    ).toMatchObject({
+      tax_treatment: "review_required",
+      tax_reason: "unsupported_client_with_vat_country",
+    });
+  });
+
+  it("requires review for a missing or unsupported bundle type", () => {
+    expect(resolveCoachInvoiceTax({ coachTaxProfile: { business_country_code: "DE" } }))
+      .toMatchObject({ tax_treatment: "review_required", vat_rate: 0 });
+  });
+
+  it("requires review for a missing country in the client-with-VAT bundle", () => {
+    expect(
+      resolveCoachInvoiceTax({
+        coachTaxProfile: {},
+        bundleType: "client_with_vat",
+      }).tax_reason
+    ).toBe("business_country_missing");
+  });
+
+  it("requires review if the semantic bundle type is missing or unsupported", () => {
+    expect(
+      resolveCoachInvoiceTax({
+        coachTaxProfile: { business_country_code: "DE" },
+      })
+    ).toMatchObject({
+      tax_treatment: "review_required",
+      tax_reason: "client_bundle_type_missing_or_unsupported",
+    });
   });
 
   it("uses Vienna calendar boundaries converted to UTC", () => {

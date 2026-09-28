@@ -36,10 +36,13 @@ export async function POST(req) {
     if (!uid) return json({ error: "UID_REQUIRED" }, 400);
 
     const taxCheck = resolveCoachInvoiceTax({
-      business_country_code: settings.business_country_code,
-      vat_number: uid,
+      coachTaxProfile: {
+        business_country_code: settings.business_country_code,
+        vat_number: uid,
+      },
+      bundleType: "client_with_vat",
     });
-    if (taxCheck.tax_reason !== "eu_uid_not_confirmed") {
+    if (taxCheck.tax_reason !== "de_uid_not_confirmed") {
       return json({ error: "UID_CONFIRMATION_NOT_APPLICABLE" }, 400);
     }
 

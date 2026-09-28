@@ -71,7 +71,8 @@ export async function GET(req) {
         anfragen (
           vorname,
           nachname,
-          status
+          status,
+          invoice_with_vat
         )
       `)
 .or(`therapist_id.eq.${member.id},therapist_id.eq.${user.id}`)

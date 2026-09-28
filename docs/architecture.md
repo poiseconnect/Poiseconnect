@@ -107,9 +107,17 @@ Coach-Tax-Profile verwenden `business_country_code`, `vat_number` und
 `default_vat_rate`. Für EU-Reverse-Charge ist eine manuelle Admin-Bestätigung
 der UID erforderlich; bloße Eingabe reicht nicht. Eine Änderung von UID oder
 steuerlichem Sitz löscht die Bestätigung. Österreichische Poise-Rechnungen
-verwenden 20 % USt; für andere EU-Sitze wird Reverse Charge nur mit bestätigter
-UID freigegeben. Fehlende oder nicht unterstützte Daten führen zu
-`review_required` und blockieren die steuerlich relevante Weiterverarbeitung.
+verwenden für beide Bundles 20 % USt. Das `client_without_vat`-Bundle erhält
+20 % Poise-USt unabhängig vom Coach-Land oder einer UID-Bestätigung. Beim
+`client_with_vat`-Bundle gilt für DE Reverse Charge nur mit manuell bestätigter
+UID; fehlende oder unbestätigte UID führt zu `review_required`. AT erhält für
+dieses Bundle 20 % Poise-USt. Andere Sitze als AT und DE werden nicht pauschal
+als Reverse Charge behandelt und erfordern beim `client_with_vat`-Bundle Review.
+
+Die Bundle-Tax-Entscheidung erhält ausdrücklich den semantischen Bundletyp.
+Sie ist von der Provisionsbasis getrennt: `client_with_vat` verwendet den
+Coach-USt-Satz zur Nettoermittlung, `client_without_vat` verwendet den vollen
+Sessionpreis. Die daraus berechnete Poise-Steuer wird pro Bundle festgelegt.
 
 Rechnungszeiträume werden als `Europe/Vienna`-Kalendertage bestimmt und für
 Sessions-Abfragen in UTC-Grenzen umgerechnet. Die automatische Berechnung ist

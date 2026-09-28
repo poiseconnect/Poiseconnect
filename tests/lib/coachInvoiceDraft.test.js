@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { buildEditableCoachInvoicePayload } from "../../app/lib/coachInvoiceDraft.js";
-import { getCoachInvoiceDraftView } from "../../app/lib/coachBilling.js";
+import {
+  applyCurrentCalculationToDraft,
+  calculateCoachBundles,
+  getCoachInvoiceDraftView,
+} from "../../app/lib/coachBilling.js";
 
 const period = {
   billingMode: "quartal",
@@ -100,6 +104,59 @@ describe("editable coach invoice draft", () => {
     expect(view.primary_draft.total_net).toBe(656);
     expect(view.current_calculation.session_count).toBe(14);
     expect(view.has_calculation_difference).toBe(true);
+  });
+
+  it("does not alter a saved tax treatment on load, but explicit recalculation updates it", () => {
+    const saved = {
+      ...manualDraft,
+      invoice_with_vat: false,
+      tax_treatment: "reverse_charge",
+      tax_reason: "old_saved_tax",
+      vat_rate: 0,
+      total_net: 60,
+      total_gross: 60,
+      line_items: [{
+        id: "saved",
+        description: "Gespeichert",
+        qty: 1,
+        unit_price: 60,
+        total: 60,
+      }],
+    };
+    const [currentBundle] = calculateCoachBundles({
+      sessions: [{
+        id: "without-vat-session",
+        price: 200,
+        anfragen: { invoice_with_vat: false },
+      }],
+      coachTaxProfile: {
+        business_country_code: "DE",
+        vat_number: "DE123456789",
+        uid_confirmed_at: "2026-01-01T00:00:00.000Z",
+        uid_confirmed_by: "admin-1",
+        default_vat_rate: 19,
+      },
+    });
+    const loaded = getCoachInvoiceDraftView({
+      invoice: saved,
+      calculatedBundle: currentBundle,
+    });
+
+    expect(loaded.primary_draft.tax_treatment).toBe("reverse_charge");
+    expect(loaded.primary_draft.vat_rate).toBe(0);
+    expect(loaded.current_calculation.tax_treatment).toBe("vat");
+    expect(loaded.current_calculation.vat_rate).toBe(20);
+    expect(loaded.has_calculation_difference).toBe(true);
+
+    const recalculated = applyCurrentCalculationToDraft(saved, currentBundle);
+    expect(recalculated.line_items[0].qty).toBe(1);
+    expect(recalculated.total_net).toBe(60);
+    expect(recalculated.tax_treatment).toBe("vat");
+    expect(recalculated.vat_rate).toBe(20);
+    expect(recalculated.vat_amount).toBe(12);
+    expect(recalculated.total_gross).toBe(72);
+    expect(recalculated.invoice_number).toBe(saved.invoice_number);
+    expect(recalculated.payment_terms).toBe(saved.payment_terms);
   });
 
   it("preserves existing sevDesk metadata during an ordinary save", () => {
