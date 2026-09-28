@@ -3,6 +3,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { teamData } from "../lib/teamData";
 import {
+  getInvoiceSettingsTargetId,
+  isInvoiceSettingsReady,
+  shouldShowInvoiceSettingsPrompt,
+} from "../lib/invoiceSettingsUi.js";
+import {
   isCoachAvailableForNewClient,
   findCoachAvailabilityMember,
   getAdminCoachOptions,
@@ -1461,6 +1466,9 @@ const [invoiceSettings, setInvoiceSettings] = useState({
 });
 
 const [invoiceLoading, setInvoiceLoading] = useState(false);
+const [invoiceSettingsSaving, setInvoiceSettingsSaving] = useState(false);
+const [invoiceSettingsLoadedForId, setInvoiceSettingsLoadedForId] = useState(null);
+const [invoiceSettingsLoadError, setInvoiceSettingsLoadError] = useState("");
 const [uidConfirming, setUidConfirming] = useState(false);
 
 
@@ -1871,40 +1879,104 @@ useEffect(() => {
   if (!user?.email) return;
   if (filter !== "abrechnung") return;
 
-  const selectedTherapistId =
-    isAdmin
-      ? (therapistFilter !== "alle" ? therapistFilter : null)
-      : myTeamMemberId;
+  const selectedTherapistId = getInvoiceSettingsTargetId({
+    isAdmin,
+    selectedCoachId: therapistFilter,
+    coachId: myTeamMemberId,
+  });
 
-  if (!selectedTherapistId) return;
+  if (!selectedTherapistId) {
+    setInvoiceSettings({
+      company_name: "",
+      address: "",
+      iban: "",
+      bic: "",
+      logo_url: "",
+      tax_number: "",
+      vat_number: "",
+      business_country_code: "",
+      uid_confirmed_at: null,
+      uid_confirmed_by: null,
+      default_vat_rate: 0,
+      invoice_footer_text: "",
+    });
+    setInvoiceSettingsLoadedForId(null);
+    setInvoiceSettingsLoadError("");
+    setInvoiceLoading(false);
+    return;
+  }
 
   let mounted = true;
-
+  setInvoiceSettingsLoadedForId(null);
+  setInvoiceSettingsLoadError("");
+  setInvoiceSettings({
+    company_name: "",
+    address: "",
+    iban: "",
+    bic: "",
+    logo_url: "",
+    tax_number: "",
+    vat_number: "",
+    business_country_code: "",
+    uid_confirmed_at: null,
+    uid_confirmed_by: null,
+    default_vat_rate: 0,
+    invoice_footer_text: "",
+  });
   (async () => {
     setInvoiceLoading(true);
 
-    const res = await fetch("/api/invoice-settings", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        therapist_id: selectedTherapistId,
-      }),
-    });
+    try {
+      const token = await getAccessToken();
+      if (!token) throw new Error("NO_TOKEN");
 
-    if (res.ok) {
-      const data = await res.json();
-      if (mounted && data?.settings) {
-        setInvoiceSettings((p) => ({ ...p, ...data.settings }));
+      const res = await fetch("/api/invoice-settings", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          therapist_id: selectedTherapistId,
+        }),
+      });
+
+      const data = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(data?.error || "SETTINGS_LOAD_FAILED");
+      if (mounted) {
+        setInvoiceSettings((current) => ({ ...current, ...(data?.settings || {}) }));
+        setInvoiceSettingsLoadedForId(selectedTherapistId);
       }
+    } catch {
+      if (mounted) setInvoiceSettingsLoadError("Rechnungsdaten konnten nicht geladen werden.");
+    } finally {
+      if (mounted) setInvoiceLoading(false);
     }
-
-    if (mounted) setInvoiceLoading(false);
   })();
 
   return () => {
     mounted = false;
   };
 }, [user, filter, isAdmin, therapistFilter, myTeamMemberId]);
+
+const invoiceSettingsTargetId = getInvoiceSettingsTargetId({
+  isAdmin,
+  selectedCoachId: therapistFilter,
+  coachId: myTeamMemberId,
+});
+const invoiceSettingsReady = isInvoiceSettingsReady({
+  targetId: invoiceSettingsTargetId,
+  loadedForId: invoiceSettingsLoadedForId,
+  loading: invoiceLoading,
+});
+const showInvoiceSettingsPrompt = shouldShowInvoiceSettingsPrompt({
+  isAdmin,
+  targetId: invoiceSettingsTargetId,
+});
+const invoiceSettingsTargetName = isAdmin
+  ? teamData.find((coach) => String(coach.id) === invoiceSettingsTargetId)?.name ||
+    "Coach"
+  : null;
 
 useEffect(() => {
   if (!isAdmin || filter !== "abrechnung" || therapistFilter === "alle") {
@@ -3958,11 +4030,26 @@ return (
         }}
       >
         <summary style={{ cursor: "pointer", fontWeight: 600 }}>
-          🧾 Rechnungsdaten (deine Angaben)
+          🧾 {isAdmin
+            ? invoiceSettingsTargetId
+              ? `Rechnungsdaten – ${invoiceSettingsTargetName}`
+              : "Rechnungsdaten – Coach auswählen"
+            : "Rechnungsdaten (deine Angaben)"}
         </summary>
 
         <div style={{ marginTop: 10 }}>
-          {invoiceLoading && <div>Lade Rechnungsdaten…</div>}
+          {showInvoiceSettingsPrompt ? (
+            <div style={{ color: "#666" }}>
+              Bitte oben eine Therapeut:in auswählen, um deren Rechnungsdaten zu bearbeiten.
+            </div>
+          ) : invoiceSettingsLoadError ? (
+            <div role="alert" style={{ color: "#a12622" }}>
+              {invoiceSettingsLoadError}
+            </div>
+          ) : !invoiceSettingsReady ? (
+            <div>Lade Rechnungsdaten…</div>
+          ) : (
+            <>
 
           <div
             style={{
@@ -4085,9 +4172,10 @@ return (
             <div>
               <label>Steuerlicher Firmensitz (ISO-Ländercode)</label>
               <input
+                list="invoice-business-country-options"
                 value={invoiceSettings.business_country_code || ""}
                 maxLength={2}
-                placeholder="AT, DE, CH …"
+                placeholder="AT oder DE"
                 onChange={(e) =>
                   setInvoiceSettings({
                     ...invoiceSettings,
@@ -4097,6 +4185,10 @@ return (
                   })
                 }
               />
+              <datalist id="invoice-business-country-options">
+                <option value="AT" label="Österreich (AT)" />
+                <option value="DE" label="Deutschland (DE)" />
+              </datalist>
             </div>
 
             {isAdmin && (
@@ -4211,46 +4303,51 @@ return (
           >
             <button
               type="button"
+              disabled={invoiceSettingsSaving || !invoiceSettingsReady}
               onClick={async () => {
-                const targetTherapistId =
-                  isAdmin
-                    ? (therapistFilter !== "alle" ? therapistFilter : null)
-                    : myTeamMemberId;
+                const targetTherapistId = invoiceSettingsTargetId;
 
                 if (!targetTherapistId) {
                   alert("Bitte zuerst eine Therapeut:in auswählen");
                   return;
                 }
 
-                const accessToken = await getAccessToken();
-                if (!accessToken) {
-                  alert("Fehler beim Speichern: Keine gültige Session gefunden.");
-                  return;
+                setInvoiceSettingsSaving(true);
+                try {
+                  const accessToken = await getAccessToken();
+                  if (!accessToken) {
+                    alert("Fehler beim Speichern: Keine gültige Session gefunden.");
+                    return;
+                  }
+
+                  const res = await fetch("/api/accounting-settings", {
+                    method: "POST",
+                    headers: {
+                      "Content-Type": "application/json",
+                      Authorization: `Bearer ${accessToken}`,
+                    },
+                    body: JSON.stringify({
+                      ...invoiceSettings,
+                      therapist_id: targetTherapistId,
+                    }),
+                  });
+
+                  if (!res.ok) {
+                    alert("Fehler beim Speichern der Rechnungsdaten");
+                    return;
+                  }
+
+                  alert("Rechnungsdaten gespeichert");
+                } finally {
+                  setInvoiceSettingsSaving(false);
                 }
-
-                const res = await fetch("/api/accounting-settings", {
-                  method: "POST",
-                  headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${accessToken}`,
-                  },
-                  body: JSON.stringify({
-                    ...invoiceSettings,
-                    therapist_id: targetTherapistId,
-                  }),
-                });
-
-                if (!res.ok) {
-                  alert("Fehler beim Speichern der Rechnungsdaten");
-                  return;
-                }
-
-                alert("Rechnungsdaten gespeichert");
               }}
             >
-              💾 Rechnungsdaten speichern
+              {invoiceSettingsSaving ? "Speichere…" : "💾 Rechnungsdaten speichern"}
             </button>
           </div>
+            </>
+          )}
         </div>
       </details>
       {isAdmin && (

@@ -76,6 +76,13 @@ Quellen laden.
 
 ## Coach-Rechnungen und UID-Bestätigung
 
+Der private Rechnungsdaten-Leseendpunkt `/api/invoice-settings` erfordert einen
+gültigen Bearer-Token und ein aktives Teammitglied. Coaches dürfen nur ihre
+eigene `therapist_id` laden; aktive Admins dürfen die Einstellungen eines
+existierenden Coaches laden. Schreibzugriffe bleiben über
+`/api/accounting-settings` rollenbeschränkt und verwenden den eindeutigen
+`therapist_id`-Upsert.
+
 Coach-UIDs werden nicht durch ihre Eingabe als bestätigt behandelt. Nur aktive
 Admins dürfen sie manuell über `/api/accounting-settings/confirm-uid`
 bestätigen. Änderungen an `vat_number` oder `business_country_code` löschen
