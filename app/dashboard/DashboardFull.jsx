@@ -4,6 +4,10 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { teamData } from "../lib/teamData";
 import { calculateSessionCommission } from "../lib/coachBilling.js";
 import {
+  buildCoachInvoiceSettingsById,
+  calculateControllingSessionCommission,
+} from "../lib/controllingBilling.js";
+import {
   getInvoiceSettingsTargetId,
   isInvoiceSettingsReady,
   shouldShowInvoiceSettingsPrompt,
@@ -1333,6 +1337,7 @@ const [myUserId, setMyUserId] = useState(null);
 const [access, setAccess] = useState("loading");
   const [sessionsByRequest, setSessionsByRequest] = useState({});
   const [billingSessions, setBillingSessions] = useState([]);
+  const [coachInvoiceSettingsById, setCoachInvoiceSettingsById] = useState({});
   const [adminCoachInvoiceBundles, setAdminCoachInvoiceBundles] = useState([]);
   const [adminCoachBillingLoading, setAdminCoachBillingLoading] = useState(false);
   const [adminCoachBillingError, setAdminCoachBillingError] = useState("");
@@ -2270,9 +2275,16 @@ useEffect(() => {
 /* =========================================================
    LOAD BILLING SESSIONS (IMMER ALLE – FILTER NUR IM FRONTEND)
 ========================================================= */
+const billingLoadScope = role === "admin"
+  ? (["abrechnung", "controlling"].includes(filter) ? filter : null)
+  : role === "therapist"
+    ? "therapist"
+    : null;
+
 useEffect(() => {
   if (!user?.email) return;
   if (!role) return; // ⛔ warten bis Rolle bekannt
+  if (!billingLoadScope) return;
 
   // Therapeut: warten bis team_member_id da
   if (role === "therapist" && !myTeamMemberId) return;
@@ -2301,18 +2313,25 @@ const r = await fetch(endpoint, {
       if (!r.ok) {
         console.error("❌ BILLING API ERROR:", res);
         setBillingSessions([]);
+        if (role === "admin") setCoachInvoiceSettingsById({});
         return;
       }
 
       console.log("✅ BILLING DATEN:", res?.data?.length);
 
       setBillingSessions(Array.isArray(res?.data) ? res.data : []);
+      if (role === "admin") {
+        setCoachInvoiceSettingsById(
+          buildCoachInvoiceSettingsById(res?.coachInvoiceSettings)
+        );
+      }
     } catch (err) {
       console.error("🔥 BILLING LOAD FAILED:", err);
       setBillingSessions([]);
+      if (role === "admin") setCoachInvoiceSettingsById({});
     }
   })();
-}, [user, role, myTeamMemberId]); // ✅ SUPER WICHTIG
+}, [user, role, myTeamMemberId, billingLoadScope]); // ✅ SUPER WICHTIG
 
 
 
@@ -3011,10 +3030,9 @@ const controllingRows = useMemo(() => {
     }
 
     const price = Number(s.price || 0);
-    const provision = getBillingSessionProvision(
+    const provision = calculateControllingSessionCommission(
       s,
-      invoiceSettings,
-      invoiceSettingsLoadedForId
+      coachInvoiceSettingsById
     );
     if (provision.error) {
       map[therapistId].provision_calculation_incomplete = true;
@@ -3049,8 +3067,7 @@ return Object.values(map)
 }, [
   filteredBillingSessions,
   responseTimeByTherapist,
-  invoiceSettings,
-  invoiceSettingsLoadedForId,
+  coachInvoiceSettingsById,
 ]);
   
 const controllingTotals = useMemo(() => {

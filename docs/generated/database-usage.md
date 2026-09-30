@@ -3,7 +3,7 @@
 > Diese Datei wird durch `scripts/generate-project-map.mjs` erzeugt.
 > Nicht manuell bearbeiten.
 
-Erzeugt am: 2026-09-28T05:22:05.910Z
+Erzeugt am: 2026-09-30T05:01:56.372Z
 
 ## `anfragen`
 
@@ -133,6 +133,7 @@ Erzeugt am: 2026-09-28T05:22:05.910Z
 - `app/api/accounting-settings/route.js`
 - `app/api/add-sessions-batch/route.js`
 - `app/api/admin-forward/route.js`
+- `app/api/admin/billing-sessions/route.js`
 - `app/api/admin/booking-overview/route.js`
 - `app/api/admin/coach-billing/route.js`
 - `app/api/booking/book/route.js`
@@ -152,6 +153,7 @@ Erzeugt am: 2026-09-28T05:22:05.910Z
 - `app/api/forward-request/route.js`
 - `app/api/google/calendars/route.js`
 - `app/api/google/start/route.js`
+- `app/api/invoice-settings/route.js`
 - `app/api/invoices/_lib/coachInvoice.js`
 - `app/api/invoices/load-coach/route.js`
 - `app/api/invoices/load/route.js`
@@ -211,6 +213,7 @@ Erzeugt am: 2026-09-28T05:22:05.910Z
 
 - `app/api/accounting-settings/confirm-uid/route.js`
 - `app/api/accounting-settings/route.js`
+- `app/api/admin/billing-sessions/route.js`
 - `app/api/invoice-settings/route.js`
 - `app/api/invoices/_lib/coachInvoice.js`
 - `app/api/invoices/load/route.js`

@@ -1,26 +1,32 @@
-import { createClient } from "@supabase/supabase-js";
+import { getUserFromBearer, json, supabaseAdmin } from "../../_lib/server";
 
 export const dynamic = "force-dynamic";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-);
-
-function json(data, status = 200) {
-  return new Response(JSON.stringify(data), {
-    status,
-    headers: {
-      "Content-Type": "application/json",
-    },
-  });
-}
-
-export async function GET() {
+export async function GET(req) {
   try {
-    const { data, error } = await supabase
-      .from("sessions")
-      .select(`
+    const { user, error: authError } = await getUserFromBearer(req);
+    if (!user) return json({ error: authError || "NO_TOKEN" }, 401);
+
+    const supabase = supabaseAdmin();
+    const { data: member, error: memberError } = await supabase
+      .from("team_members")
+      .select("id, role, active")
+      .eq("user_id", user.id)
+      .single();
+
+    if (
+      memberError ||
+      !member ||
+      member.active !== true ||
+      member.role !== "admin"
+    ) {
+      return json({ error: "NO_ACCESS" }, 403);
+    }
+
+    const [sessionsResult, settingsResult] = await Promise.all([
+      supabase
+        .from("sessions")
+        .select(`
         id,
         date,
         duration_min,
@@ -43,15 +49,30 @@ export async function GET() {
           email
         )
       `)
-      .order("date", { ascending: false });
+        .order("date", { ascending: false }),
+      supabase
+        .from("therapist_invoice_settings")
+        .select(`
+          therapist_id,
+          default_vat_rate,
+          business_country_code,
+          vat_number,
+          uid_confirmed_at
+        `),
+    ]);
 
-    if (error) {
-      console.error("ADMIN BILLING ERROR:", { code: error?.code || null });
+    if (sessionsResult.error || settingsResult.error) {
+      console.error("ADMIN BILLING ERROR:", {
+        code: sessionsResult.error?.code || settingsResult.error?.code || null,
+      });
       return json({ error: "INTERNAL_ERROR" }, 500);
     }
 
-    return json({ data });
-  } catch (err) {
+    return json({
+      data: sessionsResult.data || [],
+      coachInvoiceSettings: settingsResult.data || [],
+    });
+  } catch {
     console.error("ADMIN BILLING SERVER ERROR");
     return json({ error: "SERVER_ERROR" }, 500);
   }

@@ -3,7 +3,7 @@
 > Diese Datei wird durch `scripts/generate-project-map.mjs` erzeugt.
 > Nicht manuell bearbeiten.
 
-Erzeugt am: 2026-09-28T05:22:05.905Z
+Erzeugt am: 2026-09-30T05:01:56.362Z
 
 ## `app/api/accounting-settings/confirm-uid/route.js`
 
@@ -36,7 +36,7 @@ Erzeugt am: 2026-09-28T05:22:05.905Z
 ## `app/api/admin/billing-sessions/route.js`
 
 - Methoden: `GET`
-- Supabase-Tabellen: `sessions`
+- Supabase-Tabellen: `sessions`, `team_members`, `therapist_invoice_settings`
 - Google Calendar: keine Nutzung erkannt
 - Mail-Betreffzeilen: keine erkannt
 
@@ -267,7 +267,7 @@ Erzeugt am: 2026-09-28T05:22:05.905Z
 ## `app/api/invoice-settings/route.js`
 
 - Methoden: `POST`
-- Supabase-Tabellen: `therapist_invoice_settings`
+- Supabase-Tabellen: `team_members`, `therapist_invoice_settings`
 - Google Calendar: keine Nutzung erkannt
 - Mail-Betreffzeilen: keine erkannt
 
