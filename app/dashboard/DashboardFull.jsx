@@ -4,8 +4,12 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { teamData } from "../lib/teamData";
 import { calculateSessionCommission } from "../lib/coachBilling.js";
 import {
+  addProvisionResult,
   buildCoachInvoiceSettingsById,
   calculateControllingSessionCommission,
+  createProvisionErrorCounts,
+  getProvisionWarnings,
+  mergeProvisionErrorCounts,
 } from "../lib/controllingBilling.js";
 import {
   getInvoiceSettingsTargetId,
@@ -49,6 +53,21 @@ function getBillingSessionProvision(session, invoiceSettings, loadedSettingsCoac
       ? invoiceSettings?.default_vat_rate
       : null,
   });
+}
+
+function ProvisionAmount({ row, currency = false }) {
+  const warnings = getProvisionWarnings(row.provision_errors);
+
+  return (
+    <>
+      <div>{row.provision.toFixed(2)}{currency ? " €" : ""}</div>
+      {warnings.map((warning) => (
+        <div key={warning} style={{ color: "#a12622", fontSize: 12 }}>
+          {warning}
+        </div>
+      ))}
+    </>
+  );
 }
 // ================= POISE DASHBOARD COLORS =================
 const POISE_COLORS = {
@@ -2843,29 +2862,26 @@ if (!map[s.anfrage_id]) {
     umsatz: 0,
     provision: 0,
     provision_calculation_incomplete: false,
+    provision_errors: createProvisionErrorCounts(),
   };
 }
 
     map[s.anfrage_id].sessions += 1;
 
     const price = Number(s.price || 0);
-    const provision = getBillingSessionProvision(
-      s,
-      invoiceSettings,
-      invoiceSettingsLoadedForId
-    );
+    const provision = isAdmin
+      ? calculateControllingSessionCommission(s, coachInvoiceSettingsById)
+      : getBillingSessionProvision(s, invoiceSettings, invoiceSettingsLoadedForId);
 
     map[s.anfrage_id].umsatz += price;
-    if (provision.error) {
-      map[s.anfrage_id].provision_calculation_incomplete = true;
-    } else {
-      map[s.anfrage_id].provision += provision.commissionNet;
-    }
+    addProvisionResult(map[s.anfrage_id], provision);
   });
 
   return Object.values(map);
 }, [
   filteredBillingSessions,
+  isAdmin,
+  coachInvoiceSettingsById,
   invoiceSettings,
   invoiceSettingsLoadedForId,
 ]);
@@ -2896,20 +2912,15 @@ const filteredBillingSessionsByClient = useMemo(() => {
         provision: 0,
         payout: 0,
         provision_calculation_incomplete: false,
+        provision_errors: createProvisionErrorCounts(),
       };
     }
 
     const price = Number(s.price || 0);
-    const provision = getBillingSessionProvision(
-      s,
-      invoiceSettings,
-      invoiceSettingsLoadedForId
-    );
-    if (provision.error) {
-      map[s.therapist_id].provision_calculation_incomplete = true;
-    } else {
-      map[s.therapist_id].provision += provision.commissionNet;
-    }
+    const provision = isAdmin
+      ? calculateControllingSessionCommission(s, coachInvoiceSettingsById)
+      : getBillingSessionProvision(s, invoiceSettings, invoiceSettingsLoadedForId);
+    addProvisionResult(map[s.therapist_id], provision);
 
 const payout = 0;
     
@@ -2923,6 +2934,8 @@ const payout = 0;
   );
 }, [
   filteredBillingSessionsByClient,
+  isAdmin,
+  coachInvoiceSettingsById,
   invoiceSettings,
   invoiceSettingsLoadedForId,
 ]);
@@ -3026,6 +3039,7 @@ const controllingRows = useMemo(() => {
         provision: 0,
         payout: 0,
         provision_calculation_incomplete: false,
+        provision_errors: createProvisionErrorCounts(),
       };
     }
 
@@ -3034,11 +3048,7 @@ const controllingRows = useMemo(() => {
       s,
       coachInvoiceSettingsById
     );
-    if (provision.error) {
-      map[therapistId].provision_calculation_incomplete = true;
-    } else {
-      map[therapistId].provision += provision.commissionNet;
-    }
+    addProvisionResult(map[therapistId], provision);
 
 const payout = 0;
 
@@ -3078,6 +3088,7 @@ const controllingTotals = useMemo(() => {
       acc.umsatz += Number(row.umsatz || 0);
       acc.provision += Number(row.provision || 0);
       acc.provision_calculation_incomplete ||= row.provision_calculation_incomplete;
+      mergeProvisionErrorCounts(acc.provision_errors, row.provision_errors);
       acc.payout += Number(row.payout || 0);
       return acc;
     },
@@ -3087,6 +3098,7 @@ const controllingTotals = useMemo(() => {
       umsatz: 0,
       provision: 0,
       provision_calculation_incomplete: false,
+      provision_errors: createProvisionErrorCounts(),
       payout: 0,
     }
   );
@@ -4432,9 +4444,7 @@ return (
               <td align="center">{row.sessions}</td>
               <td align="right">{row.umsatz.toFixed(2)}</td>
               <td align="right">
-                {row.provision_calculation_incomplete
-                  ? "Coach-USt-Satz fehlt"
-                  : row.provision.toFixed(2)}
+                <ProvisionAmount row={row} />
               </td>
               <td align="right">{row.payout.toFixed(2)}</td>
 
@@ -4785,9 +4795,7 @@ if (!res.ok) {
                 <td align="center">{r.sessions}</td>
                 <td align="right">{r.umsatz.toFixed(2)}</td>
                 <td align="right">
-                  {r.provision_calculation_incomplete
-                    ? "Coach-USt-Satz fehlt"
-                    : r.provision.toFixed(2)}
+                  <ProvisionAmount row={r} />
                 </td>
                 <td align="right">
                   <button
@@ -4971,9 +4979,7 @@ gridTemplateColumns:
         >
           <div style={{ fontSize: 12, color: "#666" }}>Provision Poise</div>
           <div style={{ fontSize: 24, fontWeight: 800 }}>
-            {controllingTotals.provision_calculation_incomplete
-              ? "Prüfen"
-              : `${controllingTotals.provision.toFixed(2)} €`}
+            <ProvisionAmount row={controllingTotals} currency />
           </div>
         </div>
 
@@ -5023,9 +5029,7 @@ gridTemplateColumns:
                 <td align="center">{row.sessions}</td>
                 <td align="right">{row.umsatz.toFixed(2)}</td>
                 <td align="right">
-                  {row.provision_calculation_incomplete
-                    ? "Coach-USt-Satz fehlt"
-                    : row.provision.toFixed(2)}
+                  <ProvisionAmount row={row} />
                 </td>
                 <td align="right">{row.payout.toFixed(2)}</td>
                 <td align="right">
