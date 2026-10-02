@@ -79,6 +79,48 @@ bestehenden Interessen blind überschreiben.
 
 sevDesk wird für Rechnungs- und Abrechnungsprozesse angebunden.
 
+Der bestehende Poise->Coach-Sync "Alles zu sevDesk" speichert zuerst den
+bearbeiteten Entwurf und verwendet dessen frisch zurueckgelieferte
+`coachInvoiceId` fuer beide Sync-Schritte. `/api/sevdesk/update-coach-invoice`
+laedt ausschliesslich diesen `coach_invoices`-Draft und aktualisiert die
+bestehende sevDesk Invoice ID ueber `POST /Invoice/Factory/saveInvoice`.
+Neben `header`, `headText` und `footText` werden `deliveryDate`,
+`deliveryDateUntil` und bei Quartalen `customerInternalNote` uebertragen.
+Die offizielle [sevDesk OpenAPI-Spezifikation](https://api.sevdesk.de/openapi.yaml)
+ordnet `customerInternalNote` dem Feld "Referenz/Bestellnummer" zu;
+`Model_Invoice` dokumentiert `deliveryDate` als Date-Time-String und
+`deliveryDateUntil` als Integer-Timestamp.
+
+Der Zeitraum stammt aus gespeichertem `billing_mode`, `billing_year` und
+dem relevanten `billing_quarter` beziehungsweise `billing_month`.
+Monat, Quartal und Jahr verwenden inklusive Kalendertagsgrenzen in
+`Europe/Vienna`: Q3 2026 bedeutet 01.07.2026 bis 30.09.2026, Referenz
+"3. Quartal 2026". Beginn wird als ISO-Zeitpunkt und das Ende als
+Unix-Sekunden des letzten Kalendertags um Wiener Mitternacht uebertragen.
+Monats-/Jahresrechnungen behalten ihre bestehende sevDesk-Referenz.
+Fehlende/ungueltige Perioden stoppen den Update-Aufruf mit HTTP 400;
+es werden keine leeren Datumswerte gesendet. Ein erkennbares `service_period`
+(Qn YYYY, n. Quartal YYYY, M/YYYY, YYYY oder deutscher/ISO-Datumsbereich)
+muss zur strukturierten Periode passen. Freie redaktionelle Labels bleiben
+zulaessig; aus ihnen wird kein anderer Zeitraum abgeleitet.
+
+Die Metadaten-Erweiterung aendert weder Invoice ID noch Rechnungsnummer,
+Rechnungsdatum, Kontakt/Empfaenger, Positionen, Preise, Steuerwerte oder Status.
+Es findet keine Session-Neuberechnung, Neuanlage, Finalisierung oder Sendung
+statt. Der anschliessende Positions-Sync bleibt unveraendert. Fehler eines
+Teilschritts werden sicher bis zur UI weitergegeben; ohne beide erfolgreichen
+Schritte gibt es keine Gesamt-Erfolgsmeldung und keinen Reload der Eingaben.
+Die Schritte sind nicht atomar: Ein Metadaten-Update kann vor einem
+Positionsfehler bereits erfolgt sein; der bestehende Synczeitpunkt ist kein
+Nachweis einer vollstaendigen Gesamtuebertragung.
+
+`tests/lib/coachInvoiceSevdeskSync.test.js` prueft mit Mocks Quartalsgrenzen,
+Jahreswechsel, Schaltjahr/DST, Monats-/Jahresmodi, Periodenwidersprueche,
+Draft-Datenquelle, erlaubte Update-Felder, Positionsaustausch, frische Save ID,
+Fehlerweitergabe und Eingabeerhalt. Der separat beobachtete Kopftext-Sync-Fehler
+ist durch diese Erweiterung nicht als behoben bestaetigt. Ebenso bleibt der
+separate Dashboard-Erstellungsexport ausserhalb dieses Draft-Syncs.
+
 ## Kritische technische Regeln
 
 - `POISE VERFÜGBAR` niemals in einen Kliententermin umwandeln.
@@ -136,8 +178,11 @@ diese irrelevanten Felder. Mehrere passende historische Zeilen blockieren
 bestehenden Schlüssel ohne `billing_date` nicht eindeutig persistierbar und
 bleiben für Save und Export gesperrt.
 
-PDF und sevDesk sollen in späteren Phasen exakt den bewusst gespeicherten
-Rechnungsentwurf verwenden und ihn nicht zuvor aus Sessions neu berechnen.
+Der gespeicherte Entwurf bleibt die Datenquelle des bestehenden sevDesk-Draft-
+Syncs. Der PDF-Export verwendet den bearbeiteten UI-Arbeitsstand; der separate
+Dashboard-Erstellungsexport verwendet aktuelle Abrechnungsbundles. Diese
+Pfade sind nicht mit einer erneuten Berechnung des gespeicherten Drafts
+gleichzusetzen.
 
 ## Aktueller Systemzuschnitt
 

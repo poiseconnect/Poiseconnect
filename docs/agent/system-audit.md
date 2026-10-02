@@ -205,6 +205,25 @@ Jeder CTO-Abschlussbericht (siehe `docs/agent/cto-workflow.md`) muss einen Absch
 
 Bei Updates an bestehender Dokumentation dokumentiert der Agent die durchgeführten Änderungen, die Quellen der Verifikation und die verantwortliche Person, die das Update vorgenommen hat.
 
+### Verifiziertes Systemwissen: sevDesk-Draft-Sync (2026-10-02)
+
+GitHub Copilot hat im freigegebenen lokalen Implementierungsauftrag den
+bestehenden Draft-Sync um Leistungszeitraum und Quartalsreferenz erweitert.
+Quelle bleibt die via `coachInvoiceId` geladene `coach_invoices`-Zeile;
+strukturierte Periodenfelder bestimmen die Grenzen, erkennbare widersprechende
+`service_period`-Labels blockieren den Aufruf. Beide UI-Sync-Schritte verwenden
+die frisch gespeicherte ID und lassen Fehler bis zur Oberflaeche durch.
+Dieses allgemein relevante Verhalten und die API-Felder sind in
+`docs/architecture.md` dokumentiert. Verifikation: offizielle sevDesk-
+OpenAPI-Spezifikation, gemockte Route-/UI-Regressionen und bestehende
+Draft-Tests; keine produktiven DB- oder sevDesk-Aufrufe. Die vollstaendige
+Suite bestand mit 350 Tests. Next.js kompiliert, der lokale Gesamtbuild ist
+wegen fehlender Supabase-Umgebungsvariablen nicht abgeschlossen.
+
+Offen bleiben fehlende Atomaritaet des Zwei-Schritt-Syncs sowie der separat
+beobachtete Kopftext-Sync-Fehler. Die Erweiterung bestaetigt keine Behebung
+dieses Fehlers und veraendert keine Steuer-/Provisionsentscheidung.
+
 ## Schutz generierter Dokumentation
 
 Dateien unter `docs/generated/` dürfen nicht manuell editiert werden, sofern sie durch einen vorhandenen Generator erzeugt werden. Änderungen an generierten Artefakten müssen über den zuständigen Generator oder dessen technische Quellen erfolgen.

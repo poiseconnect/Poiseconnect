@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../../../lib/supabase";
+import { getSevdeskSyncErrorMessage } from "../../../lib/coachInvoiceDraft.js";
 import jsPDF from "jspdf";
 import "jspdf-autotable";
 
@@ -316,7 +317,7 @@ async function saveInvoice() {
     const result = await res.json().catch(() => null);
 
     if (!res.ok) {
-      console.error("SAVE COACH INVOICE ERROR:", result);
+      console.error("SAVE COACH INVOICE ERROR:", { status: res.status });
       throw new Error("Fehler beim Speichern");
     }
 
@@ -407,12 +408,9 @@ async function updateInvoiceInSevdesk(targetCoachInvoiceId = null) {
 
     const json = await res.json().catch(() => null);
 
-    if (!res.ok) {
-      console.error("UPDATE SEVDESK INVOICE ERROR:", json);
-      throw new Error(
-        "sevDesk Update fehlgeschlagen:\n\n" +
-          JSON.stringify(json, null, 2)
-      );
+    if (!res.ok || json?.ok !== true) {
+      console.error("UPDATE SEVDESK INVOICE ERROR:", { status: res.status });
+      throw new Error(getSevdeskSyncErrorMessage(json));
     }
 
     return json;
@@ -451,64 +449,12 @@ async function updateInvoiceInSevdesk(targetCoachInvoiceId = null) {
 
     const json = await res.json().catch(() => null);
 
-    if (!res.ok) {
-      console.error("SYNC POSITIONS ERROR:", json);
-      throw new Error(
-        "sevDesk Positions-Sync fehlgeschlagen:\n\n" +
-          JSON.stringify(json, null, 2)
-      );
+    if (!res.ok || json?.ok !== true) {
+      console.error("SYNC POSITIONS ERROR:", { status: res.status });
+      throw new Error(getSevdeskSyncErrorMessage(json, true));
     }
 
     return json;
-  } finally {
-    setSyncingPositions(false);
-  }
-}
-async function syncInvoicePositionsToSevdesk() {
-  try {
-    if (!savedCoachInvoiceId) {
-      alert("Bitte die Rechnung zuerst speichern");
-      return;
-    }
-
-    if (!sevdeskInvoiceId) {
-      alert("Bitte zuerst eine sevDesk Invoice ID eintragen und speichern");
-      return;
-    }
-
-    setSyncingPositions(true);
-
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
-
-    const res = await fetch("/api/sevdesk/sync-coach-invoice-positions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${session?.access_token}`,
-      },
-      body: JSON.stringify({
-        coachInvoiceId: savedCoachInvoiceId,
-      }),
-    });
-
-    const json = await res.json().catch(() => null);
-
-    if (!res.ok) {
-      console.error("SYNC POSITIONS ERROR:", json);
-      alert(
-        "sevDesk Positions-Sync fehlgeschlagen:\n\n" +
-          JSON.stringify(json, null, 2)
-      );
-      return;
-    }
-
-    alert("sevDesk-Positionen synchronisiert");
-    await loadData();
-  } catch (err) {
-    console.error("SYNC POSITIONS FATAL ERROR:", err);
-    alert("sevDesk Positions-Sync fehlgeschlagen");
   } finally {
     setSyncingPositions(false);
   }
@@ -523,8 +469,7 @@ async function syncInvoicePositionsToSevdesk() {
 
     const saveResult = await saveInvoice();
 
-    const freshCoachInvoiceId =
-      saveResult?.data?.id || savedCoachInvoiceId;
+    const freshCoachInvoiceId = saveResult?.data?.id;
 
     if (!freshCoachInvoiceId) {
       throw new Error("Poise Save ID konnte nicht ermittelt werden");
@@ -536,7 +481,7 @@ async function syncInvoicePositionsToSevdesk() {
     alert("Alles erfolgreich zu sevDesk übertragen ✅");
     await loadData();
   } catch (err) {
-    console.error("SEND ALL TO SEVDESK ERROR:", err);
+    console.error("SEND ALL TO SEVDESK ERROR");
     alert(err.message || "Fehler beim sevDesk Sync");
   } finally {
     setSendingAllToSevdesk(false);
