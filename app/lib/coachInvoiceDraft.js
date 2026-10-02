@@ -1,4 +1,64 @@
-import { toStoredBundleKey } from "./coachBilling.js";
+import { buildCoachBillingPeriod, toStoredBundleKey } from "./coachBilling.js";
+
+export function getSevdeskSyncErrorMessage(result, positions = false) {
+  if (result?.error === "invalid_invoice_period") {
+    return "Der gespeicherte Abrechnungszeitraum fehlt oder ist ungueltig. Bitte den Entwurf pruefen.";
+  }
+  if (result?.error === "invoice_period_conflict") {
+    return "Leistungszeitraum und gespeicherte Periodenfelder widersprechen sich. Bitte den Entwurf pruefen.";
+  }
+  return positions
+    ? "Die Positionen konnten nicht vollstaendig zu sevDesk uebertragen werden. Bitte vor einem erneuten Versuch pruefen."
+    : "Die sevDesk-Rechnung konnte nicht aktualisiert werden. Bitte den gespeicherten Entwurf pruefen.";
+}
+
+export function buildSevdeskPeriodFields(invoice) {
+  const mode = invoice.billing_mode;
+  const year = Number(invoice.billing_year);
+  const quarter = Number(invoice.billing_quarter);
+  const month = Number(invoice.billing_month);
+  if (
+    !Number.isInteger(year) || year < 1000 || year > 9999 ||
+    !["quartal", "monat", "jahr"].includes(mode) ||
+    (mode === "quartal" && (!Number.isInteger(quarter) || quarter < 1 || quarter > 4)) ||
+    (mode === "monat" && (!Number.isInteger(month) || month < 1 || month > 12))
+  ) {
+    throw Object.assign(new TypeError("Der gespeicherte Abrechnungszeitraum fehlt oder ist ungueltig."), {
+      code: "invalid_invoice_period",
+    });
+  }
+
+  const startMonth = mode === "quartal" ? (quarter - 1) * 3 + 1 : mode === "monat" ? month : 1;
+  const endMonth = mode === "quartal" ? startMonth + 2 : mode === "monat" ? month : 12;
+  const lastDay = new Date(Date.UTC(year, endMonth, 0)).getUTCDate();
+  const startDate = `${year}-${String(startMonth).padStart(2, "0")}-01`;
+  const endDate = `${year}-${String(endMonth).padStart(2, "0")}-${lastDay}`;
+  const label = String(invoice.service_period || "").trim();
+  const quarterLabel = /^(?:Q(\d{1,2})|(\d{1,2})\.\s*Quartal)\s+(\d{4})$/i.exec(label);
+  const monthLabel = /^(\d{1,2})\/(\d{4})$/.exec(label);
+  const yearLabel = /^(\d{4})$/.exec(label);
+  const rangeLabel = /^(\d{2})\.(\d{2})\.(\d{4})\s*(?:-|\u2013|\u2014|bis)\s*(\d{2})\.(\d{2})\.(\d{4})$/.exec(label);
+  const isoRangeLabel = /^(\d{4}-\d{2}-\d{2})\s*(?:-|\u2013|\u2014|bis)\s*(\d{4}-\d{2}-\d{2})$/.exec(label);
+  const conflict =
+    (quarterLabel && (mode !== "quartal" || Number(quarterLabel[1] || quarterLabel[2]) !== quarter || Number(quarterLabel[3]) !== year)) ||
+    (monthLabel && (mode !== "monat" || Number(monthLabel[1]) !== month || Number(monthLabel[2]) !== year)) ||
+    (yearLabel && (mode !== "jahr" || Number(yearLabel[1]) !== year)) ||
+    (rangeLabel && (`${rangeLabel[3]}-${rangeLabel[2]}-${rangeLabel[1]}` !== startDate || `${rangeLabel[6]}-${rangeLabel[5]}-${rangeLabel[4]}` !== endDate)) ||
+    (isoRangeLabel && (isoRangeLabel[1] !== startDate || isoRangeLabel[2] !== endDate));
+  if (conflict) {
+    throw Object.assign(new TypeError("Leistungszeitraum und gespeicherte Periodenfelder widersprechen sich. Bitte den Entwurf pruefen."), {
+      code: "invoice_period_conflict",
+    });
+  }
+
+  const start = buildCoachBillingPeriod({ billingMode: "einzeln", billingDate: startDate }).start;
+  const end = buildCoachBillingPeriod({ billingMode: "einzeln", billingDate: endDate }).start;
+  return {
+    deliveryDate: start,
+    deliveryDateUntil: new Date(end).getTime() / 1000,
+    ...(mode === "quartal" ? { customerInternalNote: `${quarter}. Quartal ${year}` } : {}),
+  };
+}
 
 function normalizeString(value) {
   if (value === null || value === undefined) return null;

@@ -1,6 +1,7 @@
 export const dynamic = "force-dynamic";
 
 import { createClient } from "@supabase/supabase-js";
+import { buildSevdeskPeriodFields } from "../../../lib/coachInvoiceDraft.js";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -153,10 +154,18 @@ export async function POST(req) {
 
     const sevdeskInvoiceId = String(coachInvoice.sevdesk_invoice_id);
 
+    let periodFields;
+    try {
+      periodFields = buildSevdeskPeriodFields(coachInvoice);
+    } catch (error) {
+      return json({ ok: false, error: error.code, message: error.message }, 400);
+    }
+
     const payload = {
       invoice: {
         id: sevdeskInvoiceId,
         objectName: "Invoice",
+        ...periodFields,
         header: buildHeader(coachInvoice),
         headText: buildHeadText(coachInvoice),
         footText: buildFootText(coachInvoice),
