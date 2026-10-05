@@ -3,11 +3,15 @@
 > Diese Datei wird durch `scripts/generate-project-map.mjs` erzeugt.
 > Nicht manuell bearbeiten.
 
-Erzeugt am: 2026-09-28T05:22:05.910Z
+Erzeugt am: 2026-10-05T05:10:44.874Z
 
 ## `app/api/admin-forward/route.js`
 
 - Betreffzeilen: `Bitte wähle eine neue Begleitung 🤍`
+
+## `app/api/admin-reengage/route.js`
+
+- Betreffzeilen: dynamisch oder nicht automatisch erkannt
 
 ## `app/api/client/appointment/cancel/route.js`
 

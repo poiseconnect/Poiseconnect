@@ -3,13 +3,14 @@
 > Diese Datei wird durch `scripts/generate-project-map.mjs` erzeugt.
 > Nicht manuell bearbeiten.
 
-Erzeugt am: 2026-09-30T05:01:56.372Z
+Erzeugt am: 2026-10-05T05:10:44.874Z
 
 ## `anfragen`
 
 - `app/api/add-session/route.js`
 - `app/api/add-sessions-batch/route.js`
 - `app/api/admin-forward/route.js`
+- `app/api/admin-reengage/route.js`
 - `app/api/admin/form-drafts/route.js`
 - `app/api/booking/book/route.js`
 - `app/api/booking/free-slots/route.js`
@@ -57,6 +58,10 @@ Erzeugt am: 2026-09-30T05:01:56.372Z
 - `app/lib/handlers/confirmAppointment.js`
 - `app/lib/messaging/inbound.js`
 - `app/lib/messaging/outbound.js`
+
+## `anfragen_reengagement_log`
+
+- `app/api/admin-reengage/route.js`
 
 ## `appointment_proposals`
 
@@ -133,6 +138,7 @@ Erzeugt am: 2026-09-30T05:01:56.372Z
 - `app/api/accounting-settings/route.js`
 - `app/api/add-sessions-batch/route.js`
 - `app/api/admin-forward/route.js`
+- `app/api/admin-reengage/route.js`
 - `app/api/admin/billing-sessions/route.js`
 - `app/api/admin/booking-overview/route.js`
 - `app/api/admin/coach-billing/route.js`

@@ -3,11 +3,16 @@
 > Diese Datei wird durch `scripts/generate-project-map.mjs` erzeugt.
 > Nicht manuell bearbeiten.
 
-Erzeugt am: 2026-09-28T05:22:05.911Z
+Erzeugt am: 2026-10-05T05:10:44.875Z
 
 ## `app/api/admin-forward/route.js`
 
 - Statuswerte: `admin_vorschlaege_gesendet`, `admin_weiterleiten`
+- Match-State-Werte: keine erkannt
+
+## `app/api/admin-reengage/route.js`
+
+- Statuswerte: `failed`, `sent`, `unknown`
 - Match-State-Werte: keine erkannt
 
 ## `app/api/booking/book/route.js`
@@ -113,6 +118,11 @@ Erzeugt am: 2026-09-28T05:22:05.911Z
 ## `app/lib/teamData.js`
 
 - Statuswerte: `frei`
+- Match-State-Werte: keine erkannt
+
+## `tests/api/adminReengageRoute.test.js`
+
+- Statuswerte: `active`, `admin_vorschlaege_gesendet`, `failed`, `termin_bestaetigt`
 - Match-State-Werte: keine erkannt
 
 ## `tests/dashboard/coachFilter.test.js`
