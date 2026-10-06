@@ -257,6 +257,34 @@ teamData
 Profil-Calendar-Mode, Preise, Paarcoaching und Proposal-Zeitgrenzen. Statische
 Matchingfelder wie `qualificationLevel` und Fallback-Scores bleiben erhalten.
 
+Die tatsächlichen ersten E-Mails (Booking: `/api/booking/book`, Proposal:
+`/api/form-submit`) ergänzen die Kostenkommunikation über
+`loadPublishedCoachingCosts` und `coachingCosts`. Beide Anfrage-Vorlagen enthalten
+den Hinweis, damit er auch bei einer Abweichung zwischen dynamischem
+Formular-Calendar-Mode und statischem Mail-Selektor vorhanden ist; die
+Anfrage-Mail nach einer Booking-Bestätigung wiederholt diese Information.
+Die serverseitige Preisauflösung
+nutzt dieselben `toFormTeamMember`-/`mergeFormTeamMembers`-Helper wie das Formular:
+`team_members.profile_preis_std`/`profile_preis_ermaessigt` beziehungsweise
+`paarcoaching_preis`/`paarcoaching_dauer_min` überschreiben die vorhandenen
+`teamData`-Werte, sofern sie nicht `null` sind. `anfragen.honorar_klient` ist
+ausdrücklich keine Quelle für diese frühe Tarifinformation.
+
+Die ersten Mails nennen das kostenlose 30-minütige Erstgespräch, die freie
+Entscheidung beider Seiten über eine Fortsetzung, kostenpflichtige Folgesitzungen
+und den veröffentlichten Tarif (Einzel: 60 Minuten, optional ermäßigt; Paar:
+veröffentlichte Dauer und Preis). Formular und Mails schließen eine
+Krankenkassenübernahme ausdrücklich aus. Fehlen nach der bestehenden
+Fallback-Auflösung ein positiver Pflichtpreis oder die Paar-Sitzungsdauer,
+stoppt die jeweilige API vor Buchungs-/Anfrageschreibzugriffen und Versand mit
+HTTP 500 (`PUBLISHED_COACH_PRICE_MISSING`). Ein Preis-Lesefehler stoppt ebenfalls
+mit `PUBLISHED_COACH_PRICES_LOAD_FAILED`; es wird nicht still auf möglicherweise
+veraltete Preise zurückgefallen. Ein fehlender ermäßigter Tarif ist zulässig.
+
+Versandreihenfolge, Betreff, Kalenderlogik, individuelle Honorare und Abrechnung
+bleiben unverändert. Insbesondere bleibt die separate Booking-Inkonsistenz
+(`draft` → `termin_bestaetigt` → `neu`, Bestätigung vor Anfrage-Mail) bestehen.
+
 `/api/public-team-members` ist bewusst kein Formularvertrag. Er ist die
 whitelisted Website-Bridge für WordPress.
 
