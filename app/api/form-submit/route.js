@@ -4,6 +4,7 @@ import { createClient } from "@supabase/supabase-js";
 import { Resend } from "resend";
 import { teamData } from "../../lib/teamData";
 import { ensureOpenConversation } from "../../lib/messaging/conversations";
+import { loadPublishedCoachingCosts } from "../../lib/loadPublishedCoachingCosts";
 
 function JSONResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -94,6 +95,17 @@ const requestId = body.rid || body.anfrageId || null;
       selectedTherapist?.name || therapistName || "dein Coach";
 
     const safeVorname = String(body.vorname || "").trim() || "du";
+
+    const costs = await loadPublishedCoachingCosts({
+      supabase,
+      therapistId: assignedTherapistId,
+      coachingType: body.coaching_typ,
+    });
+    if (costs.error) {
+      console.error("INITIAL MAIL PRICING ERROR:", { code: costs.error });
+      return JSONResponse({ error: costs.error }, 500);
+    }
+    const coachingCostsHtml = costs.html;
 
     const terminISO = body.terminISO || null;
     const startAt = terminISO ? new Date(terminISO) : null;
@@ -240,6 +252,8 @@ const terminText = terminISO
           Natürlich ist auch Raum für alle Fragen, die dir wichtig sind.
         </p>
 
+        ${coachingCostsHtml}
+
         <p>
           Wir prüfen deine Anfrage nun intern und melden uns in Kürze mit der finalen Bestätigung bei dir.
           <strong>In dieser Bestätigung erhältst du auch den Link für deinen Video-Call.</strong>
@@ -280,6 +294,8 @@ const terminText = terminISO
           Sobald die Vorschläge für dich bereitstehen, erhältst du von uns eine weitere E-Mail
           mit dem Link zur Auswahl deines Wunschtermins.
         </p>
+
+        ${coachingCostsHtml}
 
         <p>
           Wenn du in der Zwischenzeit Fragen hast, erreichst du uns jederzeit unter

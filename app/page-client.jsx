@@ -7,6 +7,7 @@ import Image from "next/image";
 import StepIndicator from "./components/StepIndicator";
 import TeamCarousel from "./components/TeamCarousel";
 import { mergeFormTeamMembers } from "./lib/formTeamMembers";
+import { SELF_PAYMENT_NOTICE } from "./lib/coachingCosts";
 import { getWeightedQualificationBonus } from "./lib/qualificationBonus";
 import { MATCHING_TOPICS } from "./lib/matchingTopics";
 import { teamData } from "./lib/teamData";
@@ -1212,6 +1213,11 @@ if (!bookingToken || !form.terminISO) {
       const bookingData = await bookingRes.json().catch(() => null);
 
       if (!bookingRes.ok) {
+        if (bookingData?.error?.startsWith("PUBLISHED_COACH_PRICE")) {
+          alert("Technischer Fehler: Die veröffentlichten Sitzungspreise konnten nicht bestätigt werden. Bitte kontaktiere uns unter hallo@mypoise.de.");
+          setSubmitting(false);
+          return;
+        }
 if (bookingData?.error === "slot_taken") {
   alert("Dieser Termin wurde gerade vergeben.");
   setStep(10);
@@ -1243,6 +1249,11 @@ body: JSON.stringify({
     const data = await res.json().catch(() => null);
 
 if (!res.ok) {
+  if (data?.error?.startsWith("PUBLISHED_COACH_PRICE")) {
+    alert("Technischer Fehler: Die veröffentlichten Sitzungspreise konnten nicht bestätigt werden. Bitte kontaktiere uns unter hallo@mypoise.de.");
+    setSubmitting(false);
+    return;
+  }
   alert("Fehler – Anfrage konnte nicht gesendet werden.");
   setSubmitting(false);
   return;
@@ -2066,15 +2077,15 @@ Danach entscheiden beide frei, ob ihr weiter zusammenarbeitet.`,
           t.paarcoaching_dauer_min ?? "–"
         } Min
 
-Unser Angebot richtet sich grundsätzlich an Selbstzahler.
-Eine Kostenübernahme kann möglich sein — individuell klären.`
+Das Erstgespräch (30 Min. Video-Call) ist kostenlos. Weitere Sitzungen sind kostenpflichtige Selbstzahlerleistungen.
+${SELF_PAYMENT_NOTICE}`
       : `Standardtarif: ${t.preis_std ?? "–"} € / 60 Min
 Ermäßigt (Studierende / Azubi): ${
           t.preis_ermaessigt ?? "–"
         } € / 60 Min
 
-Unser Angebot richtet sich grundsätzlich an Selbstzahler.
-Eine Kostenübernahme kann möglich sein — individuell klären.`,
+Das Erstgespräch (30 Min. Video-Call) ist kostenlos. Weitere Sitzungen sind kostenpflichtige Selbstzahlerleistungen.
+${SELF_PAYMENT_NOTICE}`,
 },
           ];
 

@@ -8,6 +8,7 @@ import {
   supabaseAdmin,
 } from "../../_lib/server";
 import { ensureOpenConversation } from "../../../lib/messaging/conversations";
+import { loadPublishedCoachingCosts } from "../../../lib/loadPublishedCoachingCosts";
 
 function normalizeIso(value) {
   const d = new Date(value);
@@ -55,6 +56,7 @@ export async function POST(req) {
   email,
   telefon,
   honorar_klient,
+  coaching_typ,
   assigned_therapist_id,
   status,
   booking_token,
@@ -142,6 +144,20 @@ export async function POST(req) {
         },
         404
       );
+    }
+
+    let coachingCostsHtml = "";
+    if (bookingType === "erstgespraech") {
+      const costs = await loadPublishedCoachingCosts({
+        supabase: sb,
+        therapistId,
+        coachingType: anfrage.coaching_typ,
+      });
+      if (costs.error) {
+        console.error("INITIAL MAIL PRICING ERROR:", { code: costs.error });
+        return json({ error: costs.error }, 500);
+      }
+      coachingCostsHtml = costs.html;
     }
 
     const calendar = google.calendar({
@@ -675,6 +691,8 @@ try {
               </p>
 
               ${meetingLinkHtml}
+
+              ${coachingCostsHtml}
 
               <p>Wir freuen uns auf dich 🤍<br />Poise</p>
             `,
