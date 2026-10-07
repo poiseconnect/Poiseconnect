@@ -52,6 +52,8 @@ create table anfragen (
 create role anon;
 create role authenticated;
 create role service_role;
+-- Wie in Supabase: Schema-Zugriff vorhanden, aber KEINE Default-Grants auf neue Tabellen.
+grant usage on schema public to anon, authenticated, service_role;
 SQL
 
 echo "Wende die echte Migration an: $MIGRATION_FILE"
@@ -60,6 +62,29 @@ docker exec -i "$CONTAINER_NAME" psql -U postgres -d postgres < "$MIGRATION_FILE
 echo "Lege eine künstliche Testanfrage an ..."
 docker exec -i "$CONTAINER_NAME" psql -U postgres -d postgres -c \
   "insert into anfragen (id, email, vorname, status) values ('$ANFRAGE_ID', 'test@example.invalid', 'Test', 'admin_vorschlaege_gesendet');" >/dev/null
+
+echo "Pruefe Berechtigungen (service_role darf, anon/authenticated nicht) ..."
+perm_check() { # rolle sql erwartung(ok|denied)
+  local out
+  if out=$(docker exec -i "$CONTAINER_NAME" psql -U postgres -d postgres -v ON_ERROR_STOP=1 -c "set role $1; $2" 2>&1); then
+    [ "$3" = "ok" ] || { echo "FEHLER: $1 durfte unerwartet: $2" >&2; exit 1; }
+  else
+    [ "$3" = "denied" ] || { echo "FEHLER: $1 verweigert: $2" >&2; exit 1; }
+  fi
+}
+LOG=public.anfragen_reengagement_log
+perm_check service_role "select count(*) from $LOG;" ok
+perm_check service_role "update $LOG set status = status where false;" ok
+perm_check service_role "delete from $LOG where false;" denied
+perm_check service_role "select (public.reserve_reengagement_attempt('$BATCH_ID'::uuid, '$ANFRAGE_ID'::uuid, '$CREATED_BY'::uuid)).id;" ok
+docker exec -i "$CONTAINER_NAME" psql -U postgres -d postgres -c "delete from $LOG;" >/dev/null
+for r in anon authenticated; do
+  perm_check "$r" "select count(*) from $LOG;" denied
+  perm_check "$r" "insert into $LOG (batch_id, anfrage_id, created_by) values ('$BATCH_ID','$ANFRAGE_ID','$CREATED_BY');" denied
+  perm_check "$r" "update $LOG set status = status where false;" denied
+  perm_check "$r" "select public.reserve_reengagement_attempt('$BATCH_ID'::uuid, '$ANFRAGE_ID'::uuid, '$CREATED_BY'::uuid);" denied
+done
+echo "OK: Berechtigungen wie erwartet."
 
 echo "Feuere $PARALLEL_CALLS parallele Reservierungsversuche fuer dieselbe (batch_id, anfrage_id) ab ..."
 pids=()

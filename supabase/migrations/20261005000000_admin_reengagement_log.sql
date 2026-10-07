@@ -70,6 +70,21 @@ alter table public.anfragen_reengagement_log enable row level security;
 -- angelegt (kein SELECT, kein INSERT, kein UPDATE aus dem Browser).
 revoke all on table public.anfragen_reengagement_log from anon, authenticated;
 
+-- Explizite Rechte für den Service-Role-Client; keine Abhängigkeit von
+-- Default-Grants des Projekts. Kein DELETE: Protokolleinträge bleiben erhalten.
+revoke all on table public.anfragen_reengagement_log from public;
+grant select, insert, update on table public.anfragen_reengagement_log to service_role;
+
+-- Explizite Policy nur für service_role (in Supabase besitzt die Rolle zwar
+-- BYPASSRLS, darauf verlassen wir uns aber nicht). anon/authenticated erhalten
+-- weiterhin keine Policy und keine Grants.
+create policy anfragen_reengagement_log_service_role_all
+  on public.anfragen_reengagement_log
+  for all
+  to service_role
+  using (true)
+  with check (true);
+
 -- Atomare Reservierung vor dem Provideraufruf:
 -- - Kein bestehender Eintrag für (p_batch_id, p_anfrage_id) -> neuer Eintrag
 --   mit status='queued' wird angelegt und zurückgegeben (Reservierung erfolgreich).
