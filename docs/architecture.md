@@ -959,8 +959,14 @@ Kontaktaufnahme. Ändert **nicht** `anfragen.status` oder
 	Angabe des Betreibers wurden beide Migrationen sowie die Korrektur aus 2.
 	im Produktionsprojekt manuell ausgeführt und lesend verifiziert; dieser
 	Produktionsbefund wurde von der Entwicklungsumgebung nicht selbst geprüft.
-	Die Migrationshistorie muss für beide Versionen gezielt erfasst werden
-	(kein `supabase db push`). Der isolierte Test
+	Migrationsworkflow: Die Dateien in `supabase/migrations/` werden in diesem
+	Projekt manuell im Supabase SQL Editor ausgeführt. Es gibt keine
+	`supabase/config.toml`, keine CI-Migration und im Produktionsprojekt keine
+	Tabelle `supabase_migrations.schema_migrations` (laut Betreiber:
+	`to_regclass` = NULL). Eine CLI-Historie (`supabase migration repair`,
+	`supabase db push`) wird nicht verwendet und darf nicht nebenbei angelegt
+	werden; der Stand gilt über den Merge der Datei und die lesende Schema-
+	und Rechteprüfung als dokumentiert. Der isolierte Test
 	`scripts/reengagement-concurrency-check.sh` bildet die Default-Grants nach
 	und prüft die Rechte nach beiden Migrationen. Bisher wurde keine echte
 	Kontaktaufnahme-Mail versendet.
