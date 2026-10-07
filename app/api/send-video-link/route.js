@@ -27,7 +27,28 @@ export async function POST(req) {
       return json({ error: "MISSING_EMAIL" }, 400);
     }
 
-    const videoLink = anfrage.meeting_link_override;
+    let bookingSettings = null;
+
+    if (!anfrage.meeting_link_override && anfrage.assigned_therapist_id) {
+      const { data, error: bookingError } = await sb
+        .from("therapist_booking_settings")
+        .select("meeting_link")
+        .eq("therapist_id", anfrage.assigned_therapist_id)
+        .maybeSingle();
+
+      if (bookingError) {
+        console.error("SEND VIDEO LINK BOOKING SETTINGS LOAD ERROR:", {
+          code: bookingError.code || null,
+        });
+        return json({ error: "BOOKING_SETTINGS_LOAD_FAILED" }, 500);
+      }
+
+      bookingSettings = data;
+    }
+
+    const videoLink =
+      anfrage.meeting_link_override ||
+      bookingSettings?.meeting_link;
 
     if (!videoLink) {
       return json({ error: "MISSING_VIDEO_LINK" }, 400);

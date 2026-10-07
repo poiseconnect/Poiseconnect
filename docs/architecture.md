@@ -48,6 +48,15 @@ Resend versendet unter anderem:
 - finale Terminbestätigungen,
 - Coach-Benachrichtigungen.
 
+`POST /api/send-video-link` verwendet zuerst `anfragen.meeting_link_override`.
+Ohne persönlichen Override lädt die Route den allgemeinen `meeting_link` aus
+`therapist_booking_settings`, zugeordnet über `anfragen.assigned_therapist_id`
+und `therapist_booking_settings.therapist_id` wie bei der Terminbestätigung.
+Nur wenn kein Link verfügbar ist, antwortet sie mit `400 MISSING_VIDEO_LINK`.
+Ein Fehler beim Laden der Einstellungen liefert stattdessen
+`500 BOOKING_SETTINGS_LOAD_FAILED`; mit vorhandenem Override ist dieser
+zusätzliche Datenbankzugriff nicht erforderlich.
+
 Draft-Recovery-Tracking ist davon getrennt. Die Tabelle `anfragen` speichert
 für neue Drafts optional `draft_recovery_consent`, den serverseitigen
 Zeitpunkt, eine Consent-Version, die letzte beim Draft-Save bekannte Aktivität,
