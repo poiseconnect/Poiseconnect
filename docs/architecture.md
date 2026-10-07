@@ -903,6 +903,77 @@ Handover ist nicht automatisch eine Neuvermittlung.
 	und den zugehörigen `blocked_slots`-Eintrag; `POISE VERFÜGBAR` bleibt
 	unverändert.
 
+## Admin-Aktion: Erneut Kontakt aufnehmen (Tab „Wartet auf Klient:in“)
+
+Admin-Aktion im Tab „Wartet auf Klient:in“ (`anfragen.status =
+'admin_vorschlaege_gesendet'`) für eine bewusste, manuell ausgelöste erneute
+Kontaktaufnahme. Ändert **nicht** `anfragen.status` oder
+`assigned_therapist_id` und überträgt keine alten Coach-Vorschläge erneut.
+
+- Endpoint: `POST /api/admin-reengage` (nur aktive Admin-Rolle in
+	`team_members`, Bearer-Token-Pflicht, Supabase-Service-Role-Client).
+- UI: `app/dashboard/DashboardFull.jsx` (Auswahl, „Alle auswählen“ nur
+	innerhalb der aktuell gefilterten Liste, Vorschau mit Betreff/Text,
+	expliziter Senden-Klick, während des Requests gesperrter Button).
+- Mailinhalt und Idempotenz: `app/lib/reengagement.js`
+	(`buildReengagementEmail`, Betreff "Möchtest du noch einen passenden Coach
+	finden?"). Absender `noreply@mypoise.de`, bestätigtes Reply-To
+	`hallo@mypoise.de`.
+- Persistenz und Duplikatschutz: `anfragen_reengagement_log`
+	(Migration `supabase/migrations/20261005000000_admin_reengagement_log.sql`)
+	mit atomarer Reservierung über `reserve_reengagement_attempt(batch_id,
+	anfrage_id, created_by)`. Eindeutige Kombination `(batch_id, anfrage_id)`
+	schützt gegen Doppelklick, parallele Requests und blinde Wiederholung.
+	Zusätzlich serverseitiger Resend-`Idempotency-Key`
+	(`reengage:{batchId}:{anfrageId}`, providerseitig für begrenzte Zeit
+	wirksam) als zweite, von der DB unabhängige Schutzschicht.
+- Aktualitätsprüfung: Die Reservierung erfolgt zuerst (dient zugleich als
+	Existenzprüfung über das FK-Constraint), danach unmittelbar vor dem
+	eigentlichen Mailaufruf ein frischer Einzel-Read von Status, Coach-Zuordnung
+	und E-Mail-Adresse. Ein Restrisiko bleibt: zwischen diesem letzten Read und
+	der tatsächlichen Provider-Antwort kann sich die Anfrage theoretisch noch
+	ändern; dieses Zeitfenster lässt sich ohne eine Transaktion über den
+	externen Mailaufruf nicht vollständig schließen.
+- Versandzustände: `queued` (reserviert, noch kein Ergebnis), `sent`
+	(Provider hat angenommen – **keine Zustellbestätigung**), `failed`
+	(Provider hat eindeutig abgelehnt), `unknown` (Timeout/5xx/Exception,
+	bewusst nicht als „failed“ markiert, damit kein automatischer Retry dies
+	fälschlich als sicher wiederholbar behandelt).
+- Verhalten bei DB-Fehlern nach dem Provideraufruf: Ein fehlgeschlagenes
+	Speichern des Log-Abschlusses oder des Anzeige-Timestamps löst **keinen**
+	zweiten Mailaufruf aus; die Reservierung bleibt als Schutz bestehen, das
+	Ergebnis wird mit einer `warning`-Markierung zurückgegeben, ohne einen
+	vollständigen Erfolg vorzutäuschen.
+- Wiederholung desselben Vorgangs (`batchId` unverändert): `sent`, `queued`
+	und `unknown` werden in der UI unterschiedlich dargestellt, nicht pauschal
+	als ein gleichwertiges „bereits erledigt“.
+- Migrationen und Reihenfolge (vor Aktivierung des Codes anzuwenden):
+	1. `20261005000000_admin_reengagement_log.sql` (Tabelle, Spalte
+	`anfragen.reengagement_last_sent_at`, Unique-Constraint, RLS, explizite
+	`service_role`-Grants und -Policy, Reservierungsfunktion),
+	2. `20261007000000_reengagement_function_execute_lockdown.sql` (idempotent;
+	entzieht `public`, `anon` und `authenticated` EXECUTE auf
+	`reserve_reengagement_attempt` und erlaubt es nur `service_role`).
+	Befund: Supabase-Default-Privileges vergeben direkte EXECUTE-Grants an
+	`anon`/`authenticated`, die `revoke ... from public` nicht entzieht. Laut
+	Angabe des Betreibers wurden beide Migrationen sowie die Korrektur aus 2.
+	im Produktionsprojekt manuell ausgeführt und lesend verifiziert; dieser
+	Produktionsbefund wurde von der Entwicklungsumgebung nicht selbst geprüft.
+	Migrationsworkflow: Die Dateien in `supabase/migrations/` werden in diesem
+	Projekt manuell im Supabase SQL Editor ausgeführt. Es gibt keine
+	`supabase/config.toml`, keine CI-Migration und im Produktionsprojekt keine
+	Tabelle `supabase_migrations.schema_migrations` (laut Betreiber:
+	`to_regclass` = NULL). Eine CLI-Historie (`supabase migration repair`,
+	`supabase db push`) wird nicht verwendet und darf nicht nebenbei angelegt
+	werden; der Stand gilt über den Merge der Datei und die lesende Schema-
+	und Rechteprüfung als dokumentiert. Der isolierte Test
+	`scripts/reengagement-concurrency-check.sh` bildet die Default-Grants nach
+	und prüft die Rechte nach beiden Migrationen. Bisher wurde keine echte
+	Kontaktaufnahme-Mail versendet.
+- Bestehende Formular-, Matching-, Termin-, Kalender- und Mailflows bleiben
+	unverändert. Reproduzierbarer Parallelitätstest (lokal, Docker,
+	ausschließlich künstliche Testdaten): `scripts/reengagement-concurrency-check.sh`.
+
 ## Sessions und Billing
 
 `sessions` ist die führende Quelle für abrechenbare Sitzungen. `blocked_slots`
@@ -920,7 +991,7 @@ technische Referenzen, keine Abrechnungsquelle.
 | Matching/Availability | `/api/public-availability`, `/api/team-members/matching-scores` | Intake-, Booking- und Score-Daten aus `team_members` und Booking Settings |
 | Social Landingpages | `/beziehung`, `/verlustangst`, `/api/klaviyo/subscribe` | Noindex-Conversion-Seiten mit Topic-/UTM-Attribution für Klaviyo |
 | Coach | `/api/team-members/profile`, `/api/therapist/*` | Authentifiziertes Coach-Profil, Sessions und Billing |
-| Admin | `/api/admin-forward`, `/api/dashboard/*`, `/api/requests/*` | Authentifizierte Admin- und Dashboard-Workflows |
+| Admin | `/api/admin-forward`, `/api/admin-reengage`, `/api/dashboard/*`, `/api/requests/*` | Authentifizierte Admin- und Dashboard-Workflows |
 | Proposal | `/api/proposals/*`, `/api/confirm-proposal` | Vorschläge, Reservierungen und Bestätigung |
 | Booking | `/api/booking/*`, `/api/confirm-appointment`, `/api/new-appointment` | Slots, Buchung, Bestätigung und Reschedule |
 | Sessions/Billing | `/api/add-session`, `/api/delete-session`, `/api/invoices/*` | Sitzungen, Rechnungen und Payout-Grundlagen |

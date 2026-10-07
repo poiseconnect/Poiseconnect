@@ -3,7 +3,7 @@
 > Diese Datei wird durch `scripts/generate-project-map.mjs` erzeugt.
 > Nicht manuell bearbeiten.
 
-Erzeugt am: 2026-09-28T05:22:05.911Z
+Erzeugt am: 2026-10-07T12:41:01.954Z
 
 ## `app/api/add-session/route.js`
 

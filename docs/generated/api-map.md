@@ -3,7 +3,7 @@
 > Diese Datei wird durch `scripts/generate-project-map.mjs` erzeugt.
 > Nicht manuell bearbeiten.
 
-Erzeugt am: 2026-09-30T05:01:56.362Z
+Erzeugt am: 2026-10-07T12:41:01.951Z
 
 ## `app/api/accounting-settings/confirm-uid/route.js`
 
@@ -74,6 +74,13 @@ Erzeugt am: 2026-09-30T05:01:56.362Z
 - Supabase-Tabellen: `anfragen`, `team_members`
 - Google Calendar: keine Nutzung erkannt
 - Mail-Betreffzeilen: `Bitte wähle eine neue Begleitung 🤍`
+
+## `app/api/admin-reengage/route.js`
+
+- Methoden: `POST`
+- Supabase-Tabellen: `anfragen`, `anfragen_reengagement_log`, `team_members`
+- Google Calendar: keine Nutzung erkannt
+- Mail-Betreffzeilen: keine erkannt
 
 ## `app/api/booked/route.js`
 
@@ -499,7 +506,7 @@ Erzeugt am: 2026-09-30T05:01:56.362Z
 ## `app/api/send-video-link/route.js`
 
 - Methoden: `POST`
-- Supabase-Tabellen: `anfragen`
+- Supabase-Tabellen: `anfragen`, `therapist_booking_settings`
 - Google Calendar: keine Nutzung erkannt
 - Mail-Betreffzeilen: `Dein Videolink für das Gespräch 🤍`
 

@@ -78,7 +78,8 @@ export async function GET(req) {
   proposals_sent_at,
   proposals_count,
   proposals_opened_at,
-  new_proposals_requested_at
+  new_proposals_requested_at,
+  reengagement_last_sent_at
 `)
       .order("created_at", { ascending: false });
 

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { teamData } from "../lib/teamData";
+import { buildReengagementEmail } from "../lib/reengagement.js";
 import { calculateSessionCommission } from "../lib/coachBilling.js";
 import {
   addProvisionResult,
@@ -37,6 +38,69 @@ async function getAccessToken() {
   } = await supabase.auth.getSession();
 
   return session?.access_token || "";
+}
+
+// Bereits bekannter Vorgangsstatus bei ALREADY_HANDLED (sent/queued/unknown
+// werden NICHT pauschal gleich dargestellt, siehe app/api/admin-reengage).
+const REENGAGE_PRIOR_STATUS_LABELS = {
+  sent: "bereits vom Anbieter angenommen",
+  queued: "noch in Bearbeitung (vorheriger Versuch unklar abgeschlossen)",
+  unknown: "Versandergebnis des vorherigen Versuchs unklar",
+  failed: "vorheriger Versuch fehlgeschlagen",
+};
+
+// Stellt ein einzelnes Versandergebnis verständlich und ohne unbelegte
+// Zustellbestätigung dar. "Gesendet" bedeutet hier ausdrücklich nur: vom
+// Provider angenommen, keine Zustellbestätigung.
+function formatReengageResult(result) {
+  if (!result) return null;
+
+  if (result.result === "sent") {
+    return {
+      color: "#1A7A3C",
+      text: result.warning
+        ? "✅ Vom Anbieter angenommen – ⚠️ Speichern des Versandnachweises teilweise fehlgeschlagen (Status manuell prüfen)"
+        : "✅ Vom Anbieter angenommen (keine Zustellbestätigung)",
+    };
+  }
+
+  if (result.result === "failed") {
+    return {
+      color: "#B3261E",
+      text: `❌ Fehlgeschlagen (${result.reason || "unbekannt"}) – kein automatischer erneuter Versand${
+        result.warning ? " – ⚠️ Ergebnis konnte nicht vollständig gespeichert werden" : ""
+      }`,
+    };
+  }
+
+  if (result.result === "unknown") {
+    return {
+      color: "#8A6D00",
+      text: `❓ Versandergebnis unklar (${result.reason || "Timeout/Verbindungsabbruch"}) – bitte manuell prüfen, kein automatischer erneuter Versand${
+        result.warning ? " – ⚠️ auch das Speichern dieses Status ist teilweise fehlgeschlagen" : ""
+      }`,
+    };
+  }
+
+  if (result.result === "skipped") {
+    if (result.reason === "ALREADY_HANDLED") {
+      const priorLabel = result.priorStatusKnown
+        ? REENGAGE_PRIOR_STATUS_LABELS[result.priorStatus] || "bereits in Bearbeitung"
+        : "nicht feststellbar, ob bereits gesendet";
+      return { color: "#8A6D00", text: `⏭️ Übersprungen – ${priorLabel}` };
+    }
+    const reasonLabels = {
+      STATUS_CHANGED: "Status hat sich inzwischen geändert",
+      COACH_ALREADY_ASSIGNED: "inzwischen einem Coach zugeordnet",
+      NOT_FOUND: "Anfrage nicht mehr auffindbar",
+    };
+    return {
+      color: "#8A6D00",
+      text: `⏭️ Übersprungen (${reasonLabels[result.reason] || result.reason || "bereits bearbeitet"})`,
+    };
+  }
+
+  return null;
 }
 
 function getBillingSessionProvision(session, invoiceSettings, loadedSettingsCoachId) {
@@ -1453,6 +1517,14 @@ const [proposalDates, setProposalDates] = useState([
 
   const [reassignModal, setReassignModal] = useState(null);
   const [newTherapist, setNewTherapist] = useState("");
+
+  // "Erneut Kontakt aufnehmen" im Tab "Wartet auf Klient:in"
+  const [reengageSelectedIds, setReengageSelectedIds] = useState([]);
+  const [reengagePreviewOpen, setReengagePreviewOpen] = useState(false);
+  const [reengageBatchId, setReengageBatchId] = useState(null);
+  const [reengageSending, setReengageSending] = useState(false);
+  const [reengageResults, setReengageResults] = useState(null);
+  const [reengageLastSentInfo, setReengageLastSentInfo] = useState(null);
 
   const [createBestandOpen, setCreateBestandOpen] = useState(false);
   const [bestandVorname, setBestandVorname] = useState("");
@@ -3379,6 +3451,63 @@ return (
       }}
     >
       ➕ Bestandsklient:in anlegen
+    </button>
+  </div>
+)}
+
+{filter === "admin_vorschlaege_gesendet" && isAdmin && (
+  <div
+    style={{
+      marginBottom: 16,
+      display: "flex",
+      gap: 10,
+      alignItems: "center",
+      flexWrap: "wrap",
+    }}
+  >
+    <label style={{ display: "flex", alignItems: "center", gap: 6 }}>
+      <input
+        type="checkbox"
+        checked={
+          therapistFilteredRequests.length > 0 &&
+          reengageSelectedIds.length === therapistFilteredRequests.length
+        }
+        onChange={(e) => {
+          // "Alle auswählen" bezieht sich ausschließlich auf die aktuell in
+          // diesem Tab sichtbaren (gefilterten) Anfragen, nicht auf weitere,
+          // hier nicht angezeigte Datensätze.
+          setReengageSelectedIds(
+            e.target.checked
+              ? therapistFilteredRequests.map((r) => r.id)
+              : []
+          );
+        }}
+      />
+      Alle auswählen ({therapistFilteredRequests.length})
+    </label>
+
+    <span style={{ color: "#555", fontSize: 14 }}>
+      {reengageSelectedIds.length} ausgewählt
+    </span>
+
+    <button
+      type="button"
+      disabled={reengageSelectedIds.length === 0}
+      onClick={() => {
+        setReengageBatchId(crypto.randomUUID());
+        setReengageResults(null);
+        setReengagePreviewOpen(true);
+      }}
+      style={{
+        padding: "8px 14px",
+        borderRadius: 999,
+        background: reengageSelectedIds.length === 0 ? "#eee" : "#FFF3CD",
+        border: "1px solid #E6B800",
+        fontWeight: 600,
+        cursor: reengageSelectedIds.length === 0 ? "not-allowed" : "pointer",
+      }}
+    >
+      📧 Erneut Kontakt aufnehmen
     </button>
   </div>
 )}
@@ -5507,6 +5636,54 @@ const calendarMode =
   </div>
 )}
 
+{r._status === "admin_vorschlaege_gesendet" && isAdmin && (
+  <div
+    style={{
+      marginTop: 12,
+      borderTop: "1px dashed #ddd",
+      paddingTop: 12,
+      display: "flex",
+      flexDirection: "column",
+      gap: 6,
+    }}
+  >
+    <label style={{ display: "flex", alignItems: "center", gap: 6 }}>
+      <input
+        type="checkbox"
+        checked={reengageSelectedIds.includes(r.id)}
+        onChange={(e) => {
+          setReengageSelectedIds((prev) =>
+            e.target.checked
+              ? [...new Set([...prev, r.id])]
+              : prev.filter((id) => id !== r.id)
+          );
+        }}
+      />
+      Für „Erneut Kontakt aufnehmen“ auswählen
+    </label>
+
+    {r.reengagement_last_sent_at && (
+      <small style={{ color: "#555" }}>
+        Zuletzt kontaktiert am{" "}
+        {new Date(r.reengagement_last_sent_at).toLocaleString("de-AT", {
+          timeZone: "Europe/Vienna",
+        })}
+      </small>
+    )}
+
+    {reengageResults?.[r.id] && formatReengageResult(reengageResults[r.id]) && (
+      <small
+        style={{
+          fontWeight: 700,
+          color: formatReengageResult(reengageResults[r.id]).color,
+        }}
+      >
+        {formatReengageResult(reengageResults[r.id]).text}
+      </small>
+    )}
+  </div>
+)}
+
 
 <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 12 }}>
   <button
@@ -6282,6 +6459,177 @@ location.reload();
       )}
 
             {/* BESTANDSKLIENT:IN */}
+      {reengagePreviewOpen && (
+        <Modal
+          onClose={() => {
+            if (reengageSending) return;
+            setReengagePreviewOpen(false);
+          }}
+        >
+          <h3>📧 Erneut Kontakt aufnehmen</h3>
+
+          {(() => {
+            const selectedRequests = requests.filter((r) =>
+              reengageSelectedIds.includes(r.id)
+            );
+            const previewMail = buildReengagementEmail({
+              vorname: selectedRequests[0]?.vorname || "",
+            });
+
+            return (
+              <>
+                <p>
+                  <b>{selectedRequests.length}</b> Empfänger:innen. Es wird
+                  erst nach Klick auf „Senden“ tatsächlich versendet. Jede
+                  Person erhält eine eigene, personalisierte E-Mail.
+                </p>
+
+                <p><b>Betreff:</b> {previewMail.subject}</p>
+
+                <div
+                  style={{
+                    maxHeight: 180,
+                    overflowY: "auto",
+                    border: "1px solid #ddd",
+                    borderRadius: 8,
+                    padding: 10,
+                    marginBottom: 12,
+                    background: "#fafafa",
+                  }}
+                >
+                  {selectedRequests.map((r) => (
+                    <div key={r.id} style={{ marginBottom: 6 }}>
+                      <b>{r.vorname || "(ohne Vorname)"}</b> – {r.email || "⚠️ keine E-Mail-Adresse"}
+                    </div>
+                  ))}
+                </div>
+
+                <details style={{ marginBottom: 12 }}>
+                  <summary>Beispieltext (personalisiert pro Person)</summary>
+                  <pre
+                    style={{
+                      whiteSpace: "pre-wrap",
+                      fontSize: 13,
+                      background: "#fff",
+                      border: "1px solid #eee",
+                      borderRadius: 8,
+                      padding: 10,
+                    }}
+                  >
+                    {previewMail.text}
+                  </pre>
+                </details>
+
+                {reengageResults && (
+                  <div style={{ marginBottom: 12 }}>
+                    <b>Ergebnis:</b>
+                    <ul>
+                      {Object.entries(reengageResults).map(([id, r]) => {
+                        const req = requests.find((x) => x.id === id);
+                        const formatted = formatReengageResult(r);
+                        return (
+                          <li key={id}>
+                            {req?.vorname || id}: {formatted?.text || "–"}
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </div>
+                )}
+
+                <div style={{ display: "flex", gap: 10 }}>
+                  <button
+                    type="button"
+                    disabled={reengageSending}
+                    onClick={async () => {
+                      setReengageSending(true);
+                      try {
+                        const accessToken = await getAccessToken();
+                        if (!accessToken) {
+                          alert("Keine gültige Session gefunden.");
+                          return;
+                        }
+
+                        const res = await fetch("/api/admin-reengage", {
+                          method: "POST",
+                          headers: {
+                            "Content-Type": "application/json",
+                            Authorization: `Bearer ${accessToken}`,
+                          },
+                          body: JSON.stringify({
+                            batchId: reengageBatchId,
+                            requestIds: reengageSelectedIds,
+                          }),
+                        });
+
+                        if (!res.ok) {
+                          alert("Fehler beim Senden. Bitte erneut versuchen.");
+                          return;
+                        }
+
+                        const payload = await res.json();
+                        const byId = {};
+                        for (const entry of payload.results || []) {
+                          byId[entry.id] = entry;
+                        }
+                        setReengageResults(byId);
+
+                        const sentAt = new Date().toISOString();
+                        setRequests((prev) =>
+                          prev.map((x) =>
+                            byId[x.id]?.result === "sent"
+                              ? { ...x, reengagement_last_sent_at: sentAt }
+                              : x
+                          )
+                        );
+                        setReengageLastSentInfo({ at: sentAt, count: payload.results?.filter((r) => r.result === "sent").length || 0 });
+                      } catch {
+                        alert("Fehler beim Senden. Bitte erneut versuchen.");
+                      } finally {
+                        setReengageSending(false);
+                      }
+                    }}
+                    style={{
+                      padding: "8px 16px",
+                      borderRadius: 999,
+                      background: reengageSending ? "#eee" : "#FFF3CD",
+                      border: "1px solid #E6B800",
+                      fontWeight: 700,
+                      cursor: reengageSending ? "not-allowed" : "pointer",
+                    }}
+                  >
+                    {reengageSending ? "Sende…" : "✅ Senden"}
+                  </button>
+
+                  <button
+                    type="button"
+                    disabled={reengageSending}
+                    onClick={() => {
+                      setReengagePreviewOpen(false);
+                      setReengageSelectedIds([]);
+                      setReengageResults(null);
+                    }}
+                    style={{ padding: "8px 16px", borderRadius: 999 }}
+                  >
+                    Schließen
+                  </button>
+                </div>
+
+                {reengageLastSentInfo && (
+                  <p style={{ marginTop: 10, color: "#555", fontSize: 13 }}>
+                    Letzter Kontaktaufnahme-Versand: {reengageLastSentInfo.count}{" "}
+                    erfolgreich am{" "}
+                    {new Date(reengageLastSentInfo.at).toLocaleString("de-AT", {
+                      timeZone: "Europe/Vienna",
+                    })}
+                  </p>
+                )}
+              </>
+            );
+          })()}
+        </Modal>
+      )}
+
       {createBestandOpen && (
         <Modal onClose={() => setCreateBestandOpen(false)}>
           <h3>🧩 Bestandsklient:in anlegen</h3>

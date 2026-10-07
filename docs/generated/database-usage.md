@@ -3,13 +3,14 @@
 > Diese Datei wird durch `scripts/generate-project-map.mjs` erzeugt.
 > Nicht manuell bearbeiten.
 
-Erzeugt am: 2026-09-30T05:01:56.372Z
+Erzeugt am: 2026-10-07T12:41:01.953Z
 
 ## `anfragen`
 
 - `app/api/add-session/route.js`
 - `app/api/add-sessions-batch/route.js`
 - `app/api/admin-forward/route.js`
+- `app/api/admin-reengage/route.js`
 - `app/api/admin/form-drafts/route.js`
 - `app/api/booking/book/route.js`
 - `app/api/booking/free-slots/route.js`
@@ -57,6 +58,10 @@ Erzeugt am: 2026-09-30T05:01:56.372Z
 - `app/lib/handlers/confirmAppointment.js`
 - `app/lib/messaging/inbound.js`
 - `app/lib/messaging/outbound.js`
+
+## `anfragen_reengagement_log`
+
+- `app/api/admin-reengage/route.js`
 
 ## `appointment_proposals`
 
@@ -133,6 +138,7 @@ Erzeugt am: 2026-09-30T05:01:56.372Z
 - `app/api/accounting-settings/route.js`
 - `app/api/add-sessions-batch/route.js`
 - `app/api/admin-forward/route.js`
+- `app/api/admin-reengage/route.js`
 - `app/api/admin/billing-sessions/route.js`
 - `app/api/admin/booking-overview/route.js`
 - `app/api/admin/coach-billing/route.js`
@@ -178,6 +184,7 @@ Erzeugt am: 2026-09-30T05:01:56.372Z
 - `app/api/therapist/billing-sessions/route.js`
 - `app/api/update-status/route.js`
 - `app/api/update-tarif/route.js`
+- `app/lib/loadPublishedCoachingCosts.js`
 - `app/lib/messaging/inbound.js`
 - `app/lib/messaging/outbound.js`
 
@@ -199,6 +206,7 @@ Erzeugt am: 2026-09-30T05:01:56.372Z
 - `app/api/proposals/create/route.js`
 - `app/api/public-availability/route.js`
 - `app/api/reminders/send/route.js`
+- `app/api/send-video-link/route.js`
 - `app/api/system-check/route.js`
 - `app/lib/handlers/confirmAppointment.js`
 
