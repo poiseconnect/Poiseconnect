@@ -54,10 +54,22 @@ create role authenticated;
 create role service_role;
 -- Wie in Supabase: Schema-Zugriff vorhanden, aber KEINE Default-Grants auf neue Tabellen.
 grant usage on schema public to anon, authenticated, service_role;
+-- Simuliert Supabase-Default-Privileges: neue Funktionen im Schema public
+-- erhalten direkte EXECUTE-Grants für anon/authenticated/service_role.
+alter default privileges in schema public grant execute on functions to anon, authenticated, service_role;
 SQL
 
 echo "Wende die echte Migration an: $MIGRATION_FILE"
 docker exec -i "$CONTAINER_NAME" psql -U postgres -d postgres < "$MIGRATION_FILE" >/dev/null
+
+FOLLOWUP_FILE="$(dirname "$MIGRATION_FILE")/20261007000000_reengagement_function_execute_lockdown.sql"
+echo "Pruefe Ausgangslage: direkte EXECUTE-Grants fuer anon/authenticated sind vorhanden (wie in Produktion) ..."
+exposed=$(docker exec -i "$CONTAINER_NAME" psql -U postgres -d postgres -t -A -c "select has_function_privilege('anon','public.reserve_reengagement_attempt(uuid,uuid,uuid)','execute') and has_function_privilege('authenticated','public.reserve_reengagement_attempt(uuid,uuid,uuid)','execute');")
+[ "$exposed" = "t" ] || { echo "FEHLER: Testaufbau simuliert die Default-Grants nicht (erwartet t, war: $exposed)" >&2; exit 1; }
+
+echo "Wende die Folgemigration an: $FOLLOWUP_FILE (zweimal, Idempotenz)"
+docker exec -i "$CONTAINER_NAME" psql -U postgres -d postgres -v ON_ERROR_STOP=1 < "$FOLLOWUP_FILE" >/dev/null
+docker exec -i "$CONTAINER_NAME" psql -U postgres -d postgres -v ON_ERROR_STOP=1 < "$FOLLOWUP_FILE" >/dev/null
 
 echo "Lege eine künstliche Testanfrage an ..."
 docker exec -i "$CONTAINER_NAME" psql -U postgres -d postgres -c \

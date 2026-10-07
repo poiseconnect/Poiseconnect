@@ -3,7 +3,7 @@
 > Diese Datei wird durch `scripts/generate-project-map.mjs` erzeugt.
 > Nicht manuell bearbeiten.
 
-Erzeugt am: 2026-10-05T05:10:44.874Z
+Erzeugt am: 2026-10-07T12:41:01.953Z
 
 ## `anfragen`
 
@@ -184,6 +184,7 @@ Erzeugt am: 2026-10-05T05:10:44.874Z
 - `app/api/therapist/billing-sessions/route.js`
 - `app/api/update-status/route.js`
 - `app/api/update-tarif/route.js`
+- `app/lib/loadPublishedCoachingCosts.js`
 - `app/lib/messaging/inbound.js`
 - `app/lib/messaging/outbound.js`
 
@@ -205,6 +206,7 @@ Erzeugt am: 2026-10-05T05:10:44.874Z
 - `app/api/proposals/create/route.js`
 - `app/api/public-availability/route.js`
 - `app/api/reminders/send/route.js`
+- `app/api/send-video-link/route.js`
 - `app/api/system-check/route.js`
 - `app/lib/handlers/confirmAppointment.js`
 

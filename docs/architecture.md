@@ -947,6 +947,23 @@ Kontaktaufnahme. Ändert **nicht** `anfragen.status` oder
 - Wiederholung desselben Vorgangs (`batchId` unverändert): `sent`, `queued`
 	und `unknown` werden in der UI unterschiedlich dargestellt, nicht pauschal
 	als ein gleichwertiges „bereits erledigt“.
+- Migrationen und Reihenfolge (vor Aktivierung des Codes anzuwenden):
+	1. `20261005000000_admin_reengagement_log.sql` (Tabelle, Spalte
+	`anfragen.reengagement_last_sent_at`, Unique-Constraint, RLS, explizite
+	`service_role`-Grants und -Policy, Reservierungsfunktion),
+	2. `20261007000000_reengagement_function_execute_lockdown.sql` (idempotent;
+	entzieht `public`, `anon` und `authenticated` EXECUTE auf
+	`reserve_reengagement_attempt` und erlaubt es nur `service_role`).
+	Befund: Supabase-Default-Privileges vergeben direkte EXECUTE-Grants an
+	`anon`/`authenticated`, die `revoke ... from public` nicht entzieht. Laut
+	Angabe des Betreibers wurden beide Migrationen sowie die Korrektur aus 2.
+	im Produktionsprojekt manuell ausgeführt und lesend verifiziert; dieser
+	Produktionsbefund wurde von der Entwicklungsumgebung nicht selbst geprüft.
+	Die Migrationshistorie muss für beide Versionen gezielt erfasst werden
+	(kein `supabase db push`). Der isolierte Test
+	`scripts/reengagement-concurrency-check.sh` bildet die Default-Grants nach
+	und prüft die Rechte nach beiden Migrationen. Bisher wurde keine echte
+	Kontaktaufnahme-Mail versendet.
 - Bestehende Formular-, Matching-, Termin-, Kalender- und Mailflows bleiben
 	unverändert. Reproduzierbarer Parallelitätstest (lokal, Docker,
 	ausschließlich künstliche Testdaten): `scripts/reengagement-concurrency-check.sh`.
