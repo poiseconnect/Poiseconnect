@@ -71,6 +71,13 @@ Der aktuelle Draft-Save erfolgt beim Auswählen eines Coaches. Dadurch ist
 `draft_last_activity_at` zunächst nur ein Checkpoint dieses bestehenden
 Speichervorgangs und kein vollständiges Tastatur- oder Event-Tracking.
 
+Draft-Saves mit bestehender Anfrage-ID dürfen ausschließlich Datensätze mit
+aktuellem `status = "draft"` aktualisieren. Ein nicht-draft Datensatz wird mit
+HTTP 409 (`REQUEST_ALREADY_FINALIZED`) abgelehnt; die Update-Abfrage bindet
+zusätzlich den Draft-Status ein, damit ein paralleler Final-Submit nicht durch
+einen verspäteten Draft-Save zurückgesetzt werden kann. Der Formularclient
+blockiert Draft-Saves außerdem nach erfolgreichem Final-Submit.
+
 ## Klaviyo
 
 Klaviyo wird für Newsletter, Impulsserien und Segmentierung verwendet.

@@ -39,6 +39,36 @@ const {
   draft_current_step,
 } = body || {};
 
+    if (anfrageId) {
+      const { data: existingRequest, error: loadError } = await supabase
+        .from("anfragen")
+        .select("status")
+        .eq("id", anfrageId)
+        .maybeSingle();
+
+      if (loadError) {
+        console.error("DRAFT LOAD ERROR:", {
+          requestId: anfrageId,
+          code: loadError?.code || null,
+        });
+        return json({ error: "DRAFT_LOAD_FAILED" }, 500);
+      }
+
+      if (!existingRequest) {
+        return json({ error: "REQUEST_NOT_FOUND" }, 404);
+      }
+
+      if (existingRequest.status !== "draft") {
+        console.warn("DRAFT UPDATE CONFLICT", {
+          route: "/api/create-request-draft",
+          requestId: anfrageId,
+          currentStatus: existingRequest.status,
+          code: "REQUEST_ALREADY_FINALIZED",
+        });
+        return json({ error: "REQUEST_ALREADY_FINALIZED" }, 409);
+      }
+    }
+
     if (!assigned_therapist_id) {
       return json({ error: "ASSIGNED_THERAPIST_ID_MISSING" }, 400);
     }
@@ -80,12 +110,41 @@ match_state: "draft",
         .from("anfragen")
         .update(payload)
         .eq("id", anfrageId)
+        .eq("status", "draft")
         .select("id, booking_token, assigned_therapist_id")
-        .single();
+        .maybeSingle();
 
       if (error) {
         console.error("DRAFT UPDATE ERROR:", { code: error?.code || null });
         return json({ error: "DRAFT_UPDATE_FAILED" }, 500);
+      }
+
+      if (!data) {
+        const { data: currentRequest, error: currentLoadError } = await supabase
+          .from("anfragen")
+          .select("status")
+          .eq("id", anfrageId)
+          .maybeSingle();
+
+        if (currentLoadError) {
+          console.error("DRAFT CONFLICT STATUS LOAD ERROR:", {
+            requestId: anfrageId,
+            code: currentLoadError?.code || null,
+          });
+          return json({ error: "DRAFT_LOAD_FAILED" }, 500);
+        }
+
+        if (!currentRequest) {
+          return json({ error: "REQUEST_NOT_FOUND" }, 404);
+        }
+
+        console.warn("DRAFT UPDATE CONFLICT", {
+          route: "/api/create-request-draft",
+          requestId: anfrageId,
+          currentStatus: currentRequest.status,
+          code: "REQUEST_ALREADY_FINALIZED",
+        });
+        return json({ error: "REQUEST_ALREADY_FINALIZED" }, 409);
       }
 
       return json({

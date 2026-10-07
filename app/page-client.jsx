@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Image from "next/image";
 
@@ -292,6 +292,7 @@ const anfrageId =
   const totalSteps = 12;
   
 const [draftRequestId, setDraftRequestId] = useState(null);
+const requestFinalizedRef = useRef(false);
 const [bookingToken, setBookingToken] = useState(null);
 const [savingDraft, setSavingDraft] = useState(false);
 const [submitting, setSubmitting] = useState(false);
@@ -1106,6 +1107,8 @@ const slotsByMonth = useMemo(() => {
 }, [groupedSlots]);
 
 async function createOrUpdateDraft(selectedMember) {
+  if (requestFinalizedRef.current) return false;
+
   setSavingDraft(true);
 
   try {
@@ -1258,6 +1261,8 @@ if (!res.ok) {
   setSubmitting(false);
   return;
 }
+
+requestFinalizedRef.current = true;
 
 if (form.newsletter_consent) {
   fetch("/api/klaviyo/subscribe", {
@@ -1999,6 +2004,7 @@ color: "#000", // ✅ FIX: Text IMMER schwarz
     };
   })}
   onSelect={async (member) => {
+    if (requestFinalizedRef.current) return;
     if (savingDraft) return;
 
     setAssignedTherapistId(member.id);
