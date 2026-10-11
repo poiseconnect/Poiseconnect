@@ -58,12 +58,14 @@ export function normalizeBillingPeriod(input = {}) {
 
 export async function loadCoachBillingContext(supabase, { coachId, periodInput }) {
   const period = normalizeBillingPeriod(periodInput);
-  const [coachResult, settingsResult, sessionsResult] = await Promise.all([
-    supabase
-      .from("team_members")
-      .select("id, email, profile_name")
-      .eq("id", coachId)
-      .single(),
+  const coachResult = await supabase
+    .from("team_members")
+    .select("id, user_id, email, profile_name")
+    .eq("id", coachId)
+    .single();
+  if (coachResult.error) return { error: coachResult.error };
+
+  const [settingsResult, sessionsResult] = await Promise.all([
     supabase
       .from("therapist_invoice_settings")
       .select("*")
@@ -72,15 +74,14 @@ export async function loadCoachBillingContext(supabase, { coachId, periodInput }
     supabase
       .from("sessions")
       .select(SESSION_SELECT)
-      .eq("therapist_id", coachId)
+      .or(`therapist_id.eq.${coachId},therapist_id.eq.${coachResult.data.user_id || coachId}`)
       .gte("date", period.range.start)
       .lt("date", period.range.end)
       .order("date", { ascending: true })
       .range(0, 9999),
   ]);
 
-  const error =
-    coachResult.error || settingsResult.error || sessionsResult.error || null;
+  const error = settingsResult.error || sessionsResult.error || null;
   if (error) return { error };
 
   const coachTaxProfile = settingsResult.data || {};
@@ -150,4 +151,18 @@ export async function loadCoachInvoicesForPeriod(supabase, { coachId, period }) 
 
 export function invoiceLineItemsFromBundle(bundle) {
   return lineItemsFromCoachBundle(bundle);
+}
+
+export function jsonValuesEqual(left, right) {
+  return stableStringify(left) === stableStringify(right);
+}
+
+function stableStringify(value) {
+  if (Array.isArray(value)) return `[${value.map(stableStringify).join(",")}]`;
+  if (value && typeof value === "object") {
+    return `{${Object.keys(value).sort().map((key) =>
+      `${JSON.stringify(key)}:${stableStringify(value[key])}`
+    ).join(",")}}`;
+  }
+  return JSON.stringify(value);
 }

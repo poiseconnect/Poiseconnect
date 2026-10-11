@@ -2,6 +2,8 @@ export const dynamic = "force-dynamic";
 
 import { createClient } from "@supabase/supabase-js";
 import {
+  loadCoachBillingContext,
+  jsonValuesEqual,
   loadCoachInvoice,
   normalizeBillingPeriod,
 } from "../_lib/coachInvoice";
@@ -9,6 +11,13 @@ import {
   toSemanticBundleType,
 } from "../../../lib/coachBilling.js";
 import { buildEditableCoachInvoicePayload } from "../../../lib/coachInvoiceDraft.js";
+import {
+  getCoachInvoiceLinkState, isCoachInvoiceLinkBlocked, SEVDESK_LINK_CONFLICT_MESSAGE,
+} from "../../../lib/coachInvoiceLink.js";
+import {
+  coachQuarterWorkflowUnavailableBody,
+  getCoachQuarterWorkflowReadiness,
+} from "../../../lib/coachQuarterWorkflowReadiness.js";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -78,6 +87,11 @@ export async function POST(req) {
     const auth = await requireAdmin(req);
     if (auth.error) return auth.error;
 
+    const readiness = await getCoachQuarterWorkflowReadiness(supabase);
+    if (!readiness.ready) {
+      return json(coachQuarterWorkflowUnavailableBody(readiness), 503);
+    }
+
     const body = await req.json();
 
     const coachId = normalizeString(body.coach_id);
@@ -112,6 +126,32 @@ export async function POST(req) {
       return json({ error: "single_day_invoice_not_supported" }, 400);
     }
 
+    const billingContext = await loadCoachBillingContext(supabase, {
+      coachId,
+      periodInput: {
+        billingMode,
+        billingYear,
+        billingQuarter,
+        billingMonth,
+        billingDate: body.billing_date,
+      },
+    });
+    if (billingContext.error) {
+      return json({ error: "billing_context_load_failed" }, 500);
+    }
+    const currentBundle = billingContext.bundles.find(
+      (candidate) => candidate.bundle_type === bundleType
+    );
+    if (!currentBundle) {
+      return json({ error: "no_current_sessions_for_bundle" }, 409);
+    }
+    if (currentBundle.calculation_errors.length > 0) {
+      return json({
+        error: "billing_calculation_invalid",
+        calculation_errors: currentBundle.calculation_errors,
+      }, 409);
+    }
+
     const invoiceLookup = {
       coachId,
       period,
@@ -130,6 +170,55 @@ export async function POST(req) {
         existingError.code === "AMBIGUOUS_INVOICE_PERIOD" ? 409 : 500
       );
     }
+    if (existing) {
+      let linkState;
+      try {
+        linkState = await getCoachInvoiceLinkState(supabase, existing.id);
+      } catch {
+        console.error("coach_invoice_save_blocked", { code: "invoice_link_check_unavailable" });
+        return json({ error: "invoice_link_check_unavailable" }, 503);
+      }
+      if (isCoachInvoiceLinkBlocked(linkState)) {
+        console.error("coach_invoice_save_blocked", { code: "sevdesk_invoice_link_conflict" });
+        return json({ error: "sevdesk_invoice_link_conflict", message: SEVDESK_LINK_CONFLICT_MESSAGE }, 409);
+      }
+    }
+    if (Object.prototype.hasOwnProperty.call(body, "sevdesk_invoice_id") &&
+        normalizeString(body.sevdesk_invoice_id) !== normalizeString(existing?.sevdesk_invoice_id)) {
+      console.error("coach_invoice_save_blocked", { code: "sevdesk_invoice_id_readonly" });
+      return json({ error: "sevdesk_invoice_id_readonly" }, 409);
+    }
+    if (existing?.sevdesk_send_status || existing?.sevdesk_invoice_id) {
+      return json({ error: "invoice_send_workflow_locked" }, 409);
+    }
+
+    let quarterReleaseVersion = null;
+    if (period.billingMode === "quartal") {
+      const { data: release, error: releaseError } = await supabase
+        .from("coach_quarter_releases")
+        .select("release_version, release_status, snapshot")
+        .eq("coach_id", coachId)
+        .eq("billing_year", period.billingYear)
+        .eq("billing_quarter", period.billingQuarter)
+        .maybeSingle();
+      if (releaseError) return json({ error: "coach_quarter_release_load_failed" }, 500);
+      if (!release || release.release_status !== "released") {
+        return json({ error: "coach_quarter_release_required" }, 409);
+      }
+      const { data: currentSnapshot, error: snapshotError } = await supabase.rpc(
+        "coach_quarter_snapshot",
+        {
+          p_coach_id: coachId,
+          p_billing_year: period.billingYear,
+          p_billing_quarter: period.billingQuarter,
+        }
+      );
+      if (snapshotError) return json({ error: "coach_quarter_snapshot_load_failed" }, 500);
+      if (!jsonValuesEqual(currentSnapshot, release.snapshot)) {
+        return json({ error: "coach_quarter_release_stale" }, 409);
+      }
+      quarterReleaseVersion = release.release_version;
+    }
 
     const now = new Date().toISOString();
     let payload;
@@ -142,6 +231,10 @@ export async function POST(req) {
         updatedBy: auth.member.id,
         updatedAt: now,
       });
+      if (quarterReleaseVersion !== null) {
+        payload.coach_quarter_release_version = quarterReleaseVersion;
+        payload.sevdesk_send_error_code = null;
+      }
     } catch (error) {
       return json({ error: error.message || "invalid_invoice_data" }, 400);
     }
@@ -149,12 +242,22 @@ export async function POST(req) {
     let result;
     let saveError;
     if (existing) {
-      const updateResult = await supabase
+      if (
+        !body.expected_updated_at ||
+        body.expected_updated_at !== existing.updated_at
+      ) {
+        return json({ error: "invoice_concurrent_update" }, 409);
+      }
+      let updateQuery = supabase
         .from(TABLE_NAME)
         .update(payload)
         .eq("id", existing.id)
-        .select()
-        .maybeSingle();
+        .eq("updated_at", body.expected_updated_at);
+      if (Object.prototype.hasOwnProperty.call(existing, "sevdesk_send_status")) {
+        updateQuery = updateQuery.is("sevdesk_send_status", null);
+      }
+
+      const updateResult = await updateQuery.select().maybeSingle();
       result = updateResult.data;
       saveError = updateResult.error;
     } else {
@@ -172,13 +275,19 @@ export async function POST(req) {
     }
 
     if (saveError || !result) {
+      if (saveError?.message?.includes("sevdesk_invoice_link_conflict")) {
+        console.error("coach_invoice_save_blocked", { code: "sevdesk_invoice_link_conflict" });
+        return json({ error: "sevdesk_invoice_link_conflict", message: SEVDESK_LINK_CONFLICT_MESSAGE }, 409);
+      }
       return json(
         {
           error: saveError?.code === "23505"
             ? "draft_already_exists_reload_required"
-            : "save_failed",
+            : existing && !saveError
+              ? "invoice_concurrent_update"
+              : "save_failed",
         },
-        saveError?.code === "23505" ? 409 : 500
+        saveError?.code === "23505" || (existing && !saveError) ? 409 : 500
       );
     }
 

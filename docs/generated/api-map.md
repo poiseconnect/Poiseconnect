@@ -3,7 +3,7 @@
 > Diese Datei wird durch `scripts/generate-project-map.mjs` erzeugt.
 > Nicht manuell bearbeiten.
 
-Erzeugt am: 2026-10-07T12:41:01.951Z
+Erzeugt am: 2026-10-11T15:39:25.602Z
 
 ## `app/api/accounting-settings/confirm-uid/route.js`
 
@@ -295,14 +295,14 @@ Erzeugt am: 2026-10-07T12:41:01.951Z
 ## `app/api/invoices/load-coach/route.js`
 
 - Methoden: `GET`
-- Supabase-Tabellen: `team_members`
+- Supabase-Tabellen: `coach_quarter_releases`, `team_members`
 - Google Calendar: keine Nutzung erkannt
 - Mail-Betreffzeilen: keine erkannt
 
 ## `app/api/invoices/recalculate-coach/route.js`
 
 - Methoden: `POST`
-- Supabase-Tabellen: `coach_invoices`, `team_members`
+- Supabase-Tabellen: `coach_invoices`, `coach_quarter_releases`, `team_members`
 - Google Calendar: keine Nutzung erkannt
 - Mail-Betreffzeilen: keine erkannt
 
@@ -316,7 +316,7 @@ Erzeugt am: 2026-10-07T12:41:01.951Z
 ## `app/api/invoices/save-coach/route.js`
 
 - Methoden: `POST`
-- Supabase-Tabellen: `team_members`
+- Supabase-Tabellen: `coach_quarter_releases`, `team_members`
 - Google Calendar: keine Nutzung erkannt
 - Mail-Betreffzeilen: keine erkannt
 
@@ -510,24 +510,24 @@ Erzeugt am: 2026-10-07T12:41:01.951Z
 - Google Calendar: keine Nutzung erkannt
 - Mail-Betreffzeilen: `Dein Videolink für das Gespräch 🤍`
 
-## `app/api/sevdesk/sync-coach-invoice-positions/route.js`
+## `app/api/sevdesk/create-and-send-coach-invoice/route.js`
 
-- Methoden: `POST`
-- Supabase-Tabellen: `team_members`
+- Methoden: `GET`, `POST`
+- Supabase-Tabellen: `coach_invoices`, `coach_quarter_releases`, `team_members`, `therapist_invoice_settings`
 - Google Calendar: keine Nutzung erkannt
 - Mail-Betreffzeilen: keine erkannt
 
-## `app/api/sevdesk/test-update-invoice/route.js`
+## `app/api/sevdesk/sync-coach-invoice-positions/route.js`
 
-- Methoden: `GET`, `POST`
+- Methoden: nicht automatisch erkannt
 - Supabase-Tabellen: keine erkannt
 - Google Calendar: keine Nutzung erkannt
 - Mail-Betreffzeilen: keine erkannt
 
 ## `app/api/sevdesk/update-coach-invoice/route.js`
 
-- Methoden: `POST`
-- Supabase-Tabellen: `team_members`
+- Methoden: nicht automatisch erkannt
+- Supabase-Tabellen: keine erkannt
 - Google Calendar: keine Nutzung erkannt
 - Mail-Betreffzeilen: keine erkannt
 
@@ -584,6 +584,13 @@ Erzeugt am: 2026-10-07T12:41:01.951Z
 
 - Methoden: `GET`
 - Supabase-Tabellen: `sessions`, `team_members`
+- Google Calendar: keine Nutzung erkannt
+- Mail-Betreffzeilen: keine erkannt
+
+## `app/api/therapist/quarter-release/route.js`
+
+- Methoden: `GET`, `POST`
+- Supabase-Tabellen: `coach_quarter_releases`, `team_members`
 - Google Calendar: keine Nutzung erkannt
 - Mail-Betreffzeilen: keine erkannt
 

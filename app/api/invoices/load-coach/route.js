@@ -1,7 +1,13 @@
 export const dynamic = "force-dynamic";
+import { getCoachInvoiceLinkState } from "../../../lib/coachInvoiceLink.js";
+import {
+  COACH_QUARTER_WORKFLOW_UNAVAILABLE_MESSAGE,
+  getCoachQuarterWorkflowReadiness,
+} from "../../../lib/coachQuarterWorkflowReadiness.js";
 
 import { getUserFromBearer, json, supabaseAdmin } from "../../_lib/server";
 import {
+  jsonValuesEqual,
   loadCoachBillingContext,
   loadCoachInvoice,
 } from "../_lib/coachInvoice";
@@ -99,6 +105,48 @@ export async function GET(req) {
     const bundle = context.bundles.find(
       (candidate) => candidate.bundle_type === bundleType
     ) || null;
+    const readiness = await getCoachQuarterWorkflowReadiness(supabase);
+    let quarterRelease = null;
+    if (readiness.ready && context.period.billingMode === "quartal") {
+      const { data: release, error: releaseError } = await supabase
+        .from("coach_quarter_releases")
+        .select("release_version, release_status, released_at, snapshot")
+        .eq("coach_id", coachId)
+        .eq("billing_year", context.period.billingYear)
+        .eq("billing_quarter", context.period.billingQuarter)
+        .maybeSingle();
+      if (releaseError) return json({ error: "coach_quarter_release_load_failed" }, 500);
+      if (release) {
+        const { data: currentSnapshot, error: snapshotError } = await supabase.rpc(
+          "coach_quarter_snapshot",
+          {
+            p_coach_id: coachId,
+            p_billing_year: context.period.billingYear,
+            p_billing_quarter: context.period.billingQuarter,
+          }
+        );
+        if (snapshotError) return json({ error: "coach_quarter_snapshot_load_failed" }, 500);
+        quarterRelease = {
+          release_version: release.release_version,
+          release_status: release.release_status === "released" &&
+            jsonValuesEqual(currentSnapshot, release.snapshot)
+            ? "released"
+            : "stale",
+          released_at: release.released_at,
+        };
+      }
+    }
+    let invoiceLinkState = "unlinked";
+    if (invoice && !readiness.ready) {
+      invoiceLinkState = "unavailable";
+    } else if (invoice) {
+      try {
+        invoiceLinkState = await getCoachInvoiceLinkState(supabase, invoice.id);
+      } catch {
+        console.error("coach_invoice_load_link_check_failed", { code: "invoice_link_check_unavailable" });
+        invoiceLinkState = "unavailable";
+      }
+    }
     const view = getCoachInvoiceDraftView({
       invoice,
       calculatedBundle: bundle,
@@ -123,6 +171,10 @@ export async function GET(req) {
       coachInvoiceSettings: context.coachTaxProfile,
       from_saved_invoice: Boolean(invoice),
       invoice_id: invoice?.id || null,
+      invoice_updated_at: invoice?.updated_at || null,
+      sevdesk_link_state: invoiceLinkState,
+      quarter_workflow_available: readiness.ready,
+      quarter_workflow_message: readiness.ready ? null : COACH_QUARTER_WORKFLOW_UNAVAILABLE_MESSAGE,
       invoice_state: invoice ? "saved_draft" : "automatic_draft",
       bundle_type: bundleType,
       bundle_key: invoice?.bundle_key || bundle?.bundle_key || null,
@@ -131,6 +183,12 @@ export async function GET(req) {
       tax_reason: primaryDraft.tax_reason || null,
       vat_rate: Number(primaryDraft.vat_rate || 0),
       invoice_number: invoice?.invoice_number || "",
+      sevdesk_send_status: invoice?.sevdesk_send_status || null,
+      sevdesk_send_accepted_at: invoice?.sevdesk_send_accepted_at || null,
+      sevdesk_send_error_code: invoice?.sevdesk_send_error_code || null,
+      sevdesk_draft_invoice_number: invoice?.sevdesk_draft_invoice_number || null,
+      coach_quarter_release_version: invoice?.coach_quarter_release_version || null,
+      coach_quarter_release: quarterRelease,
       invoice_date: invoice?.invoice_date || "",
       service_period: invoice?.service_period || context.period.label,
       customer_number: invoice?.customer_number || "",

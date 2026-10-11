@@ -109,6 +109,13 @@ Prüfpunkte:
 
 Ziel: Funktionalität und Qualität der Änderung sicherstellen.
 
+Bei Poise→Coach-sevDesk-Aenderungen ist zusaetzlich
+`python scripts/coach-invoice-link-concurrency-check.py` auszufuehren:
+isolierte PostgreSQL-15-Datenbank, kuenstliche Daten, keine konfigurierte
+Produktionsverbindung. Geprueft werden historische Sperren, beide Bundles,
+COALESCE-Indexerhalt und konkurrierende externe ID-Claims. Ein lokaler Erfolg
+ersetzt keinen produktiven Schema-, Rollen- oder Provider-Abgleich.
+
 Prüfpunkte:
 - Welche Tests fehlen?
 - Werden relevante bestehende Tests angepasst oder erweitert?

@@ -1424,6 +1424,11 @@ const [access, setAccess] = useState("loading");
   const [adminCoachInvoiceBundles, setAdminCoachInvoiceBundles] = useState([]);
   const [adminCoachBillingLoading, setAdminCoachBillingLoading] = useState(false);
   const [adminCoachBillingError, setAdminCoachBillingError] = useState("");
+  const [coachQuarterRelease, setCoachQuarterRelease] = useState(null);
+  const [coachQuarterSessionCount, setCoachQuarterSessionCount] = useState(0);
+  const [coachQuarterReleaseLoading, setCoachQuarterReleaseLoading] = useState(false);
+  const [coachQuarterReleaseError, setCoachQuarterReleaseError] = useState("");
+  const [coachQuarterWorkflowNotice, setCoachQuarterWorkflowNotice] = useState("");
   const [selectedClientId, setSelectedClientId] = useState("alle");
 const [filter, setFilter] = useState(() => {
   if (typeof window === "undefined") return "unbearbeitet";
@@ -2904,6 +2909,74 @@ const filteredBillingSessions = useMemo(() => {
   isAdmin,
 ]);
 
+useEffect(() => {
+  if (role !== "therapist" || billingMode !== "quartal" || !myTeamMemberId) {
+    setCoachQuarterRelease(null);
+    setCoachQuarterSessionCount(0);
+    setCoachQuarterReleaseError("");
+    setCoachQuarterWorkflowNotice("");
+    return;
+  }
+  let active = true;
+  setCoachQuarterReleaseLoading(true);
+  (async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const params = new URLSearchParams({
+        year: String(billingYear),
+        quarter: String(billingQuarter),
+      });
+      const response = await fetch(`/api/therapist/quarter-release?${params}`, {
+        headers: { Authorization: `Bearer ${session?.access_token || ""}` },
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result?.error || "Freigabestatus konnte nicht geladen werden");
+      if (active) {
+        setCoachQuarterRelease(result.release || null);
+        setCoachQuarterSessionCount(Number(result.session_count || 0));
+        setCoachQuarterReleaseError("");
+        setCoachQuarterWorkflowNotice(
+          result.available === false
+            ? result.message || "Die Quartalsfreigabe ist noch nicht verfügbar."
+            : ""
+        );
+      }
+    } catch (error) {
+      if (active) setCoachQuarterReleaseError(error.message);
+    } finally {
+      if (active) setCoachQuarterReleaseLoading(false);
+    }
+  })();
+  return () => { active = false; };
+}, [role, billingMode, billingYear, billingQuarter, myTeamMemberId]);
+
+async function releaseCoachQuarter() {
+  if (!window.confirm(
+    `Bestätigst du die Sitzungen für Q${billingQuarter} ${billingYear} als Grundlage deiner Poise-Rechnung?`
+  )) return;
+  setCoachQuarterReleaseLoading(true);
+  setCoachQuarterReleaseError("");
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    const response = await fetch("/api/therapist/quarter-release", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${session?.access_token || ""}`,
+      },
+      body: JSON.stringify({ year: billingYear, quarter: billingQuarter }),
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result?.message || result?.error || "Freigabe fehlgeschlagen");
+    setCoachQuarterRelease(result.release || null);
+    setCoachQuarterSessionCount(Number(result.session_count || 0));
+  } catch (error) {
+    setCoachQuarterReleaseError(error.message);
+  } finally {
+    setCoachQuarterReleaseLoading(false);
+  }
+}
+
 
 
 
@@ -4201,6 +4274,49 @@ return (
       )}
     </div>
 
+    {!isAdmin && billingMode === "quartal" && (
+      <div style={{
+        border: "1px solid #d8e4df",
+        borderRadius: 10,
+        padding: 14,
+        marginBottom: 14,
+        background: "#f7fbf9",
+      }}>
+        <strong>Quartalsfreigabe für Poise→Coach-Rechnung</strong>
+        <div style={{ fontSize: 13, marginTop: 6 }}>
+          {coachQuarterWorkflowNotice
+            ? coachQuarterWorkflowNotice
+            : `Geprüfte Sitzungen: ${coachQuarterSessionCount}. Eine Änderung an Sitzungen oder abrechnungsrelevanten Daten macht eine bestehende Freigabe ungültig.`}
+        </div>
+        {!coachQuarterWorkflowNotice && (<>
+        <div style={{ fontSize: 13, marginTop: 6 }}>
+          {coachQuarterReleaseLoading
+            ? "Freigabestatus wird geladen …"
+            : coachQuarterRelease?.release_status === "released"
+              ? `Freigegeben (Version ${coachQuarterRelease.release_version}).`
+              : coachQuarterRelease
+                ? "Freigabe veraltet – bitte Sitzungen erneut prüfen und bestätigen."
+                : "Noch nicht freigegeben."}
+        </div>
+        {coachQuarterReleaseError && (
+          <div role="alert" style={{ color: "#a12622", marginTop: 6 }}>
+            {coachQuarterReleaseError}
+          </div>
+        )}
+        <button
+          type="button"
+          onClick={releaseCoachQuarter}
+          disabled={coachQuarterReleaseLoading || coachQuarterSessionCount === 0}
+          style={{ marginTop: 10 }}
+        >
+          {coachQuarterRelease?.release_status === "released"
+            ? "Freigabe erneuern"
+            : "Sitzungen prüfen und Quartal freigeben"}
+        </button>
+        </>)}
+      </div>
+    )}
+
     {/* ABRECHNUNGSBEREICH */}
     <section
       style={{
@@ -4734,43 +4850,6 @@ return (
   🧾 Rechnung öffnen
 </button>
 
-            <button
-              disabled={
-                !bundle.invoice_supported ||
-                bundle.tax_treatment === "review_required" ||
-                bundle.calculation_errors?.length > 0
-              }
-              onClick={async () => {
-const token = await getAccessToken();
-
-const res = await fetch("/api/sevdesk-export-coach-quarterly", {
-  method: "POST",
-  headers: {
-    "Content-Type": "application/json",
-    Authorization: `Bearer ${token}`,
-  },
-  body: JSON.stringify({
-    coach: adminSelectedCoach,
-    coachInvoiceSettings: invoiceSettings,
-    poiseSettings: POISE_ADMIN_SETTINGS,
-    invoiceBundle: bundle,
-    periodLabel: adminPeriodLabel,
-  }),
-});
-if (!res.ok) {
-  const err = await res.json().catch(() => null);
-  console.error("SEVDESK EXPORT FEHLER:", err);
-  alert(
-    "sevDesk Export fehlgeschlagen:\n\n" +
-      JSON.stringify(err, null, 2)
-  );
-  return;
-}
-                alert("An sevDesk gesendet");
-              }}
-            >
-              📤 sevDesk Export
-            </button>
           </div>
         </div>
       ))

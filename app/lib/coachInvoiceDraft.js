@@ -92,6 +92,10 @@ export function buildEditableCoachInvoicePayload({
   updatedBy,
   updatedAt,
 }) {
+  if (Object.prototype.hasOwnProperty.call(body, "sevdesk_invoice_id") &&
+      normalizeString(body.sevdesk_invoice_id) !== normalizeString(existing?.sevdesk_invoice_id)) {
+    throw new TypeError("sevdesk_invoice_id_readonly");
+  }
   const lineItems = normalizeCoachInvoiceLineItems(body.line_items);
   if (!lineItems) throw new TypeError("invalid_line_items");
 
@@ -132,10 +136,7 @@ export function buildEditableCoachInvoicePayload({
     vat_amount: safeNumber(body.vat_amount, 0),
     total_gross: safeNumber(body.total_gross, 0),
     line_items: lineItems,
-    sevdesk_invoice_id:
-      normalizeString(body.sevdesk_invoice_id) ||
-      existing?.sevdesk_invoice_id ||
-      null,
+    sevdesk_invoice_id: existing?.sevdesk_invoice_id ?? null,
     sevdesk_invoice_number: existing?.sevdesk_invoice_number || null,
     sevdesk_synced_at: existing?.sevdesk_synced_at || null,
     updated_by: updatedBy,
