@@ -79,11 +79,7 @@ Wichtige technische Felder:
 
 Draft-Recovery-Consent ist vom Newsletter-Consent getrennt. Neue Drafts können
 eine optionale, versionierte Zustimmung für genau eine spätere
-Fortsetzungs-Erinnerung speichern. Wenn ein Draft mindestens 48 Stunden inaktiv
-ist, ausdrückliche Zustimmung besitzt und noch nicht erinnert wurde, versendet
-der tägliche Reminder-Cron (`/api/reminders/send`) genau eine neutrale
-Erinnerung ohne Themen- oder Gesundheitsdetails. Nach erfolgreichem Versand
-wird `draft_reminder_sent_at` in UTC gesetzt.
+Fortsetzungs-Erinnerung speichern. Der Versand ist derzeit nicht aktiviert.
 Bestehende Drafts erhalten keinen impliziten Consent und bleiben effektiv
 nicht recovery-berechtigt.
 
@@ -192,6 +188,22 @@ Bei einer Terminänderung:
 - Die Abrechnung basiert auf `sessions`.
 - Google-Kalenderdaten sind nicht die führende Abrechnungsquelle.
 - `blocked_slots` ist ausschließlich für Verfügbarkeiten und Kollisionsschutz zuständig.
+
+Poise→Coach-Rechnungen verwenden für die ausdrückliche sevDesk-Erstellung nur
+den gespeicherten `coach_invoices`-Draft. Der automatische Sessionabgleich darf
+ihn nicht ersetzen. Der sevDesk-Livepfad ist standardmäßig serverseitig
+deaktiviert und verlangt bestätigte Konto-, Steuer-, Kontakt-, Layout- und
+API-Schemadaten. Unklare Erstellungs- oder Versandresultate dürfen keine
+automatische Wiederholung auslösen. `sent` bedeutet sevDesk-Mailannahme, nicht
+Postfachzustellung. Der frühere berechnete Dashboard-Bundle-Export ist
+stillgelegt; Coach→Klient-Rechnungsversand bleibt davon getrennt.
+
+Auch die bisherigen Poise→Coach-Kopf-/Positions-Schreib-Syncs sind
+serverseitig stillgelegt. Die externe ID ist kein editierbares Rechnungsfeld.
+Migration `20261012000000_coach_invoice_link_guards.sql` friert historische
+Mehrfachverknuepfungen ein und sichert neue IDs durch eindeutige DB-Claims;
+alte Rechnungen werden nicht automatisch bereinigt. Pro Coach laeuft nur eine
+Erstellung gleichzeitig; beide Quartals-Bundles bleiben getrennt.
 
 ## Öffentliche Website und Teamdaten
 

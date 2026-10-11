@@ -161,7 +161,7 @@ describe("editable coach invoice draft", () => {
 
   it("preserves existing sevDesk metadata during an ordinary save", () => {
     const payload = buildEditableCoachInvoicePayload({
-      body: { ...manualDraft, sevdesk_invoice_id: null },
+      body: { ...manualDraft },
       existing: {
         sevdesk_invoice_id: "sevdesk-1",
         sevdesk_invoice_number: "RE-1",
@@ -178,5 +178,13 @@ describe("editable coach invoice draft", () => {
       sevdesk_invoice_number: "RE-1",
       sevdesk_synced_at: "2026-09-27T10:00:00.000Z",
     });
+  });
+
+  it.each(["135675889", "135833778", null])("rejects external ID reassignment or clearing: %s", (value) => {
+    expect(() => buildEditableCoachInvoicePayload({
+      body: { ...manualDraft, sevdesk_invoice_id: value },
+      existing: { sevdesk_invoice_id: "123456789" },
+      period, bundleType: "client_with_vat", updatedBy: "admin-test", updatedAt: "2026-10-11",
+    })).toThrow("sevdesk_invoice_id_readonly");
   });
 });

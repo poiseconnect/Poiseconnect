@@ -216,6 +216,35 @@ describe("coach billing calculations", () => {
     expect(bundle.rows).toEqual([]);
   });
 
+  it("keeps invalid-priced sessions visible and blocks their billing bundle", () => {
+    const [bundle] = calculateCoachBundles({
+      sessions: [
+        session("missing-price", null, false),
+        session("invalid-price", "not-a-price", false),
+        session("zero-price", 0, false),
+        session("valid-price", 120, false),
+      ],
+      coachTaxProfile: {
+        business_country_code: "AT",
+        default_vat_rate: 20,
+      },
+    });
+
+    expect(bundle.session_ids).toEqual([
+      "missing-price",
+      "invalid-price",
+      "zero-price",
+      "valid-price",
+    ]);
+    expect(bundle.calculation_errors).toEqual([
+      { session_id: "missing-price", session_date: "2026-07-15T10:00:00.000Z", code: "invalid_session_price" },
+      { session_id: "invalid-price", session_date: "2026-07-15T10:00:00.000Z", code: "invalid_session_price" },
+      { session_id: "zero-price", session_date: "2026-07-15T10:00:00.000Z", code: "invalid_session_price" },
+    ]);
+    expect(bundle.session_count).toBe(4);
+    expect(bundle.rows).toHaveLength(1);
+  });
+
   it("returns review_required for an EU UID that was entered but not confirmed", () => {
     expect(
       resolveCoachInvoiceTax({

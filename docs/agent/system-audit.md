@@ -224,6 +224,108 @@ Offen bleiben fehlende Atomaritaet des Zwei-Schritt-Syncs sowie der separat
 beobachtete Kopftext-Sync-Fehler. Die Erweiterung bestaetigt keine Behebung
 dieses Fehlers und veraendert keine Steuer-/Provisionsentscheidung.
 
+### Verifiziertes Systemwissen: Poise→Coach sevDesk Create-and-send (2026-10-08)
+
+Der Adminablauf erstellt eine Rechnung direkt aus dem gespeicherten
+`coach_invoices`-Draft und verwendet sevDesks E-Mail-PDF-Versand. Reservierung,
+Invoice-ID-, Nummern- und Versandstatus sind getrennte persistierte Schritte;
+unklare Ergebnisse werden nicht automatisch wiederholt. Berechneter
+Dashboard-Bundle-Export und ungeschützte Test-Update-Route sind stillgelegt.
+Die neue Statusmigration ist nur vorgeschlagen, nicht angewendet. Konto-,
+Steuer-, Kontakt-, Layout- und Payloadschema-Freigaben bleiben notwendige
+serverseitige Live-Gates. Verifiziert mit künstlichen Supabase-/sevDesk-Mocks
+und fokussierten Regressionstests; keine produktiven Schreibaufrufe.
+
+### Lokale Hardening-Ergaenzung: Coach-Quartalsfreigabe (2026-10-11)
+
+Die lokale Implementierung ergaenzt `20261011000000_coach_invoice_creation_guards.sql`
+mit einem gemeinsamen transaktionsgebundenen Coach-Advisory-Lock fuer
+Freigabe, Erstellungsreservierung und BEFORE-Trigger auf Sitzungen,
+Anfragen-/Abrechnungsfeldern, Coach-Steuerprofilen und Coach-Kontaktdaten.
+Waerend `sevdesk_send_status='creating'` blockieren Trigger relevante
+Quellupdates und Aenderungen/Loeschung des Drafts; die externe HTTP-Anfrage
+laeuft nach Commit der Reservierung. Ein Unique Index verhindert lokale
+Duplikate je Coach, Quartal und Bundle; die bestehende Trennung von
+`reverse_charge` und `normal_ust` bleibt erhalten. Admin-Save/Recalculate
+verwendet `updated_at` als Compare-and-Swap. Sitzungen mit fehlendem,
+ungueltigem oder nichtpositivem Preis werden angezeigt und blockieren alle
+Abrechnungswege.
+
+Der sevDesk-Pfad verlangt serverseitig eine einzelne
+`SEVDESK_COACH_INVOICE_TEST_COACH_ID`. Vor POST erfolgt ein lesender
+Kontakt-/Quartalsabgleich ueber `GET /Invoice` und fuer erkannte Kandidaten
+einen Positionsabgleich. Nur ein eindeutig erkanntes zweites Steuer-Bundle
+wird zugelassen; vorhandene gleiche oder uneindeutige Rechnungen bleiben
+`creation_unknown` und erfordern manuelle Klaerung. Die damalige Behandlung
+von HTTP 400/401 als definitive Ablehnung ist durch den nachfolgenden
+vereinfachten Workflow ersetzt: auch diese Antworten bleiben gesperrt.
+Serverlogs enthalten keine Rechnungs-, Coach- oder Tokenwerte.
+
+Verifikation: gezielte Mock-Tests pruefen Preisfehler, Canary-Gate,
+Duplikaterkennung, Bundles, paginierte sevDesk-Abfragen, parallele
+Reservierungsantworten und HTTP-Fehlerklassifizierung; 99 Tests in 5 Dateien
+bestanden. Die Gesamtsuite bestand mit 491 Tests in 39 Dateien. Der
+Next.js-Produktionsbuild bestand mit ausschliesslich synthetischen
+Umgebungswerten, und `git diff --check` war sauber. Keine produktiven
+DB-/sevDesk-Schreibzugriffe, Migration, Umgebungsvariablen, Commit, Push oder
+Deployment wurden ausgefuehrt. Die Migrationen liefen zusaetzlich in einer
+wegwerfbaren lokalen PostgreSQL-15-Datenbank mit synthetischem Basisschema;
+Trigger blockierten dort Sitzungs-, Anfrage-, Steuer-, Kontakt- und
+Freigabeaenderungen waehrend `creating`. Zwei parallele RPC-Verbindungen
+lieferten genau eine Reservierung (`reserved`, danach `draft_mismatch`), und
+der Unique Index lehnte einen zweiten Draft desselben Bundles ab. Dieser Test
+belegt nicht das Produktivschema, dessen Rollen/RLS, Bestandsdaten oder
+providerseitige Vollstaendigkeit des Invoice-Listenabrufs. Der Abgleich nutzt
+sevDesks `limit`-/`offset`-Pagination mit maximal 1000 Eintraegen je Seite.
+Die Migration stoppt bei lokalen Quartals-Bundle-Duplikaten; vor Rollout sind
+beide Quartalsmigrationen und die vorhandene Statusmigration gegen das
+Ziel-Schema zu pruefen. Diese lokalen Tests belegen keine Produktionskompatibilitaet.
+
+### Code-Rollout vor Migrationen (2026-10-11)
+
+Der erste Rollout-Versuch wurde vor dem Deployment gestoppt, weil `load-coach`
+und `/api/therapist/quarter-release` ohne `coach_quarter_releases` mit 500
+antworteten. Behoben durch `app/lib/coachQuarterWorkflowReadiness.js`: lesende
+Ansichten funktionieren ohne neue Objekte, alle neuen Schreibaktionen liefern
+503 bis zur vollstaendigen Migration. Zusaetzlich liest der Coach-GET nun den
+gespeicherten `snapshot` (vorher wurde jede Freigabe als veraltet angezeigt).
+Regressionstests: `tests/api/coachQuarterWorkflowMigrationState.test.js`,
+`tests/lib/coachQuarterWorkflowReadiness.test.js`; das PostgreSQL-Skript prueft
+die Probe-SELECTs vor 08, nach 11 (weiterhin nicht bereit) und nach 12.
+
+### Vereinfachter sevDesk-Workflow und externe ID-Sicherung (2026-10-11)
+
+Der aktuelle lokale Stand legt beide alten Schreib-Syncs serverseitig still.
+Normale Saves duerfen externe IDs weder setzen noch aendern. Der manuell
+gemeldete Produktionsbestand umfasst zwei Konfliktgruppen mit fuenf lokalen
+Zeilen; diese Zuordnung wurde hier nicht live verifiziert. Die additive
+Migration 20261012 veraendert diese Zeilen nicht und quarantiniert beide
+bekannten externen IDs. Weitere Mehrfachlinks werden dynamisch erkannt.
+Neue Claims sichern externe IDs per Primary Key, ohne einen Unique Index
+ueber konfliktbehaftete historische Links anzulegen. Pro Coach blockiert
+creating/creation_unknown weitere Reservierungen; beide Bundles bleiben
+getrennt. Auch HTTP 400/401 werden nicht automatisch wiederholbar.
+
+Quelle: lokaler Code und die vier aufeinander aufbauenden Migrationen;
+verantwortlich fuer die lokale Umsetzung: GitHub Copilot im freigegebenen
+CTO-Auftrag. Verifikation erfolgt mit Regressionen und dem isolierten
+PostgreSQL-Testskript; keine Produktion, kein sevDesk-Schreibzugriff.
+Abschliessend bestanden 482 Tests in 40 Dateien, der Next.js-Produktionsbuild
+mit synthetischer Konfiguration und deaktivierter Erstellung sowie
+`git diff --check`. Die geringere Testzahl gegenueber dem vorherigen Stand
+entsteht durch den Ersatz der Tests fuer absichtlich stillgelegte Schreib-Syncs.
+Der isolierte PostgreSQL-15-Test bestaetigte unveraenderte historische
+Testzeilen und COALESCE-Index, genau eine parallele Bundle-Reservierung,
+eindeutige externe Claims bei READ COMMITTED und REPEATABLE READ,
+Quellschreibsperren, zwei getrennte Bundle-IDs, dauerhafte Sperre unklarer
+Ergebnisse und erneute Ausfuehrbarkeit der additiven Migration 20261012.
+VS-Code-Diagnostik meldete keine Fehler in den geaenderten API-/UI-Dateien.
+COALESCE im alten Index ist kein Blocker allein wegen Expressions; dessen
+tatsaechliche produktive Definition bleibt separat zu vergleichen.
+Architecture, Security und AI_CONTEXT sind entsprechend aktualisiert.
+Die frueher dokumentierte manuelle Kopf-/Positions-Sync-Funktion ist damit
+absichtlich ersetzt; Coach→Klient-Rechnungsfunktionen bleiben unveraendert.
+
 ## Schutz generierter Dokumentation
 
 Dateien unter `docs/generated/` dürfen nicht manuell editiert werden, sofern sie durch einen vorhandenen Generator erzeugt werden. Änderungen an generierten Artefakten müssen über den zuständigen Generator oder dessen technische Quellen erfolgen.

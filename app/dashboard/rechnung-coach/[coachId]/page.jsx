@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../../../lib/supabase";
-import { getSevdeskSyncErrorMessage } from "../../../lib/coachInvoiceDraft.js";
+import { SEVDESK_LINK_CONFLICT_MESSAGE } from "../../../lib/coachInvoiceLink.js";
 import jsPDF from "jspdf";
 import "jspdf-autotable";
 
@@ -28,12 +28,16 @@ export default function RechnungCoachPage({ params, searchParams }) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [recalculating, setRecalculating] = useState(false);
-  const [updatingSevdesk, setUpdatingSevdesk] = useState(false);
 
   const [savedCoachInvoiceId, setSavedCoachInvoiceId] = useState(null);
+  const [invoiceUpdatedAt, setInvoiceUpdatedAt] = useState(null);
   const [sevdeskInvoiceId, setSevdeskInvoiceId] = useState("");
-  const [syncingPositions, setSyncingPositions] = useState(false);
-const [sendingAllToSevdesk, setSendingAllToSevdesk] = useState(false);
+  const [sevdeskLinkState, setSevdeskLinkState] = useState("unavailable");
+  const [quarterWorkflowAvailable, setQuarterWorkflowAvailable] = useState(false);
+  const [quarterWorkflowMessage, setQuarterWorkflowMessage] = useState("");
+  const [sevdeskDraftNumber, setSevdeskDraftNumber] = useState("");
+  const [sevdeskStatusDetails, setSevdeskStatusDetails] = useState(null);
+  const [checkingSevdeskStatus, setCheckingSevdeskStatus] = useState(false);
 
   const [coach, setCoach] = useState(null);
   const [poiseSettings, setPoiseSettings] = useState(POISE_ADMIN_SETTINGS);
@@ -66,6 +70,9 @@ const [sendingAllToSevdesk, setSendingAllToSevdesk] = useState(false);
   const [invoiceWithVat, setInvoiceWithVat] = useState(true);
   const [vatRate, setVatRate] = useState(20);
   const [invoiceState, setInvoiceState] = useState("automatic_draft");
+  const [sevdeskSendStatus, setSevdeskSendStatus] = useState(null);
+  const [coachQuarterRelease, setCoachQuarterRelease] = useState(null);
+  const [sendingCoachInvoice, setSendingCoachInvoice] = useState(false);
   const [taxTreatment, setTaxTreatment] = useState("review_required");
   const [taxReason, setTaxReason] = useState("");
   const [hasCalculationDifference, setHasCalculationDifference] = useState(false);
@@ -138,11 +145,20 @@ const [sendingAllToSevdesk, setSendingAllToSevdesk] = useState(false);
 
       if (json.invoice_id) {
         setSavedCoachInvoiceId(json.invoice_id);
+        setInvoiceUpdatedAt(json.invoice_updated_at || null);
       } else {
         setSavedCoachInvoiceId(null);
+        setInvoiceUpdatedAt(null);
       }
 
       setSevdeskInvoiceId(json.sevdesk_invoice_id || "");
+      setSevdeskLinkState(json.sevdesk_link_state || "unavailable");
+      setQuarterWorkflowAvailable(json.quarter_workflow_available === true);
+      setQuarterWorkflowMessage(json.quarter_workflow_message || "");
+      setSevdeskDraftNumber(json.sevdesk_draft_invoice_number || "");
+      setSevdeskStatusDetails(null);
+      setSevdeskSendStatus(json.sevdesk_send_status || null);
+      setCoachQuarterRelease(json.coach_quarter_release || null);
 
       const now = new Date();
 
@@ -296,9 +312,9 @@ async function saveInvoice() {
         total: li.total,
       })),
 
-      sevdesk_invoice_id: sevdeskInvoiceId || null,
       sevdesk_invoice_number: null,
       sevdesk_synced_at: null,
+      expected_updated_at: invoiceUpdatedAt,
     };
 
     const {
@@ -318,12 +334,21 @@ async function saveInvoice() {
 
     if (!res.ok) {
       console.error("SAVE COACH INVOICE ERROR:", { status: res.status });
-      throw new Error("Fehler beim Speichern");
+      throw new Error(result?.error === "coach_quarter_workflow_unavailable"
+        ? result.message
+        : result?.error === "sevdesk_invoice_link_conflict"
+        ? SEVDESK_LINK_CONFLICT_MESSAGE
+        : result?.error === "invoice_concurrent_update"
+        ? "Die Rechnung wurde zwischenzeitlich von einer anderen Person geändert. Bitte neu laden und die Änderungen prüfen."
+        : result?.error === "billing_calculation_invalid"
+          ? `Speichern blockiert: ungültige Sitzungspreise bei ${result.calculation_errors.map((item) => item.session_id || "unbekannter Sitzung").join(", ")}.`
+        : "Fehler beim Speichern");
     }
 
     if (result?.data?.id) {
       setSavedCoachInvoiceId(result.data.id);
     }
+    if (result?.data?.updated_at) setInvoiceUpdatedAt(result.data.updated_at);
     setInvoiceState("saved_draft");
 
     if (result?.data?.sevdesk_invoice_id) {
@@ -363,11 +388,23 @@ async function recalculateFromSessions() {
             ? "client_with_vat"
             : "client_without_vat",
         bundle_key: bundleKey,
+        expected_updated_at: invoiceUpdatedAt,
       }),
     });
     const result = await res.json().catch(() => null);
     if (!res.ok) {
-      throw new Error(result?.error || "Neuberechnung fehlgeschlagen");
+      const invalidSessionIds = (result?.calculation_errors || [])
+        .map((item) => item.session_id)
+        .filter(Boolean);
+      throw new Error(result?.error === "coach_quarter_workflow_unavailable"
+        ? result.message
+        : result?.error === "sevdesk_invoice_link_conflict"
+        ? SEVDESK_LINK_CONFLICT_MESSAGE
+        : result?.error === "invoice_concurrent_update"
+        ? "Die Rechnung wurde zwischenzeitlich geändert. Bitte neu laden und die Änderungen prüfen."
+        : result?.error === "billing_calculation_invalid"
+          ? `Neuberechnung blockiert: ungültige Sitzungspreise bei ${invalidSessionIds.join(", ") || "mindestens einer Sitzung"}.`
+          : result?.error || "Neuberechnung fehlgeschlagen");
     }
     await loadData();
   } catch (error) {
@@ -377,116 +414,91 @@ async function recalculateFromSessions() {
   }
 }
 
-async function updateInvoiceInSevdesk(targetCoachInvoiceId = null) {
-  const invoiceIdToUse = targetCoachInvoiceId || savedCoachInvoiceId;
+  async function createCoachInvoiceDraft() {
+    setSendingCoachInvoice(true);
+    try {
+      const saveResult = sevdeskSendStatus && sevdeskSendStatus !== "creation_failed"
+        ? null
+        : await saveInvoice();
+      const coachInvoiceId = saveResult?.data?.id || savedCoachInvoiceId;
+      if (!coachInvoiceId) throw new Error("Draft konnte nicht gespeichert werden");
 
-  if (!invoiceIdToUse) {
-    throw new Error("Bitte die Rechnung zuerst speichern");
-  }
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      const response = await fetch("/api/sevdesk/create-and-send-coach-invoice", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session?.access_token}`,
+        },
+        body: JSON.stringify({ coachInvoiceId }),
+      });
+      const result = await response.json().catch(() => null);
+      if (!response.ok || result?.ok !== true) {
+        const messages = {
+          sevdesk_invoice_link_conflict: SEVDESK_LINK_CONFLICT_MESSAGE,
+          coach_quarter_workflow_unavailable: result?.message,
+          invoice_link_check_unavailable: "Die Rechnungsverknüpfung konnte nicht sicher geprüft werden. Der Vorgang bleibt gesperrt.",
+          sevdesk_live_workflow_blocked: "Die sevDesk-Rechnungserstellung ist bis zur Kontofreigabe serverseitig gesperrt.",
+          test_coach_not_allowed: "Die sevDesk-Testfreigabe gilt nicht für diesen Coach.",
+          billing_calculation_invalid: "Mindestens eine Sitzung hat einen ungültigen Preis. Bitte die angezeigten Sitzungsdaten korrigieren.",
+          manual_reconciliation_required: "Der sevDesk-Status ist unklar. Bitte vor einem erneuten Versuch manuell in sevDesk prüfen.",
+          sevdesk_period_invoice_exists: "Für diesen Coach und Zeitraum wurde bereits eine sevDesk-Rechnung gefunden. Bitte manuell prüfen; eine weitere Rechnung wurde nicht erstellt.",
+          sevdesk_duplicate_check_unavailable: "Der sevDesk-Abgleich konnte nicht zuverlässig abgeschlossen werden. Der Vorgang ist blockiert; bitte manuell prüfen.",
+          duplicate_check_failed_local_state_update_failed: "Der sevDesk-Abgleich ist fehlgeschlagen und der lokale Sperrstatus konnte nicht bestätigt werden. Bitte nicht erneut klicken; zuerst in sevDesk und Poise manuell prüfen.",
+          duplicate_found_but_local_state_update_failed: "Eine mögliche sevDesk-Rechnung wurde gefunden, aber der lokale Sperrstatus konnte nicht gespeichert werden. Bitte nicht erneut klicken und manuell prüfen.",
+          invoice_created_but_persistence_failed: "sevDesk hat möglicherweise einen Entwurf angelegt, dessen ID lokal nicht gespeichert werden konnte. Bitte nicht erneut klicken und den sevDesk-Kontakt/Zeitraum manuell prüfen.",
+          invoice_creation_state_persistence_failed: "Das Ergebnis des sevDesk-Aufrufs ist unklar und der lokale Sperrstatus konnte nicht aktualisiert werden. Bitte nicht erneut klicken und den Vorgang manuell prüfen.",
+          invoice_workflow_failed: "Der Vorgang ist unerwartet fehlgeschlagen. Bitte nicht erneut klicken, bevor der Request anhand der angezeigten ID geprüft wurde.",
+          invoice_period_duplicate: "Für dieses Coach-Quartal und Steuer-Bundle existiert bereits ein lokaler Rechnungsentwurf. Bitte neu laden.",
+          invoice_creation_result_unknown: "Das Ergebnis der Rechnungserstellung ist unklar. Es wurde kein automatischer Wiederholungsversuch gestartet.",
+          sevdesk_invoice_creation_rejected: "sevDesk hat die Draft-Erstellung abgelehnt. Prüfe die Kontodaten; der Vorgang wurde nicht automatisch wiederholt.",
+          creation_rejected_but_local_state_reset_failed: "sevDesk hat abgelehnt, aber der lokale Erstellungsstatus konnte nicht zurückgesetzt werden. Vor einem erneuten Versuch bitte manuell prüfen.",
+          coach_quarter_release_stale: "Die Coach-Freigabe ist veraltet. Das Quartal muss erneut geprüft und freigegeben werden.",
+          saved_draft_does_not_match_released_sessions: "Der gespeicherte Rechnungsentwurf passt nicht mehr zu den freigegebenen Sitzungen.",
+          invoice_draft_changed: "Der Draft wurde währenddessen geändert. Bitte neu laden und prüfen.",
+          invoice_operation_already_reserved: "Die Rechnungserstellung wurde bereits gestartet.",
+          invoice_concurrent_update: "Die Rechnung wurde zwischenzeitlich geändert. Bitte neu laden und die Änderungen prüfen.",
+        };
+        throw new Error(messages[result?.error] || "Rechnungsentwurf konnte nicht erstellt werden.");
+      }
 
-  if (!sevdeskInvoiceId) {
-    throw new Error("Bitte zuerst eine sevDesk Invoice ID eintragen und speichern");
-  }
-
-  setUpdatingSevdesk(true);
-
-  try {
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
-
-    const res = await fetch("/api/sevdesk/update-coach-invoice", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${session?.access_token}`,
-      },
-      body: JSON.stringify({
-        coachInvoiceId: invoiceIdToUse,
-      }),
-    });
-
-    const json = await res.json().catch(() => null);
-
-    if (!res.ok || json?.ok !== true) {
-      console.error("UPDATE SEVDESK INVOICE ERROR:", { status: res.status });
-      throw new Error(getSevdeskSyncErrorMessage(json));
+      setSevdeskInvoiceId(result.invoiceId || "");
+      setSevdeskDraftNumber(result.draftInvoiceNumber || "");
+      await loadData();
+      alert(result.existing
+        ? "Der vorhandene sevDesk-Rechnungsentwurf wurde geladen."
+        : "Der Rechnungsentwurf wurde in sevDesk erstellt. Er wurde weder finalisiert noch versendet.");
+    } catch (error) {
+      await loadData();
+      alert(error.message || "Rechnungsentwurf konnte nicht erstellt werden.");
+    } finally {
+      setSendingCoachInvoice(false);
     }
-
-    return json;
-  } finally {
-    setUpdatingSevdesk(false);
-  }
-}
-  async function syncInvoicePositionsToSevdesk(targetCoachInvoiceId = null) {
-  const invoiceIdToUse = targetCoachInvoiceId || savedCoachInvoiceId;
-
-  if (!invoiceIdToUse) {
-    throw new Error("Bitte die Rechnung zuerst speichern");
   }
 
-  if (!sevdeskInvoiceId) {
-    throw new Error("Bitte zuerst eine sevDesk Invoice ID eintragen und speichern");
-  }
-
-  setSyncingPositions(true);
-
-  try {
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
-
-    const res = await fetch("/api/sevdesk/sync-coach-invoice-positions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${session?.access_token}`,
-      },
-      body: JSON.stringify({
-        coachInvoiceId: invoiceIdToUse,
-      }),
-    });
-
-    const json = await res.json().catch(() => null);
-
-    if (!res.ok || json?.ok !== true) {
-      console.error("SYNC POSITIONS ERROR:", { status: res.status });
-      throw new Error(getSevdeskSyncErrorMessage(json, true));
+  async function readSevdeskStatus() {
+    if (!savedCoachInvoiceId) return;
+    setCheckingSevdeskStatus(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const query = new URLSearchParams({ coachInvoiceId: savedCoachInvoiceId });
+      const response = await fetch(`/api/sevdesk/create-and-send-coach-invoice?${query}`, {
+        headers: { Authorization: `Bearer ${session?.access_token || ""}` },
+        cache: "no-store",
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result?.message || result?.error || "sevDesk-Status konnte nicht gelesen werden");
+      setSevdeskStatusDetails(result);
+      if (result.invoiceNumber) setSevdeskDraftNumber(result.invoiceNumber);
+    } catch (error) {
+      alert(error.message || "sevDesk-Status konnte nicht gelesen werden");
+    } finally {
+      setCheckingSevdeskStatus(false);
     }
-
-    return json;
-  } finally {
-    setSyncingPositions(false);
   }
-}
-  async function sendAllToSevdesk() {
-  setSendingAllToSevdesk(true);
 
-  try {
-    if (!sevdeskInvoiceId) {
-      throw new Error("Bitte zuerst eine sevDesk Invoice ID eintragen");
-    }
-
-    const saveResult = await saveInvoice();
-
-    const freshCoachInvoiceId = saveResult?.data?.id;
-
-    if (!freshCoachInvoiceId) {
-      throw new Error("Poise Save ID konnte nicht ermittelt werden");
-    }
-
-    await updateInvoiceInSevdesk(freshCoachInvoiceId);
-    await syncInvoicePositionsToSevdesk(freshCoachInvoiceId);
-
-    alert("Alles erfolgreich zu sevDesk übertragen ✅");
-    await loadData();
-  } catch (err) {
-    console.error("SEND ALL TO SEVDESK ERROR");
-    alert(err.message || "Fehler beim sevDesk Sync");
-  } finally {
-    setSendingAllToSevdesk(false);
-  }
-}
   function exportPDF() {
     try {
       const doc = new jsPDF("p", "mm", "a4");
@@ -534,8 +546,21 @@ async function updateInvoiceInSevdesk(targetCoachInvoiceId = null) {
     return <div style={{ padding: 40 }}>Keine Poise-Rechnungsdaten gefunden</div>;
   }
 
+  const sevdeskLinkBlocked =
+    quarterWorkflowAvailable && !["unlinked", "unique"].includes(sevdeskLinkState);
+  const workflowWritesBlocked = !quarterWorkflowAvailable || sevdeskLinkBlocked;
   const downstreamProcessingBlocked =
-    !taxTreatment || taxTreatment === "review_required";
+    !taxTreatment || taxTreatment === "review_required" || calculationErrors.length > 0;
+  const coachInvoiceSendLocked = [
+    "creating",
+    "creation_unknown",
+    "created",
+    "sending",
+    "sent",
+    "send_failed",
+    "send_unknown",
+    "finalized",
+  ].includes(sevdeskSendStatus) || Boolean(sevdeskInvoiceId) || workflowWritesBlocked;
 
   const pageBg = {
     background: "#f0f0f0",
@@ -571,6 +596,25 @@ async function updateInvoiceInSevdesk(targetCoachInvoiceId = null) {
 
   return (
     <div style={pageBg}>
+      {!quarterWorkflowAvailable && (
+        <div role="status" style={{ width: 900, margin: "0 auto 18px", color: "#444" }}>
+          {quarterWorkflowMessage ||
+            "Die Quartalsfreigabe ist noch nicht verfügbar. Bestehende Rechnungen bleiben sichtbar; Schreibaktionen sind vorübergehend gesperrt."}
+        </div>
+      )}
+      {sevdeskLinkBlocked && (
+        <div role="alert" style={{ width: 900, margin: "0 auto 18px", color: "#9b1c1c" }}>
+          {sevdeskLinkState === "unavailable"
+            ? "Die Rechnungsverknüpfung konnte nicht sicher geprüft werden. Schreibaktionen bleiben gesperrt."
+            : SEVDESK_LINK_CONFLICT_MESSAGE}
+        </div>
+      )}
+      {sevdeskInvoiceId && !sevdeskLinkBlocked && (
+        <div style={{ width: 900, margin: "0 auto 18px" }}>
+          Diese Rechnung ist bereits verknüpft und schreibgeschützt. Bitte den Entwurf
+          ausschließlich manuell in sevDesk kontrollieren; Änderungen werden nicht synchronisiert.
+        </div>
+      )}
 <div
   style={{
     width: 900,
@@ -581,53 +625,74 @@ async function updateInvoiceInSevdesk(targetCoachInvoiceId = null) {
   }}
 >
   <button
-    onClick={sendAllToSevdesk}
-    disabled={sendingAllToSevdesk || downstreamProcessingBlocked}
+    onClick={createCoachInvoiceDraft}
+    disabled={
+      sendingCoachInvoice || saving || !savedCoachInvoiceId ||
+      downstreamProcessingBlocked || coachInvoiceSendLocked
+    }
     style={{
       background: "#0B6E4F",
       color: "#fff",
       border: "none",
       padding: "12px 18px",
-      cursor: sendingAllToSevdesk || downstreamProcessingBlocked ? "not-allowed" : "pointer",
+      cursor: sendingCoachInvoice || saving || !savedCoachInvoiceId || downstreamProcessingBlocked || coachInvoiceSendLocked ? "not-allowed" : "pointer",
       fontSize: 14,
       borderRadius: 6,
-      opacity: sendingAllToSevdesk || downstreamProcessingBlocked ? 0.7 : 1,
+      opacity: sendingCoachInvoice || saving || !savedCoachInvoiceId || downstreamProcessingBlocked || coachInvoiceSendLocked ? 0.7 : 1,
       fontWeight: 600,
     }}
   >
-    {sendingAllToSevdesk ? "Sende zu sevDesk…" : "Alles zu sevDesk"}
+    {sendingCoachInvoice
+      ? "Erstelle sevDesk-Draft …"
+      : sevdeskSendStatus === "created"
+        ? "sevDesk-Draft erstellt"
+        : "sevDesk-Rechnungsentwurf erstellen"}
   </button>
+  {sevdeskInvoiceId && (
+    <>
+      <button
+        type="button"
+        onClick={readSevdeskStatus}
+        disabled={checkingSevdeskStatus}
+      >
+        {checkingSevdeskStatus ? "Lese sevDesk-Status …" : "sevDesk-Status lesen"}
+      </button>
+      <a href="https://my.sevdesk.de" target="_blank" rel="noreferrer">
+        sevDesk öffnen · ID {sevdeskInvoiceId}
+      </a>
+    </>
+  )}
 
   <button
-    onClick={saveInvoice}
-    disabled={saving || sendingAllToSevdesk}
+    onClick={() => saveInvoice().catch((error) => alert(error.message || "Speichern fehlgeschlagen"))}
+    disabled={saving || Boolean(sevdeskInvoiceId) || workflowWritesBlocked || Boolean(sevdeskSendStatus) || calculationErrors.length > 0}
     style={{
       background: "#111",
       color: "#fff",
       border: "none",
       padding: "10px 16px",
-      cursor: saving || sendingAllToSevdesk ? "not-allowed" : "pointer",
+      cursor: saving || Boolean(sevdeskInvoiceId) || workflowWritesBlocked || Boolean(sevdeskSendStatus) || calculationErrors.length > 0 ? "not-allowed" : "pointer",
       fontSize: 13,
       borderRadius: 6,
-      opacity: saving || sendingAllToSevdesk ? 0.7 : 1,
+      opacity: saving || Boolean(sevdeskInvoiceId) || workflowWritesBlocked || Boolean(sevdeskSendStatus) || calculationErrors.length > 0 ? 0.7 : 1,
     }}
   >
     {saving ? "Speichere…" : "Rechnung speichern"}
   </button>
 
-  {hasCalculationDifference && savedCoachInvoiceId && (
+  {hasCalculationDifference && savedCoachInvoiceId && !sevdeskInvoiceId && !sevdeskLinkBlocked && (
     <button
       onClick={recalculateFromSessions}
-      disabled={recalculating || saving || calculationErrors.length > 0}
+      disabled={recalculating || saving || !quarterWorkflowAvailable || calculationErrors.length > 0}
       style={{
         background: "#0B6E4F",
         color: "#fff",
         border: "none",
         padding: "10px 16px",
-        cursor: recalculating || saving || calculationErrors.length > 0 ? "not-allowed" : "pointer",
+        cursor: recalculating || saving || !quarterWorkflowAvailable || calculationErrors.length > 0 ? "not-allowed" : "pointer",
         fontSize: 13,
         borderRadius: 6,
-        opacity: recalculating || saving || calculationErrors.length > 0 ? 0.7 : 1,
+        opacity: recalculating || saving || !quarterWorkflowAvailable || calculationErrors.length > 0 ? 0.7 : 1,
       }}
     >
       {recalculating ? "Berechne …" : "Aus aktuellen Sitzungen neu berechnen"}
@@ -636,16 +701,15 @@ async function updateInvoiceInSevdesk(targetCoachInvoiceId = null) {
 
   <button
     onClick={exportPDF}
-    disabled={sendingAllToSevdesk}
     style={{
       background: "#fff",
       color: "#111",
       border: "1px solid #111",
       padding: "10px 16px",
-      cursor: sendingAllToSevdesk ? "not-allowed" : "pointer",
+      cursor: "pointer",
       fontSize: 13,
       borderRadius: 6,
-      opacity: sendingAllToSevdesk ? 0.7 : 1,
+      opacity: 1,
     }}
   >
     PDF exportieren
@@ -673,6 +737,42 @@ async function updateInvoiceInSevdesk(targetCoachInvoiceId = null) {
                   ? " · Reverse Charge"
                   : " · Steuerprüfung erforderlich"}
             </div>
+            {sevdeskSendStatus && (
+            <div style={{ marginTop: 6, color: "#8a4b08" }}>
+              {sevdeskSendStatus === "created"
+                ? "Rechnungsentwurf in sevDesk erstellt. Nicht finalisiert und nicht versendet."
+                : ["creating", "creation_unknown"].includes(sevdeskSendStatus)
+                  ? "Erstellungsergebnis unklar. Bitte sevDesk manuell prüfen; nicht erneut erstellen."
+                  : "Rechnungserstellung blockiert. Status vor weiteren Aktionen prüfen."}
+              {sevdeskDraftNumber ? ` sevDesk-Nummer: ${sevdeskDraftNumber}.` : ""}
+            </div>
+            )}
+            {billingMode === "quartal" && (
+            <div style={{ marginTop: 6, color: coachQuarterRelease?.release_status === "released" ? "#176b45" : "#8a4b08" }}>
+              Coach-Freigabe: {coachQuarterRelease?.release_status === "released"
+                ? `aktuell (Version ${coachQuarterRelease.release_version})`
+                : coachQuarterRelease
+                  ? "veraltet – erneute Freigabe erforderlich"
+                  : "fehlt – Coach muss das Quartal freigeben"}
+              {sevdeskSendStatus === "created" &&
+                coachQuarterRelease?.release_status !== "released"
+                ? " · Der bestehende sevDesk-Draft bleibt unverändert; bitte manuell prüfen."
+                : ""}
+            </div>
+            )}
+            {sevdeskStatusDetails && (
+            <div style={{ marginTop: 6, color: "#555" }}>
+              Gelesener sevDesk-Status: {sevdeskStatusDetails.invoiceStatus || "unbekannt"}.
+              {` sevDesk meldet Status-100-Draft: ${sevdeskStatusDetails.isDraft ? "ja" : "nein"}.`}
+              {sevdeskStatusDetails.invoiceNumber
+                ? ` Rechnungsnummer: ${sevdeskStatusDetails.invoiceNumber}.`
+                : ""}
+              {sevdeskStatusDetails.sendDate
+                ? ` Datum laut sevDesk: ${sevdeskStatusDetails.sendDate}.`
+                : ""}
+              {" "}Statusabfrage ist lesend; Poise-Draft und sevDesk-Rechnung wurden nicht verändert.
+            </div>
+            )}
             {hasCalculationDifference && (
               <div style={{ color: "#a12622", marginTop: 6 }}>
                 Die aktuellen Sitzungsdaten weichen vom gespeicherten Rechnungsentwurf ab.
@@ -686,7 +786,20 @@ async function updateInvoiceInSevdesk(targetCoachInvoiceId = null) {
             )}
             {calculationErrors.length > 0 && (
               <div style={{ color: "#a12622", marginTop: 6 }}>
-                Netto-Provision kann nicht berechnet werden: Coach-USt-Satz fehlt.
+                <strong>Abrechnung blockiert:</strong>
+                <ul style={{ margin: "4px 0 0", paddingLeft: 20 }}>
+                  {calculationErrors.map((item, index) => (
+                    <li key={`${item.session_id || "unknown"}-${index}`}>
+                      {item.code === "invalid_session_price"
+                        ? `Sitzung ${item.session_id}: Preis fehlt, ist ungültig oder nicht positiv.`
+                        : item.code === "session_id_missing"
+                          ? `Sitzung vom ${item.session_date || "unbekannten Datum"} hat keine eindeutige ID.`
+                          : item.code === "coach_vat_rate_missing"
+                            ? `Sitzung ${item.session_id}: Coach-USt-Satz fehlt.`
+                            : `Sitzung ${item.session_id || "unbekannt"}: ${item.code}.`}
+                    </li>
+                  ))}
+                </ul>
               </div>
             )}
           </div>
@@ -816,8 +929,8 @@ async function updateInvoiceInSevdesk(targetCoachInvoiceId = null) {
                 <input
                   style={{ ...inputBase, width: 140, textAlign: "right" }}
                   value={sevdeskInvoiceId}
-                  onChange={(e) => setSevdeskInvoiceId(e.target.value)}
-                  placeholder="z.B. 142946459"
+                  readOnly
+                  placeholder="Wird bei Entwurfserstellung vergeben"
                 />
               </div>
 

@@ -332,9 +332,33 @@ export function calculateCoachBundles({ sessions = [], coachTaxProfile = {} }) {
       : bundles.client_without_vat;
     const price = Number(session?.price);
 
-    if (!session?.id || !Number.isFinite(price) || price <= 0) continue;
+    if (!session?.id) {
+      bundle.calculation_errors.push({
+        session_id: null,
+        session_date: session?.date || null,
+        code: "session_id_missing",
+      });
+      continue;
+    }
 
     bundle.session_ids.push(session.id);
+    if (!Number.isFinite(price) || price <= 0) {
+      bundle.session_snapshot.push({
+        session_id: session.id,
+        session_date: session.date || null,
+        client_price: Number.isFinite(price) ? price : null,
+        client_with_vat: clientWithVat,
+        coach_vat_rate: null,
+        net_basis: null,
+        commission_net: null,
+      });
+      bundle.calculation_errors.push({
+        session_id: session.id,
+        session_date: session.date || null,
+        code: "invalid_session_price",
+      });
+      continue;
+    }
 
     const commission = calculateSessionCommission({
       price,

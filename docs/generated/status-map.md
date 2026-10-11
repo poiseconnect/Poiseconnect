@@ -3,7 +3,7 @@
 > Diese Datei wird durch `scripts/generate-project-map.mjs` erzeugt.
 > Nicht manuell bearbeiten.
 
-Erzeugt am: 2026-10-07T12:41:01.954Z
+Erzeugt am: 2026-10-11T15:39:25.609Z
 
 ## `app/api/admin-forward/route.js`
 
@@ -95,9 +95,19 @@ Erzeugt am: 2026-10-07T12:41:01.954Z
 - Statuswerte: `abgelehnt`
 - Match-State-Werte: keine erkannt
 
+## `app/api/sevdesk/create-and-send-coach-invoice/route.js`
+
+- Statuswerte: `created`
+- Match-State-Werte: keine erkannt
+
 ## `app/dashboard/DashboardFull.jsx`
 
 - Statuswerte: `active`, `beendet`, `neu`, `papierkorb`, `termin_bestaetigt`
+- Match-State-Werte: keine erkannt
+
+## `app/lib/coachInvoiceSevdesk.js`
+
+- Statuswerte: `100`
 - Match-State-Werte: keine erkannt
 
 ## `app/lib/handlers/confirmAppointment.js`
@@ -120,14 +130,44 @@ Erzeugt am: 2026-10-07T12:41:01.954Z
 - Statuswerte: `frei`
 - Match-State-Werte: keine erkannt
 
+## `scripts/sevdesk-invoice-readonly.mjs`
+
+- Statuswerte: `unbekannt`
+- Match-State-Werte: keine erkannt
+
 ## `tests/api/adminReengageRoute.test.js`
 
 - Statuswerte: `active`, `admin_vorschlaege_gesendet`, `failed`, `termin_bestaetigt`
 - Match-State-Werte: keine erkannt
 
+## `tests/api/coachQuarterWorkflowMigrationState.test.js`
+
+- Statuswerte: `released`
+- Match-State-Werte: keine erkannt
+
+## `tests/api/createRequestDraft.test.js`
+
+- Statuswerte: `draft`, `neu`
+- Match-State-Werte: `draft`, `pending`
+
+## `tests/api/sevdeskCoachInvoiceRoute.test.js`
+
+- Statuswerte: `100`, `created`, `creation_unknown`, `released`
+- Match-State-Werte: keine erkannt
+
+## `tests/api/therapistQuarterReleaseRoute.test.js`
+
+- Statuswerte: `released`
+- Match-State-Werte: keine erkannt
+
 ## `tests/dashboard/coachFilter.test.js`
 
 - Statuswerte: `admin_vorschlaege_gesendet`, `future_status`
+- Match-State-Werte: keine erkannt
+
+## `tests/lib/coachInvoiceSevdesk.test.js`
+
+- Statuswerte: `100`, `already_reserved`, `created`, `creation_unknown`, `released`, `reserved`, `reserved_elsewhere`, `stale`
 - Match-State-Werte: keine erkannt
 
 ## `tests/lib/draftRecovery.test.js`

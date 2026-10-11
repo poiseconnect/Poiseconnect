@@ -3,7 +3,7 @@
 > Diese Datei wird durch `scripts/generate-project-map.mjs` erzeugt.
 > Nicht manuell bearbeiten.
 
-Erzeugt am: 2026-10-07T12:41:01.953Z
+Erzeugt am: 2026-10-11T15:39:25.607Z
 
 ## `anfragen`
 
@@ -88,6 +88,17 @@ Erzeugt am: 2026-10-07T12:41:01.953Z
 
 - `app/api/invoices/_lib/coachInvoice.js`
 - `app/api/invoices/recalculate-coach/route.js`
+- `app/api/sevdesk/create-and-send-coach-invoice/route.js`
+- `app/lib/coachQuarterWorkflowReadiness.js`
+
+## `coach_quarter_releases`
+
+- `app/api/invoices/load-coach/route.js`
+- `app/api/invoices/recalculate-coach/route.js`
+- `app/api/invoices/save-coach/route.js`
+- `app/api/sevdesk/create-and-send-coach-invoice/route.js`
+- `app/api/therapist/quarter-release/route.js`
+- `app/lib/coachQuarterWorkflowReadiness.js`
 
 ## `confirmed_appointments`
 
@@ -161,6 +172,7 @@ Erzeugt am: 2026-10-07T12:41:01.953Z
 - `app/api/google/start/route.js`
 - `app/api/invoice-settings/route.js`
 - `app/api/invoices/_lib/coachInvoice.js`
+- `app/api/invoices/_lib/disabledSevdeskSync.js`
 - `app/api/invoices/load-coach/route.js`
 - `app/api/invoices/load/route.js`
 - `app/api/invoices/recalculate-coach/route.js`
@@ -175,13 +187,13 @@ Erzeugt am: 2026-10-07T12:41:01.953Z
 - `app/api/public-team-members/route.js`
 - `app/api/send-personal-message/route.js`
 - `app/api/sevdesk-export-coach-quarterly/route.js`
-- `app/api/sevdesk/sync-coach-invoice-positions/route.js`
-- `app/api/sevdesk/update-coach-invoice/route.js`
+- `app/api/sevdesk/create-and-send-coach-invoice/route.js`
 - `app/api/system-check/route.js`
 - `app/api/team-members/matching-scores/route.js`
 - `app/api/team-members/profile/route.js`
 - `app/api/team-members/toggle-availability/route.js`
 - `app/api/therapist/billing-sessions/route.js`
+- `app/api/therapist/quarter-release/route.js`
 - `app/api/update-status/route.js`
 - `app/api/update-tarif/route.js`
 - `app/lib/loadPublishedCoachingCosts.js`
@@ -226,4 +238,5 @@ Erzeugt am: 2026-10-07T12:41:01.953Z
 - `app/api/invoices/_lib/coachInvoice.js`
 - `app/api/invoices/load/route.js`
 - `app/api/invoices/send/route.js`
+- `app/api/sevdesk/create-and-send-coach-invoice/route.js`
 - `app/api/system-check/route.js`

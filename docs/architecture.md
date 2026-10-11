@@ -95,7 +95,8 @@ bestehenden Interessen blind überschreiben.
 
 sevDesk wird für Rechnungs- und Abrechnungsprozesse angebunden.
 
-Der bestehende Poise->Coach-Sync "Alles zu sevDesk" speichert zuerst den
+Historischer Stand vor der Stilllegung am 2026-10-11: Der Poise->Coach-Sync
+"Alles zu sevDesk" speicherte zuerst den
 bearbeiteten Entwurf und verwendet dessen frisch zurueckgelieferte
 `coachInvoiceId` fuer beide Sync-Schritte. `/api/sevdesk/update-coach-invoice`
 laedt ausschliesslich diesen `coach_invoices`-Draft und aktualisiert die
@@ -134,8 +135,176 @@ Nachweis einer vollstaendigen Gesamtuebertragung.
 Jahreswechsel, Schaltjahr/DST, Monats-/Jahresmodi, Periodenwidersprueche,
 Draft-Datenquelle, erlaubte Update-Felder, Positionsaustausch, frische Save ID,
 Fehlerweitergabe und Eingabeerhalt. Der separat beobachtete Kopftext-Sync-Fehler
-ist durch diese Erweiterung nicht als behoben bestaetigt. Ebenso bleibt der
-separate Dashboard-Erstellungsexport ausserhalb dieses Draft-Syncs.
+ist durch diese Erweiterung nicht als behoben bestaetigt.
+
+Die Poise→Coach-Rechnungserstellung verwendet ausschliesslich den gespeicherten
+`coach_invoices`-Draft und ist eine aktive-Admin-Aktion. Vorher muss der Coach
+das Quartal in `/api/therapist/quarter-release` ausdruecklich freigeben. Ein
+versionierter Snapshot umfasst die relevanten `sessions`, Klienten-
+Abrechnungsfelder, Coach-Steuerdaten und sevDesk-Kontaktzuordnung. Datenbank-
+Trigger markieren die Freigabe nach abrechnungsrelevanten Aenderungen als
+veraltet. Das Speichern/Rechnen eines Quartals-Drafts verlangt eine aktuelle
+Freigabe und bindet deren Version. Die atomare RPC `reserve_coach_invoice_creation`
+prueft Freigabe-Snapshot, Draft-Version und Draft-Zeitstempel vor dem externen
+Schreibaufruf. Die nachfolgende Migration
+`20261011000000_coach_invoice_creation_guards.sql` verwendet denselben
+transaktionsgebundenen Advisory Lock fuer Reservierung, Coach-Freigabe und
+abrechnungsrelevante Schreibwege. BEFORE-Trigger auf `sessions`, `anfragen`,
+`therapist_invoice_settings` und `team_members` blockieren Aenderungen,
+solange fuer den Coach eine Erstellung laeuft. Auch direkte Aenderungen an
+`coach_quarter_releases` und Importe werden abgewiesen; Trigger decken diese
+Schreibwege ab, statt sich auf die API-Routen zu verlassen. Der externe
+HTTP-Aufruf liegt nicht in einer offenen Datenbanktransaktion. Ein Trigger
+schuetzt ausserdem einen reservierten Rechnungsdraft vor parallelen
+Aenderungen oder Loeschung.
+
+Ein eigener Unique Index verhindert doppelte Quartals-Drafts je Coach,
+Quartal und bestehendem Steuer-Bundle (`reverse_charge`/`normal_ust`); beide
+Bundles bleiben fachlich getrennte Rechnungen. Vor der Indexanlage bricht die
+Migration bei historischen Duplikaten ab, statt sie zu bereinigen. Admin-Saves
+und Neuberechnungen verwenden `updated_at` als Compare-and-Swap-Version; ein
+veralteter Stand wird mit Konflikt abgewiesen und muss neu geladen werden.
+Berechnungsfehler fuer Sitzungen mit fehlendem, ungueltigem oder nicht
+positivem Preis enthalten die Sitzungs-ID und blockieren Speichern,
+Neuberechnung und Erstellung.
+
+`POST /api/sevdesk/create-and-send-coach-invoice` erstellt ausschliesslich
+einen sevDesk-Entwurf ueber `POST /Invoice/Factory/saveInvoice` mit Status
+`100`. Es gibt keinen Aufruf zum Finalisieren oder Versenden. Positionen,
+Summen, Poise-Steuerzuordnung, Zeitraum, Coach-/Kontaktzuordnung, E-Mail und
+Rechnungsanschrift werden serverseitig gegen den gespeicherten Draft und die
+aktuellen Sitzungsdaten geprueft. Der API-Pfadname bleibt aus
+Kompatibilitaetsgruenden bestehen, seine Funktion sendet nicht. Die sevDesk-
+Invoice-ID und eine eventuell vorlaeufige Entwurfsnummer werden gespeichert;
+eine Poise-Nummer wird nicht zur endgueltigen sevDesk-Nummer erklaert.
+
+Der GET-Aufruf desselben Pfads liest `GET /Invoice/{invoiceId}` und gibt
+Statusfelder zur Anzeige zurueck. Er veraendert weder sevDesk noch die lokale
+Rechnung. Unklare Erstellungsresultate werden als `creation_unknown` dauerhaft
+fuer automatische Wiederholungen gesperrt. Bereits erstellte Drafts und
+unklare/alte Sendestatus sperren Schreibaktionen. Die bisherigen Kopf- und
+Positions-Sync-Routen sind serverseitig stillgelegt und antworten nach
+Adminpruefung mit HTTP 409; es gibt dort keinen Provider-Schreibcode mehr.
+Die berechnete-Bundle-Route `/api/sevdesk-export-coach-quarterly` antwortet
+weiterhin mit HTTP 410.
+
+Vor jedem sevDesk-POST fragt der Server `GET /Invoice` read-only fuer den
+konfigurierten Coach-Kontakt ab. Der OpenAPI-Vertrag dokumentiert Filter fuer
+Kontakt-ID und Kontakt-Objekttyp; die sevDesk-Tech-Info zu
+[Pagination-Limits](https://tech.sevdesk.com/api_news/posts/2025_03_11-api_pagination_limits/)
+bestaetigt `limit` bis 1000 und `offset`. Der Server liest alle Seiten bis zu
+einer unvollstaendigen Seite; API-Fehler, unerwartete Antwortformen oder das
+interne Seitenlimit blockieren fail-closed. Zeitraum-Kandidaten werden anhand der Rechnungsreferenz,
+`customerInternalNote` und des Leistungszeitraums gesucht. Die Positions-API
+`GET /Invoice/{invoiceId}/getPositions` unterscheidet ein bereits vorhandenes
+eigenes Bundle von dem legitimen zweiten Bundle desselben Quartals. Kann ein
+Fund nicht eindeutig dem anderen Bundle zugeordnet werden, bleibt die
+Reservierung fuer manuelle Pruefung gesperrt. Die verwendeten List- und
+Positionsabfragen sind ausschliesslich lesend.
+
+HTTP 400/401/409, 5xx, Timeout,
+Verbindungsabbruch, unlesbare Antwort oder Fehler beim Speichern der
+Provider-Antwort gelten als unklar; es erfolgt kein Retry und der Status bleibt
+fuer manuelle Abklaerung gesperrt. Duplicate-Scan-Fehler vor einem POST
+blockieren ebenfalls fail-closed. Serverlogs enthalten Request-ID, Phase,
+Status und Fehlercode, aber weder Request-/Rechnungsinhalte noch Tokens,
+Kontaktangaben oder Sitzungsdaten.
+
+`20261012000000_coach_invoice_link_guards.sql` wird nach 08/09/11 angewendet.
+Die Migration veraendert keine historischen Rechnungszeilen. Ein neuer
+BEFORE-Trigger friert mehrfach/ungeklaert verknuepfte Rechnungen sowie alle
+bereits verknuepften Rechnungsdaten ein. Die zwei im manuellen Preflight
+gemeldeten externen Konflikt-IDs bleiben ausdruecklich quarantiniert, auch
+wenn spaeter nur eine Verknuepfung uebrig ist; Aufhebung ist ein separat
+freizugebender Bereinigungsauftrag. `check_coach_invoice_link(uuid)` ist nur
+fuer service_role ausfuehrbar. Fehlende RPC/Schemaobjekte sperren API-Schreibwege
+fail-closed; lesendes Laden meldet einen nicht verfuegbaren Pruefstatus.
+
+Neue externe Zuordnungen sind nur beim Uebergang creating -> created erlaubt.
+Die RLS-geschuetzte Tabelle `coach_invoice_sevdesk_claims` sichert jede neue
+externe ID per Primary Key und jede lokale Rechnungs-ID per Unique Constraint.
+Der Trigger prueft zusaetzlich den unveraenderten Altbestand und reserviert
+die Identitaet transaktionsgebunden. Claims verhindern parallele neue
+Mehrfachverknuepfungen auch bei REPEATABLE READ. Es gibt weder automatisches
+Backfill noch einen Unique Index auf dem konfliktbehafteten historischen
+`coach_invoices.sevdesk_invoice_id`.
+
+Der bestehende `coach_invoices_unique_idx` bleibt unveraendert. COALESCE-
+Ausdruecke fuer irrelevante Periodenfelder sind nicht allein ein Blocker;
+der Preflight markiert Expressions konservativ zur semantischen Pruefung.
+Der zusaetzliche Quartals-Bundle-Index sichert weiterhin beide getrennten
+Bundles. Eine laufende oder unklare Erstellung blockiert neue Reservierungen
+fuer den gesamten Coach; die Bundles werden nacheinander verarbeitet.
+Die Coach-Sperre wird vor dem Rechnungs-Zeilenlock erworben. HTTP-Aufrufe
+finden weiterhin nach Commit statt.
+
+Das normale Save akzeptiert keine Aenderung/Entfernung einer sevDesk-ID,
+und verknuepfte Rechnungen sind read-only. Bei fehlgeschriebener Speicherung
+nach Providererfolg bleibt die Operation gesperrt; die bekannte externe ID
+wird nach Moeglichkeit in `sevdesk_creation_candidate_id` als geschuetzte
+Wiederherstellungsmetadaten gesichert. `creation_unknown` kann nicht durch
+normale Updates entsperrt werden. Alle Providerfehler bleiben konservativ
+gesperrt; es gibt keine automatische Ruecksetzung bei 400/401.
+
+Die zusaetzliche Migration
+`supabase/migrations/20261009000000_coach_quarter_release.sql` enthaelt
+Quartalsfreigaben, Snapshot-Invalidierung und atomare Erstellungsreservierung.
+Sie wurde nicht auf Produktion oder Supabase angewendet. Die
+vorhandene Migration `20261008000000_sevdesk_coach_invoice_send_state.sql`
+enthaelt aeltere Sendestatus-Kompatibilitaet; ihr Anwendungsstand ist nicht
+verifiziert. Der Livepfad bleibt standardmaessig geschlossen und benoetigt
+`SEVDESK_COACH_INVOICE_LIVE_ENABLED`,
+`SEVDESK_COACH_INVOICE_API_SCHEMA_CONFIRMED`, eine bestaetigte
+`SEVDESK_COACH_INVOICE_TAX_CONFIG` und `SEVDESK_API_TOKEN`. Die konfigurierte
+sevDesk-Systemversion wird read-only gegen `/Tools/bookkeepingSystemVersion`
+geprueft. Fehlende Steuerdaten werden nicht als 0 % interpretiert. Die
+zusaetzliche zwingende Servervariable `SEVDESK_COACH_INVOICE_TEST_COACH_ID`
+erlaubt Neuanlagen nur fuer genau den explizit freigegebenen Canary-Coach.
+Fehlt sie, ist die Funktion serverseitig deaktiviert; das Frontend ist keine
+Sicherheitsgrenze. Eine Teamfreigabe erfordert eine spaetere bewusste
+Konfigurations-/Codeaenderung und darf nicht durch Weglassen dieses Gates
+entstehen. Die
+Account-Vorlage kann das sichtbare sevDesk-Layout beeinflussen; die
+Rechnungsvorlage uebermittelt unter anderem `header`, `headText`, `footText`
+und Positionsnamen/-texte. Vor einer manuellen Finalisierung ist die gerenderte
+sevDesk-Rechnung im Konto zu pruefen.
+
+Sichere spaetere Inbetriebnahme: (1) beide Quartalsmigrationen und ihre
+Voraussetzungen gegen das Zielschema pruefen; (2) Duplikate fuer den Index,
+Freigaben und nicht verknuepfte sevDesk-Rechnungen read-only untersuchen;
+(3) Wiederherstellung ueber gesicherten Datenbankstand und vorab geprueften
+Forward-Fix festlegen, da diese Sperr-/Indexmigration keine automatische
+Ruecknahme haben soll; (4) lokale Tests, Build, Schema- und Berechtigungspruefung
+abschliessen; (5) zuerst Code mit stillgelegten Schreib-Syncs und deaktivierter
+Erstellung deployen, dann Status-/Quarter-/Link-Migrationen 08/09/11/12
+kontrolliert anwenden; der Zwischenzustand sperrt Coach-Abrechnung fail-closed
+und erfordert ein angekuendigtes Wartungsfenster; (6) mit genau einem Test-Coach und Quartal
+Freigabe, Admin-Korrektur und Status-100-Entwurf verifizieren; (7) Entwurf in
+sevDesk manuell kontrollieren und Finalisierung/Versand manuell lassen; (8) erst
+nach dokumentierter Abnahme das Team freischalten. Die Migrationen wurden
+zusaetzlich in einer wegwerfbaren lokalen PostgreSQL-15-Datenbank mit
+kuenstlichem Basisschema ausgefuehrt. Quell-/Freigabeschreibsperren, lokale
+Bundle-Eindeutigkeit und zwei konkurrierende Reservierungsverbindungen wurden
+dort geprueft. Produktivschema, Bestandsduplikate und reale sevDesk-Daten sind
+weiterhin unverifiziert.
+
+Migrationsbereitschaft (`app/lib/coachQuarterWorkflowReadiness.js`): Vor jeder
+Workflow-Aktion prueft der Server rein lesend die neuen `coach_invoices`-Spalten
+aus 08/09/12, die Tabelle `coach_quarter_releases` und
+`check_coach_invoice_link(<Nil-UUID>) = 'missing'`. Fehlt eines davon, bleiben
+`load-coach` (ohne Freigabe-/Linkstatus, `quarter_workflow_available=false`) und
+das Coach-Dashboard (neutraler Hinweis, kein Freigabebutton) lesbar; Freigabe,
+Speichern, Neuberechnung und sevDesk-Erstellung antworten serverseitig mit 503
+`coach_quarter_workflow_unavailable`, ohne Schreibzugriff oder Providerkontakt.
+Nur ein positives Ergebnis wird 60 Sekunden pro Serverinstanz gecacht. Der Code
+ist dadurch vor den Migrationen deploybar; Buchungs-, Sitzungs- und
+Kalenderpfade nutzen diese Objekte nicht.
+
+`tests/lib/coachInvoiceSevdesk.test.js` und
+`tests/api/sevdeskCoachInvoiceRoute.test.js` pruefen Erstellung, Freigabe-
+Versionierung, unbekannte Provider-Ergebnisse und ausschliesslich lesende
+Statusabfrage mit Mocks. Der isolierte PostgreSQL-Test belegt weder das
+Produktivschema/RLS noch Konto-Kompatibilitaet oder das reale sevDesk-Layout.
 
 ## Kritische technische Regeln
 
