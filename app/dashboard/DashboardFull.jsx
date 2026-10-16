@@ -40,6 +40,14 @@ async function getAccessToken() {
   return session?.access_token || "";
 }
 
+async function getAuthHeaders(headers = {}) {
+  const token = await getAccessToken();
+  return {
+    ...headers,
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  };
+}
+
 // Bereits bekannter Vorgangsstatus bei ALREADY_HANDLED (sent/queued/unknown
 // werden NICHT pauschal gleich dargestellt, siehe app/api/admin-reengage).
 const REENGAGE_PRIOR_STATUS_LABELS = {
@@ -255,12 +263,10 @@ async function updateRequestStatus({
 }) {
   const res = await fetch("/api/requests/update-status", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: await getAuthHeaders({ "Content-Type": "application/json" }),
     body: JSON.stringify({
       requestId,
       status,
-      client,
-      vorname,
     }),
   });
 
@@ -1128,7 +1134,7 @@ function exportAdminCoachQuarterInvoicePDF({
 async function restoreFromTrash(r) {
   const res = await fetch("/api/requests/update-status", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: await getAuthHeaders({ "Content-Type": "application/json" }),
     body: JSON.stringify({
       requestId: r.id,
       status: "neu",
@@ -1154,7 +1160,7 @@ async function deleteForever(r) {
 
   const res = await fetch("/api/requests/delete-forever", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: await getAuthHeaders({ "Content-Type": "application/json" }),
     body: JSON.stringify({
       requestId: r.id,
     }),
@@ -1368,6 +1374,25 @@ if (calendarMode === "booking") {
   }
 
   if (status === "papierkorb") {
+    if (messagingAccess?.role === "admin") {
+      return [
+        {
+          key: "details",
+          label: "🔍 Details",
+          hint: "Eintrag ansehen",
+        },
+        {
+          key: "restore",
+          label: "♻️ Wiederherstellen",
+          hint: "Anfrage zurückholen",
+        },
+        {
+          key: "delete",
+          label: "🗑 Löschen",
+          hint: "Anfrage endgültig löschen",
+        },
+      ];
+    }
     return [
       {
         key: "details",
@@ -1378,11 +1403,6 @@ if (calendarMode === "booking") {
         key: "restore",
         label: "♻️ Wiederherstellen",
         hint: "Anfrage zurückholen",
-      },
-      {
-        key: "delete",
-        label: "🗑 Löschen",
-        hint: "Anfrage endgültig löschen",
       },
     ];
   }
@@ -1610,7 +1630,7 @@ async function saveClientData() {
 
 const res = await fetch("/api/update-client", {
   method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: await getAuthHeaders({ "Content-Type": "application/json" }),
     body: JSON.stringify({
       anfrageId: editClientModal.id,
       ...editClientForm,
@@ -1695,11 +1715,9 @@ if (action === "details") {
 if (action === "no_match") {
   await fetch("/api/no-match", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: await getAuthHeaders({ "Content-Type": "application/json" }),
     body: JSON.stringify({
       anfrageId: r.id,
-      client: r.email,
-      vorname: r.vorname,
     }),
   }).then(async (res) => {
     if (!res.ok) {
@@ -1803,7 +1821,7 @@ if (!oldSlot) {
 
     const res = await fetch("/api/new-appointment", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: await getAuthHeaders({ "Content-Type": "application/json" }),
       body: JSON.stringify({
         requestId: r.id,
         client: r.email,
@@ -1815,9 +1833,13 @@ if (!oldSlot) {
     });
 
     if (!res.ok) {
-      const t = await res.text();
-      console.error("NEW APPOINTMENT FAILED:", t);
-      alert("Fehler beim Senden");
+      const result = await res.json();
+      console.error("NEW APPOINTMENT FAILED:", result.error);
+      alert(
+        result.error === "RESCHEDULE_MAIL_FAILED"
+          ? "Der bisherige Termin wurde aufgehoben, aber die E-Mail konnte nicht versendet werden. Bitte erneut senden."
+          : "Fehler beim Senden"
+      );
       setOpenMenuId(null);
       return;
     }
@@ -1837,10 +1859,9 @@ if (!oldSlot) {
     if (action === "match") {
       const res = await fetch("/api/match-client", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: await getAuthHeaders({ "Content-Type": "application/json" }),
         body: JSON.stringify({
           anfrageId: r.id,
-          honorar: r.honorar_klient,
         }),
       });
 
@@ -2320,7 +2341,8 @@ setProfileForm({
   useEffect(() => {
   if (!isAdmin) return;
 
-  fetch("/api/admin/form-drafts")
+  getAuthHeaders()
+    .then((headers) => fetch("/api/admin/form-drafts", { headers }))
     .then((res) => res.json())
     .then((data) => {
       setDraftRequests(data.drafts || []);
@@ -2334,7 +2356,8 @@ setProfileForm({
 useEffect(() => {
   let mounted = true;
 
-  fetch("/api/admin/sessions")
+  getAuthHeaders()
+    .then((headers) => fetch("/api/admin/sessions", { headers }))
     .then((res) => res.json())
     .then(({ data }) => {
       if (!mounted) return;
@@ -2616,7 +2639,7 @@ async function loadMyAvailability() {
   async function toggleMyAvailability(nextValue) {
   const res = await fetch("/api/team-members/toggle-availability", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: await getAuthHeaders({ "Content-Type": "application/json" }),
     body: JSON.stringify({
       teamMemberId: myTeamMemberId,
       available: nextValue,
@@ -2670,22 +2693,11 @@ async function sendBookingLink(r) {
     return;
   }
 
-  const therapistName =
-    teamData.find((t) => t.id === r.assigned_therapist_id)?.name ||
-    r.wunschtherapeut ||
-    "";
-
   const res = await fetch("/api/send-booking-link", {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
+    headers: await getAuthHeaders({ "Content-Type": "application/json" }),
     body: JSON.stringify({
       requestId: r.id,
-      email: r.email,
-      vorname: r.vorname,
-      bookingToken: r.booking_token,
-      therapistName,
     }),
   });
 
@@ -2712,9 +2724,7 @@ async function sendBookingLink(r) {
 
   const res = await fetch("/api/send-video-link", {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
+    headers: await getAuthHeaders({ "Content-Type": "application/json" }),
     body: JSON.stringify({
       requestId: r.id,
     }),
@@ -6136,7 +6146,7 @@ alert("💶 Stundensatz gespeichert");
 
     const res = await fetch("/api/update-invoice-setting", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: await getAuthHeaders({ "Content-Type": "application/json" }),
       body: JSON.stringify({
         anfrageId: detailsModal.id,
         invoice_with_vat: value,
@@ -6810,7 +6820,7 @@ location.reload();
 
     const res = await fetch("/api/create-bestand", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: await getAuthHeaders({ "Content-Type": "application/json" }),
       body: JSON.stringify({
         vorname: bestandVorname,
         nachname: bestandNachname,

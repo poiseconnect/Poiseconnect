@@ -1,12 +1,11 @@
 export const dynamic = "force-dynamic";
 
-import { createClient } from "@supabase/supabase-js";
+import {
+  canAccessAssignedRequest,
+  getActiveTeamMember,
+  json,
+} from "../_lib/server";
 import { ensureOpenConversation } from "../../lib/messaging/conversations";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-);
 
 function safeDateString(v) {
   if (!v) return "";
@@ -27,23 +26,23 @@ function safeDateString(v) {
 
 export async function POST(request) {
   try {
+    const auth = await getActiveTeamMember(request);
+    if (!auth.member) return json({ error: auth.error }, auth.status);
+    if (!["admin", "therapist"].includes(auth.member.role)) {
+      return json({ error: "NO_ACCESS" }, 403);
+    }
+
     const body = await request.json();
+    const { requestId } = body || {};
 
-    console.log("CONFIRM APPOINTMENT REQUEST RECEIVED");
-
-    const { requestId, client, vorname } = body || {};
-
-    if (!requestId || !client) {
-      return new Response(
-        JSON.stringify({ error: "missing_fields" }),
-        { status: 400 }
-      );
+    if (!requestId) {
+      return json({ error: "missing_fields" }, 400);
     }
 
     /* --------------------------------------------------
        1️⃣ AKTUELLE ANFRAGE LADEN
     -------------------------------------------------- */
-    const { data: existing, error: loadError } = await supabase
+    const { data: existing, error: loadError } = await auth.supabase
       .from("anfragen")
       .select(`
         id,
@@ -52,55 +51,49 @@ export async function POST(request) {
         assigned_therapist_id,
         wunschtherapeut,
         meeting_link_override,
-        booking_token
+        booking_token,
+        email,
+        vorname
       `)
       .eq("id", requestId)
-      .single();
+      .maybeSingle();
 
     if (loadError || !existing) {
       console.error("CONFIRM APPOINTMENT REQUEST LOAD ERROR:", { code: loadError?.code || null });
-      return new Response(
-        JSON.stringify({ error: "request_not_found" }),
-        { status: 404 }
-      );
+      return json({ error: "request_not_found" }, 404);
+    }
+    if (!canAccessAssignedRequest(auth.member, existing.assigned_therapist_id)) {
+      return json({ error: "NO_ACCESS" }, 403);
     }
 
     // ❗ Schon bestätigt → nichts tun
     if (existing.status === "termin_bestaetigt") {
-      console.log("ℹ️ already confirmed:", requestId);
-      return new Response(
-        JSON.stringify({ ok: true, alreadyConfirmed: true }),
-        { status: 200 }
-      );
+      return json({ ok: true, alreadyConfirmed: true });
     }
 
     /* --------------------------------------------------
        2️⃣ STATUS → termin_bestaetigt
     -------------------------------------------------- */
-    const { error: updateError } = await supabase
+    let update = auth.supabase
       .from("anfragen")
       .update(
         { status: "termin_bestaetigt" },
         { returning: "minimal" }
       )
       .eq("id", requestId);
+    if (auth.member.role === "therapist") {
+      update = update.eq("assigned_therapist_id", auth.member.id);
+    }
+    const { error: updateError } = await update;
 
     if (updateError) {
       console.error("CONFIRM APPOINTMENT UPDATE ERROR:", { code: updateError?.code || null });
-      return new Response(
-        JSON.stringify({
-          error: "update_failed",
-          detail: "INTERNAL_ERROR",
-        }),
-        { status: 500 }
-      );
+      return json({ error: "update_failed", detail: "INTERNAL_ERROR" }, 500);
     }
-
-    console.log("✅ STATUS UPDATED → termin_bestaetigt:", requestId);
 
     if (existing.assigned_therapist_id) {
       await ensureOpenConversation({
-        supabase,
+        supabase: auth.supabase,
         anfrageId: requestId,
         therapistId: existing.assigned_therapist_id,
       });
@@ -112,7 +105,7 @@ export async function POST(request) {
     let bookingSettings = null;
 
     if (existing.assigned_therapist_id) {
-      const { data: bookingData, error: bookingError } = await supabase
+      const { data: bookingData, error: bookingError } = await auth.supabase
         .from("therapist_booking_settings")
         .select("meeting_link")
         .eq("therapist_id", existing.assigned_therapist_id)
@@ -157,10 +150,10 @@ const manageLink = existing.booking_token
       },
       body: JSON.stringify({
         from: "Poise <noreply@mypoise.de>",
-        to: client,
+        to: existing.email,
         subject: "Dein Termin ist bestätigt 🤍",
         html: `
-          <p>Hallo ${vorname || ""},</p>
+          <p>Hallo ${existing.vorname || ""},</p>
 
           <p>
             dein Termin wurde erfolgreich bestätigt – wir freuen uns sehr auf dich.
@@ -249,18 +242,9 @@ ${
       console.warn("MAIL FAILED – STATUS IS STILL CORRECT");
     }
 
-    return new Response(
-      JSON.stringify({ ok: true }),
-      { status: 200 }
-    );
+    return json({ ok: true });
   } catch (err) {
     console.error("CONFIRM APPOINTMENT SERVER ERROR");
-    return new Response(
-      JSON.stringify({
-        error: "server_error",
-        detail: "INTERNAL_ERROR",
-      }),
-      { status: 500 }
-    );
+    return json({ error: "server_error", detail: "INTERNAL_ERROR" }, 500);
   }
 }

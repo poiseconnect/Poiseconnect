@@ -1,35 +1,37 @@
-import { createClient } from "@supabase/supabase-js";
+import {
+  getActiveTeamMember,
+  json,
+} from "../../_lib/server";
 
 export const dynamic = "force-dynamic";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-);
-
-export async function GET() {
+export async function GET(req) {
   try {
-    const { data, error } = await supabase
+    const auth = await getActiveTeamMember(req);
+    if (!auth.member) return json({ error: auth.error }, auth.status);
+    if (!["admin", "therapist"].includes(auth.member.role)) {
+      return json({ error: "NO_ACCESS" }, 403);
+    }
+
+    let query = auth.supabase
       .from("sessions")
-      .select("*")
+      .select("id, date, duration_min, price, commission, payout, therapist_id, anfrage_id, google_event_id")
       .order("date", { ascending: true });
 
-    if (error) {
-      console.error("ADMIN SESSIONS ERROR", { code: error?.code || null });
-      return new Response(
-        JSON.stringify({ error: "INTERNAL_ERROR" }),
-        { status: 500 }
+    if (auth.member.role === "therapist") {
+      query = query.or(
+        `therapist_id.eq.${auth.member.id},therapist_id.eq.${auth.user.id}`
       );
     }
 
-    return new Response(
-      JSON.stringify({ data }),
-      { headers: { "Content-Type": "application/json" } }
-    );
+    const { data, error } = await query;
+    if (error) {
+      console.error("ADMIN SESSIONS ERROR", { code: error?.code || null });
+      return json({ error: "INTERNAL_ERROR" }, 500);
+    }
+
+    return json({ data: data || [] });
   } catch (err) {
-    return new Response(
-      JSON.stringify({ error: "INTERNAL_ERROR" }),
-      { status: 500 }
-    );
+    return json({ error: "INTERNAL_ERROR" }, 500);
   }
 }

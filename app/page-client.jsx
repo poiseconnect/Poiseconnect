@@ -1,5 +1,7 @@
 "use client";
 
+import ClientLinkRecovery from "./components/ClientLinkRecovery";
+
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Image from "next/image";
@@ -286,6 +288,14 @@ export default function PageClient() {
 
 const anfrageId =
   searchParams.get("anfrageId") || searchParams.get("rid");
+const tokenFromUrl = searchParams.get("token") || "";
+const legacyEmailResume = !anfrageId && Boolean(resumeMode && searchParams.get("email"));
+const [recoveryNeeded, setRecoveryNeeded] = useState(
+  !tokenFromUrl && Boolean(anfrageId || legacyEmailResume)
+);
+const [loadingExisting, setLoadingExisting] = useState(Boolean(anfrageId && tokenFromUrl));
+const recoveryPurpose = ["5", "8", "admin"].includes(resumeMode)
+  ? "coach-selection" : ["10", "confirmed"].includes(resumeMode) ? "appointment" : "draft";
 
   const [step, setStep] = useState(0);
   const [subStep9, setSubStep9] = useState(0);
@@ -712,6 +722,10 @@ useEffect(() => {
   const params = new URLSearchParams(window.location.search);
   const resume = params.get("resume");
   const tokenFromUrl = searchParams.get("token") || params.get("token") || "";
+  if (!tokenFromUrl) {
+    setRecoveryNeeded(true);
+    return;
+  }
 
   let isMounted = true;
 
@@ -728,14 +742,17 @@ useEffect(() => {
       const json = await res.json();
 
       if (!res.ok) {
-        console.error("LOAD ANFRAGE BY ID ERROR", json);
+        if (isMounted) {
+          setRecoveryNeeded(true);
+          setLoadingExisting(false);
+        }
         return;
       }
 
       const data = json.request;
       if (!data || !isMounted) return;
 
-      console.log("✅ LOADED EXISTING REQUEST", data);
+      setLoadingExisting(false);
 
       const rawOld =
         data?.terminISO ||
@@ -784,7 +801,7 @@ setForm((prev) => ({
 }));
 
 setDraftRequestId(data.id || null);
-setBookingToken(data.booking_token || null);
+setBookingToken(tokenFromUrl);
 
 const fallbackTherapistId =
   data.assigned_therapist_id ||
@@ -830,7 +847,10 @@ setAssignedTherapistId(fallbackTherapistId);
         setStep(n);
       }
     } catch (err) {
-      console.error("LOAD ANFRAGE FETCH ERROR", err);
+      if (isMounted) {
+        setRecoveryNeeded(true);
+        setLoadingExisting(false);
+      }
     }
   }
 
@@ -1108,6 +1128,7 @@ const slotsByMonth = useMemo(() => {
 
 async function createOrUpdateDraft(selectedMember) {
   if (requestFinalizedRef.current) return false;
+  if (recoveryNeeded || loadingExisting) return false;
 
   setSavingDraft(true);
 
@@ -1119,6 +1140,7 @@ async function createOrUpdateDraft(selectedMember) {
       },
 body: JSON.stringify({
   anfrageId: draftRequestId || anfrageId || null,
+  booking_token: bookingToken || null,
 
  coaching_typ: form.coaching_typ,
  
@@ -1161,13 +1183,6 @@ setBookingToken(json.booking_token);
 setAssignedTherapistId(
   json.assigned_therapist_id || selectedMember.id
 );
-
-console.log("✅ DRAFT RESPONSE", {
-  id: json.id,
-  booking_token: json.booking_token,
-  assigned_therapist_id: json.assigned_therapist_id,
-  fallback_member_id: selectedMember.id,
-});
 
     return true;
   } catch (err) {
@@ -1295,6 +1310,11 @@ alert("Danke – deine Anfrage wurde erfolgreich gesendet 🤍");
   // -------------------------------------
   // Render
   // -------------------------------------
+
+  if (recoveryNeeded) {
+    return <ClientLinkRecovery requestId={anfrageId || undefined} purpose={recoveryPurpose} />;
+  }
+  if (loadingExisting) return <p role="status">Anfrage wird geladen …</p>;
 
   return (
     <div className="form-wrapper">

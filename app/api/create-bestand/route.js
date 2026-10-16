@@ -1,12 +1,7 @@
 export const dynamic = "force-dynamic";
 
-import { createClient } from "@supabase/supabase-js";
 import { ensureOpenConversation } from "../../lib/messaging/conversations";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-);
+import { getActiveTeamMember, json as serverJson } from "../_lib/server";
 
 function json(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -17,6 +12,12 @@ function json(data, status = 200) {
 
 export async function POST(request) {
   try {
+    const auth = await getActiveTeamMember(request);
+    if (!auth.member) return serverJson({ error: auth.error }, auth.status);
+    if (!["admin", "therapist"].includes(auth.member.role)) {
+      return serverJson({ error: "NO_ACCESS" }, 403);
+    }
+
     const body = await request.json();
 
     const {
@@ -36,7 +37,27 @@ export async function POST(request) {
       return json({ error: "MISSING_FIELDS" }, 400);
     }
 
-    const { data: created, error } = await supabase.from("anfragen").insert({
+    const { data: targetMember, error: targetError } = await auth.supabase
+      .from("team_members")
+      .select("id, profile_name, role, active")
+      .eq("id", therapist_id)
+      .maybeSingle();
+    if (targetError) return json({ error: "TEAM_LOAD_FAILED" }, 500);
+    if (
+      !targetMember ||
+      targetMember.active !== true ||
+      targetMember.role !== "therapist"
+    ) {
+      return json({ error: "INVALID_THERAPIST" }, 400);
+    }
+    if (
+      auth.member.role === "therapist" &&
+      String(therapist_id) !== String(auth.member.id)
+    ) {
+      return json({ error: "NO_ACCESS" }, 403);
+    }
+
+    const { data: created, error } = await auth.supabase.from("anfragen").insert({
       vorname,
       nachname,
       email: email || null,
@@ -45,7 +66,7 @@ export async function POST(request) {
       plz_ort: plz_ort || null,
       geburtsdatum: geburtsdatum || null,
       beschaeftigungsgrad: beschaeftigungsgrad || null,
-      wunschtherapeut,
+      wunschtherapeut: targetMember.profile_name || wunschtherapeut,
       assigned_therapist_id: therapist_id,
       status: "active",
       quelle: "bestand",
@@ -60,7 +81,7 @@ export async function POST(request) {
     }
 
     await ensureOpenConversation({
-      supabase,
+      supabase: auth.supabase,
       anfrageId: created.id,
       therapistId: therapist_id,
     });

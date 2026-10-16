@@ -1,13 +1,11 @@
 export const dynamic = "force-dynamic";
 
-import { createClient } from "@supabase/supabase-js";
 import { google } from "googleapis";
-import { oauthClient } from "../_lib/server";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-);
+import {
+  canAccessAssignedRequest,
+  getActiveTeamMember,
+  oauthClient,
+} from "../_lib/server";
 
 function json(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -32,42 +30,51 @@ function normalizeIso(value) {
 
 export async function POST(req) {
   try {
+    const auth = await getActiveTeamMember(req);
+    if (!auth.member) return json({ error: auth.error }, auth.status);
+    if (!["admin", "therapist"].includes(auth.member.role)) {
+      return json({ error: "NO_ACCESS" }, 403);
+    }
+
     const body = await req.json();
 
-    console.log("NEW APPOINTMENT REQUEST RECEIVED");
-
-    const {
-      requestId,
-      client,
-      therapistName,
-      therapistId,
-      vorname,
-      oldSlot,
-    } = body || {};
+    const { requestId, oldSlot } = body || {};
 
     /* ===============================
        1️⃣ Pflichtfelder prüfen
     =============================== */
 
-    if (!requestId || !client) {
+    if (!requestId) {
       return json(
         {
           error: "missing_fields",
-          hint: "requestId oder client fehlt",
+          hint: "requestId fehlt",
         },
         400
       );
     }
 
-    if (!therapistName || !therapistId) {
-      return json(
-        {
-          error: "missing_therapist",
-          hint: "therapistName oder therapistId fehlt",
-        },
-        400
-      );
+    const { data: requestRow, error: requestError } = await auth.supabase
+      .from("anfragen")
+      .select(
+        "id, assigned_therapist_id, email, vorname, wunschtherapeut, booking_token, bevorzugte_zeit"
+      )
+      .eq("id", requestId)
+      .maybeSingle();
+    if (requestError) return json({ error: "REQUEST_LOAD_FAILED" }, 500);
+    if (!requestRow) return json({ error: "REQUEST_NOT_FOUND" }, 404);
+    if (!canAccessAssignedRequest(auth.member, requestRow.assigned_therapist_id)) {
+      return json({ error: "NO_ACCESS" }, 403);
     }
+    if (!requestRow.assigned_therapist_id) {
+      return json({ error: "REQUEST_NOT_ASSIGNED" }, 409);
+    }
+
+    const therapistId = requestRow.assigned_therapist_id;
+    const therapistName = requestRow.wunschtherapeut || "dein Coach";
+    const client = requestRow.email;
+    const vorname = requestRow.vorname || "";
+    if (!client) return json({ error: "CLIENT_EMAIL_MISSING" }, 400);
 
     const baseUrl =
       process.env.NEXT_PUBLIC_SITE_URL ||
@@ -79,7 +86,7 @@ export async function POST(req) {
        2️⃣ Alten gebuchten Slot suchen
     =============================== */
 
-    let blockedSlotQuery = supabase
+    let blockedSlotQuery = auth.supabase
       .from("blocked_slots")
       .select(`
         id,
@@ -139,7 +146,7 @@ export async function POST(req) {
       const {
         data: bookingSettings,
         error: bookingSettingsError,
-      } = await supabase
+      } = await auth.supabase
         .from("therapist_booking_settings")
         .select(`
           selected_calendar_id,
@@ -234,7 +241,7 @@ export async function POST(req) {
     if (blockedSlot?.id) {
       const {
         error: blockedSlotDeleteError,
-      } = await supabase
+      } = await auth.supabase
         .from("blocked_slots")
         .delete()
         .eq("id", blockedSlot.id);
@@ -273,13 +280,15 @@ export async function POST(req) {
       wunschtherapeut: therapistName,
     };
 
-    const { error: updateError } =
-      await supabase
-        .from("anfragen")
-        .update(updatePayload)
-        .eq("id", requestId);
+    const { data: updatedRequest, error: updateError } = await auth.supabase
+      .from("anfragen")
+      .update(updatePayload)
+      .eq("id", requestId)
+      .eq("assigned_therapist_id", therapistId)
+      .select("id")
+      .maybeSingle();
 
-    if (updateError) {
+    if (updateError || !updatedRequest) {
       console.error("UPDATE REQUEST ERROR:", { code: updateError?.code || null });
 
       return json(
@@ -297,6 +306,8 @@ export async function POST(req) {
        6️⃣ Neuen Buchungslink erstellen
     =============================== */
 
+    const tokenQuery = requestRow.booking_token
+      ? `&token=${encodeURIComponent(requestRow.booking_token)}` : "";
     const link =
       `${baseUrl}?resume=10` +
       `&anfrageId=${encodeURIComponent(
@@ -304,7 +315,7 @@ export async function POST(req) {
       )}` +
       `&therapist=${encodeURIComponent(
         therapistName
-      )}`;
+      )}${tokenQuery}`;
 
     console.log("RESCHEDULE LINK CREATED");
 
@@ -363,11 +374,11 @@ export async function POST(req) {
     );
 
     if (!mailRes.ok) {
-      console.warn("RESCHEDULE MAIL FAILED – DB UPDATE WAS SUCCESSFUL");
-    } else {
-      console.log("📧 MAIL SENT");
+      console.error("RESCHEDULE MAIL FAILED");
+      return json({ error: "RESCHEDULE_MAIL_FAILED", requestUpdated: true }, 502);
     }
 
+    console.log("RESCHEDULE MAIL SENT");
     return json({
       ok: true,
       requestId,

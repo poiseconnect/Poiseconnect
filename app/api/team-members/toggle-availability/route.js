@@ -1,11 +1,6 @@
 export const dynamic = "force-dynamic";
 
-import { createClient } from "@supabase/supabase-js";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-);
+import { getActiveTeamMember, json as serverJson } from "../../_lib/server";
 
 function json(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -16,6 +11,12 @@ function json(data, status = 200) {
 
 export async function POST(req) {
   try {
+    const auth = await getActiveTeamMember(req);
+    if (!auth.member) return serverJson({ error: auth.error }, auth.status);
+    if (!["admin", "therapist"].includes(auth.member.role)) {
+      return serverJson({ error: "NO_ACCESS" }, 403);
+    }
+
     const body = await req.json();
     const { teamMemberId, available } = body || {};
 
@@ -23,12 +24,23 @@ export async function POST(req) {
       return json({ error: "missing_fields" }, 400);
     }
 
-    const { error } = await supabase
+    if (
+      auth.member.role === "therapist" &&
+      String(teamMemberId) !== String(auth.member.id)
+    ) {
+      return serverJson({ error: "NO_ACCESS" }, 403);
+    }
+
+    let update = auth.supabase
       .from("team_members")
       .update({
         available_for_intake: available,
       })
-      .eq("id", teamMemberId);
+      .eq("id", auth.member.role === "therapist" ? auth.member.id : teamMemberId);
+    if (auth.member.role === "therapist") {
+      update = update.eq("user_id", auth.user.id);
+    }
+    const { error } = await update;
 
     if (error) {
       console.error("TOGGLE AVAILABILITY ERROR:", { code: error?.code || null });

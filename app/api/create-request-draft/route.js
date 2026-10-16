@@ -6,7 +6,7 @@ import { buildDraftRecoveryFields } from "../../lib/draftRecovery.js";
 function json(data, status = 200) {
   return new Response(JSON.stringify(data), {
     status,
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
   });
 }
 
@@ -21,6 +21,7 @@ export async function POST(req) {
 
 const {
   anfrageId,
+  booking_token,
   wunschtherapeut,
   assigned_therapist_id,
   coaching_typ,
@@ -40,10 +41,14 @@ const {
 } = body || {};
 
     if (anfrageId) {
+      if (typeof booking_token !== "string" || !booking_token.trim()) {
+        return json({ error: "RECOVERY_REQUIRED" }, 401);
+      }
       const { data: existingRequest, error: loadError } = await supabase
         .from("anfragen")
         .select("status")
         .eq("id", anfrageId)
+        .eq("booking_token", booking_token)
         .maybeSingle();
 
       if (loadError) {
@@ -110,6 +115,7 @@ match_state: "draft",
         .from("anfragen")
         .update(payload)
         .eq("id", anfrageId)
+        .eq("booking_token", booking_token)
         .eq("status", "draft")
         .select("id, booking_token, assigned_therapist_id")
         .maybeSingle();
@@ -124,6 +130,7 @@ match_state: "draft",
           .from("anfragen")
           .select("status")
           .eq("id", anfrageId)
+          .eq("booking_token", booking_token)
           .maybeSingle();
 
         if (currentLoadError) {

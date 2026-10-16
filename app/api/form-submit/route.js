@@ -9,7 +9,7 @@ import { loadPublishedCoachingCosts } from "../../lib/loadPublishedCoachingCosts
 function JSONResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
     status,
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
   });
 }
 
@@ -58,6 +58,20 @@ const requestId = body.rid || body.anfrageId || null;
     const supabase = getSupabase();
     if (!supabase) {
       return JSONResponse({ error: "SUPABASE_NOT_CONFIGURED" }, 500);
+    }
+
+    if (requestId) {
+      if (typeof body.booking_token !== "string" || !body.booking_token.trim()) {
+        return JSONResponse({ error: "RECOVERY_REQUIRED" }, 401);
+      }
+      const { data: existing, error } = await supabase
+        .from("anfragen")
+        .select("id")
+        .eq("id", requestId)
+        .eq("booking_token", body.booking_token)
+        .maybeSingle();
+      if (error) return JSONResponse({ error: "REQUEST_LOAD_FAILED" }, 500);
+      if (!existing) return JSONResponse({ error: "REQUEST_NOT_FOUND" }, 404);
     }
 
     const resend = new Resend(process.env.RESEND_API_KEY);
@@ -174,18 +188,22 @@ check_datenschutz: Boolean(body.check_datenschutz),
     let finalRequestId = requestId;
 
     if (requestId) {
-      const { error: updateError } = await supabase
+      const { data: updated, error: updateError } = await supabase
         .from("anfragen")
         .update({
           ...payload,
           admin_therapeuten: [],
         })
-        .eq("id", requestId);
+        .eq("id", requestId)
+        .eq("booking_token", body.booking_token)
+        .select("id")
+        .maybeSingle();
 
       if (updateError) {
         console.error("UPDATE ERROR:", { code: updateError?.code || null });
         return JSONResponse({ error: "REQUEST_UPDATE_FAILED" }, 500);
       }
+      if (!updated) return JSONResponse({ error: "REQUEST_NOT_FOUND" }, 404);
     } else {
       const { data: inserted, error: insertError } = await supabase
         .from("anfragen")

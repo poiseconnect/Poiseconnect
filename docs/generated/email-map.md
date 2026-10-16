@@ -3,7 +3,7 @@
 > Diese Datei wird durch `scripts/generate-project-map.mjs` erzeugt.
 > Nicht manuell bearbeiten.
 
-Erzeugt am: 2026-10-11T15:39:25.608Z
+Erzeugt am: 2026-10-16T10:25:27.876Z
 
 ## `app/api/admin-forward/route.js`
 
@@ -20,6 +20,10 @@ Erzeugt am: 2026-10-11T15:39:25.608Z
 ## `app/api/client/appointment/reschedule-request/route.js`
 
 - Betreffzeilen: `Neuer Termin gewünscht 🤍`
+
+## `app/api/client-link-recovery/request/route.js`
+
+- Betreffzeilen: `Dein angeforderter Zugang zu Poise`
 
 ## `app/api/confirm-appointment/route.js`
 
@@ -85,10 +89,6 @@ Erzeugt am: 2026-10-11T15:39:25.608Z
 ## `app/api/send-video-link/route.js`
 
 - Betreffzeilen: `Dein Videolink für das Gespräch 🤍`
-
-## `app/api/therapist-response/route.js`
-
-- Betreffzeilen: dynamisch oder nicht automatisch erkannt
 
 ## `app/lib/handlers/confirmAppointment.js`
 

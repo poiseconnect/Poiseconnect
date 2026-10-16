@@ -1,6 +1,8 @@
-import { createClient } from "@supabase/supabase-js";
-
 export const dynamic = "force-dynamic";
+import {
+  canAccessAssignedRequest,
+  getActiveTeamMember,
+} from "../_lib/server";
 
 function json(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -9,10 +11,6 @@ function json(data, status = 200) {
   });
 }
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-);
 function safeDateString(v) {
   if (!v) return "";
 
@@ -31,29 +29,48 @@ function safeDateString(v) {
 }
 export async function POST(req) {
   try {
-    const { requestId, therapist_id, proposals } = await req.json();
+    const auth = await getActiveTeamMember(req);
+    if (!auth.member) return json({ error: auth.error }, auth.status);
+    if (!["admin", "therapist"].includes(auth.member.role)) {
+      return json({ error: "NO_ACCESS" }, 403);
+    }
 
-    if (!requestId || !therapist_id || !Array.isArray(proposals)) {
+    const { requestId, proposals } = await req.json();
+
+    if (!requestId || !Array.isArray(proposals) || proposals.length === 0) {
       return json({ error: "INVALID_INPUT" }, 400);
     }
 
     // Anfrage laden → für Mail
-    const { data: request } = await supabase
+    const { data: request, error: requestError } = await auth.supabase
       .from("anfragen")
-      .select("email, vorname")
+      .select("id, assigned_therapist_id, email, vorname, booking_token")
       .eq("id", requestId)
-      .single();
+      .maybeSingle();
 
+    if (requestError) return json({ error: "REQUEST_LOAD_FAILED" }, 500);
     if (!request) return json({ error: "REQUEST_NOT_FOUND" }, 404);
+    if (!request.assigned_therapist_id) {
+      return json({ error: "REQUEST_NOT_ASSIGNED" }, 409);
+    }
+    if (!canAccessAssignedRequest(auth.member, request.assigned_therapist_id)) {
+      return json({ error: "NO_ACCESS" }, 403);
+    }
+    if (!request.email) return json({ error: "CLIENT_EMAIL_MISSING" }, 400);
+
+    const proposedDates = proposals.map((proposal) => new Date(proposal));
+    if (proposedDates.some((date) => Number.isNaN(date.getTime()))) {
+      return json({ error: "INVALID_PROPOSAL_DATE" }, 400);
+    }
 
     // Vorschläge speichern
-    const inserts = proposals.map((p) => ({
+    const inserts = proposedDates.map((date) => ({
       request_id: requestId,
-      therapist_id,
-      proposed_at: new Date(p).toISOString(),
+      therapist_id: request.assigned_therapist_id,
+      proposed_at: date.toISOString(),
     }));
 
-    const { error } = await supabase
+    const { error } = await auth.supabase
       .from("appointment_proposals")
       .insert(inserts);
 
@@ -72,14 +89,16 @@ const links = inserts
   .map(
     (p) => `
       <p>
-        <a href="${baseUrl}/confirm-proposal?id=${p.proposed_at}">
+        <a href="${baseUrl}/confirm-proposal?${request.booking_token
+          ? `token=${encodeURIComponent(request.booking_token)}`
+          : `request=${encodeURIComponent(requestId)}`}">
           ${safeDateString(p.proposed_at)}
         </a>
       </p>`
   )
   .join("");
 
-    await fetch("https://api.resend.com/emails", {
+    const mailResponse = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
@@ -96,6 +115,10 @@ const links = inserts
         `,
       }),
     });
+    if (!mailResponse.ok) {
+      console.error("SEND PROPOSALS MAIL FAILED");
+      return json({ error: "PROPOSALS_MAIL_FAILED", proposalsCreated: true }, 502);
+    }
 
     return json({ ok: true });
   } catch (err) {

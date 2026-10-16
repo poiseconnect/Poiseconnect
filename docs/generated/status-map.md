@@ -3,7 +3,7 @@
 > Diese Datei wird durch `scripts/generate-project-map.mjs` erzeugt.
 > Nicht manuell bearbeiten.
 
-Erzeugt am: 2026-10-11T15:39:25.609Z
+Erzeugt am: 2026-10-16T10:25:27.877Z
 
 ## `app/api/admin-forward/route.js`
 
@@ -140,6 +140,11 @@ Erzeugt am: 2026-10-11T15:39:25.609Z
 - Statuswerte: `active`, `admin_vorschlaege_gesendet`, `failed`, `termin_bestaetigt`
 - Match-State-Werte: keine erkannt
 
+## `tests/api/clientCredentialFlows.test.js`
+
+- Statuswerte: `termin_bestaetigt`
+- Match-State-Werte: `reschedule_requested`
+
 ## `tests/api/coachQuarterWorkflowMigrationState.test.js`
 
 - Statuswerte: `released`
@@ -150,9 +155,19 @@ Erzeugt am: 2026-10-11T15:39:25.609Z
 - Statuswerte: `draft`, `neu`
 - Match-State-Werte: `draft`, `pending`
 
+## `tests/api/formSubmitAccess.test.js`
+
+- Statuswerte: `neu`
+- Match-State-Werte: keine erkannt
+
 ## `tests/api/sevdeskCoachInvoiceRoute.test.js`
 
 - Statuswerte: `100`, `created`, `creation_unknown`, `released`
+- Match-State-Werte: keine erkannt
+
+## `tests/api/staffOwnershipRoutes.test.js`
+
+- Statuswerte: `admin_pruefen`, `termin_neu`
 - Match-State-Werte: keine erkannt
 
 ## `tests/api/therapistQuarterReleaseRoute.test.js`

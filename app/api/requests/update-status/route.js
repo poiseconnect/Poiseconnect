@@ -1,84 +1,87 @@
 export const dynamic = "force-dynamic";
 
-import { createClient } from "@supabase/supabase-js";
+import {
+  canAccessAssignedRequest,
+  getActiveTeamMember,
+  json,
+} from "../../_lib/server";
 import { confirmAppointment } from "../../../lib/handlers/confirmAppointment";
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-);
 
 export async function POST(request) {
   try {
+    const auth = await getActiveTeamMember(request);
+    if (!auth.member) return json({ error: auth.error }, auth.status);
+
     const body = await request.json();
-    const { requestId, status, client, vorname } = body;
+    const { requestId, status } = body;
 
     if (!requestId || !status) {
-      return new Response(
-        JSON.stringify({ error: "missing_fields" }),
-        { status: 400 }
-      );
+      return json({ error: "missing_fields" }, 400);
     }
 
-    /* --------------------------------------------------
-       1️⃣ SPEZIELLE STATUS-LOGIK
-    -------------------------------------------------- */
+    const allowedStatuses = [
+      "neu",
+      "termin_neu",
+      "termin_bestaetigt",
+      "active",
+      "admin_pruefen",
+      "admin_weiterleiten",
+      "admin_vorschlaege_gesendet",
+      "papierkorb",
+      "beendet",
+      "kein_match",
+    ];
+    if (!allowedStatuses.includes(String(status))) {
+      return json({ error: "INVALID_STATUS" }, 400);
+    }
+
+    const { data: existing, error: loadError } = await auth.supabase
+      .from("anfragen")
+      .select("id, status, first_response_at, assigned_therapist_id, email, vorname")
+      .eq("id", requestId)
+      .maybeSingle();
+
+    if (loadError) return json({ error: "REQUEST_LOAD_FAILED" }, 500);
+    if (!existing) return json({ error: "REQUEST_NOT_FOUND" }, 404);
+    if (!canAccessAssignedRequest(auth.member, existing.assigned_therapist_id)) {
+      return json({ error: "NO_ACCESS" }, 403);
+    }
+
     if (status === "termin_bestaetigt") {
       await confirmAppointment({
-        supabase,
+        supabase: auth.supabase,
         requestId,
-        client,
-        vorname,
+        expectedAssignedTherapistId:
+          auth.member.role === "therapist" ? auth.member.id : null,
+        client: existing.email,
+        vorname: existing.vorname,
       });
-
-      return new Response(
-        JSON.stringify({ ok: true }),
-        { status: 200 }
-      );
+      return json({ ok: true });
     }
 
-    /* --------------------------------------------------
-       2️⃣ STANDARD-STATUS (kein Spezialfall)
-    -------------------------------------------------- */
-const { data: existing } = await supabase
-  .from("anfragen")
-  .select("first_response_at")
-  .eq("id", requestId)
-  .single();
-
-const updateData = {
-  status,
-};
-
-if (!existing?.first_response_at) {
-  updateData.first_response_at =
-    new Date().toISOString();
-}
-
-const { error } = await supabase
-  .from("anfragen")
-  .update(
-    updateData,
-    { returning: "minimal" }
-  )
-  .eq("id", requestId);
-
-    if (error) {
-      return new Response(
-        JSON.stringify({ error: "UPDATE_FAILED" }),
-        { status: 500 }
-      );
+    const updateData = { status };
+    if (!existing.first_response_at) {
+      updateData.first_response_at = new Date().toISOString();
     }
 
-    return new Response(
-      JSON.stringify({ ok: true }),
-      { status: 200 }
-    );
+    let update = auth.supabase
+      .from("anfragen")
+      .update(updateData)
+      .eq("id", requestId);
+    if (auth.member.role === "therapist") {
+      update = update.eq("assigned_therapist_id", auth.member.id);
+    }
+    const { data: updated, error } = await update
+      .select("id")
+      .maybeSingle();
 
+    if (error || !updated) {
+      return json({ error: "UPDATE_FAILED" }, 500);
+    }
+
+    return json({ ok: true });
   } catch (err) {
     console.error("UPDATE STATUS SERVER ERROR");
-    return new Response(
-      JSON.stringify({ error: "server_error" }),
-      { status: 500 }
-    );
+    return json({ error: "server_error" }, 500);
   }
 }

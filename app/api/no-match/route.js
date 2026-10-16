@@ -1,12 +1,11 @@
 export const dynamic = "force-dynamic";
 
-import { createClient } from "@supabase/supabase-js";
+import {
+  canAccessAssignedRequest,
+  getActiveTeamMember,
+  json as serverJson,
+} from "../_lib/server";
 import { closeConversation } from "../../lib/messaging/conversations";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-);
 
 function json(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -17,31 +16,58 @@ function json(data, status = 200) {
 
 export async function POST(req) {
   try {
+    const auth = await getActiveTeamMember(req);
+    if (!auth.member) return serverJson({ error: auth.error }, auth.status);
+    if (!["admin", "therapist"].includes(auth.member.role)) {
+      return serverJson({ error: "NO_ACCESS" }, 403);
+    }
+
     const body = await req.json();
 
-    const { anfrageId, client, vorname } = body || {};
+    const { anfrageId } = body || {};
 
-    if (!anfrageId || !client) {
+    if (!anfrageId) {
       return json({ error: "missing_fields" }, 400);
     }
 
-    await closeConversation({
-      supabase,
-      anfrageId,
-      reason: "papierkorb",
-    });
+    const { data: requestRow, error: loadError } = await auth.supabase
+      .from("anfragen")
+      .select("id, assigned_therapist_id, email, vorname")
+      .eq("id", anfrageId)
+      .maybeSingle();
+    if (loadError) return json({ error: "REQUEST_LOAD_FAILED" }, 500);
+    if (!requestRow) return json({ error: "REQUEST_NOT_FOUND" }, 404);
+    if (!canAccessAssignedRequest(auth.member, requestRow.assigned_therapist_id)) {
+      return json({ error: "NO_ACCESS" }, 403);
+    }
 
-    const { error } = await supabase
+    let update = auth.supabase
       .from("anfragen")
       .update({
         status: "papierkorb",
         bevorzugte_zeit: null,
       })
       .eq("id", anfrageId);
+    if (auth.member.role === "therapist") {
+      update = update.eq("assigned_therapist_id", auth.member.id);
+    }
+    const { data: updated, error } = await update
+      .select("id")
+      .maybeSingle();
 
-    if (error) {
+    if (error || !updated) {
       console.error("NO-MATCH ERROR:", { code: error?.code || null });
       return json({ error: "update_failed" }, 500);
+    }
+
+    await closeConversation({
+      supabase: auth.supabase,
+      anfrageId,
+      reason: "papierkorb",
+    });
+
+    if (!requestRow.email) {
+      return json({ ok: true });
     }
 
     const mailRes = await fetch("https://api.resend.com/emails", {
@@ -52,10 +78,10 @@ export async function POST(req) {
       },
       body: JSON.stringify({
         from: "Poise <noreply@mypoise.de>",
-        to: client,
+        to: requestRow.email,
         subject: "Zu deiner Anfrage bei Poise",
         html: `
-          <p>Hallo ${vorname || ""},</p>
+          <p>Hallo ${requestRow.vorname || ""},</p>
 
           <p>
             vielen Dank für deine Anfrage und dein Vertrauen.

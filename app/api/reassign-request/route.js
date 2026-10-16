@@ -1,15 +1,16 @@
 export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-);
+import { getActiveTeamMember, json } from "../_lib/server";
 
 export async function POST(request) {
   try {
+    const auth = await getActiveTeamMember(request);
+    if (!auth.member) return json({ error: auth.error }, auth.status);
+    if (auth.member.role !== "admin") {
+      return json({ error: "NO_ACCESS" }, 403);
+    }
+
     const body = await request.json();
     const { anfrageId, newTherapist } = body || {};
 
@@ -20,7 +21,7 @@ export async function POST(request) {
       );
     }
 
-    const { error } = await supabase
+    const { error } = await auth.supabase
       .from("anfragen")
       .update({ wunschtherapeut: newTherapist })
       .eq("id", anfrageId);

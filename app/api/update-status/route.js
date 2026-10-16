@@ -1,16 +1,16 @@
 export const dynamic = "force-dynamic";
 
 import {
+  canAccessAssignedRequest,
   json,
-  supabaseAdmin,
-  getUserFromBearer,
+  getActiveTeamMember,
 } from "../_lib/server";
 import { closeConversation } from "../../lib/messaging/conversations";
 
 export async function POST(req) {
   try {
-    const { user, error } = await getUserFromBearer(req);
-    if (!user) return json({ error }, 401);
+    const auth = await getActiveTeamMember(req);
+    if (!auth.member) return json({ error: auth.error }, auth.status);
 
     const body = await req.json();
     const requestId = body.requestId;
@@ -24,18 +24,8 @@ export async function POST(req) {
       return json({ error: "MISSING_STATUS" }, 400);
     }
 
-    const sb = supabaseAdmin();
-
-    // 1) eingeloggtes Teammitglied laden
-    const { data: member, error: memberErr } = await sb
-      .from("team_members")
-      .select("id, role, active")
-      .eq("user_id", user.id)
-      .single();
-
-    if (memberErr || !member || member.active !== true) {
-      return json({ error: "NO_ACCESS" }, 403);
-    }
+    const sb = auth.supabase;
+    const member = auth.member;
 
     // 2) Anfrage laden
     const { data: anfrage, error: reqErr } = await sb
@@ -49,10 +39,7 @@ export async function POST(req) {
     }
 
     // 3) Ownership / Admin prüfen
-    if (
-      member.role !== "admin" &&
-      String(anfrage.assigned_therapist_id || "") !== String(member.id)
-    ) {
+    if (!canAccessAssignedRequest(member, anfrage.assigned_therapist_id)) {
       return json({ error: "NO_ACCESS" }, 403);
     }
 
@@ -74,24 +61,28 @@ export async function POST(req) {
       return json({ error: "INVALID_STATUS" }, 400);
     }
 
+    // 5) Update with ownership in the write filter to prevent stale-assignment writes.
+    let update = sb
+      .from("anfragen")
+      .update({ status })
+      .eq("id", requestId);
+    if (member.role === "therapist") {
+      update = update.eq("assigned_therapist_id", member.id);
+    }
+    const { data: updated, error: updateErr } = await update
+      .select("id, status")
+      .single();
+
+    if (updateErr) {
+      return json({ error: "UPDATE_FAILED" }, 400);
+    }
+
     if (["beendet", "papierkorb", "kein_match", "abgelehnt"].includes(String(status))) {
       await closeConversation({
         supabase: sb,
         anfrageId: requestId,
         reason: String(status),
       });
-    }
-
-    // 5) Update
-    const { data: updated, error: updateErr } = await sb
-      .from("anfragen")
-      .update({ status })
-      .eq("id", requestId)
-      .select("id, status")
-      .single();
-
-    if (updateErr) {
-      return json({ error: "UPDATE_FAILED" }, 400);
     }
 
     return json({

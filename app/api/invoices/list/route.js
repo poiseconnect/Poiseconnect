@@ -1,31 +1,39 @@
-import { createClient } from "@supabase/supabase-js";
+import { getActiveTeamMember, json } from "../../_lib/server";
 
 export async function GET(req) {
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.SUPABASE_SERVICE_ROLE_KEY
-  );
-
-  const { searchParams } = new URL(req.url);
-  const therapistId = searchParams.get("therapist_id");
-
-  if (!therapistId) {
-    return new Response(JSON.stringify({ error: "NO_THERAPIST_ID" }), {
-      status: 400,
-    });
+  const auth = await getActiveTeamMember(req);
+  if (!auth.member) return json({ error: auth.error }, auth.status);
+  if (!["admin", "therapist"].includes(auth.member.role)) {
+    return json({ error: "NO_ACCESS" }, 403);
   }
 
-  const { data, error } = await supabase
+  const { searchParams } = new URL(req.url);
+  const requestedTherapistId = searchParams.get("therapist_id");
+  const therapistId =
+    auth.member.role === "admin"
+      ? requestedTherapistId
+      : auth.member.id;
+
+  if (!therapistId) {
+    return json({ error: "NO_THERAPIST_ID" }, 400);
+  }
+  if (
+    auth.member.role === "therapist" &&
+    requestedTherapistId &&
+    String(requestedTherapistId) !== String(auth.member.id)
+  ) {
+    return json({ error: "NO_ACCESS" }, 403);
+  }
+
+  const { data, error } = await auth.supabase
     .from("invoices")
     .select("*")
     .eq("therapist_id", therapistId)
     .order("created_at", { ascending: false });
 
   if (error) {
-    return new Response(JSON.stringify({ error: "INTERNAL_ERROR" }), {
-      status: 400,
-    });
+    return json({ error: "INTERNAL_ERROR" }, 500);
   }
 
-  return new Response(JSON.stringify({ data }), { status: 200 });
+  return json({ data });
 }

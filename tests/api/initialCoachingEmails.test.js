@@ -104,7 +104,7 @@ async function runMode(mode, options = {}) {
   mocks.sb = state.sb;
   const body = mode === "booking"
     ? { token: "synthetic-booking-token", start: START, bookingType: "erstgespraech", durationMin: 30, ...options.body }
-    : { anfrageId: "request-1", vorname: "Testperson", email: CLIENT_EMAIL, wunschtherapeut: "Testcoach", assigned_therapist_id: coachId, coaching_typ: options.coachingType || "einzel", ...options.body };
+    : { anfrageId: "request-1", booking_token: "synthetic-booking-token", vorname: "Testperson", email: CLIENT_EMAIL, wunschtherapeut: "Testcoach", assigned_therapist_id: coachId, coaching_typ: options.coachingType || "einzel", ...options.body };
   const response = await (mode === "booking" ? book : submit)(request(body));
   return { ...state, response, clientMail: mocks.send.mock.calls.map(([mail]) => mail).find((mail) => mail.to === CLIENT_EMAIL) };
 }

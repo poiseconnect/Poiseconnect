@@ -3,7 +3,11 @@
 > Diese Datei wird durch `scripts/generate-project-map.mjs` erzeugt.
 > Nicht manuell bearbeiten.
 
-Erzeugt am: 2026-10-11T15:39:25.607Z
+Erzeugt am: 2026-10-16T10:25:27.875Z
+
+## `<svg></svg>`
+
+- `tests/api/imageProxyRoute.test.js`
 
 ## `anfragen`
 
@@ -38,13 +42,13 @@ Erzeugt am: 2026-10-11T15:39:25.607Z
 - `app/api/proposals/list/route.js`
 - `app/api/proposals/message/route.js`
 - `app/api/proposals/request-new/route.js`
-- `app/api/proposals/resolve-legacy-link/route.js`
 - `app/api/public-request/route.js`
 - `app/api/reassign-request/route.js`
 - `app/api/reject-appointment/route.js`
 - `app/api/reminders/send/route.js`
 - `app/api/requests/delete-forever/route.js`
 - `app/api/requests/update-status/route.js`
+- `app/api/send-booking-link/route.js`
 - `app/api/send-proposals/route.js`
 - `app/api/send-video-link/route.js`
 - `app/api/team-requests/route.js`
@@ -103,7 +107,6 @@ Erzeugt am: 2026-10-11T15:39:25.607Z
 ## `confirmed_appointments`
 
 - `app/api/booked/route.js`
-- `app/api/therapist-response/route.js`
 
 ## `invoices`
 
@@ -145,6 +148,7 @@ Erzeugt am: 2026-10-11T15:39:25.607Z
 
 ## `team_members`
 
+- `app/api/_lib/server.js`
 - `app/api/accounting-settings/confirm-uid/route.js`
 - `app/api/accounting-settings/route.js`
 - `app/api/add-sessions-batch/route.js`
@@ -161,6 +165,7 @@ Erzeugt am: 2026-10-11T15:39:25.607Z
 - `app/api/client/appointment/route.js`
 - `app/api/coach-handover/route.js`
 - `app/api/confirm-proposal/route.js`
+- `app/api/create-bestand/route.js`
 - `app/api/dashboard/me/route.js`
 - `app/api/dashboard/requests/route.js`
 - `app/api/delete-session/route.js`
@@ -194,7 +199,6 @@ Erzeugt am: 2026-10-11T15:39:25.607Z
 - `app/api/team-members/toggle-availability/route.js`
 - `app/api/therapist/billing-sessions/route.js`
 - `app/api/therapist/quarter-release/route.js`
-- `app/api/update-status/route.js`
 - `app/api/update-tarif/route.js`
 - `app/lib/loadPublishedCoachingCosts.js`
 - `app/lib/messaging/inbound.js`

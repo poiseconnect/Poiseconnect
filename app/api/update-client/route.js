@@ -1,11 +1,9 @@
 export const dynamic = "force-dynamic";
 
-import { createClient } from "@supabase/supabase-js";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-);
+import {
+  canAccessAssignedRequest,
+  getActiveTeamMember,
+} from "../_lib/server";
 
 function json(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -16,6 +14,12 @@ function json(data, status = 200) {
 
 export async function POST(request) {
   try {
+    const auth = await getActiveTeamMember(request);
+    if (!auth.member) return json({ error: auth.error }, auth.status);
+    if (!["admin", "therapist"].includes(auth.member.role)) {
+      return json({ error: "NO_ACCESS" }, 403);
+    }
+
     const body = await request.json();
 
     const {
@@ -34,12 +38,26 @@ export async function POST(request) {
       return json({ error: "MISSING_ID" }, 400);
     }
 
-    const { error } = await supabase
+    const { data: requestRow, error: loadError } = await auth.supabase
+      .from("anfragen")
+      .select("id, assigned_therapist_id")
+      .eq("id", anfrageId)
+      .maybeSingle();
+    if (loadError) return json({ error: "REQUEST_LOAD_FAILED" }, 500);
+    if (!requestRow) return json({ error: "REQUEST_NOT_FOUND" }, 404);
+    if (!canAccessAssignedRequest(auth.member, requestRow.assigned_therapist_id)) {
+      return json({ error: "NO_ACCESS" }, 403);
+    }
+    if (typeof email !== "string" || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      return json({ error: "INVALID_EMAIL" }, 400);
+    }
+
+    let update = auth.supabase
       .from("anfragen")
       .update({
         vorname: vorname || null,
         nachname: nachname || null,
-        email: email || null,
+        email: email.trim(),
         telefon: telefon || null,
         strasse_hausnr: strasse_hausnr || null,
         plz_ort: plz_ort || null,
@@ -47,7 +65,12 @@ export async function POST(request) {
         beschaeftigungsgrad: beschaeftigungsgrad || null,
       })
       .eq("id", anfrageId);
+    if (auth.member.role === "therapist") {
+      update = update.eq("assigned_therapist_id", auth.member.id);
+    }
+    const { data: updated, error } = await update.select("id").maybeSingle();
 
+    if (!error && !updated) return json({ error: "REQUEST_ASSIGNMENT_CHANGED" }, 409);
     if (error) {
       console.error("UPDATE CLIENT DB ERROR:", { code: error?.code || null });
       return json(

@@ -3,7 +3,7 @@
 > Diese Datei wird durch `scripts/generate-project-map.mjs` erzeugt.
 > Nicht manuell bearbeiten.
 
-Erzeugt am: 2026-10-11T15:39:25.602Z
+Erzeugt am: 2026-10-16T10:25:27.870Z
 
 ## `app/api/accounting-settings/confirm-uid/route.js`
 
@@ -138,6 +138,20 @@ Erzeugt am: 2026-10-11T15:39:25.602Z
 - Google Calendar: keine Nutzung erkannt
 - Mail-Betreffzeilen: keine erkannt
 
+## `app/api/client-link-recovery/consume/route.js`
+
+- Methoden: `POST`
+- Supabase-Tabellen: keine erkannt
+- Google Calendar: keine Nutzung erkannt
+- Mail-Betreffzeilen: keine erkannt
+
+## `app/api/client-link-recovery/request/route.js`
+
+- Methoden: `POST`
+- Supabase-Tabellen: keine erkannt
+- Google Calendar: keine Nutzung erkannt
+- Mail-Betreffzeilen: `Dein angeforderter Zugang zu Poise`
+
 ## `app/api/coach-handover/route.js`
 
 - Methoden: `POST`
@@ -162,7 +176,7 @@ Erzeugt am: 2026-10-11T15:39:25.602Z
 ## `app/api/create-bestand/route.js`
 
 - Methoden: `POST`
-- Supabase-Tabellen: `anfragen`
+- Supabase-Tabellen: `anfragen`, `team_members`
 - Google Calendar: keine Nutzung erkannt
 - Mail-Betreffzeilen: keine erkannt
 
@@ -408,7 +422,7 @@ Erzeugt am: 2026-10-11T15:39:25.602Z
 ## `app/api/proposals/resolve-legacy-link/route.js`
 
 - Methoden: `POST`
-- Supabase-Tabellen: `anfragen`
+- Supabase-Tabellen: keine erkannt
 - Google Calendar: keine Nutzung erkannt
 - Mail-Betreffzeilen: keine erkannt
 
@@ -485,7 +499,7 @@ Erzeugt am: 2026-10-11T15:39:25.602Z
 ## `app/api/send-booking-link/route.js`
 
 - Methoden: `POST`
-- Supabase-Tabellen: keine erkannt
+- Supabase-Tabellen: `anfragen`
 - Google Calendar: keine Nutzung erkannt
 - Mail-Betreffzeilen: `Buche hier deinen nächsten Termin 🤍`
 
@@ -597,7 +611,7 @@ Erzeugt am: 2026-10-11T15:39:25.602Z
 ## `app/api/therapist-response/route.js`
 
 - Methoden: `GET`
-- Supabase-Tabellen: `confirmed_appointments`
+- Supabase-Tabellen: keine erkannt
 - Google Calendar: keine Nutzung erkannt
 - Mail-Betreffzeilen: keine erkannt
 
@@ -632,7 +646,7 @@ Erzeugt am: 2026-10-11T15:39:25.602Z
 ## `app/api/update-status/route.js`
 
 - Methoden: `POST`
-- Supabase-Tabellen: `anfragen`, `team_members`
+- Supabase-Tabellen: `anfragen`
 - Google Calendar: keine Nutzung erkannt
 - Mail-Betreffzeilen: keine erkannt
 
