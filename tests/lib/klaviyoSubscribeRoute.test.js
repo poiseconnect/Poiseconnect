@@ -62,10 +62,16 @@ describe("klaviyo subscribe route", () => {
     }));
   });
 
-  it("requires consent", async () => {
-    const response = await POST(request({ email: "test@example.invalid", consent: false }));
+  it.each([false, undefined])("rejects missing newsletter consent (%s)", async (consent) => {
+    const response = await POST(
+      request({ email: "test@example.invalid", consent })
+    );
 
     expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({
+      ok: false,
+      message: "Missing email or consent",
+    });
     expect(global.fetch).not.toHaveBeenCalled();
   });
 

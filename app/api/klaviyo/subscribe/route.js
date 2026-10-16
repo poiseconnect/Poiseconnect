@@ -1,9 +1,15 @@
-import { NextResponse } from "next/server";
 import {
   SOCIAL_LANDING_SOURCE,
   UTM_FIELDS,
   socialLandingTopicsByLandingTopic,
 } from "../../../lib/socialLandingTopics.js";
+
+function json(data, status = 200) {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: { "Content-Type": "application/json" },
+  });
+}
 
 const ALLOWED_SOURCES = new Set([
   "poise_app_form",
@@ -60,19 +66,13 @@ export async function POST(request) {
     const { email, consent } = body;
 
     if (!email || consent !== true) {
-      return NextResponse.json(
-        { ok: false, message: "Missing email or consent" },
-        { status: 400 }
-      );
+      return json({ ok: false, message: "Missing email or consent" }, 400);
     }
 
     const attribution = buildKlaviyoAttribution(body);
 
     if (attribution.error) {
-      return NextResponse.json(
-        { ok: false, message: attribution.error },
-        { status: 400 }
-      );
+      return json({ ok: false, message: attribution.error }, 400);
     }
 
     const profileAttributes = {
