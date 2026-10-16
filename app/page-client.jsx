@@ -16,6 +16,7 @@ import { teamData } from "./lib/teamData";
 import {
   DRAFT_RECOVERY_CONSENT_TEXT,
 } from "./lib/draftRecovery";
+import { HEALTH_DATA_CONSENT_TEXT } from "./lib/healthDataConsentShared";
 import {
   TIME_PREFERENCE_OPTIONS,
   clearCoachDependentFormFields,
@@ -306,6 +307,10 @@ const requestFinalizedRef = useRef(false);
 const [bookingToken, setBookingToken] = useState(null);
 const [savingDraft, setSavingDraft] = useState(false);
 const [submitting, setSubmitting] = useState(false);
+const [healthDataConsentToken, setHealthDataConsentToken] = useState("");
+const [healthDataConsentGranted, setHealthDataConsentGranted] = useState(false);
+const [healthDataConsentBusy, setHealthDataConsentBusy] = useState(false);
+const [healthDataConsentError, setHealthDataConsentError] = useState("");
  const [formStartedAt] = useState(Date.now());
 // 🔑 WICHTIG: dieser State hat gefehlt
 const [assignedTherapistId, setAssignedTherapistId] = useState(
@@ -1129,6 +1134,7 @@ const slotsByMonth = useMemo(() => {
 async function createOrUpdateDraft(selectedMember) {
   if (requestFinalizedRef.current) return false;
   if (recoveryNeeded || loadingExisting) return false;
+  if (!healthDataConsentToken) return false;
 
   setSavingDraft(true);
 
@@ -1153,15 +1159,9 @@ body: JSON.stringify({
   geburtsdatum: form.geburtsdatum,
   beschaeftigungsgrad: form.beschaeftigungsgrad,
 
-  themen: form.themen,
-  anliegen: form.anliegen,
-  leidensdruck: form.leidensdruck,
-  verlauf: form.verlauf,
-  diagnose: form.diagnose,
-  ziel: form.ziel,
-
   structured_time_preference: form.structured_time_preference || [],
 
+  intakeConsentToken: healthDataConsentToken,
   draft_recovery_consent: form.draft_recovery_consent === true,
   draft_current_step: step,
 
@@ -1198,6 +1198,10 @@ setAssignedTherapistId(
   // -------------------------------------
 const send = async () => {
   if (submitting) return;
+  if (!healthDataConsentToken || !healthDataConsentGranted) {
+    setHealthDataConsentError("Bitte stimme der Verarbeitung deiner Angaben ausdrücklich zu.");
+    return;
+  }
   setSubmitting(true);
 
   if (!assignedTherapistId) {
@@ -1255,6 +1259,7 @@ if (bookingData?.error === "slot_taken") {
       headers: { "Content-Type": "application/json" },
 body: JSON.stringify({
   ...form,
+  intakeConsentToken: healthDataConsentToken,
   formStartedAt,
   anfrageId: draftRequestId || anfrageId || null,
   booking_token: bookingToken || null,
@@ -1291,8 +1296,6 @@ if (form.newsletter_consent) {
       lastName: form.nachname,
       consent: form.newsletter_consent,
       source: "poise_app_form",
-      anliegen: form.anliegen,
-      leidensdruck: form.leidensdruck,
     }),
   }).catch((err) => console.error("Klaviyo signup failed:", err));
 }
@@ -1304,6 +1307,117 @@ alert("Danke – deine Anfrage wurde erfolgreich gesendet 🤍");
   setSubmitting(false);
 }
 };
+
+async function grantHealthDataConsent() {
+  if (healthDataConsentBusy) return;
+  setHealthDataConsentBusy(true);
+  setHealthDataConsentError("");
+
+  try {
+    const requestId = draftRequestId || anfrageId || null;
+    const bookingTokenForRequest = bookingToken || tokenFromUrl || null;
+    const grantResponse = await fetch("/api/intake-consent", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "grant",
+        requestId,
+        booking_token: bookingTokenForRequest,
+      }),
+    });
+    const grantData = await grantResponse.json();
+    if (!grantResponse.ok || !grantData.consentToken) {
+      throw new Error("CONSENT_GRANT_FAILED");
+    }
+
+    if (requestId) {
+      const requestResponse = await fetch(
+        `/api/public-request?id=${encodeURIComponent(requestId)}&token=${encodeURIComponent(bookingTokenForRequest || "")}`,
+        {
+          cache: "no-store",
+          headers: { "x-health-data-consent": grantData.consentToken },
+        }
+      );
+      const requestData = await requestResponse.json();
+      if (!requestResponse.ok || !requestData.request) {
+        await fetch("/api/intake-consent", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "revoke",
+            requestId,
+            booking_token: bookingTokenForRequest,
+            consentToken: grantData.consentToken,
+          }),
+        });
+        throw new Error("CONSENT_DATA_LOAD_FAILED");
+      }
+
+      const data = requestData.request;
+      setForm((prev) => ({
+        ...prev,
+        themen: Array.isArray(data.themen) ? data.themen : [],
+        anliegen: data.anliegen || "",
+        leidensdruck: data.leidensdruck || "",
+        verlauf: data.verlauf || "",
+        diagnose: data.diagnose || "",
+        ziel: data.ziel || "",
+        check_gesundheit: Boolean(data.check_suizid),
+        preferred_times: data.terminwunsch_text || "",
+      }));
+    }
+
+    setHealthDataConsentToken(grantData.consentToken);
+    setHealthDataConsentGranted(true);
+  } catch {
+    setHealthDataConsentError(
+      "Die Einwilligung konnte nicht sicher gespeichert werden. Bitte versuche es erneut."
+    );
+  } finally {
+    setHealthDataConsentBusy(false);
+  }
+}
+
+async function revokeHealthDataConsent() {
+  if (healthDataConsentBusy || !healthDataConsentToken) return;
+  setHealthDataConsentBusy(true);
+  setHealthDataConsentError("");
+
+  try {
+    const requestId = draftRequestId || anfrageId || null;
+    const response = await fetch("/api/intake-consent", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "revoke",
+        requestId,
+        booking_token: bookingToken || tokenFromUrl || null,
+        consentToken: healthDataConsentToken,
+      }),
+    });
+    if (!response.ok) throw new Error("CONSENT_REVOKE_FAILED");
+
+    setHealthDataConsentToken("");
+    setHealthDataConsentGranted(false);
+    setForm((prev) => ({
+      ...prev,
+      themen: [],
+      anliegen: "",
+      leidensdruck: "",
+      verlauf: "",
+      diagnose: "",
+      ziel: "",
+      check_gesundheit: false,
+      preferred_times: "",
+    }));
+  } catch {
+    setHealthDataConsentError(
+      "Der Widerruf konnte nicht bestätigt werden. Bitte versuche es erneut oder kontaktiere Poise."
+    );
+  } finally {
+    setHealthDataConsentBusy(false);
+  }
+}
 
 
 
@@ -1337,6 +1451,43 @@ alert("Danke – deine Anfrage wurde erfolgreich gesendet 🤍");
   autoComplete="off"
   tabIndex={-1}
 />
+      {!healthDataConsentGranted ? (
+        <section aria-labelledby="health-data-consent-heading">
+          <h1 id="health-data-consent-heading">Einwilligung zur Verarbeitung deiner Angaben</h1>
+          <p>{HEALTH_DATA_CONSENT_TEXT}</p>
+          <p>
+            <a
+              href="https://mypoise.de/privacy-policy/"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Datenschutzerklärung
+            </a>
+          </p>
+          <label className="checkbox">
+            <input
+              type="checkbox"
+              checked={healthDataConsentGranted}
+              disabled={healthDataConsentBusy}
+              onChange={grantHealthDataConsent}
+            />
+            Ich willige ausdrücklich ein.
+          </label>
+          {healthDataConsentBusy && <p role="status">Einwilligung wird sicher gespeichert …</p>}
+          {healthDataConsentError && <p role="alert">{healthDataConsentError}</p>}
+        </section>
+      ) : (
+        <>
+      <div style={{ marginBottom: 16 }}>
+        <button
+          type="button"
+          onClick={revokeHealthDataConsent}
+          disabled={healthDataConsentBusy}
+        >
+          Einwilligung widerrufen
+        </button>
+        {healthDataConsentError && <p role="alert">{healthDataConsentError}</p>}
+      </div>
       <div style={{ textAlign: "center", marginBottom: 24 }}>
         <Image
           src="/IMG_7599.png"
@@ -2412,7 +2563,8 @@ ${SELF_PAYMENT_NOTICE}`,
   </div>
 )}
 
-
+        </>
+      )}
     </div>
   );
 }

@@ -1,6 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { mergeFormTeamMembers, toFormTeamMember } from "../../app/lib/formTeamMembers.js";
 import { SELF_PAYMENT_NOTICE } from "../../app/lib/coachingCosts.js";
+import { hashHealthDataConsentToken } from "../../app/lib/healthDataConsent.js";
+
+const CONSENT_TOKEN = "d".repeat(64);
 
 const mocks = vi.hoisted(() => ({
   sb: null,
@@ -65,6 +68,18 @@ function buildSupabase({ coachId, coachingType = "einzel", profile = {}, profile
       let payload;
       const filters = [];
       const resolve = () => {
+        if (table === "anfrage_health_data_consents") {
+          const consent = {
+            id: "consent-test-id",
+            request_id: "request-1",
+            token_hash: hashHealthDataConsentToken(CONSENT_TOKEN),
+            text_version: "2026-10-16-v1",
+            granted_at: "2026-10-16T10:00:00.000Z",
+            revoked_at: null,
+          };
+          const matches = filters.every(([key, value]) => consent[key] === value);
+          return { data: matches ? consent : null, error: null };
+        }
         if (operation !== "select") {
           writes.push({ table, operation, payload });
           return { data: table === "blocked_slots" ? [{ id: "block-1" }] : { id: "session-1" }, error: null };
@@ -86,6 +101,7 @@ function buildSupabase({ coachId, coachingType = "einzel", profile = {}, profile
       const chain = {
         select: (value = "") => { fields = value; return chain; },
         eq: (key, value) => { filters.push([key, value]); return chain; },
+        is: (key, value) => { filters.push([key, value]); return chain; },
         insert: (value) => { operation = "insert"; payload = value; return chain; },
         update: (value) => { operation = "update"; payload = value; return chain; },
         single: async () => resolve(),
@@ -104,7 +120,7 @@ async function runMode(mode, options = {}) {
   mocks.sb = state.sb;
   const body = mode === "booking"
     ? { token: "synthetic-booking-token", start: START, bookingType: "erstgespraech", durationMin: 30, ...options.body }
-    : { anfrageId: "request-1", booking_token: "synthetic-booking-token", vorname: "Testperson", email: CLIENT_EMAIL, wunschtherapeut: "Testcoach", assigned_therapist_id: coachId, coaching_typ: options.coachingType || "einzel", ...options.body };
+    : { anfrageId: "request-1", booking_token: "synthetic-booking-token", intakeConsentToken: CONSENT_TOKEN, vorname: "Testperson", email: CLIENT_EMAIL, wunschtherapeut: "Testcoach", assigned_therapist_id: coachId, coaching_typ: options.coachingType || "einzel", ...options.body };
   const response = await (mode === "booking" ? book : submit)(request(body));
   return { ...state, response, clientMail: mocks.send.mock.calls.map(([mail]) => mail).find((mail) => mail.to === CLIENT_EMAIL) };
 }

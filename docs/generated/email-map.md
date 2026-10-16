@@ -3,7 +3,7 @@
 > Diese Datei wird durch `scripts/generate-project-map.mjs` erzeugt.
 > Nicht manuell bearbeiten.
 
-Erzeugt am: 2026-10-16T20:42:04.388Z
+Erzeugt am: 2026-10-16T23:32:17.490Z
 
 ## `app/api/admin-forward/route.js`
 

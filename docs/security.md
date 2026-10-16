@@ -348,6 +348,40 @@ Klient:innenanfragen sind auf die aktuelle Coach-Zuordnung begrenzt. Die
 permanente Löschung einer Anfrage ist ausschließlich aktiven Admins erlaubt;
 Session-Löschung ist eine getrennte, für eigene Sitzungen erlaubte Operation.
 
+## Ausdrückliche Einwilligung für Gesundheitsangaben
+
+Das öffentliche Anfrageformular verlangt vor Anzeige und Nutzung der
+Themenauswahl, Anliegen, Leidensdruck, Verlauf, Diagnose, Ziel, Selbstgefährdungs-
+Angabe und Freitext-Zeitwünsche eine separate, nicht vorausgewählte Einwilligung.
+Die Einwilligung ist unabhängig von Datenschutzkenntnisnahme, Newsletter- und
+Draft-Erinnerungs-Consent. Die aktuelle Textversion wird zentral in
+`app/lib/healthDataConsentShared.js` geführt.
+
+`POST /api/intake-consent` protokolliert Erteilung und Widerruf serverseitig.
+Der Client erhält ein zufälliges Consent-Token; in
+`anfrage_health_data_consents` wird ausschließlich dessen SHA-256-Hash sowie
+Anfrage-ID, Textversion, Erteilungszeitpunkt und optionaler Widerrufszeitpunkt
+gespeichert. Der Beleg wird beim Draft bzw. finalen Request mit der Anfrage
+verknüpft. `form-submit`, `create-request-draft` und der sensible Teil von
+`GET /api/public-request` verlangen einen aktiven Beleg. Der öffentliche
+Request-Leseweg gibt ohne einen zur Anfrage passenden Beleg keine sensiblen
+Felder zurück. Wiederherstellung öffnet deshalb zunächst nur die nicht
+sensiblen Daten; vor dem erneuten Abruf muss aktiv erneut zugestimmt werden.
+
+Ein Widerruf sperrt zukünftige Reads und Writes, die diesen Beleg voraussetzen,
+und entfernt sensible Werte aus dem Formularzustand. Bereits gespeicherte
+Anfragewerte werden dabei nicht geändert oder gelöscht. Klaviyo erhält weder
+Anliegen, Leidensdruck noch andere sensible Intake-Felder; Newsletter-Consent
+und Newsletter-Funktion bleiben getrennt.
+
+Die additive Migration
+`supabase/migrations/20261017000000_anfrage_health_data_consent.sql` erstellt
+nur die Consent-Protokolltabelle. Sie ändert keine bestehenden Anfragewerte,
+führt keine Backfills aus und vergibt keinen impliziten Consent. Vor
+Produktivverwendung muss die Migration kontrolliert und separat freigegeben
+werden. Rechtsgrundlage, Textfreigabe und die Aufbewahrung des
+Einwilligungsnachweises bleiben datenschutzrechtlich zu entscheiden.
+
 ## Klient:innen: Legacy-Links und E-Mail-Wiederherstellung
 
 `GET /api/public-request` verlangt ID **und aktuellen** `booking_token`.

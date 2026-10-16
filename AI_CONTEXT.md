@@ -83,6 +83,13 @@ Fortsetzungs-Erinnerung speichern. Der Versand ist derzeit nicht aktiviert.
 Bestehende Drafts erhalten keinen impliziten Consent und bleiben effektiv
 nicht recovery-berechtigt.
 
+Die separate ausdrückliche Einwilligung für sensible Intake-Daten wird in
+`anfrage_health_data_consents` mit Anfragebezug, gehashtem Consent-Token,
+Textversion, Erteilungszeitpunkt und optionalem Widerrufszeitpunkt protokolliert.
+Sie ist unabhängig von Draft-Recovery-, Newsletter- und allgemeinem
+Datenschutz-Consent. Bestandsanfragen werden nicht automatisch als eingewilligt
+markiert.
+
 ### sessions
 
 Verwaltet abrechenbare Sitzungen.

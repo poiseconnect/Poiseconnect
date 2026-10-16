@@ -3,7 +3,7 @@
 > Diese Datei wird durch `scripts/generate-project-map.mjs` erzeugt.
 > Nicht manuell bearbeiten.
 
-Erzeugt am: 2026-10-16T20:42:04.382Z
+Erzeugt am: 2026-10-16T23:32:17.473Z
 
 ## `app/api/accounting-settings/confirm-uid/route.js`
 
@@ -289,6 +289,13 @@ Erzeugt am: 2026-10-16T20:42:04.382Z
 
 - Methoden: `GET`
 - Supabase-Tabellen: keine erkannt
+- Google Calendar: keine Nutzung erkannt
+- Mail-Betreffzeilen: keine erkannt
+
+## `app/api/intake-consent/route.js`
+
+- Methoden: `POST`
+- Supabase-Tabellen: `anfrage_health_data_consents`, `anfragen`
 - Google Calendar: keine Nutzung erkannt
 - Mail-Betreffzeilen: keine erkannt
 

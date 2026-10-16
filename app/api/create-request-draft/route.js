@@ -2,6 +2,11 @@ export const dynamic = "force-dynamic";
 
 import { createClient } from "@supabase/supabase-js";
 import { buildDraftRecoveryFields } from "../../lib/draftRecovery.js";
+import {
+  attachHealthDataConsent,
+  findActiveHealthDataConsent,
+  removeRequestAfterConsentLinkFailure,
+} from "../../lib/healthDataConsent.js";
 
 function json(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -38,7 +43,19 @@ const {
   structured_time_preference,
   draft_recovery_consent,
   draft_current_step,
+  intakeConsentToken,
 } = body || {};
+
+    const consent = await findActiveHealthDataConsent(
+      supabase,
+      intakeConsentToken,
+      anfrageId
+        ? { requestId: anfrageId }
+        : { requestId: null }
+    );
+    if (!consent) {
+      return json({ error: "HEALTH_DATA_CONSENT_REQUIRED" }, 403);
+    }
 
     if (anfrageId) {
       if (typeof booking_token !== "string" || !booking_token.trim()) {
@@ -174,6 +191,21 @@ match_state: "draft",
     if (error) {
       console.error("DRAFT INSERT ERROR:", { code: error?.code || null });
       return json({ error: "DRAFT_INSERT_FAILED" }, 500);
+    }
+
+    try {
+      const linked = await attachHealthDataConsent(supabase, consent, data.id);
+      if (!linked) {
+        throw new Error("HEALTH_DATA_CONSENT_LINK_FAILED");
+      }
+    } catch {
+      console.error("HEALTH_DATA_CONSENT_LINK_FAILED");
+      try {
+        await removeRequestAfterConsentLinkFailure(supabase, data.id);
+      } catch {
+        console.error("HEALTH_DATA_CONSENT_ROLLBACK_FAILED");
+      }
+      return json({ error: "CONSENT_UNAVAILABLE" }, 503);
     }
 
     return json({
