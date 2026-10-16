@@ -99,6 +99,30 @@ zusätzlich den Draft-Status ein, damit ein paralleler Final-Submit nicht durch
 einen verspäteten Draft-Save zurückgesetzt werden kann. Der Formularclient
 blockiert Draft-Saves außerdem nach erfolgreichem Final-Submit.
 
+## Ausdrückliche Einwilligung für Gesundheitsangaben
+
+Vor dem Anfrageformular zeigt die App eine separate, nicht vorausgewählte
+Einwilligung für potenziell gesundheitsbezogene Angaben. Bis eine
+serverseitige Einwilligung erfolgreich protokolliert ist, bleiben Formular,
+Matching und Zusammenfassung gesperrt. Anliegen, Leidensdruck, Diagnose und
+andere sensible Angaben werden nicht in Draft-Requests aufgenommen.
+
+`POST /api/intake-consent` erzeugt einen zufälligen Beleg und speichert in
+`anfrage_health_data_consents` nur dessen Hash, Textversion, Erteilungszeitpunkt
+und Anfragebezug. Die geschützten Formular-/Lese-Routen prüfen den aktiven
+Beleg. Bei Wiederherstellung werden bestehende sensible Felder erst nach einer
+neuen ausdrücklichen Einwilligung geladen. Ein Widerruf setzt den
+Widerrufszeitpunkt, verhindert spätere belegpflichtige Verarbeitung und löscht
+keine bestehenden Anfrageinhalte. Die Anfragetabellen werden durch die
+Migration nicht verändert; Bestandsdaten erhalten keinen automatisch gesetzten
+Consent. Klaviyo wird ausschließlich mit Newsletter-Adresse, Consent und
+freigegebenen Attribution-Feldern angesprochen.
+
+Die Migration
+`supabase/migrations/20261017000000_anfrage_health_data_consent.sql` ist
+additiv und muss vor Produktivaktivierung separat freigegeben und kontrolliert
+angewendet werden. Sie wurde durch die Anwendung nicht ausgeführt.
+
 ## Klaviyo
 
 Klaviyo wird für Newsletter, Impulsserien und Segmentierung verwendet.

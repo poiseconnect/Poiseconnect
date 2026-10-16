@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { readFileSync } from "node:fs";
 import { POST, buildKlaviyoAttribution } from "../../app/api/klaviyo/subscribe/route.js";
 
 function request(body) {
@@ -84,6 +85,28 @@ describe("klaviyo subscribe route", () => {
     expect(body.data.attributes.custom_source).toBe("poise_app_form");
     expect(profile.email).toBe("test@example.invalid");
     expect(profile).not.toHaveProperty("properties");
+  });
+
+  it("does not send health-related intake fields from the form or to Klaviyo", async () => {
+    const clientCode = readFileSync("app/page-client.jsx", "utf8");
+    const newsletterCall = clientCode.match(
+      /fetch\("\/api\/klaviyo\/subscribe"[\s\S]*?body: JSON\.stringify\(\{([\s\S]*?)\}\),/
+    )?.[1];
+    expect(newsletterCall).toBeTruthy();
+    expect(newsletterCall).not.toMatch(/anliegen|leidensdruck|diagnose|verlauf|ziel|themen/);
+
+    await POST(
+      request({
+        email: "test@example.invalid",
+        consent: true,
+        anliegen: "synthetic sensitive content",
+        leidensdruck: "hoch",
+      })
+    );
+
+    const sentBody = JSON.stringify(sentKlaviyoBody());
+    expect(sentBody).not.toContain("synthetic sensitive content");
+    expect(sentBody).not.toContain("leidensdruck");
   });
 
   it("passes validated social attribution and utm fields to Klaviyo profile properties", async () => {

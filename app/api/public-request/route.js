@@ -1,6 +1,7 @@
 export const dynamic = "force-dynamic";
 
 import { createClient } from "@supabase/supabase-js";
+import { findActiveHealthDataConsent } from "../../lib/healthDataConsent.js";
 
 function json(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -17,7 +18,7 @@ function getSupabase() {
   return createClient(url, key);
 }
 
-export const PUBLIC_REQUEST_SELECT_FIELDS = [
+export const PUBLIC_REQUEST_BASE_SELECT_FIELDS = [
   "id",
   "vorname",
   "nachname",
@@ -27,18 +28,28 @@ export const PUBLIC_REQUEST_SELECT_FIELDS = [
   "plz_ort",
   "geburtsdatum",
   "beschaeftigungsgrad",
-  "themen",
-  "anliegen",
-  "leidensdruck",
-  "verlauf",
-  "diagnose",
-  "ziel",
   "coaching_typ",
   "wunschtherapeut",
   "assigned_therapist_id",
   "admin_therapeuten",
   "structured_time_preference",
   "bevorzugte_zeit",
+].join(", ");
+
+export const PUBLIC_REQUEST_HEALTH_DATA_SELECT_FIELDS = [
+  "themen",
+  "anliegen",
+  "leidensdruck",
+  "verlauf",
+  "diagnose",
+  "ziel",
+  "check_suizid",
+  "terminwunsch_text",
+].join(", ");
+
+export const PUBLIC_REQUEST_SELECT_FIELDS = [
+  PUBLIC_REQUEST_BASE_SELECT_FIELDS,
+  PUBLIC_REQUEST_HEALTH_DATA_SELECT_FIELDS,
 ].join(", ");
 
 export async function GET(req) {
@@ -59,20 +70,31 @@ export async function GET(req) {
       return json({ error: "SUPABASE_NOT_CONFIGURED" }, 500);
     }
 
-    let query = supabase
+    const consentToken = req.headers.get("x-health-data-consent");
+    const consent = consentToken
+      ? await findActiveHealthDataConsent(supabase, consentToken, {
+          requestId: id,
+        })
+      : null;
+
+    const fields = consent
+      ? PUBLIC_REQUEST_SELECT_FIELDS
+      : PUBLIC_REQUEST_BASE_SELECT_FIELDS;
+    const { data, error } = await supabase
       .from("anfragen")
-      .select(PUBLIC_REQUEST_SELECT_FIELDS)
-      .eq("id", id);
-
-    query = query.eq("booking_token", token);
-
-    const { data, error } = await query.single();
+      .select(fields)
+      .eq("id", id)
+      .eq("booking_token", token)
+      .single();
 
     if (error || !data) {
       return json({ error: "REQUEST_NOT_FOUND" }, 404);
     }
 
-    return json({ request: data });
+    return json({
+      request: data,
+      sensitiveDataConsentRequired: !consent,
+    });
   } catch (err) {
     console.error("PUBLIC REQUEST ERROR");
     return json(

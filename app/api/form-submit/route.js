@@ -5,6 +5,11 @@ import { Resend } from "resend";
 import { teamData } from "../../lib/teamData";
 import { ensureOpenConversation } from "../../lib/messaging/conversations";
 import { loadPublishedCoachingCosts } from "../../lib/loadPublishedCoachingCosts";
+import {
+  attachHealthDataConsent,
+  findActiveHealthDataConsent,
+  removeRequestAfterConsentLinkFailure,
+} from "../../lib/healthDataConsent.js";
 
 function JSONResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -72,6 +77,15 @@ const requestId = body.rid || body.anfrageId || null;
         .maybeSingle();
       if (error) return JSONResponse({ error: "REQUEST_LOAD_FAILED" }, 500);
       if (!existing) return JSONResponse({ error: "REQUEST_NOT_FOUND" }, 404);
+    }
+
+    const consent = await findActiveHealthDataConsent(
+      supabase,
+      body.intakeConsentToken,
+      requestId ? { requestId } : { requestId: null }
+    );
+    if (!consent) {
+      return JSONResponse({ error: "HEALTH_DATA_CONSENT_REQUIRED" }, 403);
     }
 
     const resend = new Resend(process.env.RESEND_API_KEY);
@@ -220,6 +234,27 @@ check_datenschutz: Boolean(body.check_datenschutz),
       }
 
       finalRequestId = inserted.id;
+    }
+
+    if (!requestId) {
+      try {
+        const linked = await attachHealthDataConsent(
+          supabase,
+          consent,
+          finalRequestId
+        );
+        if (!linked) {
+          throw new Error("HEALTH_DATA_CONSENT_LINK_FAILED");
+        }
+      } catch {
+        console.error("HEALTH_DATA_CONSENT_LINK_FAILED");
+        try {
+          await removeRequestAfterConsentLinkFailure(supabase, finalRequestId);
+        } catch {
+          console.error("HEALTH_DATA_CONSENT_ROLLBACK_FAILED");
+        }
+        return JSONResponse({ error: "CONSENT_UNAVAILABLE" }, 503);
+      }
     }
 
     await ensureOpenConversation({

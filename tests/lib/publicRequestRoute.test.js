@@ -1,17 +1,56 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { readFileSync } from "node:fs";
+import { hashHealthDataConsentToken } from "../../app/lib/healthDataConsent.js";
 
 const queryConfig = vi.hoisted(() => ({
   selectFields: "",
+  consentValid: false,
   eqId: null,
   eqToken: null,
   mockData: null,
   mockError: null,
 }));
+const CONSENT_TOKEN = "d".repeat(64);
 
 vi.mock("@supabase/supabase-js", () => ({
   createClient: () => ({
     from: vi.fn((table) => {
+      if (table === "anfrage_health_data_consents") {
+        const filters = [];
+        const chain = {
+          select: vi.fn(() => chain),
+          eq: vi.fn((col, val) => {
+            filters.push([col, val]);
+            return chain;
+          }),
+          is: vi.fn((col, val) => {
+            filters.push([col, val]);
+            return chain;
+          }),
+          maybeSingle: vi.fn(async () => {
+            const matches = filters.every(([field, value]) => {
+              if (field === "token_hash") {
+                return value === hashHealthDataConsentToken(CONSENT_TOKEN);
+              }
+              if (field === "revoked_at") return value === null;
+              return false;
+            });
+            return {
+              data: queryConfig.consentValid && matches
+                ? {
+                    id: "consent-id",
+                    request_id: "anfrage-123",
+                    text_version: "2026-10-16-v1",
+                    granted_at: "2026-10-16T10:00:00.000Z",
+                    revoked_at: null,
+                  }
+                : null,
+              error: null,
+            };
+          }),
+        };
+        return chain;
+      }
       if (table !== "anfragen") throw new Error(`Unexpected table ${table}`);
       return {
         select: vi.fn((fields) => {
@@ -59,15 +98,24 @@ vi.mock("@supabase/supabase-js", () => ({
   }),
 }));
 
-import { GET, PUBLIC_REQUEST_SELECT_FIELDS } from "../../app/api/public-request/route.js";
+import {
+  GET,
+  PUBLIC_REQUEST_BASE_SELECT_FIELDS,
+  PUBLIC_REQUEST_SELECT_FIELDS,
+} from "../../app/api/public-request/route.js";
 
-function getRequestUrl(id, token) {
+function getRequestUrl(id, token, consentToken = null) {
   let url = `https://app.example.invalid/api/public-request`;
   const params = [];
   if (id) params.push(`id=${encodeURIComponent(id)}`);
   if (token) params.push(`token=${encodeURIComponent(token)}`);
   if (params.length) url += `?${params.join("&")}`;
-  return new Request(url, { method: "GET" });
+  return new Request(url, {
+    method: "GET",
+    headers: consentToken
+      ? { "x-health-data-consent": consentToken }
+      : {},
+  });
 }
 
 describe("public request route security fix", () => {
@@ -75,6 +123,7 @@ describe("public request route security fix", () => {
     process.env.NEXT_PUBLIC_SUPABASE_URL = "https://example.supabase.co";
     process.env.SUPABASE_SERVICE_ROLE_KEY = "test-key";
     queryConfig.selectFields = "";
+    queryConfig.consentValid = false;
     queryConfig.eqId = null;
     queryConfig.eqToken = null;
     queryConfig.mockError = null;
@@ -104,8 +153,11 @@ describe("public request route security fix", () => {
     };
   });
 
-  it("returns 200 with whitelisted fields when valid id and matching token are supplied", async () => {
-    const res = await GET(getRequestUrl("anfrage-123", "token-uuid-123"));
+  it("returns sensitive fields only with a matching, active consent token", async () => {
+    queryConfig.consentValid = true;
+    const res = await GET(
+      getRequestUrl("anfrage-123", "token-uuid-123", CONSENT_TOKEN)
+    );
 
     expect(res.status).toBe(200);
     const json = await res.json();
@@ -120,6 +172,17 @@ describe("public request route security fix", () => {
     expect(queryConfig.selectFields).not.toContain("booking_token");
     expect(queryConfig.eqId).toBe("anfrage-123");
     expect(queryConfig.eqToken).toBe("token-uuid-123");
+  });
+
+  it("does not disclose existing health data until the user grants again", async () => {
+    const res = await GET(getRequestUrl("anfrage-123", "token-uuid-123"));
+
+    expect(res.status).toBe(200);
+    const json = await res.json();
+    expect(json.sensitiveDataConsentRequired).toBe(true);
+    expect(json.request.anliegen).toBeUndefined();
+    expect(json.request.themen).toBeUndefined();
+    expect(queryConfig.selectFields).toBe(PUBLIC_REQUEST_BASE_SELECT_FIELDS);
   });
 
   it("returns 404 when an invalid or mismatched token is supplied", async () => {
@@ -142,8 +205,8 @@ describe("public request route security fix", () => {
     expect(queryConfig.eqToken).toBeNull();
   });
 
-  it("does not select internal/admin/billing/messaging fields", () => {
-    const fields = PUBLIC_REQUEST_SELECT_FIELDS.split(", ").map((f) => f.trim());
+  it("excludes health data from the default public request selection", () => {
+    const fields = PUBLIC_REQUEST_BASE_SELECT_FIELDS.split(", ").map((f) => f.trim());
 
     expect(fields).not.toContain("status");
     expect(fields).not.toContain("match_state");
@@ -152,6 +215,8 @@ describe("public request route security fix", () => {
     expect(fields).not.toContain("honorar_klient");
     expect(fields).not.toContain("invoice_with_vat");
     expect(fields).not.toContain("check_suizid");
+    expect(fields).not.toContain("anliegen");
+    expect(fields).not.toContain("themen");
     expect(fields).not.toContain("reminder_24h_sent");
     expect(fields).not.toContain("reminder_2h_sent");
   });
@@ -162,6 +227,7 @@ describe("public request route security fix", () => {
     expect(clientCode).toContain("tokenFromUrl");
     expect(clientCode).toContain("&token=");
     expect(clientCode).toContain("public-request?id=");
+    expect(clientCode).toContain("x-health-data-consent");
   });
 
   it("includes token parameter in link generators admin-forward and forward-request", () => {

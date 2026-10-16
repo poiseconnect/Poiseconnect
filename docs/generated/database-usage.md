@@ -3,11 +3,16 @@
 > Diese Datei wird durch `scripts/generate-project-map.mjs` erzeugt.
 > Nicht manuell bearbeiten.
 
-Erzeugt am: 2026-10-16T10:25:27.875Z
+Erzeugt am: 2026-10-16T23:32:17.489Z
 
 ## `<svg></svg>`
 
 - `tests/api/imageProxyRoute.test.js`
+
+## `anfrage_health_data_consents`
+
+- `app/api/intake-consent/route.js`
+- `app/lib/healthDataConsent.js`
 
 ## `anfragen`
 
@@ -31,6 +36,7 @@ Erzeugt am: 2026-10-16T10:25:27.875Z
 - `app/api/finish-coaching/route.js`
 - `app/api/form-submit/route.js`
 - `app/api/forward-request/route.js`
+- `app/api/intake-consent/route.js`
 - `app/api/invoices/load/route.js`
 - `app/api/invoices/save/route.js`
 - `app/api/invoices/send/route.js`
@@ -88,6 +94,10 @@ Erzeugt am: 2026-10-16T10:25:27.875Z
 - `app/api/confirm-proposal/route.js`
 - `app/api/new-appointment/route.js`
 
+## `client-link-recovery:v1`
+
+- `app/lib/clientLinkRecovery.js`
+
 ## `coach_invoices`
 
 - `app/api/invoices/_lib/coachInvoice.js`
@@ -114,6 +124,14 @@ Erzeugt am: 2026-10-16T10:25:27.875Z
 - `app/api/invoices/load/route.js`
 - `app/api/invoices/save/route.js`
 - `app/api/invoices/send/route.js`
+
+## `outbox-v1`
+
+- `app/lib/clientLinkRecovery.js`
+
+## `poise-client-link-recovery`
+
+- `app/lib/clientLinkRecovery.js`
 
 ## `request_conversations`
 
