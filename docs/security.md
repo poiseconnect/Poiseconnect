@@ -371,8 +371,33 @@ Proposal-Spaltenpaare (`request_id`/`proposed_at`, `anfrage_id`/`date`); ist der
 alte Vorschlag bereits gelöscht, gilt ebenfalls die eindeutige E-Mail-Zuordnung.
 Mehrdeutigkeit erfordert Support. Keine Adresse, Datensatzexistenz, Buchungs-
 oder Recovery-Credentials werden in der Anforderungsantwort bestätigt:
-`POST /api/client-link-recovery/request` antwortet stets generisch mit HTTP 202,
-auch bei Ratenlimit, fehlender Migration oder Versandfehler.
+`POST /api/client-link-recovery/request` antwortet nach erfolgreichem Queue-
+Insert oder Ratenlimit generisch mit HTTP 202. Bei fehlender Migration oder
+einem Queue-/Konfigurationsfehler antwortet sie mit einem ebenfalls generischen
+HTTP 503, damit keine erfolgreiche Einreihung vorgetäuscht wird. Beide
+Antworten sind unabhängig von der Recovery-Berechtigung. Die öffentliche Route
+führt ausschließlich Formatprüfung und einen atomaren, persistenten,
+rate-limitierten Outbox-Insert aus. Sie fragt nicht ab, ob Anfrage oder E-Mail
+existieren, und wartet nie auf den Mailprovider. Dadurch hängt ihre
+Antwortzeit nicht von der Recovery-Berechtigung ab.
+
+`/api/cron/client-link-recovery` verarbeitet die Outbox höchstens in kleinen
+atomar beanspruchten Batches. Der Worker verlangt `CRON_SECRET` zwingend und
+antwortet ohne Konfiguration fail-closed; Vercel ruft ihn minütlich auf.
+Providerfehler werden mit gedeckeltem exponentiellem Backoff erneut versucht.
+Ein stabiler Resend-Idempotency-Key verhindert Doppelzustellungen bei
+unklarem Provider-Ergebnis oder fehlgeschlagener Queue-Bestätigung. Jobs
+bleiben bis zum Provider-Erfolg oder einer eindeutigen Nichtberechtigung
+persistiert; sie werden nicht nach einer festen Versuchszahl verworfen.
+
+Die Queue-Tabelle ist RLS-geschützt und nur für `service_role` freigegeben.
+Der zufällige Recovery-Code liegt dort ausschließlich AES-256-GCM-verschlüsselt
+vor; der Schlüssel wird aus dem bestehenden `SUPABASE_SERVICE_ROLE_KEY`
+abgeleitet. E-Mail-Adresse, Zweck und Zuordnungsangaben bleiben bis zum
+Abschluss als notwendige Outbox-Daten gespeichert und werden nach `sent` oder
+`no_match` entfernt. Eine Rotation des Service-Role-Keys darf nicht erfolgen,
+solange Jobs offen sind, da andernfalls deren verschlüsselte Codes nicht mehr
+entschlüsselt werden können.
 
 Die neutrale Textmail enthält einen zufälligen 256-Bit-Recovery-Code im
 URL-Fragment, nicht den Booking-Token oder personenbezogene Anfrageinhalte.
@@ -391,12 +416,13 @@ Recovery-Code führt zurück zur Eingabemaske.
 Schema-/Rollenprüfung separat freigegeben und angewendet werden. Sie benötigt
 `anfragen.id` als UUID, `booking_token`, `email`, `status`,
 `draft_current_step` (Draft-Foundation-Migration vom 10.09.2026) und
-`appointment_proposals`. Neue RLS-geschützte Tabellen speichern nur gehashte
-Recovery-Codes, Empfängerbindung, Token-Fingerprint, Zweck, Ablauf/Verbrauch
-und gehashte Ratenlimit-Schlüssel. Nur `service_role` darf Tabellen/RPCs
-verwenden. Zeilen-/UPSERT-Sperren sichern einmalige Einlösung, 15 Minuten
-Gültigkeit, maximal 3 Anforderungen je Adresse/Stunde und 10 je vertrauens-
-würdigem Vercel-Quell-IP-Schlüssel/Stunde sowie 60 Sekunden je Anfrage.
+`appointment_proposals`. Neue RLS-geschützte Tabellen speichern gehashte
+Recovery-Codes, Empfängerbindung, Token-Fingerprint, Zweck, Ablauf/Verbrauch,
+die verschlüsselte Outbox-Nutzlast und gehashte Ratenlimit-Schlüssel. Nur
+`service_role` darf Tabellen/RPCs verwenden. Zeilen-/UPSERT-Sperren sichern
+einmalige Einlösung, 15 Minuten Gültigkeit, maximal 3 Anforderungen je
+Adresse/Stunde und 10 je vertrauenswürdigem Vercel-Quell-IP-Schlüssel/Stunde
+sowie 60 Sekunden je Anfrage.
 Ohne vertrauenswürdigen `x-vercel-forwarded-for` teilen sich Aufrufer
 konservativ ein gemeinsames Quelllimit. Datensatzadresse, Status und aktueller
 Token werden bei Einlösung erneut geprüft. Bei wirklich alten NULL-Tokens
@@ -433,5 +459,6 @@ diesen Recovery-Pfad nicht verändert.
 Validierung: fokussierte Vitest-Tests verwenden ausschließlich synthetische
 Daten und gemockte Supabase-/Mail-/Kalenderaufrufe. Migration wurde nur
 statisch auf Guards geprüft, **nicht ausgeführt**; Datenbank-Concurrency-/
-Schema-Tests und ein kontrollierter Provider-Linktracking-Test bleiben
-Voraussetzung der gesonderten Rollout-Freigabe.
+Schema-Tests, Konfiguration und erfolgreicher Vercel-Cron-Aufruf sowie ein
+kontrollierter Provider-Linktracking-Test bleiben Voraussetzung der
+gesonderten Rollout-Freigabe.

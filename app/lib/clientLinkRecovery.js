@@ -1,4 +1,4 @@
-import { createHash, createHmac, randomBytes } from "node:crypto";
+import { createCipheriv, createDecipheriv, createHash, createHmac, hkdfSync, randomBytes } from "node:crypto";
 
 export const RECOVERY_MESSAGE =
   "Wenn die Angaben zu einem bestehenden Zugang passen, erhältst du eine E-Mail mit den nächsten Schritten.";
@@ -15,6 +15,41 @@ export function recoveryRateKey(value) {
 
 export function newRecoverySecret() {
   return randomBytes(32).toString("hex");
+}
+
+function recoveryQueueKey() {
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!serviceKey) throw new Error("MISSING_RECOVERY_QUEUE_KEY");
+  return Buffer.from(hkdfSync(
+    "sha256",
+    Buffer.from(serviceKey),
+    Buffer.from("poise-client-link-recovery"),
+    Buffer.from("outbox-v1"),
+    32,
+  ));
+}
+
+export function encryptRecoverySecret(secret) {
+  const iv = randomBytes(12);
+  const cipher = createCipheriv("aes-256-gcm", recoveryQueueKey(), iv);
+  cipher.setAAD(Buffer.from("client-link-recovery:v1"));
+  const ciphertext = Buffer.concat([cipher.update(secret, "utf8"), cipher.final()]);
+  return ["v1", iv.toString("base64url"), cipher.getAuthTag().toString("base64url"),
+    ciphertext.toString("base64url")].join(".");
+}
+
+export function decryptRecoverySecret(value) {
+  const [version, encodedIv, encodedTag, encodedCiphertext, ...extra] = String(value).split(".");
+  if (version !== "v1" || extra.length || !encodedIv || !encodedTag || !encodedCiphertext) {
+    throw new Error("INVALID_RECOVERY_QUEUE_SECRET");
+  }
+  const decipher = createDecipheriv("aes-256-gcm", recoveryQueueKey(), Buffer.from(encodedIv, "base64url"));
+  decipher.setAAD(Buffer.from("client-link-recovery:v1"));
+  decipher.setAuthTag(Buffer.from(encodedTag, "base64url"));
+  return Buffer.concat([
+    decipher.update(Buffer.from(encodedCiphertext, "base64url")),
+    decipher.final(),
+  ]).toString("utf8");
 }
 
 export function recoveryOrigin() {

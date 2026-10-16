@@ -3,7 +3,7 @@
 > Diese Datei wird durch `scripts/generate-project-map.mjs` erzeugt.
 > Nicht manuell bearbeiten.
 
-Erzeugt am: 2026-10-16T10:25:27.870Z
+Erzeugt am: 2026-10-16T20:42:04.382Z
 
 ## `app/api/accounting-settings/confirm-uid/route.js`
 
@@ -150,7 +150,7 @@ Erzeugt am: 2026-10-16T10:25:27.870Z
 - Methoden: `POST`
 - Supabase-Tabellen: keine erkannt
 - Google Calendar: keine Nutzung erkannt
-- Mail-Betreffzeilen: `Dein angeforderter Zugang zu Poise`
+- Mail-Betreffzeilen: keine erkannt
 
 ## `app/api/coach-handover/route.js`
 
@@ -186,6 +186,13 @@ Erzeugt am: 2026-10-16T10:25:27.870Z
 - Supabase-Tabellen: `anfragen`
 - Google Calendar: keine Nutzung erkannt
 - Mail-Betreffzeilen: keine erkannt
+
+## `app/api/cron/client-link-recovery/route.js`
+
+- Methoden: `GET`
+- Supabase-Tabellen: keine erkannt
+- Google Calendar: keine Nutzung erkannt
+- Mail-Betreffzeilen: `Dein angeforderter Zugang zu Poise`
 
 ## `app/api/cron/expire-proposals/route.js`
 

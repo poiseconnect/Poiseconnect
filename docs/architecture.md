@@ -48,6 +48,20 @@ Resend versendet unter anderem:
 - finale Terminbestätigungen,
 - Coach-Benachrichtigungen.
 
+Client-Link-Wiederherstellung verwendet einen persistenten Supabase-Outbox-
+Workflow. `POST /api/client-link-recovery/request` validiert Eingaben und reiht
+die Anfrage samt verschlüsseltem Recovery-Code ein, ohne Eignung oder
+Datensatzexistenz abzufragen und ohne Resend aufzurufen. Der minütliche,
+`CRON_SECRET`-geschützte `/api/cron/client-link-recovery`-Worker löst den
+serverseitigen Datensatz ab, sendet nur an die gespeicherte Empfängeradresse
+und bestätigt den Queue-Eintrag erst nach erfolgreicher Providerannahme.
+Providerfehler werden mit Backoff erneut versucht; ein stabiler
+Resend-Idempotency-Key schützt vor Doppelversand bei unklarem Ergebnis.
+Queue-Payload wird nach Erfolg oder eindeutiger Nichtberechtigung entfernt.
+Die zugehörige additive Migration und der Cronjob müssen vor Produktivbetrieb
+separat geprüft und freigegeben werden; sie werden durch die Anwendung nicht
+automatisch ausgeführt.
+
 `POST /api/send-video-link` verwendet zuerst `anfragen.meeting_link_override`.
 Ohne persönlichen Override lädt die Route den allgemeinen `meeting_link` aus
 `therapist_booking_settings`, zugeordnet über `anfragen.assigned_therapist_id`

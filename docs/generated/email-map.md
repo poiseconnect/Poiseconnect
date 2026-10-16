@@ -3,7 +3,7 @@
 > Diese Datei wird durch `scripts/generate-project-map.mjs` erzeugt.
 > Nicht manuell bearbeiten.
 
-Erzeugt am: 2026-10-16T10:25:27.876Z
+Erzeugt am: 2026-10-16T20:42:04.388Z
 
 ## `app/api/admin-forward/route.js`
 
@@ -21,10 +21,6 @@ Erzeugt am: 2026-10-16T10:25:27.876Z
 
 - Betreffzeilen: `Neuer Termin gewünscht 🤍`
 
-## `app/api/client-link-recovery/request/route.js`
-
-- Betreffzeilen: `Dein angeforderter Zugang zu Poise`
-
 ## `app/api/confirm-appointment/route.js`
 
 - Betreffzeilen: `Dein Termin ist bestätigt 🤍`
@@ -32,6 +28,10 @@ Erzeugt am: 2026-10-16T10:25:27.876Z
 ## `app/api/confirm-proposal/route.js`
 
 - Betreffzeilen: `Dein Erstgespräch ist bestätigt 🤍`, `Erstgespräch wurde bestätigt 🤍`
+
+## `app/api/cron/client-link-recovery/route.js`
+
+- Betreffzeilen: `Dein angeforderter Zugang zu Poise`
 
 ## `app/api/cron/proposal-reminders/route.js`
 
