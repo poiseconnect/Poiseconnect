@@ -20,6 +20,13 @@ erforderlich sind.
 Produktionsdaten von Klientinnen und Klienten werden nicht
 in einen KI-Suchindex übernommen.
 
+`/api/image-proxy` lädt ausschließlich HTTPS-Bilder von den freigegebenen
+WordPress-Bildhosts `mypoise.de` und `www.mypoise.de`. DNS-Antworten werden
+vor dem Verbindungsaufbau auf öffentliche IP-Adressen geprüft und die geprüfte
+Adresse für die TLS-Verbindung fest gebunden. Jeder Redirect durchläuft dieselbe
+Prüfung; zurückgegeben werden nur unterstützte Rasterbilder mit passendem
+Dateisignatur- und MIME-Typ.
+
 ## Zulässige Inhalte
 
 - Quellcode
@@ -305,3 +312,225 @@ KI-Dokumentation unverändert.
 
 Dokumentations- und Indexierungsfunktionen werden vom
 Produktivsystem getrennt eingeführt.
+
+### Verbindliche Prüfung vor einem Sicherheits-Rollout
+
+Vor einer Produktionsfreigabe muss eine autorisierte Person:
+
+1. den letzten erfolgreichen Supabase-Backup-Zeitpunkt und die
+   Wiederherstellbarkeit in einer isolierten Umgebung mit synthetischen
+   beziehungsweise anonymisierten Prüfdaten bestätigen; keine Produktions-
+   Klientendaten in Entwicklungswerkzeuge oder diesen Review übernehmen,
+2. den tatsächlich ausgelieferten Vercel-Commit/Build mit dem freizugebenden
+   Commit vergleichen und ungeklärte Abweichungen stoppen,
+3. anhand von Auth-/Audit-Metadaten und Request-Zeitpunkten prüfen, ob es
+   Hinweise auf unbefugte Lese- oder Löschzugriffe gibt. Dafür nur
+   datensparsame Metadaten (Zeitfenster, Route, Ergebnis, Actor-ID intern)
+   verwenden; keine Request-Bodies, Namen, E-Mail-Adressen, Gesundheitsdaten,
+   Booking-Tokens oder vollständigen Logs exportieren oder in Tickets
+   dokumentieren,
+4. gefundene Hinweise intern zu sichern, betroffene Credentials nötigenfalls
+   zu widerrufen und Datenschutz-/Meldepflichten zu prüfen.
+
+Diese Prüfung ist eine Rollout-Voraussetzung, keine automatische Aktion dieses
+Codes. In diesem Entwicklungs-/Review-Schritt wurden weder die
+Produktionsdatenbank noch Produktionslogs oder Klientendaten abgefragt; eine
+Backup-Wiederherstellung wurde nicht ausgeführt.
+
+## Staff-API-Berechtigungen
+
+Staff-Routen prüfen einen gültigen Bearer-Login und ein aktives
+`team_members`-Profil. Admins behalten die bestehenden Admin-Aktionen;
+Therapeut:innen behalten Statuswechsel, Terminbestätigung, Matching,
+zugewiesene Klient:innenpflege, Vorschläge, Reschedule sowie Session-Anlage
+und -Löschung für eigene Sitzungen. Datenzugriffe und Änderungen an
+Klient:innenanfragen sind auf die aktuelle Coach-Zuordnung begrenzt. Die
+permanente Löschung einer Anfrage ist ausschließlich aktiven Admins erlaubt;
+Session-Löschung ist eine getrennte, für eigene Sitzungen erlaubte Operation.
+
+## Klient:innen: Legacy-Links und E-Mail-Wiederherstellung
+
+`GET /api/public-request` verlangt ID **und aktuellen** `booking_token`.
+`POST /api/proposals/resolve-legacy-link` ist als tokenausgebender ID-Resolver
+stillgelegt und antwortet ohne Datenbankzugriff mit `RECOVERY_REQUIRED`.
+Bestehende Datensätze können über `create-request-draft` und `form-submit`
+nur mit dem aktuellen Booking-Token gelesen/aktualisiert werden; auch das
+UPDATE selbst ist nach Token gefiltert (Schutz gegen parallelen Tokenwechsel).
+Dies schützt insbesondere die gespeicherte Empfängeradresse vor ID-only-
+Überschreiben. Neue öffentliche Drafts und neue vollständige Anfragen bleiben
+ohne vorhandenen Token möglich.
+
+Alte `rid`-/`anfrageId`-Resume-Links sowie Proposal-Links mit `request` oder
+historischem Timestamp `id` zeigen stattdessen ein E-Mail-Eingabefeld.
+Auch ungültige tokenisierte Resume-/Proposal-Links bieten Wiederherstellung.
+Die Eingabe wird mit der **servergespeicherten** Adresse abgeglichen; versendet
+wird nur an diese Adresse, nie an ein frei übergebenes `to`. Historische
+E-Mail-only-Links werden nur bei genau einer passenden, nicht beendeten/
+gelöschten Anfrage aufgelöst. Timestamp-Links unterstützen beide historischen
+Proposal-Spaltenpaare (`request_id`/`proposed_at`, `anfrage_id`/`date`); ist der
+alte Vorschlag bereits gelöscht, gilt ebenfalls die eindeutige E-Mail-Zuordnung.
+Mehrdeutigkeit erfordert Support. Keine Adresse, Datensatzexistenz, Buchungs-
+oder Recovery-Credentials werden in der Anforderungsantwort bestätigt:
+`POST /api/client-link-recovery/request` antwortet nach erfolgreichem Queue-
+Insert oder Ratenlimit generisch mit HTTP 202. Bei fehlender Migration oder
+einem Queue-/Konfigurationsfehler antwortet sie mit einem ebenfalls generischen
+HTTP 503, damit keine erfolgreiche Einreihung vorgetäuscht wird. Beide
+Antworten sind unabhängig von der Recovery-Berechtigung. Die öffentliche Route
+führt ausschließlich Formatprüfung und einen atomaren, persistenten,
+rate-limitierten Outbox-Insert aus. Sie fragt nicht ab, ob Anfrage oder E-Mail
+existieren, und wartet nie auf den Mailprovider. Dadurch hängt ihre
+Antwortzeit nicht von der Recovery-Berechtigung ab.
+
+`/api/cron/client-link-recovery` verarbeitet die Outbox höchstens in kleinen
+atomar beanspruchten Batches. Der Worker verlangt `CRON_SECRET` zwingend und
+antwortet ohne Konfiguration fail-closed. Vercel Hobby erlaubt für Cronjobs
+höchstens einen Lauf pro Tag und eine stündliche Zeitabweichung. Stattdessen
+soll Supabase Cron (`pg_cron`) den bestehenden GET-Worker über `pg_net`
+minütlich anstoßen. Der HTTP-Aufruf enthält keine Klientendaten, sondern
+ausschließlich den `Authorization: Bearer ...`-Header. Das Secret muss
+identisch in Vercel als `CRON_SECRET` und in Supabase Vault liegen; es darf
+weder in Git noch im gespeicherten Cron-SQL im Klartext vorkommen.
+Der Scheduler-Aufruf verwendet einen HTTP-Timeout von 65 Sekunden, damit er
+die konfigurierte maximale Worker-Laufzeit von 60 Sekunden abdeckt. `pg_net`
+arbeitet asynchron und ist laut Supabase noch Beta; deshalb sind Cron-Läufe,
+HTTP-Ergebnisse und das Alter wartender Queue-Jobs zu überwachen.
+Providerfehler werden mit gedeckeltem exponentiellem Backoff erneut versucht.
+Ein stabiler Resend-Idempotency-Key verhindert Doppelzustellungen bei
+unklarem Provider-Ergebnis oder fehlgeschlagener Queue-Bestätigung. Jobs
+bleiben bis zum Provider-Erfolg oder einer eindeutigen Nichtberechtigung
+persistiert; sie werden nicht nach einer festen Versuchszahl verworfen.
+Überlappende Scheduler-Aufrufe beanspruchen Jobs mit `FOR UPDATE SKIP LOCKED`
+und individuellen Claim-Tokens; ein abgelaufener Claim wird nach fünf Minuten
+wieder verfügbar. Cron-Ausführung allein bestätigt keine erfolgreiche
+E-Mail-Zustellung. Resend bewahrt Idempotency-Keys 24 Stunden auf; Jobs mit
+unklarem Provider-Ausgang, die älter werden, benötigen daher einen Alarm und
+manuelle Prüfung, bevor sie nach diesem Zeitfenster erneut versandt werden.
+
+Die Queue-Tabelle ist RLS-geschützt und nur für `service_role` freigegeben.
+Der zufällige Recovery-Code liegt dort ausschließlich AES-256-GCM-verschlüsselt
+vor; der Schlüssel wird aus dem bestehenden `SUPABASE_SERVICE_ROLE_KEY`
+abgeleitet. E-Mail-Adresse, Zweck und Zuordnungsangaben bleiben bis zum
+Abschluss als notwendige Outbox-Daten gespeichert und werden nach `sent` oder
+`no_match` entfernt. Eine Rotation des Service-Role-Keys darf nicht erfolgen,
+solange Jobs offen sind, da andernfalls deren verschlüsselte Codes nicht mehr
+entschlüsselt werden können.
+
+Die neutrale Textmail enthält einen zufälligen 256-Bit-Recovery-Code im
+URL-Fragment, nicht den Booking-Token oder personenbezogene Anfrageinhalte.
+`/recover-link` entfernt das Fragment aus der Adresszeile und verlangt einen
+bewussten POST zur Einlösung (GET/Linkscanner verbrauchen den Zugang nicht).
+Erst nach erfolgreicher Einlösung erfolgt ein 303-Redirect auf ein festes,
+serverseitig konstruiertes Ziel: Draft-Fortsetzung mit gespeichertem Schritt
+0–11 (Fallback 8), Coach-Auswahl Schritt 8, Terminwahl Schritt 10 oder
+`/confirm-proposal`. Kein frei wählbarer Redirect wird übernommen.
+Der Redirect enthält dann bewusst den autorisierten Booking-Token; die
+Anforderungsantwort enthält keinerlei Zugang. Ein ungültiger/verbrauchter
+Recovery-Code führt zurück zur Eingabemaske.
+
+**Rollout-Voraussetzung, nicht ausgeführt:** Die additive Migration
+`supabase/migrations/20261016000000_client_link_recovery.sql` muss nach
+Schema-/Rollenprüfung separat freigegeben und angewendet werden. Sie benötigt
+`anfragen.id` als UUID, `booking_token`, `email`, `status`,
+`draft_current_step` (Draft-Foundation-Migration vom 10.09.2026) und
+`appointment_proposals`. Neue RLS-geschützte Tabellen speichern gehashte
+Recovery-Codes, Empfängerbindung, Token-Fingerprint, Zweck, Ablauf/Verbrauch,
+die verschlüsselte Outbox-Nutzlast und gehashte Ratenlimit-Schlüssel. Nur
+`service_role` darf Tabellen/RPCs verwenden. Zeilen-/UPSERT-Sperren sichern
+einmalige Einlösung, 15 Minuten Gültigkeit, maximal 3 Anforderungen je
+Adresse/Stunde und 10 je vertrauenswürdigem Vercel-Quell-IP-Schlüssel/Stunde
+sowie 60 Sekunden je Anfrage.
+Ohne vertrauenswürdigen `x-vercel-forwarded-for` teilen sich Aufrufer
+konservativ ein gemeinsames Quelllimit. Datensatzadresse, Status und aktueller
+Token werden bei Einlösung erneut geprüft. Bei wirklich alten NULL-Tokens
+wird erst nach E-Mail-Nachweis ein Token initialisiert; bestehende Tokens
+werden nicht rotiert. Abgelaufene Codes und Limit-Buckets werden bei neuen
+berechtigten Anforderungen nach einem Tag bereinigt.
+
+**Scheduler-Einrichtung vor Aktivierung, nicht ausgeführt:** In Vercel muss
+`CRON_SECRET` als geschützte Umgebungsvariable für das aktivierte Deployment
+gesetzt werden. In Supabase müssen die Erweiterungen `pg_cron` und `pg_net`
+verfügbar sein und das identische Secret über die Vault-Oberfläche unter dem
+eindeutigen Namen `client_link_recovery_cron_secret` gespeichert werden.
+Danach ist der Cronjob genau einmal mit folgendem SQL einzurichten; im
+gespeicherten Scheduler-Text steht nur der Vault-Lookup, nicht der Secret-Wert:
+
+```sql
+select cron.schedule(
+  'client-link-recovery-worker',
+  '* * * * *',
+  $job$
+    select net.http_get(
+      url := 'https://app.mypoise.de/api/cron/client-link-recovery',
+      headers := jsonb_build_object(
+        'Authorization',
+        'Bearer ' || (
+          select decrypted_secret
+          from vault.decrypted_secrets
+          where name = 'client_link_recovery_cron_secret'
+        )
+      ),
+      timeout_milliseconds := 65000
+    );
+  $job$
+);
+```
+
+Aktivierung in dieser Reihenfolge:
+
+1. Ein aktuelles Backup außerhalb des Supabase-Free-Projekts erstellen und
+   einen Restore in einer getrennten, nicht-produktiven Umgebung erfolgreich
+   nachweisen.
+2. Recovery-Migration und Ziel-Schema/Rollen prüfen und separat freigeben;
+   kontrolliert anwenden. Diese Scheduler-Einrichtung führt keine Migration
+   aus.
+3. Den Worker-Code bereitstellen und `CRON_SECRET` geschützt in der passenden
+   Vercel-Umgebung setzen.
+4. `pg_cron` und `pg_net` in Supabase aktivieren, das gleiche Secret in Vault
+   hinterlegen und erst dann den Cronjob einmalig einrichten.
+5. Zuerst in Staging/Preview mit synthetischen Jobs prüfen, dass Vercel den
+   `Authorization`-Header akzeptiert, Supabase Cron- und `pg_net`-Ergebnisse
+   sichtbar sind und die Queue nach Erfolg geleert beziehungsweise bei Fehlern
+   erneut versucht wird.
+6. Nach Freigabe die Produktionsausführung überwachen: Cron-Läufe,
+   HTTP-Ergebnisse, Queue-Alter/-Anzahl und Fehler. Bei Problemen den
+   Schedulerjob in Supabase deaktivieren; Outbox und Recovery-Migration nicht
+   löschen, damit wartende Jobs erhalten bleiben.
+
+Supabase Free enthält keine automatischen Backups und kann Projekte bei
+niedriger Datenbankaktivität nach sieben Tagen pausieren; Cron allein belegt
+weder fortlaufende Verfügbarkeit noch verhindert es nachweislich eine solche
+Pause. Bleiben Backup/Restore oder das Pausierungsverhalten ungeklärt, darf der
+Scheduler nicht produktiv aktiviert werden.
+
+Für den Versand sind vorhandene Resend-Zugangsdaten und eine feste HTTPS-
+`NEXT_PUBLIC_SITE_URL` nötig. Vor Rollout Link-/Klicktracking beim Mailprovider
+für Credential-Mails deaktivieren bzw. verifizieren; Code verändert keine
+Provider-/Vercel-Einstellungen. `Referrer-Policy: no-referrer`,
+No-store-/Noindex-Header auf Credential-Seiten und das Entfernen vollständiger
+Resume-/Draft-Logs reduzieren Leckage. Recovery-Codes werden weder geloggt
+noch an Drittanbieter im Browser gesendet. Bestehende Booking-Tokens in alten
+Query-/Pfad-URLs bleiben technisch in Infrastruktur-/Browserhistorien möglich;
+entsprechende Infrastruktur-Logs müssen weiterhin redigiert werden.
+
+Produzentenprüfung: `admin-forward`/`forward-request`, Draft-Erinnerungen,
+`proposals/create`, Proposal-Crons und Booking-/Terminverwaltungslinks sind
+bereits tokenisiert (NULL-Token-Fallbacks führen nun zur Recovery-UI).
+`send-proposals` erzeugt nun Token- statt Timestamp-Links; ohne Token einen
+`request`-Recovery-Link. `new-appointment` verwendet den gespeicherten Token
+und versendet ausschließlich an die gespeicherte Adresse. Die historischen
+`therapist-response`-GET-Aktionen führen keine Datenbank- oder Mailänderungen
+mehr aus und leiten in das authentifizierte Dashboard; die externen
+Link-Produzenten müssen vor Rollout auf einen authentifizierten
+Dashboard-Workflow umgestellt werden. Bereits versandte Links auf
+`mypoise.de` liegen außerhalb des App-Routings; dort ist gegebenenfalls ein
+separat freizugebender Hinweis/Redirect auf `app.mypoise.de/recover-link` nötig.
+Staff-Authentifizierung, Kalenderoperationen, `sessions`, `blocked_slots`,
+Abrechnung und automatische Draft-Erinnerungs-Consent-Regeln werden durch
+diesen Recovery-Pfad nicht verändert.
+
+Validierung: fokussierte Vitest-Tests verwenden ausschließlich synthetische
+Daten und gemockte Supabase-/Mail-/Kalenderaufrufe. Migration wurde nur
+statisch auf Guards geprüft, **nicht ausgeführt**; Datenbank-Concurrency-/
+Schema-Tests, Konfiguration und erfolgreicher Vercel-Cron-Aufruf sowie ein
+kontrollierter Provider-Linktracking-Test bleiben Voraussetzung der
+gesonderten Rollout-Freigabe.

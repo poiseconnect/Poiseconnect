@@ -43,16 +43,26 @@ function createSupabase(initialRequest) {
           updates.push({ payload, filters });
           return chain;
         },
-        insert() {
-          throw new Error("Unexpected insert");
+        insert(value) {
+          operation = "insert";
+          payload = value;
+          return chain;
         },
         eq(field, value) {
           filters.push([field, value]);
           return chain;
         },
         maybeSingle: async () => {
+          if (operation === "insert") {
+            Object.assign(state, payload, { id: "new-draft" });
+            return { data: { ...state }, error: null };
+          }
           const idFilter = filters.find(([field]) => field === "id");
           if (!idFilter || idFilter[1] !== state.id) {
+            return { data: null, error: null };
+          }
+          const tokenFilter = filters.find(([field]) => field === "booking_token");
+          if (tokenFilter && tokenFilter[1] !== state.booking_token) {
             return { data: null, error: null };
           }
 
@@ -67,6 +77,9 @@ function createSupabase(initialRequest) {
           if (operation === "update" && context.beforeUpdate) {
             context.beforeUpdate();
             context.beforeUpdate = null;
+          }
+          if (tokenFilter && tokenFilter[1] !== state.booking_token) {
+            return { data: null, error: null };
           }
 
           const statusFilter = filters.find(([field]) => field === "status");
@@ -86,6 +99,7 @@ function createSupabase(initialRequest) {
         },
       };
 
+      chain.single = chain.maybeSingle;
       return chain;
     },
   };
@@ -104,6 +118,7 @@ function request(body) {
 function draftBody(overrides = {}) {
   return {
     anfrageId: REQUEST_ID,
+    booking_token: "synthetic-token",
     assigned_therapist_id: COACH_ID,
     wunschtherapeut: "Testcoach",
     vorname: "Test",
@@ -136,8 +151,35 @@ describe("POST /api/create-request-draft", () => {
       match_state: "draft",
       vorname: "Updated",
     });
+
     expect(mocks.current.updates).toHaveLength(1);
     expect(mocks.current.updates[0].filters).toContainEqual(["status", "draft"]);
+    expect(mocks.current.updates[0].filters).toContainEqual(["booking_token", "synthetic-token"]);
+  });
+
+  it("preserves public draft creation without any existing credential", async () => {
+    const response = await POST(request(draftBody({ anfrageId: null, booking_token: null })));
+    expect(response.status).toBe(200);
+    const data = await response.json();
+    expect(data.id).toBe("new-draft");
+    expect(data.booking_token).toMatch(/^[a-f0-9-]{36}$/);
+    expect(mocks.current.state.status).toBe("draft");
+  });
+
+  it.each([null, "", "wrong-token"])("cannot replace the recipient without the current token (%s)", async (booking_token) => {
+    const before = { ...mocks.current.state };
+    const response = await POST(request(draftBody({ booking_token, email: "other@example.invalid" })));
+    expect(response.status).toBe(booking_token ? 404 : 401);
+    expect(mocks.current.updates).toHaveLength(0);
+    expect(mocks.current.state).toEqual(before);
+    expect(await response.text()).not.toContain("synthetic-token");
+  });
+
+  it("does not update after the booking token is replaced concurrently", async () => {
+    mocks.current.beforeUpdate = () => { mocks.current.state.booking_token = "new-token"; };
+    const response = await POST(request(draftBody({ email: "other@example.invalid" })));
+    expect(response.status).toBe(404);
+    expect(mocks.current.state.email).not.toBe("other@example.invalid");
   });
 
   it("rejects a finalized request without changing any fields", async () => {

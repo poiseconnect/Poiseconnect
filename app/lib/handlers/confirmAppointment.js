@@ -22,6 +22,7 @@ function safeDateString(v) {
 export async function confirmAppointment({
   supabase,
   requestId,
+  expectedAssignedTherapistId,
   client,
   vorname,
 }) {
@@ -39,10 +40,17 @@ export async function confirmAppointment({
       meeting_link_override
     `)
     .eq("id", requestId)
-    .single();
+    .maybeSingle();
 
   if (loadError || !existing) {
     throw new Error("request_not_found");
+  }
+  if (
+    expectedAssignedTherapistId &&
+    String(existing.assigned_therapist_id || "") !==
+      String(expectedAssignedTherapistId)
+  ) {
+    throw new Error("request_assignment_changed");
   }
 
   // Schon bestätigt → nichts doppelt schicken
@@ -53,16 +61,22 @@ export async function confirmAppointment({
   /* --------------------------------------------------
      2️⃣ STATUS → termin_bestaetigt
   -------------------------------------------------- */
-  const { error: updateError } = await supabase
+  let update = supabase
     .from("anfragen")
     .update(
       { status: "termin_bestaetigt" },
       { returning: "minimal" }
     )
     .eq("id", requestId);
+  if (expectedAssignedTherapistId) {
+    update = update.eq("assigned_therapist_id", expectedAssignedTherapistId);
+  }
+  const { data: updated, error: updateError } = await update
+    .select("id")
+    .maybeSingle();
 
-  if (updateError) {
-    throw new Error(updateError.message);
+  if (updateError || !updated) {
+    throw new Error(updateError?.message || "request_assignment_changed");
   }
 
   if (existing.assigned_therapist_id) {

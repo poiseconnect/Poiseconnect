@@ -1,62 +1,65 @@
 export const dynamic = "force-dynamic";
 
-import { createClient } from "@supabase/supabase-js";
+import {
+  canAccessAssignedRequest,
+  getActiveTeamMember,
+  json,
+} from "../_lib/server";
 import { closeConversation } from "../../lib/messaging/conversations";
-
-/**
- * ⚠️ WICHTIG:
- * In app/api/** IMMER eigenen Supabase-Client verwenden
- */
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-);
 
 export async function POST(request) {
   try {
-    const body = await request.json();
-
-    console.log("REJECT APPOINTMENT REQUEST RECEIVED");
-
-    const {
-      requestId,
-      client,
-      vorname,
-      therapist,
-    } = body || {};
-
-    if (!requestId || !client) {
-      return new Response(
-        JSON.stringify({ error: "missing_fields" }),
-        { status: 400 }
-      );
+    const auth = await getActiveTeamMember(request);
+    if (!auth.member) return json({ error: auth.error }, auth.status);
+    if (!["admin", "therapist"].includes(auth.member.role)) {
+      return json({ error: "NO_ACCESS" }, 403);
     }
 
-    await closeConversation({
-      supabase,
-      anfrageId: requestId,
-      reason: "abgelehnt",
-    });
+    const body = await request.json();
+    const { requestId } = body || {};
+
+    if (!requestId) {
+      return json({ error: "missing_fields" }, 400);
+    }
+
+    const { data: requestRow, error: loadError } = await auth.supabase
+      .from("anfragen")
+      .select("id, assigned_therapist_id, email, vorname, wunschtherapeut")
+      .eq("id", requestId)
+      .maybeSingle();
+    if (loadError) return json({ error: "REQUEST_LOAD_FAILED" }, 500);
+    if (!requestRow) return json({ error: "REQUEST_NOT_FOUND" }, 404);
+    if (!canAccessAssignedRequest(auth.member, requestRow.assigned_therapist_id)) {
+      return json({ error: "NO_ACCESS" }, 403);
+    }
 
     // 1️⃣ Anfrage updaten
-    const { error: updateError } = await supabase
+    let update = auth.supabase
       .from("anfragen")
       .update({
         status: "abgelehnt",
         bevorzugte_zeit: null,
       })
       .eq("id", requestId);
-
-    if (updateError) {
-      console.error("REJECT UPDATE ERROR:", { code: updateError?.code || null });
-      return new Response(
-        JSON.stringify({
-          error: "update_failed",
-          detail: "INTERNAL_ERROR",
-        }),
-        { status: 500 }
-      );
+    if (auth.member.role === "therapist") {
+      update = update.eq("assigned_therapist_id", auth.member.id);
     }
+    const { data: updated, error: updateError } = await update
+      .select("id")
+      .maybeSingle();
+
+    if (updateError || !updated) {
+      console.error("REJECT UPDATE ERROR:", { code: updateError?.code || null });
+      return json({ error: "update_failed", detail: "INTERNAL_ERROR" }, 500);
+    }
+
+    await closeConversation({
+      supabase: auth.supabase,
+      anfrageId: requestId,
+      reason: "abgelehnt",
+    });
+
+    if (!requestRow.email) return json({ ok: true });
 
     // 2️⃣ Mail an Klient:in
     const mailRes = await fetch("https://api.resend.com/emails", {
@@ -67,12 +70,12 @@ export async function POST(request) {
       },
       body: JSON.stringify({
         from: "Poise <noreply@mypoise.de>",
-        to: client,
+        to: requestRow.email,
         subject: "Termin wurde abgesagt 🤍",
         html: `
-          <p>Hallo ${vorname || ""},</p>
+          <p>Hallo ${requestRow.vorname || ""},</p>
 
-          <p>Leider musste ${therapist || "die Begleitung"} deinen Termin absagen.</p>
+          <p>Leider musste ${requestRow.wunschtherapeut || "die Begleitung"} deinen Termin absagen.</p>
 
           <p>Du kannst jederzeit eine neue Anfrage stellen.</p>
 
@@ -85,18 +88,9 @@ export async function POST(request) {
       console.warn("REJECT MAIL FAILED – DB UPDATE OK");
     }
 
-    return new Response(
-      JSON.stringify({ ok: true }),
-      { status: 200 }
-    );
+    return json({ ok: true });
   } catch (err) {
     console.error("REJECT SERVER ERROR");
-    return new Response(
-      JSON.stringify({
-        error: "server_error",
-        detail: "INTERNAL_ERROR",
-      }),
-      { status: 500 }
-    );
+    return json({ error: "server_error", detail: "INTERNAL_ERROR" }, 500);
   }
 }

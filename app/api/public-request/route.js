@@ -5,7 +5,7 @@ import { createClient } from "@supabase/supabase-js";
 function json(data, status = 200) {
   return new Response(JSON.stringify(data), {
     status,
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", "Cache-Control": "no-store", "Referrer-Policy": "no-referrer" },
   });
 }
 
@@ -19,7 +19,6 @@ function getSupabase() {
 
 export const PUBLIC_REQUEST_SELECT_FIELDS = [
   "id",
-  "booking_token",
   "vorname",
   "nachname",
   "email",
@@ -51,6 +50,9 @@ export async function GET(req) {
     if (!id) {
       return json({ error: "MISSING_ID" }, 400);
     }
+    if (!token) {
+      return json({ error: "RECOVERY_REQUIRED" }, 401);
+    }
 
     const supabase = getSupabase();
     if (!supabase) {
@@ -62,12 +64,7 @@ export async function GET(req) {
       .select(PUBLIC_REQUEST_SELECT_FIELDS)
       .eq("id", id);
 
-    if (token) {
-      query = query.eq("booking_token", token);
-    } else {
-      // LEGACY_RESUME_WITHOUT_TOKEN: Allow backwards compatibility for existing links without token parameter.
-      // Strictly limited to whitelisted fields.
-    }
+    query = query.eq("booking_token", token);
 
     const { data, error } = await query.single();
 

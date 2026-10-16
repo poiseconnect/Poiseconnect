@@ -1,12 +1,6 @@
 export const dynamic = "force-dynamic";
 
-import { createClient } from "@supabase/supabase-js";
-import { teamData } from "../../lib/teamData";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-);
+import { getActiveTeamMember, json as serverJson } from "../_lib/server";
 
 // kleine Helper-Funktion (optional, aber sauber)
 function json(data, status = 200) {
@@ -18,35 +12,49 @@ function json(data, status = 200) {
 
 export async function POST(request) {
   try {
-    const body = await request.json();
-    const { email } = body || {};
-
-    if (!email) {
-      return json({ error: "missing_email" }, 400);
+    const auth = await getActiveTeamMember(request);
+    if (!auth.member) return serverJson({ error: auth.error }, auth.status);
+    if (auth.member.role !== "therapist") {
+      return serverJson({ error: "NO_ACCESS" }, 403);
     }
 
-    // Teammitglied anhand der Email finden
-    const member = teamData.find(
-      (m) => m.email?.toLowerCase() === email.toLowerCase()
-    );
+    const fields = `
+      id, created_at, status, match_state, vorname, nachname, email, telefon,
+      strasse_hausnr, plz_ort, geburtsdatum, beschaeftigungsgrad, themen,
+      anliegen, leidensdruck, verlauf, diagnose, ziel, coaching_typ,
+      wunschtherapeut, assigned_therapist_id, bevorzugte_zeit, terminwunsch_text
+    `;
+    const [assignedResult, requestedResult] = await Promise.all([
+      auth.supabase
+        .from("anfragen")
+        .select(fields)
+        .eq("assigned_therapist_id", auth.member.id)
+        .order("created_at", { ascending: false }),
+      auth.member.email
+        ? auth.supabase
+            .from("anfragen")
+            .select(fields)
+            .eq("wunschtherapeut", auth.member.email)
+            .order("created_at", { ascending: false })
+        : Promise.resolve({ data: [], error: null }),
+    ]);
 
-    if (!member) {
-      return json({ requests: [] });
-    }
-
-    // wunschtherapeut = EMAIL (richtig 👍)
-    const { data, error } = await supabase
-      .from("anfragen")
-      .select("*")
-      .eq("wunschtherapeut", member.email)
-      .order("created_at", { ascending: false });
-
+    const error = assignedResult.error || requestedResult.error;
     if (error) {
-      console.error("TEAM REQUEST DB ERROR:", { code: error?.code || null });
-      return json({ error: "db_error" }, 500);
+      console.error("TEAM REQUEST DB ERROR:", { code: error.code || null });
+      return serverJson({ error: "db_error" }, 500);
     }
 
-    return json({ requests: data });
+    const requests = new Map();
+    for (const row of [...(assignedResult.data || []), ...(requestedResult.data || [])]) {
+      requests.set(String(row.id), row);
+    }
+
+    return json({
+      requests: [...requests.values()].sort(
+        (a, b) => new Date(b.created_at) - new Date(a.created_at)
+      ),
+    });
   } catch {
     console.error("TEAM REQUEST SERVER ERROR");
     return json(

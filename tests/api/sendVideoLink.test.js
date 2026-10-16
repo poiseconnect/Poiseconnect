@@ -2,11 +2,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   sb: null,
+  auth: null,
   send: vi.fn(),
 }));
 
 vi.mock("../../app/api/_lib/server.js", () => ({
-  supabaseAdmin: () => mocks.sb,
+  getActiveTeamMember: async () => mocks.auth,
+  canAccessAssignedRequest: (member, assignedId) =>
+    member?.role === "admin" || String(member?.id) === String(assignedId),
   json: (data, status = 200) => Response.json(data, { status }),
 }));
 
@@ -74,6 +77,12 @@ function setup({
       return chain;
     }),
   };
+  mocks.auth = {
+    member: { id: "coach-1", role: "therapist", active: true },
+    supabase: mocks.sb,
+    error: null,
+    status: 200,
+  };
   return { reads, writes };
 }
 
@@ -102,12 +111,13 @@ describe("send video link route", () => {
     }));
 
     expect(response.status).toBe(200);
-    await expect(response.json()).resolves.toEqual({
-      ok: true,
-      videoLink: GENERAL_LINK,
-    });
+    await expect(response.json()).resolves.toEqual({ ok: true });
     expect(reads).toEqual([
-      { table: "anfragen", fields: "*", filters: [["id", "request-1"]] },
+      {
+        table: "anfragen",
+        fields: "id, email, vorname, assigned_therapist_id, meeting_link_override",
+        filters: [["id", "request-1"]],
+      },
       {
         table: "therapist_booking_settings",
         fields: "meeting_link",
@@ -141,10 +151,7 @@ describe("send video link route", () => {
     const response = await POST(request());
 
     expect(response.status).toBe(200);
-    await expect(response.json()).resolves.toEqual({
-      ok: true,
-      videoLink: PERSONAL_LINK,
-    });
+    await expect(response.json()).resolves.toEqual({ ok: true });
     expect(mocks.send).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({
       html: expect.stringContaining(`href="${PERSONAL_LINK}"`),
     }));
@@ -169,6 +176,7 @@ describe("send video link route", () => {
     const { reads, writes } = setup({
       anfrage: { id: "request-1", email: "client@example.invalid" },
     });
+    mocks.auth.member = { id: "admin-1", role: "admin", active: true };
     const response = await POST(request());
 
     expect(response.status).toBe(400);
@@ -228,5 +236,31 @@ describe("send video link route", () => {
     await expect(response.json()).resolves.toEqual({ error: "MISSING_REQUEST_ID" });
     expect(mocks.sb.from).not.toHaveBeenCalled();
     expect(mocks.send).not.toHaveBeenCalled();
+  });
+
+  it("rejects unauthenticated requests without reading or mailing", async () => {
+    const { reads, writes } = setup();
+    mocks.auth = { member: null, error: "NO_TOKEN", status: 401 };
+    const response = await POST(request());
+
+    expect(response.status).toBe(401);
+    expect(reads).toEqual([]);
+    expect(writes).toEqual([]);
+    expect(mocks.send).not.toHaveBeenCalled();
+  });
+
+  it("rejects a therapist who is not assigned to the request", async () => {
+    const { writes } = setup({
+      anfrage: {
+        id: "request-1",
+        email: "client@example.invalid",
+        assigned_therapist_id: "another-coach",
+      },
+    });
+    const response = await POST(request());
+
+    expect(response.status).toBe(403);
+    expect(mocks.send).not.toHaveBeenCalled();
+    expect(writes).toEqual([]);
   });
 });

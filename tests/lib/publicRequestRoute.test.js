@@ -38,7 +38,18 @@ vi.mock("@supabase/supabase-js", () => ({
               ) {
                 return { data: null, error: { code: "PGRST116" } };
               }
-              return { data: queryConfig.mockData, error: null };
+              const selectedFields = queryConfig.selectFields
+                .split(",")
+                .map((field) => field.trim());
+              return {
+                data: Object.fromEntries(
+                  selectedFields.map((field) => [
+                    field,
+                    queryConfig.mockData[field],
+                  ])
+                ),
+                error: null,
+              };
             }),
           };
           return chain;
@@ -100,12 +111,13 @@ describe("public request route security fix", () => {
     const json = await res.json();
     expect(json.request).toMatchObject({
       id: "anfrage-123",
-      booking_token: "token-uuid-123",
       vorname: "Maria",
       email: "maria@example.invalid",
     });
+    expect(json.request.booking_token).toBeUndefined();
     expect(queryConfig.selectFields).toBe(PUBLIC_REQUEST_SELECT_FIELDS);
     expect(queryConfig.selectFields).not.toContain("*");
+    expect(queryConfig.selectFields).not.toContain("booking_token");
     expect(queryConfig.eqId).toBe("anfrage-123");
     expect(queryConfig.eqToken).toBe("token-uuid-123");
   });
@@ -119,17 +131,14 @@ describe("public request route security fix", () => {
     expect(json.request).toBeUndefined();
   });
 
-  it("supports legacy requests without token for backward compatibility using whitelisted fields only", async () => {
+  it("requires recovery for legacy requests without querying or disclosing request data", async () => {
     const res = await GET(getRequestUrl("anfrage-123"));
 
-    expect(res.status).toBe(200);
+    expect(res.status).toBe(401);
     const json = await res.json();
-    expect(json.request).toMatchObject({
-      id: "anfrage-123",
-      vorname: "Maria",
-    });
-    expect(queryConfig.selectFields).toBe(PUBLIC_REQUEST_SELECT_FIELDS);
-    expect(queryConfig.eqId).toBe("anfrage-123");
+    expect(json).toEqual({ error: "RECOVERY_REQUIRED" });
+    expect(queryConfig.selectFields).toBe("");
+    expect(queryConfig.eqId).toBeNull();
     expect(queryConfig.eqToken).toBeNull();
   });
 

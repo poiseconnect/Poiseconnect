@@ -4,26 +4,25 @@ export const dynamic = "force-dynamic";
 
 
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import {
+  canAccessAssignedRequest,
+  getActiveTeamMember,
+} from "../_lib/server";
 
 // -----------------------------------------
 // 🔧 Supabase SERVER Client (wie batch)
 // -----------------------------------------
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-);
-
 // -----------------------------------------
 // 🚀 POST: MATCH CLIENT
 // -----------------------------------------
 export async function POST(req) {
   try {
     const body = await req.json(); // ✅ genau ein json()
-    console.log("MATCH CLIENT REQUEST RECEIVED");
-
-
-    const { anfrageId, therapistEmail, honorar } = body || {};
+    const auth = await getActiveTeamMember(req);
+    if (!auth.member) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status });
+    }
+    const { anfrageId } = body || {};
 
     if (!anfrageId) {
       return NextResponse.json(
@@ -33,9 +32,9 @@ export async function POST(req) {
     }
 
     // 1️⃣ Status prüfen
-    const { data: anfrage, error } = await supabase
+    const { data: anfrage, error } = await auth.supabase
       .from("anfragen")
-      .select("status")
+      .select("status, assigned_therapist_id")
       .eq("id", anfrageId)
       .single();
 
@@ -45,6 +44,10 @@ export async function POST(req) {
         { status: 404 }
       );
     }
+
+    if (!canAccessAssignedRequest(auth.member, anfrage.assigned_therapist_id)) {
+      return NextResponse.json({ error: "NO_ACCESS" }, { status: 403 });
+    }
 const rawStatus = String(anfrage.status || "");
 
 const normalizedStatus = rawStatus
@@ -53,40 +56,35 @@ const normalizedStatus = rawStatus
   .replace("ä", "ae")
   .replace(/\s+/g, "_");
 
-console.log("🔍 MATCH STATUS CHECK:", {
-  rawStatus,
-  normalizedStatus,
-});
-
 if (!normalizedStatus.includes("termin")) {
   return NextResponse.json(
     {
       error: "MATCH_NOT_ALLOWED",
-      currentStatus: rawStatus,
-      normalizedStatus,
     },
     { status: 400 }
   );
 }
- console.log("🟡 STATUS OK – UPDATE TO ACTIVE");
-
     // 2️⃣ Anfrage aktiv setzen
-    const { error: updateError } = await supabase
+    let update = auth.supabase
       .from("anfragen")
       .update({
         status: "active",
-        honorar_klient: honorar ?? null,
       })
       .eq("id", anfrageId);
+    if (auth.member.role === "therapist") {
+      update = update.eq("assigned_therapist_id", auth.member.id);
+    }
+    const { data: updated, error: updateError } = await update
+      .select("id")
+      .maybeSingle();
 
-    if (updateError) {
+    if (updateError || !updated) {
       console.error("MATCH UPDATE ERROR:", { code: updateError?.code || null });
       return NextResponse.json(
         { error: "UPDATE_FAILED", detail: "INTERNAL_ERROR" },
         { status: 500 }
       );
     }
-    console.log("✅ MATCH UPDATE DONE");
 return new Response(
   JSON.stringify({ ok: true }),
   {

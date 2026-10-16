@@ -47,15 +47,22 @@ export async function POST(req) {
 
   if (
     isTherapist &&
-    String(existingSession.therapist_id) !== String(member.id)
+    String(existingSession.therapist_id) !== String(member.id) &&
+    String(existingSession.therapist_id) !== String(user.id)
   ) {
     return json({ error: "NO_ACCESS" }, 403);
   }
 
-  const { error } = await sb
+  let deleteQuery = sb
     .from("sessions")
     .delete()
     .eq("id", sessionId);
+  if (isTherapist) {
+    deleteQuery = deleteQuery.or(
+      `therapist_id.eq.${member.id},therapist_id.eq.${user.id}`
+    );
+  }
+  const { error } = await deleteQuery;
 
   if (error) {
     console.error("DELETE SESSION ERROR");

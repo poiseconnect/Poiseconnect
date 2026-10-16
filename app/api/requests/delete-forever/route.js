@@ -1,42 +1,34 @@
-import { createClient } from "@supabase/supabase-js";
+import { getActiveTeamMember, json } from "../../_lib/server";
 
 export const dynamic = "force-dynamic";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-);
-
 export async function POST(req) {
   try {
+    const auth = await getActiveTeamMember(req);
+    if (!auth.member) return json({ error: auth.error }, auth.status);
+    if (auth.member.role !== "admin") {
+      return json({ error: "NO_ACCESS" }, 403);
+    }
+
     const { requestId } = await req.json();
 
     if (!requestId) {
-      return new Response(
-        JSON.stringify({ error: "missing_requestId" }),
-        { status: 400 }
-      );
+      return json({ error: "missing_requestId" }, 400);
     }
 
-    const { error } = await supabase
+    const { error } = await auth.supabase
       .from("anfragen")
       .delete()
       .eq("id", requestId);
 
     if (error) {
       console.error("DELETE ERROR:", { code: error?.code || null });
-      return new Response(
-        JSON.stringify({ error: "db_delete_failed" }),
-        { status: 500 }
-      );
+      return json({ error: "db_delete_failed" }, 500);
     }
 
-    return new Response(JSON.stringify({ ok: true }), { status: 200 });
+    return json({ ok: true });
   } catch (err) {
     console.error("DELETE SERVER ERROR");
-    return new Response(
-      JSON.stringify({ error: "server_error" }),
-      { status: 500 }
-    );
+    return json({ error: "server_error" }, 500);
   }
 }

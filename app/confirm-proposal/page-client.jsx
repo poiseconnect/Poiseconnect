@@ -2,6 +2,7 @@
 
 import { useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
+import ClientLinkRecovery from "../components/ClientLinkRecovery";
 
 function safeDateString(v) {
   if (!v) return "";
@@ -28,6 +29,7 @@ export default function ConfirmProposalPage() {
 
   // Alter Link
   const legacyRequestId = searchParams.get("request");
+  const legacyProposal = searchParams.get("id");
 
   const [token, setToken] = useState(tokenFromUrl || null);
   const [loading, setLoading] = useState(true);
@@ -61,40 +63,8 @@ const [newRequested, setNewRequested] =
       return;
     }
 
-    (async () => {
-      try {
-        const res = await fetch(
-          "/api/proposals/resolve-legacy-link",
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              requestId: legacyRequestId,
-            }),
-          }
-        );
-
-        const data = await res.json();
-
-        if (!res.ok || !data?.token) {
-          setInvalid(true);
-          setLoading(false);
-          return;
-        }
-
-        setToken(data.token);
-      } catch (e) {
-        console.error(
-          "LEGACY LINK RESOLVE FAILED:",
-          e
-        );
-
-        setInvalid(true);
-        setLoading(false);
-      }
-    })();
+    setInvalid(true);
+    setLoading(false);
   }, [tokenFromUrl, legacyRequestId]);
 
   // ------------------------------------------------
@@ -299,18 +269,7 @@ async function requestNewProposals() {
   // ------------------------------------------------
 
   if (invalid) {
-    return (
-      <div style={{ padding: 40 }}>
-        <h2>Dieser Link ist leider nicht gültig.</h2>
-
-        <p style={{ marginTop: 12 }}>
-          Bitte melde dich unter{" "}
-          <a href="mailto:hallo@mypoise.de">
-            hallo@mypoise.de
-          </a>.
-        </p>
-      </div>
-    );
+    return <ClientLinkRecovery requestId={legacyRequestId || undefined} legacyProposal={legacyProposal || undefined} purpose="proposal" />;
   }
 
   if (loading) {

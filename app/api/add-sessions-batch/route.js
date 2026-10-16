@@ -1,13 +1,7 @@
 export const dynamic = "force-dynamic";
 
-import { createClient } from "@supabase/supabase-js";
 import { google } from "googleapis";
-import { oauthClient, getUserFromBearer } from "../_lib/server";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-);
+import { oauthClient, getUserFromBearer, supabaseAdmin } from "../_lib/server";
 
 function json(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -35,6 +29,7 @@ function normalizeIso(value) {
  * der Batch-Verarbeitung ein Fehler auftritt.
  */
 async function rollbackCreatedEntries({
+  supabase,
   createdSessions,
   createdBlockedSlots,
   createdGoogleEvents,
@@ -139,6 +134,7 @@ export async function POST(req) {
       return json({ error: authError || "NO_TOKEN" }, 401);
     }
 
+    const supabase = supabaseAdmin();
     const { data: member, error: memberErr } = await supabase
       .from("team_members")
       .select("id, role, active")
@@ -196,7 +192,8 @@ export async function POST(req) {
           !startISO ||
           !Number.isFinite(durationMin) ||
           durationMin <= 0 ||
-          !Number.isFinite(price)
+          !Number.isFinite(price) ||
+          price <= 0
         ) {
           return {
             valid: false,
@@ -291,7 +288,8 @@ export async function POST(req) {
         nachname,
         email,
         telefon,
-        assigned_therapist_id
+        assigned_therapist_id,
+        honorar_klient
       `)
       .eq("id", anfrageId)
       .single();
@@ -330,6 +328,15 @@ export async function POST(req) {
         { error: "ANFRAGE_HAS_NO_ASSIGNED_THERAPIST" },
         400
       );
+    }
+
+    const trustedPrice = Number(anfrage.honorar_klient);
+    if (
+      !Number.isFinite(trustedPrice) ||
+      trustedPrice <= 0 ||
+      cleanSessions.some((session) => session.price !== trustedPrice)
+    ) {
+      return json({ error: "PRICE_MISMATCH" }, 400);
     }
 
     const clientName =
@@ -462,6 +469,7 @@ export async function POST(req) {
         0
       ) {
         await rollbackCreatedEntries({
+          supabase,
           createdSessions,
           createdBlockedSlots,
           createdGoogleEvents,
@@ -551,6 +559,7 @@ export async function POST(req) {
 
       if (conflictingSession) {
         await rollbackCreatedEntries({
+          supabase,
           createdSessions,
           createdBlockedSlots,
           createdGoogleEvents,
@@ -779,6 +788,7 @@ export async function POST(req) {
     );
 
     await rollbackCreatedEntries({
+      supabase,
       createdSessions,
       createdBlockedSlots,
       createdGoogleEvents,

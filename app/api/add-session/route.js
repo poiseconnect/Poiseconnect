@@ -1,17 +1,12 @@
 export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
 import { google } from "googleapis";
-import { oauthClient } from "../_lib/server";
-
-// -----------------------------------------
-// Supabase SERVER Client
-// -----------------------------------------
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-);
+import {
+  canAccessAssignedRequest,
+  getActiveTeamMember,
+  oauthClient,
+} from "../_lib/server";
 
 function json(data, status = 200) {
   return NextResponse.json(data, { status });
@@ -39,17 +34,22 @@ export async function POST(req) {
   let selectedCalendarId = null;
 
   try {
-    const body = await req.json();
+    const auth = await getActiveTeamMember(req);
+    if (!auth.member) return json({ error: auth.error }, auth.status);
+    if (!["admin", "therapist"].includes(auth.member.role)) {
+      return json({ error: "NO_ACCESS" }, 403);
+    }
+    const supabase = auth.supabase;
 
-    console.log("ADD-SESSION REQUEST RECEIVED");
+    const body = await req.json();
 
     const {
       anfrageId,
       therapist,
-      therapist_id,
+      therapist_id: requestedTherapistId,
       date,
       duration,
-      price,
+      price: requestedPrice,
     } = body || {};
 
     /* -----------------------------------------
@@ -58,10 +58,10 @@ export async function POST(req) {
 
     if (
       !anfrageId ||
-      !therapist_id ||
+      !requestedTherapistId ||
       !date ||
       !duration ||
-      price == null
+      requestedPrice == null
     ) {
       return json(
         {
@@ -75,7 +75,7 @@ export async function POST(req) {
 
     const safeDate = normalizeIso(date);
     const durationMin = Number(duration);
-    const p = Number(price);
+    const requestedPriceNumber = Number(requestedPrice);
 
     if (!safeDate) {
       return json({ error: "INVALID_DATE" }, 400);
@@ -88,21 +88,9 @@ export async function POST(req) {
       return json({ error: "INVALID_DURATION" }, 400);
     }
 
-    if (!Number.isFinite(p)) {
+    if (!Number.isFinite(requestedPriceNumber) || requestedPriceNumber <= 0) {
       return json({ error: "INVALID_PRICE" }, 400);
     }
-
-    const startISO = safeDate;
-
-    const endISO = new Date(
-      new Date(startISO).getTime() +
-        durationMin * 60 * 1000
-    ).toISOString();
-
-    const commission = p * 0.3;
-    const payout = p * 0.7;
-
-    console.log("ADD-SESSION INPUT NORMALIZED", { durationMin });
 
     /* -----------------------------------------
        2. Anfrage und Klient:in laden
@@ -119,7 +107,8 @@ export async function POST(req) {
         nachname,
         email,
         telefon,
-        assigned_therapist_id
+        assigned_therapist_id,
+        honorar_klient
       `)
       .eq("id", anfrageId)
       .single();
@@ -138,6 +127,34 @@ export async function POST(req) {
         404
       );
     }
+
+    if (!canAccessAssignedRequest(auth.member, anfrage.assigned_therapist_id)) {
+      return json({ error: "NO_ACCESS" }, 403);
+    }
+    if (
+      !anfrage.assigned_therapist_id ||
+      String(requestedTherapistId) !== String(anfrage.assigned_therapist_id)
+    ) {
+      return json({ error: "ASSIGNMENT_MISMATCH" }, 403);
+    }
+
+    const trustedPrice = Number(anfrage.honorar_klient);
+    if (
+      !Number.isFinite(trustedPrice) ||
+      trustedPrice <= 0 ||
+      requestedPriceNumber !== trustedPrice
+    ) {
+      return json({ error: "PRICE_MISMATCH" }, 400);
+    }
+
+    const therapist_id = anfrage.assigned_therapist_id;
+    const p = trustedPrice;
+    const startISO = safeDate;
+    const endISO = new Date(
+      new Date(startISO).getTime() + durationMin * 60 * 1000
+    ).toISOString();
+    const commission = p * 0.3;
+    const payout = p * 0.7;
 
     const clientName =
       `${anfrage.vorname || ""} ${
