@@ -383,12 +383,28 @@ Antwortzeit nicht von der Recovery-Berechtigung ab.
 
 `/api/cron/client-link-recovery` verarbeitet die Outbox höchstens in kleinen
 atomar beanspruchten Batches. Der Worker verlangt `CRON_SECRET` zwingend und
-antwortet ohne Konfiguration fail-closed; Vercel ruft ihn minütlich auf.
+antwortet ohne Konfiguration fail-closed. Vercel Hobby erlaubt für Cronjobs
+höchstens einen Lauf pro Tag und eine stündliche Zeitabweichung. Stattdessen
+soll Supabase Cron (`pg_cron`) den bestehenden GET-Worker über `pg_net`
+minütlich anstoßen. Der HTTP-Aufruf enthält keine Klientendaten, sondern
+ausschließlich den `Authorization: Bearer ...`-Header. Das Secret muss
+identisch in Vercel als `CRON_SECRET` und in Supabase Vault liegen; es darf
+weder in Git noch im gespeicherten Cron-SQL im Klartext vorkommen.
+Der Scheduler-Aufruf verwendet einen HTTP-Timeout von 65 Sekunden, damit er
+die konfigurierte maximale Worker-Laufzeit von 60 Sekunden abdeckt. `pg_net`
+arbeitet asynchron und ist laut Supabase noch Beta; deshalb sind Cron-Läufe,
+HTTP-Ergebnisse und das Alter wartender Queue-Jobs zu überwachen.
 Providerfehler werden mit gedeckeltem exponentiellem Backoff erneut versucht.
 Ein stabiler Resend-Idempotency-Key verhindert Doppelzustellungen bei
 unklarem Provider-Ergebnis oder fehlgeschlagener Queue-Bestätigung. Jobs
 bleiben bis zum Provider-Erfolg oder einer eindeutigen Nichtberechtigung
 persistiert; sie werden nicht nach einer festen Versuchszahl verworfen.
+Überlappende Scheduler-Aufrufe beanspruchen Jobs mit `FOR UPDATE SKIP LOCKED`
+und individuellen Claim-Tokens; ein abgelaufener Claim wird nach fünf Minuten
+wieder verfügbar. Cron-Ausführung allein bestätigt keine erfolgreiche
+E-Mail-Zustellung. Resend bewahrt Idempotency-Keys 24 Stunden auf; Jobs mit
+unklarem Provider-Ausgang, die älter werden, benötigen daher einen Alarm und
+manuelle Prüfung, bevor sie nach diesem Zeitfenster erneut versandt werden.
 
 Die Queue-Tabelle ist RLS-geschützt und nur für `service_role` freigegeben.
 Der zufällige Recovery-Code liegt dort ausschließlich AES-256-GCM-verschlüsselt
@@ -429,6 +445,62 @@ Token werden bei Einlösung erneut geprüft. Bei wirklich alten NULL-Tokens
 wird erst nach E-Mail-Nachweis ein Token initialisiert; bestehende Tokens
 werden nicht rotiert. Abgelaufene Codes und Limit-Buckets werden bei neuen
 berechtigten Anforderungen nach einem Tag bereinigt.
+
+**Scheduler-Einrichtung vor Aktivierung, nicht ausgeführt:** In Vercel muss
+`CRON_SECRET` als geschützte Umgebungsvariable für das aktivierte Deployment
+gesetzt werden. In Supabase müssen die Erweiterungen `pg_cron` und `pg_net`
+verfügbar sein und das identische Secret über die Vault-Oberfläche unter dem
+eindeutigen Namen `client_link_recovery_cron_secret` gespeichert werden.
+Danach ist der Cronjob genau einmal mit folgendem SQL einzurichten; im
+gespeicherten Scheduler-Text steht nur der Vault-Lookup, nicht der Secret-Wert:
+
+```sql
+select cron.schedule(
+  'client-link-recovery-worker',
+  '* * * * *',
+  $job$
+    select net.http_get(
+      url := 'https://app.mypoise.de/api/cron/client-link-recovery',
+      headers := jsonb_build_object(
+        'Authorization',
+        'Bearer ' || (
+          select decrypted_secret
+          from vault.decrypted_secrets
+          where name = 'client_link_recovery_cron_secret'
+        )
+      ),
+      timeout_milliseconds := 65000
+    );
+  $job$
+);
+```
+
+Aktivierung in dieser Reihenfolge:
+
+1. Ein aktuelles Backup außerhalb des Supabase-Free-Projekts erstellen und
+   einen Restore in einer getrennten, nicht-produktiven Umgebung erfolgreich
+   nachweisen.
+2. Recovery-Migration und Ziel-Schema/Rollen prüfen und separat freigeben;
+   kontrolliert anwenden. Diese Scheduler-Einrichtung führt keine Migration
+   aus.
+3. Den Worker-Code bereitstellen und `CRON_SECRET` geschützt in der passenden
+   Vercel-Umgebung setzen.
+4. `pg_cron` und `pg_net` in Supabase aktivieren, das gleiche Secret in Vault
+   hinterlegen und erst dann den Cronjob einmalig einrichten.
+5. Zuerst in Staging/Preview mit synthetischen Jobs prüfen, dass Vercel den
+   `Authorization`-Header akzeptiert, Supabase Cron- und `pg_net`-Ergebnisse
+   sichtbar sind und die Queue nach Erfolg geleert beziehungsweise bei Fehlern
+   erneut versucht wird.
+6. Nach Freigabe die Produktionsausführung überwachen: Cron-Läufe,
+   HTTP-Ergebnisse, Queue-Alter/-Anzahl und Fehler. Bei Problemen den
+   Schedulerjob in Supabase deaktivieren; Outbox und Recovery-Migration nicht
+   löschen, damit wartende Jobs erhalten bleiben.
+
+Supabase Free enthält keine automatischen Backups und kann Projekte bei
+niedriger Datenbankaktivität nach sieben Tagen pausieren; Cron allein belegt
+weder fortlaufende Verfügbarkeit noch verhindert es nachweislich eine solche
+Pause. Bleiben Backup/Restore oder das Pausierungsverhalten ungeklärt, darf der
+Scheduler nicht produktiv aktiviert werden.
 
 Für den Versand sind vorhandene Resend-Zugangsdaten und eine feste HTTPS-
 `NEXT_PUBLIC_SITE_URL` nötig. Vor Rollout Link-/Klicktracking beim Mailprovider

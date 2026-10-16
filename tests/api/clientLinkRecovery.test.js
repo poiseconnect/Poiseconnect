@@ -165,6 +165,15 @@ describe("legacy client link recovery", () => {
     expect(sql).not.toContain("security definer");
   });
 
+  it("keeps recovery off the Vercel Hobby cron schedule while preserving other jobs", () => {
+    const vercel = JSON.parse(readFileSync("vercel.json", "utf8"));
+    expect(vercel.crons).toEqual([
+      { path: "/api/reminders/send", schedule: "0 9 * * *" },
+      { path: "/api/cron/proposal-reminders", schedule: "15 8 * * *" },
+      { path: "/api/cron/expire-proposals", schedule: "0 3 * * *" },
+    ]);
+  });
+
   it("keeps the UI off the token-disclosing resolver and strips recovery fragments before confirmation", () => {
     const proposal = readFileSync("app/confirm-proposal/page-client.jsx", "utf8");
     const form = readFileSync("app/page-client.jsx", "utf8");

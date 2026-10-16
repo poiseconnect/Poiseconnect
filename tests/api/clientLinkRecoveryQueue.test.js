@@ -117,4 +117,88 @@ describe("client-link recovery queue", () => {
     });
     expect(JSON.stringify(body)).not.toContain("stored@example.invalid");
   });
+
+  it("accepts a Supabase pg_net scheduler invocation and treats an empty queue as success", async () => {
+    mocks.rpc.mockResolvedValue({ data: [], error: null });
+
+    const response = await processRecoveryQueue(request("Bearer synthetic-cron-secret"));
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ ok: true, sent: 0, noMatch: 0, retrying: 0 });
+    expect(mocks.rpc).toHaveBeenCalledOnce();
+    expect(mocks.rpc).toHaveBeenCalledWith("claim_client_link_recovery_queue", {
+      p_limit: 5,
+    });
+    expect(mocks.fetch).not.toHaveBeenCalled();
+  });
+
+  it("returns unavailable when the queue cannot be claimed", async () => {
+    mocks.rpc.mockResolvedValue({
+      data: null,
+      error: { message: "synthetic queue failure" },
+    });
+
+    const response = await processRecoveryQueue(request("Bearer synthetic-cron-secret"));
+
+    expect(response.status).toBe(503);
+    expect(await response.json()).toEqual({ error: "unavailable" });
+    expect(mocks.fetch).not.toHaveBeenCalled();
+  });
+
+  it("does not send a job twice when overlapping scheduler runs only claim it once", async () => {
+    const queuedJob = { ...job, encrypted_secret: encryptRecoverySecret(secret) };
+    let alreadyClaimed = false;
+    mocks.rpc.mockImplementation(async (name) => {
+      if (name === "claim_client_link_recovery_queue") {
+        if (alreadyClaimed) return { data: [], error: null };
+        alreadyClaimed = true;
+        return { data: [queuedJob], error: null };
+      }
+      if (name === "process_client_link_recovery_queue") {
+        return { data: [{ recipient: "stored@example.invalid" }], error: null };
+      }
+      if (name === "finish_client_link_recovery_queue") return { data: true, error: null };
+      throw new Error(`unexpected RPC ${name}`);
+    });
+
+    const responses = await Promise.all([
+      processRecoveryQueue(request("Bearer synthetic-cron-secret")),
+      processRecoveryQueue(request("Bearer synthetic-cron-secret")),
+    ]);
+
+    expect(responses.map(({ status }) => status)).toEqual([200, 200]);
+    expect(mocks.rpc.mock.calls.filter(([name]) => name === "claim_client_link_recovery_queue"))
+      .toHaveLength(2);
+    expect(mocks.fetch).toHaveBeenCalledOnce();
+    expect(mocks.fetch.mock.calls[0][1].headers["Idempotency-Key"])
+      .toBe("client-link-recovery-7");
+  });
+
+  it("reuses the provider idempotency key when queue confirmation fails after acceptance", async () => {
+    const queuedJob = { ...job, encrypted_secret: encryptRecoverySecret(secret) };
+    let finishAttempts = 0;
+    mocks.rpc.mockImplementation(async (name) => {
+      if (name === "claim_client_link_recovery_queue") return { data: [queuedJob], error: null };
+      if (name === "process_client_link_recovery_queue") {
+        return { data: [{ recipient: "stored@example.invalid" }], error: null };
+      }
+      if (name === "finish_client_link_recovery_queue") {
+        finishAttempts += 1;
+        return finishAttempts === 1
+          ? { data: null, error: { message: "synthetic confirmation failure" } }
+          : { data: true, error: null };
+      }
+      if (name === "retry_client_link_recovery_queue") return { data: true, error: null };
+      throw new Error(`unexpected RPC ${name}`);
+    });
+
+    const firstResponse = await processRecoveryQueue(request("Bearer synthetic-cron-secret"));
+    const secondResponse = await processRecoveryQueue(request("Bearer synthetic-cron-secret"));
+
+    expect(await firstResponse.json()).toEqual({ ok: true, sent: 0, noMatch: 0, retrying: 1 });
+    expect(await secondResponse.json()).toEqual({ ok: true, sent: 1, noMatch: 0, retrying: 0 });
+    expect(mocks.fetch).toHaveBeenCalledTimes(2);
+    expect(mocks.fetch.mock.calls.map(([, options]) => options.headers["Idempotency-Key"]))
+      .toEqual(["client-link-recovery-7", "client-link-recovery-7"]);
+  });
 });

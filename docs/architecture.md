@@ -52,15 +52,22 @@ Client-Link-Wiederherstellung verwendet einen persistenten Supabase-Outbox-
 Workflow. `POST /api/client-link-recovery/request` validiert Eingaben und reiht
 die Anfrage samt verschlüsseltem Recovery-Code ein, ohne Eignung oder
 Datensatzexistenz abzufragen und ohne Resend aufzurufen. Der minütliche,
-`CRON_SECRET`-geschützte `/api/cron/client-link-recovery`-Worker löst den
+`CRON_SECRET`-geschützte Supabase-Cron-Job ruft
+`/api/cron/client-link-recovery` über `pg_net` auf. Der Worker löst den
 serverseitigen Datensatz ab, sendet nur an die gespeicherte Empfängeradresse
 und bestätigt den Queue-Eintrag erst nach erfolgreicher Providerannahme.
 Providerfehler werden mit Backoff erneut versucht; ein stabiler
 Resend-Idempotency-Key schützt vor Doppelversand bei unklarem Ergebnis.
 Queue-Payload wird nach Erfolg oder eindeutiger Nichtberechtigung entfernt.
-Die zugehörige additive Migration und der Cronjob müssen vor Produktivbetrieb
-separat geprüft und freigegeben werden; sie werden durch die Anwendung nicht
-automatisch ausgeführt.
+Der Vercel-Hobby-Cron ist dafür nicht geeignet (höchstens ein Lauf pro Tag).
+Die additive Recovery-Migration muss separat geprüft und freigegeben werden;
+sie wird durch die Anwendung nicht automatisch ausgeführt. Vor Aktivierung
+müssen `pg_cron` und `pg_net` verfügbar sein, das gemeinsame Cron-Secret in
+Supabase Vault und Vercel eingerichtet und der Scheduler-Job manuell
+konfiguriert werden. Supabase Free kann Projekte bei geringer Aktivität
+pausieren und stellt keine automatischen Datenbankbackups bereit; ein
+nachweisbarer Backup- und Restore-Prozess ist deshalb zusätzliche
+Produktivvoraussetzung.
 
 `POST /api/send-video-link` verwendet zuerst `anfragen.meeting_link_override`.
 Ohne persönlichen Override lädt die Route den allgemeinen `meeting_link` aus
