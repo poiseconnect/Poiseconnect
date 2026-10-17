@@ -300,7 +300,8 @@ const recoveryPurpose = ["5", "8", "admin"].includes(resumeMode)
 
   const [step, setStep] = useState(0);
   const [subStep9, setSubStep9] = useState(0);
-  const totalSteps = 12;
+  const [welcomeCompleted, setWelcomeCompleted] = useState(false);
+  const totalSteps = 14;
   
 const [draftRequestId, setDraftRequestId] = useState(null);
 const requestFinalizedRef = useRef(false);
@@ -311,6 +312,7 @@ const [healthDataConsentToken, setHealthDataConsentToken] = useState("");
 const [healthDataConsentGranted, setHealthDataConsentGranted] = useState(false);
 const [healthDataConsentBusy, setHealthDataConsentBusy] = useState(false);
 const [healthDataConsentError, setHealthDataConsentError] = useState("");
+const displayStep = !welcomeCompleted ? 0 : !healthDataConsentGranted ? 1 : step + 2;
  const [formStartedAt] = useState(Date.now());
 // 🔑 WICHTIG: dieser State hat gefehlt
 const [assignedTherapistId, setAssignedTherapistId] = useState(
@@ -1432,6 +1434,64 @@ async function revokeHealthDataConsent() {
 
   return (
     <div className="form-wrapper">
+      <div className="intake-logo">
+        <Image
+          src="/IMG_7599.png"
+          width={148}
+          height={161}
+          alt="Poise Logo"
+          priority
+        />
+      </div>
+      <div className="intake-progress">
+        <StepIndicator step={displayStep} total={totalSteps} />
+        <div
+          className="intake-progress-track"
+          role="progressbar"
+          aria-label="Fortschritt im Anfrageformular"
+          aria-valuemin={1}
+          aria-valuemax={totalSteps}
+          aria-valuenow={displayStep + 1}
+          aria-valuetext={`Schritt ${displayStep + 1} von ${totalSteps}`}
+        >
+          <div style={{ width: `${Math.round(((displayStep + 1) / totalSteps) * 100)}%` }} />
+        </div>
+        <p className="intake-progress-label">Schritt {displayStep + 1} von {totalSteps}</p>
+      </div>
+      {!welcomeCompleted ? (
+        <section className="intake-welcome" aria-labelledby="welcome-heading">
+          <h1 id="welcome-heading">Willkommen bei Poise</h1>
+          <div className="intake-welcome-copy">
+            <p>Schön, dass du da bist.</p>
+            <p>
+              Manchmal ist es gar nicht so einfach, den ersten Schritt zu machen.
+              Wir möchten dir helfen, eine Begleitung zu finden, die zu dir und
+              deinem Anliegen passt.
+            </p>
+            <p>
+              Dafür stellen wir dir auf den nächsten Seiten einige Fragen zu deiner
+              aktuellen Situation, deinen Wünschen und deinen Bedürfnissen.
+            </p>
+            <p>
+              Nimm dir dafür in Ruhe Zeit. Es gibt keine richtigen oder falschen
+              Antworten.
+            </p>
+          </div>
+          <p className="intake-welcome-duration">Dauer: ungefähr 5–10 Minuten</p>
+          <button
+            type="button"
+            className="intake-start-button"
+            onClick={() => setWelcomeCompleted(true)}
+          >
+            Fragebogen starten
+          </button>
+          <p className="intake-welcome-note">
+            Im nächsten Schritt erklären wir dir, wie wir deine Angaben vertraulich
+            verarbeiten.
+          </p>
+        </section>
+      ) : (
+        <>
      <input
   type="text"
   name="website"
@@ -1475,6 +1535,15 @@ async function revokeHealthDataConsent() {
           </label>
           {healthDataConsentBusy && <p role="status">Einwilligung wird sicher gespeichert …</p>}
           {healthDataConsentError && <p role="alert">{healthDataConsentError}</p>}
+          <div className="footer-buttons">
+            <button
+              type="button"
+              disabled={healthDataConsentBusy}
+              onClick={() => setWelcomeCompleted(false)}
+            >
+              Zurück
+            </button>
+          </div>
         </section>
       ) : (
         <>
@@ -1488,39 +1557,6 @@ async function revokeHealthDataConsent() {
         </button>
         {healthDataConsentError && <p role="alert">{healthDataConsentError}</p>}
       </div>
-      <div style={{ textAlign: "center", marginBottom: 24 }}>
-        <Image
-          src="/IMG_7599.png"
-          width={160}
-          height={160}
-          alt="Poise Logo"
-          priority
-        />
-      </div>
-
-      <StepIndicator step={step} total={totalSteps} />
-      <div style={{ marginTop: 10 }}>
-        <div
-          style={{
-            height: 8,
-            background: "#eee",
-            borderRadius: 999,
-            overflow: "hidden",
-          }}
-        >
-          <div
-            style={{
-              height: "100%",
-              width: `${Math.round(((step + 1) / totalSteps) * 100)}%`,
-              background: "#111",
-            }}
-          />
-        </div>
-        <div style={{ marginTop: 6, fontSize: 12, color: "#555" }}>
-          Schritt {step + 1} von {totalSteps}
-        </div>
-      </div>
-
 {step === 0 && (
   <div className="step-container">
     <h2>Was ist dein aktuelles Anliegen?</h2>
@@ -2563,6 +2599,8 @@ ${SELF_PAYMENT_NOTICE}`,
   </div>
 )}
 
+        </>
+      )}
         </>
       )}
     </div>

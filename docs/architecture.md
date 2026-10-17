@@ -101,6 +101,16 @@ blockiert Draft-Saves außerdem nach erfolgreichem Final-Submit.
 
 ## Ausdrückliche Einwilligung für Gesundheitsangaben
 
+Der Einstieg besteht aus einer eigenständigen Willkommensseite mit vorhandenem
+Poise-Logo, der Einwilligungsseite und anschließend den bisherigen zwölf
+Formularschritten. „Fragebogen starten“ öffnet ausschließlich die Einwilligung;
+von dort führt „Zurück“ zur Begrüßung. Die Fortschrittsanzeige zählt alle
+14 Ansichten. Interne Schrittwerte, Resume-Links und gespeicherte Draft-Schritte
+bleiben unverändert (0–11). Der Willkommenszustand ist nur im Arbeitsspeicher:
+Nach Neuladen erscheint die Begrüßung erneut, auch beim Wiederaufnehmen nach
+der bestehenden Linkprüfung. Das vorhandene Resume-Ziel wird erst nach der
+Einwilligung angezeigt.
+
 Vor dem Anfrageformular zeigt die App eine separate, nicht vorausgewählte
 Einwilligung für potenziell gesundheitsbezogene Angaben. Bis eine
 serverseitige Einwilligung erfolgreich protokolliert ist, bleiben Formular,

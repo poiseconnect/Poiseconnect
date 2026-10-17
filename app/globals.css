@@ -140,6 +140,101 @@ button:disabled {
   width: 120px;
 }
 
+.intake-logo {
+  margin-bottom: 1.5rem;
+}
+
+.intake-logo img {
+  max-width: 100%;
+  height: auto;
+}
+
+.intake-progress {
+  margin-bottom: 1.5rem;
+}
+
+.intake-progress .step-indicator-wrapper {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 0.75rem;
+}
+
+.intake-progress .step-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #E8D3D0;
+}
+
+.intake-progress .step-dot.active {
+  background: #A27C77;
+}
+
+.intake-progress-track {
+  height: 8px;
+  background: #EDE3E1;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.intake-progress-track > div {
+  height: 100%;
+  background: #A27C77;
+}
+
+.intake-progress-label {
+  margin-top: 0.4rem;
+  font-size: 0.75rem;
+  color: #6A5E5C;
+}
+
+.intake-welcome h1 {
+  font-size: clamp(1.5rem, 5vw, 1.9rem);
+  font-weight: 600;
+  margin-bottom: 1.5rem;
+}
+
+.intake-welcome-copy {
+  text-align: left;
+  line-height: 1.7;
+}
+
+.intake-welcome-copy p + p {
+  margin-top: 1rem;
+}
+
+.intake-welcome-duration {
+  margin: 1.5rem 0 1rem;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.intake-welcome .intake-start-button {
+  width: 100%;
+  margin: 0;
+  background: #D7A6A0;
+  color: #3D3D3D;
+  font-weight: 600;
+}
+
+.intake-welcome .intake-start-button:hover {
+  background: #C7928A;
+}
+
+.intake-welcome .intake-start-button:focus-visible {
+  outline: 2px solid #3D3D3D;
+  outline-offset: 4px;
+}
+
+.intake-welcome-note {
+  margin-top: 1rem;
+  font-size: 0.85rem;
+  line-height: 1.6;
+  color: #6A5E5C;
+}
+
 /* Mobile Optimierung */
 @media (max-width: 480px) {
   .form-wrapper {
@@ -358,4 +453,3 @@ button:disabled {
   font-size: 1rem;
   width: 100%;
 }
-
