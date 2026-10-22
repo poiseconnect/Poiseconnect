@@ -36,9 +36,11 @@ export function verifyGoogleOAuthState(cookieValue, state, secret, now = Date.no
   if (separator <= 0) return null;
 
   const payload = cookieValue.slice(0, separator);
-  const providedSignature = Buffer.from(cookieValue.slice(separator + 1), "base64url");
+  const encodedSignature = cookieValue.slice(separator + 1);
+  const providedSignature = Buffer.from(encodedSignature, "base64url");
   const expectedSignature = Buffer.from(sign(payload, secret), "base64url");
   if (
+    providedSignature.toString("base64url") !== encodedSignature ||
     providedSignature.length !== expectedSignature.length ||
     !timingSafeEqual(providedSignature, expectedSignature)
   ) {
