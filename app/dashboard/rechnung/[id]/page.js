@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../../../lib/supabase";
 import jsPDF from "jspdf";
-import "jspdf-autotable";
+import { autoTable } from "jspdf-autotable";
 async function imageUrlToBase64(url) {
 const res = await fetch(
   `/api/image-proxy?url=${encodeURIComponent(url)}`
@@ -1044,7 +1044,7 @@ doc.text("RECHNUNG", pageWidth - marginX, 40, {
     ];
   });
 
-  doc.autoTable({
+  autoTable(doc, {
     startY: ry,
     head: [["Pos.", "Beschreibung", "Menge", "Einzelpreis", "Gesamtpreis"]],
     body,
