@@ -6026,9 +6026,15 @@ const calendarMode =
     type="button"
     style={{ marginTop: 8 }}
     onClick={async () => {
+      const headers = await getAuthHeaders({ "Content-Type": "application/json" });
+      if (!headers.Authorization) {
+        alert("❌ Bitte melde dich erneut an");
+        return;
+      }
+
       const res = await fetch("/api/update-meeting-link-override", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify({
           anfrageId: detailsModal.id,
           meeting_link_override: meetingLinkOverride || null,

@@ -19,14 +19,20 @@
     "googleapis": "^131.0.0",
     "jspdf": "^2.5.1",
     "jspdf-autotable": "^3.8.4",
-    "next": "14.1.0",
+    "next": "15.5.28",
     "papaparse": "^5.4.1",
     "react": "18.2.0",
     "react-dom": "18.2.0",
     "resend": "2.0.0",
+    "sharp": "0.35.5",
     "svix": "^2.2.0"
   },
   "devDependencies": {
     "vitest": "^4.1.10"
+  },
+  "overrides": {
+    "next": {
+      "postcss": "8.5.23"
+    }
   }
 }

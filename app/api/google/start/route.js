@@ -6,6 +6,7 @@ import {
   supabaseAdmin,
   getUserFromBearer,
 } from "../../_lib/server";
+import { createGoogleOAuthState } from "../../_lib/googleOAuthState";
 
 export async function GET(req) {
   try {
@@ -24,7 +25,11 @@ export async function GET(req) {
     if (member.role !== "therapist" || !member.active) {
       return json({ error: "NOT_ALLOWED" }, 403);
     }
+    if (!process.env.GOOGLE_CLIENT_SECRET) {
+      return json({ error: "OAUTH_NOT_CONFIGURED" }, 500);
+    }
 
+    const flowState = createGoogleOAuthState(member.id, process.env.GOOGLE_CLIENT_SECRET);
     const oauth = oauthClient();
 
     const url = oauth.generateAuthUrl({
@@ -33,10 +38,17 @@ export async function GET(req) {
       scope: [
         "https://www.googleapis.com/auth/calendar",
       ],
-      state: member.id,
+      state: flowState.state,
     });
 
-    return json({ url });
+    const secure = process.env.NODE_ENV === "production" ? "; Secure" : "";
+    return new Response(JSON.stringify({ url }), {
+      headers: {
+        "Content-Type": "application/json",
+        "Cache-Control": "no-store",
+        "Set-Cookie": `google_oauth_state=${flowState.cookieValue}; Path=/api/google/callback; HttpOnly; SameSite=Lax; Max-Age=${flowState.maxAge}${secure}`,
+      },
+    });
   } catch (e) {
     return json({ error: "SERVER_ERROR", detail: "INTERNAL_ERROR" }, 500);
   }

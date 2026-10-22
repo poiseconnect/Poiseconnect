@@ -71,6 +71,19 @@ Dateisignatur- und MIME-Typ.
 - Kein automatisches Deployment durch KI.
 - Kein automatisches Ausführen von SQL in Produktion.
 
+## Google-Kalender und persönliche Videolinks
+
+Der Start einer Google-Kalenderverbindung ist aktiven Therapeut:innen
+vorbehalten. Der OAuth-`state` ist zufällig, kurzlebig, signiert und an ein
+HttpOnly-Browsercookie gebunden. Der Callback prüft Signatur, Ablauf, Browser-
+Cookie sowie den weiterhin aktiven Therapeut:innenstatus und löscht das Cookie
+anschließend. OAuth-Token werden ausschließlich serverseitig gespeichert.
+
+`/api/update-meeting-link-override` erfordert ein aktives Admin- oder
+Therapeut:innenkonto. Therapeut:innen dürfen nur Anfragen ändern, die ihnen
+zugewiesen sind; die Update-Abfrage bindet diese Zuordnung erneut. Die Route
+gibt keine Anfrage- oder Klient:innendaten zurück.
+
 ## SevDesk-API-Routen
 
 Die nicht authentifizierten Routen `/api/sevdesk/create-provision-invoice`
