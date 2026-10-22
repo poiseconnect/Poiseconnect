@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../../../lib/supabase";
 import { SEVDESK_LINK_CONFLICT_MESSAGE } from "../../../lib/coachInvoiceLink.js";
 import jsPDF from "jspdf";
-import "jspdf-autotable";
+import { autoTable } from "jspdf-autotable";
 
 const POISE_ADMIN_SETTINGS = {
   company_name: "Poise by Linda Leinweber GmbH",
@@ -1333,7 +1333,7 @@ function buildCoachPdf({
     `${Number(li.total || 0).toFixed(2)} EUR`,
   ]);
 
-  doc.autoTable({
+  autoTable(doc, {
     startY: ry,
     head: [["Pos.", "Beschreibung", "Menge", "Einzelpreis", "Gesamtpreis"]],
     body,

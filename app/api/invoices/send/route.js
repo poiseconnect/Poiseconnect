@@ -2,7 +2,7 @@ export const dynamic = "force-dynamic";
 
 import { Resend } from "resend";
 import jsPDF from "jspdf";
-import "jspdf-autotable";
+import { autoTable } from "jspdf-autotable";
 import {
   json,
   supabaseAdmin,
@@ -276,7 +276,7 @@ function buildPdf({
     ];
   });
 
-  doc.autoTable({
+  autoTable(doc, {
     startY: ry,
     head: [["Pos.", "Beschreibung", "Menge", "Einzelpreis", "Gesamtpreis"]],
     body,

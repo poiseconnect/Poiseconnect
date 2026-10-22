@@ -25,7 +25,7 @@ import {
 } from "../lib/intakeAvailability";
 import { shouldCloseModalFromBackdropClick } from "../lib/modalEventGuard";
 import jsPDF from "jspdf";
-import "jspdf-autotable";
+import { autoTable } from "jspdf-autotable";
 import ActionMenu from "../components/ActionMenu";
 import CoachOnboardingTour from "../components/CoachOnboardingTour";
 import { addPersonalMessageAction, canUseMessagingForRequest, matchesCoachFilter } from "./coachFilter";
@@ -740,7 +740,7 @@ if (clientRow.steuer_nr) {
     ];
   });
 
-  doc.autoTable({
+  autoTable(doc, {
     startY: 75,
     head: [["Pos.", "Sitzung", "Einzelpreis"]],
     body,
@@ -854,7 +854,7 @@ function exportBillingPDF(rows, invoiceSettings, periodLabel = "") {
   doc.text("Rechnung", 14, 55);
 
   // TABLE
-  doc.autoTable({
+  autoTable(doc, {
     startY: 70,
     head: [["Klient", "Sitzungen", "Gesamt €"]],
     body: rows.map((r) => [
@@ -1066,7 +1066,7 @@ function exportAdminCoachQuarterInvoicePDF({
     );
   }
 
-  doc.autoTable({
+  autoTable(doc, {
     startY: introY + 12,
     head: [["Kategorie", "Menge", "Einzelpreis Provision netto", "Gesamt netto"]],
     body: invoiceBundle.rows.map((row) => [
