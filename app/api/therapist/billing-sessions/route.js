@@ -1,6 +1,7 @@
 export const dynamic = "force-dynamic";
 
 import { createClient } from "@supabase/supabase-js";
+import { billingOwnerIds, viennaBillingDate } from "../../_lib/billingAccess";
 
 function json(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -42,7 +43,7 @@ export async function GET(req) {
     // ✅ TEAM MEMBER LADEN
     const { data: member, error: memberError } = await supabaseAdmin
       .from("team_members")
-      .select("id, role, active")
+      .select("id, user_id, role, active")
       .eq("user_id", user.id)
       .single();
 
@@ -54,7 +55,7 @@ export async function GET(req) {
       return json({ error: "NOT_THERAPIST" }, 403);
     }
 
-    if (!member.active) {
+    if (member.active !== true) {
       return json({ error: "NOT_ACTIVE" }, 403);
     }
 
@@ -71,18 +72,30 @@ export async function GET(req) {
         anfragen (
           vorname,
           nachname,
-          status,
+          assigned_therapist_id,
           invoice_with_vat
         )
       `)
-.or(`therapist_id.eq.${member.id},therapist_id.eq.${user.id}`)
+      .in("therapist_id", billingOwnerIds(member, user))
       .order("date", { ascending: false });
 
     if (error) {
       return json({ error: "SESSIONS_LOAD_FAILED" }, 500);
     }
 
-    return json({ data: data || [] });
+    const ownerIds = billingOwnerIds(member, user);
+    const today = viennaBillingDate();
+    return json({ data: (data || []).flatMap((session) => {
+      const { assigned_therapist_id, ...billingIdentity } = session.anfragen || {};
+      if (ownerIds.includes(String(assigned_therapist_id || ""))) {
+        return [{ ...session, anfragen: billingIdentity }];
+      }
+      if (!session.date || String(session.date).slice(0, 10) > today) return [];
+      return [{
+        ...session,
+        anfragen: { invoice_with_vat: billingIdentity.invoice_with_vat === true },
+      }];
+    }) });
 
   } catch {
     console.error("THERAPIST BILLING ERROR");

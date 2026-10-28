@@ -1,8 +1,8 @@
 export const dynamic = "force-dynamic";
 
 import { createClient } from "@supabase/supabase-js";
-import { Resend } from "resend";
 import { sendClientMessage } from "../../../lib/messaging/outbound";
+import { messagingErrorStatus } from "../../../lib/messaging/access";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -56,7 +56,6 @@ export async function POST(request) {
 
     const result = await sendClientMessage({
       supabase,
-      resendClient: new Resend(process.env.RESEND_API_KEY),
       anfrageId: anfrage.id,
       subject: "Rückmeldung zu Terminvorschlägen",
       text: text.trim(),
@@ -64,13 +63,14 @@ export async function POST(request) {
     });
 
     if (!result.ok) {
+      const accessStatus = messagingErrorStatus(result.error);
       const status = ["ASSIGNMENT_MISMATCH"].includes(result.error)
         ? 403
         : ["REQUEST_NOT_FOUND", "CONVERSATION_NOT_FOUND"].includes(result.error)
           ? 404
           : result.error === "RECIPIENT_UNAVAILABLE"
             ? 422
-            : 409;
+            : accessStatus || 409;
       return json({ error: result.error }, status);
     }
 

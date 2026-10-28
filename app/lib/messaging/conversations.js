@@ -1,4 +1,5 @@
 import { createReplyAlias } from "./aliases";
+import { authorizeMessagingContext } from "./access";
 
 function requireId(value, name) {
   if (!value) {
@@ -13,6 +14,17 @@ export async function ensureOpenConversation({
 }) {
   requireId(anfrageId, "ANFRAGE_ID");
   requireId(therapistId, "THERAPIST_ID");
+
+  const access = await authorizeMessagingContext(supabase, {
+    requestId: anfrageId,
+    coachId: therapistId,
+  });
+  if (!access.ok) {
+    if (access.error === "MESSAGING_ACCESS_DENIED" || access.error === "MESSAGING_CONTENT_PAUSED") {
+      return { id: null, status: "pending", reply_alias: null };
+    }
+    throw new Error(access.error);
+  }
 
   const { replyAlias, replyTokenHash } = createReplyAlias();
   const { data, error } = await supabase.rpc(

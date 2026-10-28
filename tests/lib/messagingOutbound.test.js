@@ -1,4 +1,16 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const messagingAccess = vi.hoisted(() => ({
+  authorize: vi.fn(),
+  dispatch: vi.fn(),
+}));
+
+// Exercise the preserved send machinery with synthetic authorized dispatch.
+vi.mock("../../app/lib/messaging/access.js", () => ({
+  authorizeMessagingContext: messagingAccess.authorize,
+  getMessagingDispatchAvailability: messagingAccess.dispatch,
+}));
+
 import {
   createOutboundMail,
   sendClientMessage,
@@ -88,6 +100,18 @@ const input = {
 };
 
 describe("outbound messaging", () => {
+  beforeEach(() => {
+    messagingAccess.authorize.mockResolvedValue({
+      ok: true,
+      context: {
+        requestId: "request-1",
+        conversationId: "conversation-1",
+        careVersion: 0,
+      },
+    });
+    messagingAccess.dispatch.mockReturnValue({ ok: true });
+  });
+
   it("stellt die Nachricht vor dem Versand in die Queue und nutzt nur DB-Empfänger und Alias", async () => {
     const { supabase, resendClient, inserted, updates } = createSupabase();
 

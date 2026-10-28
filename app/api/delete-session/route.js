@@ -3,6 +3,7 @@ import {
   getUserFromBearer,
   supabaseAdmin,
 } from "../_lib/server";
+import { billingMutationError, billingOwnerIds, ownsBillingRow } from "../_lib/billingAccess";
 
 export async function POST(req) {
   const { user, error: authError } = await getUserFromBearer(req);
@@ -14,7 +15,7 @@ export async function POST(req) {
 
   const { data: member, error: memberErr } = await sb
     .from("team_members")
-    .select("id, role, active")
+    .select("id, user_id, role, active")
     .eq("user_id", user.id)
     .single();
 
@@ -37,7 +38,7 @@ export async function POST(req) {
 
   const { data: existingSession, error: sessionErr } = await sb
     .from("sessions")
-    .select("id, therapist_id")
+    .select("id, therapist_id, anfrage_id")
     .eq("id", sessionId)
     .single();
 
@@ -47,27 +48,36 @@ export async function POST(req) {
 
   if (
     isTherapist &&
-    String(existingSession.therapist_id) !== String(member.id) &&
-    String(existingSession.therapist_id) !== String(user.id)
+    !ownsBillingRow(existingSession, billingOwnerIds(member, user))
   ) {
     return json({ error: "NO_ACCESS" }, 403);
   }
 
-  let deleteQuery = sb
-    .from("sessions")
-    .delete()
-    .eq("id", sessionId);
   if (isTherapist) {
-    deleteQuery = deleteQuery.or(
-      `therapist_id.eq.${member.id},therapist_id.eq.${user.id}`
-    );
+    if (!existingSession.anfrage_id) return json({ error: "NO_ACCESS" }, 403);
+    const { data: assignment, error: assignmentError } = await sb
+      .from("anfragen").select("id, assigned_therapist_id")
+      .eq("id", existingSession.anfrage_id).single();
+    if (assignmentError || !assignment ||
+        !billingOwnerIds(member, user).includes(String(assignment.assigned_therapist_id || ""))) {
+      return json({ error: "HISTORICAL_SESSION_READ_ONLY" }, 403);
+    }
   }
-  const { error } = await deleteQuery;
 
-  if (error) {
-    console.error("DELETE SESSION ERROR");
-    return json({ error: "DELETE_SESSION_FAILED" }, 500);
+  try {
+    const { data, error } = await sb.rpc("privacy_delete_care_session", {
+      p_actor_id: user.id,
+      p_session_id: sessionId,
+    });
+    if (error) {
+      const failure = billingMutationError(error);
+      return json({ error: failure.error }, failure.status);
+    }
+    if (!data || data.success !== true) {
+      return json({ error: "BILLING_MUTATION_UNAVAILABLE" }, 503);
+    }
+    return json({ success: true });
+  } catch {
+    return json({ error: "BILLING_MUTATION_UNAVAILABLE" }, 503);
   }
-
-  return json({ success: true });
 }

@@ -2,6 +2,10 @@ export const dynamic = "force-dynamic";
 
 import { getUserFromBearer, json, supabaseAdmin } from "../../_lib/server";
 import { ensureOpenConversation } from "../../../lib/messaging/conversations";
+import {
+  authorizeMessagingContext,
+  messagingErrorStatus,
+} from "../../../lib/messaging/access";
 
 const TERMINAL_MESSAGING_STATUSES = new Set([
   "beendet",
@@ -27,6 +31,17 @@ export async function GET(request) {
 
     if (coachError || !coach || coach.active !== true || coach.role !== "therapist") {
       return json({ error: "NO_ACCESS" }, 403);
+    }
+
+    const requestAccess = await authorizeMessagingContext(sb, {
+      requestId: anfrageId,
+      coachId: coach.id,
+    });
+    if (!requestAccess.ok) {
+      return json(
+        { error: requestAccess.error },
+        messagingErrorStatus(requestAccess.error) || 403
+      );
     }
 
     const { data: anfrage, error: requestError } = await sb
@@ -63,9 +78,27 @@ export async function GET(request) {
           anfrageId: anfrage.id,
           therapistId: coach.id,
         });
-      } catch {
+      } catch (error) {
+        const status = messagingErrorStatus(error?.message);
+        if (status) return json({ error: error.message }, status);
         return json({ error: "CONVERSATION_ENSURE_FAILED" }, 409);
       }
+    }
+
+    if (!conversation?.id) {
+      return json({ error: "MESSAGING_ACCESS_DENIED" }, 403);
+    }
+
+    const conversationAccess = await authorizeMessagingContext(sb, {
+      requestId: anfrage.id,
+      conversationId: conversation.id,
+      coachId: coach.id,
+    });
+    if (!conversationAccess.ok) {
+      return json(
+        { error: conversationAccess.error },
+        messagingErrorStatus(conversationAccess.error) || 403
+      );
     }
 
     const { data: messages, error: messagesError } = await sb

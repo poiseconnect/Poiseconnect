@@ -1,6 +1,7 @@
 export const dynamic = "force-dynamic";
 
 import { google } from "googleapis";
+import { appointmentCareContext, withAppointmentOperation } from "../../lib/appointmentCare";
 import {
   canAccessAssignedRequest,
   getActiveTeamMember,
@@ -29,6 +30,10 @@ function normalizeIso(value) {
 }
 
 export async function POST(req) {
+  return withAppointmentOperation((operation) => executePost(req, operation));
+}
+
+async function executePost(req, operation) {
   try {
     const auth = await getActiveTeamMember(req);
     if (!auth.member) return json({ error: auth.error }, auth.status);
@@ -71,7 +76,15 @@ export async function POST(req) {
     }
 
     const therapistId = requestRow.assigned_therapist_id;
-    const therapistName = requestRow.wunschtherapeut || "dein Coach";
+    const care = await appointmentCareContext(auth.supabase, requestId, therapistId, {
+      expectedVersion: body.expectedCareVersion ?? body.careVersion ?? null,
+    });
+    if (care.error) return json({ error: care.error }, care.status);
+    const claim = await operation.begin(auth.supabase, requestId, therapistId, care.careVersion);
+    if (claim.error) return json({ error: claim.error }, claim.status);
+    const { data: currentCoach } = await auth.supabase.from("team_members")
+      .select("name").eq("id", therapistId).maybeSingle();
+    const therapistName = currentCoach?.name || "dein Coach";
     const client = requestRow.email;
     const vorname = requestRow.vorname || "";
     if (!client) return json({ error: "CLIENT_EMAIL_MISSING" }, 400);
@@ -185,6 +198,11 @@ export async function POST(req) {
         auth: oauth,
       });
 
+      const providerCare = await appointmentCareContext(auth.supabase, requestId, therapistId, {
+        expectedVersion: care.careVersion,
+      });
+      if (providerCare.error) return json({ error: providerCare.error }, providerCare.status);
+
       try {
         await calendar.events.delete({
           calendarId:
@@ -276,8 +294,6 @@ export async function POST(req) {
       status: "termin_neu",
       match_state: "reschedule",
       bevorzugte_zeit: null,
-      assigned_therapist_id: therapistId,
-      wunschtherapeut: therapistName,
     };
 
     const { data: updatedRequest, error: updateError } = await auth.supabase
@@ -285,6 +301,7 @@ export async function POST(req) {
       .update(updatePayload)
       .eq("id", requestId)
       .eq("assigned_therapist_id", therapistId)
+      .eq("care_version", care.careVersion)
       .select("id")
       .maybeSingle();
 

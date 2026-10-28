@@ -28,7 +28,7 @@ export async function POST(req) {
 
     const { data: requestRow, error: loadError } = await auth.supabase
       .from("anfragen")
-      .select("id, assigned_therapist_id")
+      .select("id, assigned_therapist_id, care_version")
       .eq("id", anfrageId)
       .maybeSingle();
     if (loadError) return json({ error: "REQUEST_LOAD_FAILED" }, 500);
@@ -36,13 +36,18 @@ export async function POST(req) {
     if (!canAccessAssignedRequest(auth.member, requestRow.assigned_therapist_id)) {
       return json({ error: "NO_ACCESS" }, 403);
     }
+    if (!Number.isSafeInteger(requestRow.care_version) || requestRow.care_version < 0) {
+      return json({ error: "CARE_VERSION_UNAVAILABLE" }, 503);
+    }
 
     let update = auth.supabase
       .from("anfragen")
       .update({
         meeting_link_override: meetingLink?.trim() || null,
+        meeting_link_care_version: requestRow.care_version,
       })
-      .eq("id", anfrageId);
+      .eq("id", anfrageId)
+      .eq("care_version", requestRow.care_version);
     if (auth.member.role === "therapist") {
       update = update.eq("assigned_therapist_id", auth.member.id);
     }

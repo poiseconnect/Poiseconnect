@@ -1272,3 +1272,50 @@ Dateien dürfen nicht manuell geändert werden.
 
 Mehrere Resume-Modi und historische API-Pfade sind produktiv relevant. Sie
 sollten nicht ohne Workflow-Tests vereinfacht oder entfernt werden.
+
+## Lokale P0-Implementierung: stabile Anfrage und Betreuungsperioden
+
+Die freigegebene lokale Fortsetzung auf `fix/privacy-p0-phase1` verwendet
+weiterhin `anfragen.assigned_therapist_id` als aktuelle Ownerprojektion.
+Der nicht angewendete SQL-Entwurf
+`20261028000000_privacy_phase1_access.sql` ergaenzt Betreuungsperioden,
+monotone `care_version`, empfaengerbezogene Gesundheitsfreigaben,
+idempotente Transfernachweise und persistente Terminoperationsreservierungen.
+Es gibt keinen automatischen Backfill historischer Consent- oder
+Betreuungsnachweise.
+
+`coach-handover` nutzt eine atomare RPC statt Anfragekopien. Admins koennen
+einen Zielcoach bestimmen; Coaches geben den Fall an die Adminauswahl
+zurueck. Eine neue Klientenwahl braucht frische, versionsgebundene
+Adminauswahl und ausdrueckliche Empfaengerfreigabe. Draft-Neuauswahl ist bei
+aktuell intake-berechtigtem Coach und konfliktfreien Terminen moeglich.
+Historische Wunsch-/Adminangaben bleiben erhalten und begruenden keine Rechte.
+
+Sessions und Rechnungen bleiben an ihren historischen Ownern. Klientenrechnungs-
+Leserouten sind ownerbezogen; Invoice-Save und Session-Delete revalidieren
+den Actor und die aktuelle Betreuung in gesperrten DB-Operationen.
+Der Poise→Coach-/sevDesk-Arbeitsstrang bleibt unveraendert.
+
+Terminprovideraufrufe und Transfers teilen eine persistente Operationsgrenze,
+ohne Transaktion ueber HTTP. Unklare Ausgaenge bleiben offen. Bestehende
+Termine werden vom Transfer nicht geloescht, verschoben oder umgebucht.
+Proposals werden bei Anlage mit der aktuellen Betreuungs-Version versehen;
+veraltete Bestätigungen koennen den Owner nicht wieder zuruecksetzen.
+Der Legacy-Endpunkt `send-proposals` schreibt dieselben kanonischen
+`anfrage_id`-/`date`-Felder wie die uebrigen Proposalrouten.
+
+Messaging-Inhalte sind bis zu einer eigenen Kommunikations-/Dispatchfreigabe
+bewusst pausiert; aus einer neutralen Terminaktion darf keine automatische
+Health-/Messagingberechtigung entstehen. Eine neue leere Conversation ist
+bis dahin als `pending` modelliert; alte Inhalte bleiben gesperrt gespeichert.
+Siehe [Umsetzungsstand und Abnahmegrenzen](./privacy-handover-architecture-decision.md#16-lokaler-umsetzungsstand-nach-implementierungsfreigabe).
+
+Der lokale Endloeschpfad-Kandidat ersetzt den direkten Parent-DELETE durch den
+admingebundenen RPC `privacy_delete_request`. Bekannte Consent-, Care-,
+Messaging-, Re-Engagement-, Recovery-, Abrechnungs- und Terminabhaengigkeiten
+blockieren die Loeschung; unbekannte FK-Abhaengigkeiten rollen die gesamte
+Transaktion zurueck. Nur requestgebundene Kurzzeit-Recovery-Challenges werden
+bei erfolgreicher Loeschung mitentfernt. Migration und SQL-Abnahmetests sind
+nicht produktiv angewendet; SQL/RLS/Trigger-Assertions und 19
+Lock-Barrierefaelle bestanden in einem netzwerkisolierten PostgreSQL-15-
+Wegwerfcontainer. Das Test-Grundschema ist kein Abbild der produktiven Datenbank.

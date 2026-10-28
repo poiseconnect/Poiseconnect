@@ -1,8 +1,8 @@
 export const dynamic = "force-dynamic";
 
-import { Resend } from "resend";
 import { getUserFromBearer, json, supabaseAdmin } from "../../_lib/server";
 import { sendCoachMessage } from "../../../lib/messaging/outbound";
+import { messagingErrorStatus } from "../../../lib/messaging/access";
 
 function isNonEmptyText(value, maxLength) {
   return typeof value === "string" && value.trim().length > 0 && value.trim().length <= maxLength;
@@ -52,7 +52,6 @@ export async function POST(request) {
 
     const result = await sendCoachMessage({
       supabase: sb,
-      resendClient: new Resend(process.env.RESEND_API_KEY),
       coachId: coach.id,
       conversationId,
       subject: subject.trim(),
@@ -61,13 +60,14 @@ export async function POST(request) {
     });
 
     if (!result.ok) {
-      const status = ["CONVERSATION_FORBIDDEN", "ASSIGNMENT_MISMATCH"].includes(result.error)
+      const status = messagingErrorStatus(result.error) ||
+        (["CONVERSATION_FORBIDDEN", "ASSIGNMENT_MISMATCH"].includes(result.error)
         ? 403
         : result.error === "RECIPIENT_UNAVAILABLE"
           ? 422
           : result.error === "CONVERSATION_NOT_FOUND" || result.error === "REQUEST_NOT_FOUND"
             ? 404
-            : 409;
+            : 409);
       return json({ error: result.error }, status);
     }
 

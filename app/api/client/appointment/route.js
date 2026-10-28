@@ -1,6 +1,7 @@
 export const dynamic = "force-dynamic";
 
 import { createClient } from "@supabase/supabase-js";
+import { appointmentCareContext } from "../../../lib/appointmentCare";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -43,6 +44,12 @@ export async function GET(req) {
     if (!request.assigned_therapist_id) {
       return json({ error: "no_therapist_assigned" }, 404);
     }
+    const care = await appointmentCareContext(
+      supabase, request.id, request.assigned_therapist_id, {
+        link: true, expectedVersion: url.searchParams.get("expectedCareVersion"),
+      }
+    );
+    if (care.error) return json({ error: care.error }, care.status);
 
     // ------------------------------------------------
     // Aktuellen geblockten Termin laden

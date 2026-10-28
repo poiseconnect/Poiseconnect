@@ -47,6 +47,10 @@ function setup({
   const reads = [];
   const writes = [];
   mocks.sb = {
+    rpc: vi.fn(async (_name, args) => ({ data: {
+      allowed: true, careVersion: anfrage?.care_version ?? 0,
+      coachId: anfrage?.assigned_therapist_id, operationId: args.p_operation_id,
+    }, error: null })),
     from: vi.fn((table) => {
       let fields;
       let payload;
@@ -115,7 +119,7 @@ describe("send video link route", () => {
     expect(reads).toEqual([
       {
         table: "anfragen",
-        fields: "id, email, vorname, assigned_therapist_id, meeting_link_override",
+        fields: "id, email, vorname, assigned_therapist_id, meeting_link_override, care_version, meeting_link_care_version",
         filters: [["id", "request-1"]],
       },
       {
@@ -148,6 +152,7 @@ describe("send video link route", () => {
       },
       settings,
     });
+
     const response = await POST(request());
 
     expect(response.status).toBe(200);
@@ -157,6 +162,17 @@ describe("send video link route", () => {
     }));
     expect(mocks.send.mock.calls[0][0].html).not.toContain(GENERAL_LINK);
     expect(reads.map((read) => read.table)).toEqual(["anfragen"]);
+  });
+
+  it("does not reuse the previous coach's stored override after a care-version change", async () => {
+    setup({ anfrage: {
+      id: "request-1", email: "client@example.invalid", assigned_therapist_id: "coach-1",
+      meeting_link_override: PERSONAL_LINK, care_version: 2, meeting_link_care_version: 0,
+    } });
+    const response = await POST(request({ requestId: "request-1", expectedCareVersion: 2 }));
+    expect(response.status).toBe(200);
+    expect(mocks.send.mock.calls[0][0].html).toContain(GENERAL_LINK);
+    expect(mocks.send.mock.calls[0][0].html).not.toContain(PERSONAL_LINK);
   });
 
   it.each([

@@ -8,6 +8,14 @@ import {
   supabaseAdmin,
   getUserFromBearer,
 } from "../../_lib/server";
+import {
+  billingOwnerIds,
+  invoiceRecipientMatches,
+  ownsBillingRow,
+  ownerAliases,
+  resolveBillingOwner,
+  validateInvoiceSessions,
+} from "../../_lib/billingAccess";
 
 export async function POST(req) {
   try {
@@ -17,8 +25,9 @@ export async function POST(req) {
     const body = await req.json();
     const invoiceId = body.invoiceId;
     const to = body.to;
-    const subject = body.subject;
-    const message = body.message;
+    if (Object.hasOwn(body, "subject") || Object.hasOwn(body, "message")) {
+      return json({ error: "CUSTOM_BILLING_MESSAGE_NOT_ALLOWED" }, 400);
+    }
 
     if (!invoiceId) {
       return json({ error: "MISSING_INVOICE_ID" }, 400);
@@ -27,18 +36,16 @@ export async function POST(req) {
       return json({ error: "MISSING_TO" }, 400);
     }
 
-    if (!subject) {
-      return json({ error: "MISSING_SUBJECT" }, 400);
-    }
     const sb = supabaseAdmin();
 
     const { data: member, error: memberErr } = await sb
       .from("team_members")
-      .select("id, role, active")
+      .select("id, user_id, role, active")
       .eq("user_id", user.id)
       .single();
 
-    if (memberErr || !member || member.active !== true) {
+    if (memberErr || !member || member.active !== true ||
+        !["admin", "therapist"].includes(member.role)) {
       return json({ error: "NO_ACCESS" }, 403);
     }
 
@@ -54,51 +61,34 @@ export async function POST(req) {
 
     if (
       member.role === "therapist" &&
-      String(invoice.therapist_id) !== String(member.id)
+      !ownsBillingRow(invoice, billingOwnerIds(member, user))
     ) {
       return json({ error: "NO_ACCESS_TO_INVOICE" }, 403);
     }
 
-    const { data: anfrage, error: anfrageErr } = await sb
-      .from("anfragen")
-      .select("*")
-      .eq("id", invoice.anfrage_id)
-      .single();
-
-    if (anfrageErr || !anfrage) {
-      return json({ error: "REQUEST_NOT_FOUND" }, 404);
+    if (!invoice.client_email) {
+      return json({ error: "CLIENT_EMAIL_MISSING" }, 400);
+    }
+    if (!invoiceRecipientMatches(to, invoice.client_email)) {
+      return json({ error: "INVALID_INVOICE_RECIPIENT" }, 403);
+    }
+    const owner = await resolveBillingOwner(sb, invoice.therapist_id);
+    if (!owner) return json({ error: "COACH_NOT_FOUND" }, 404);
+    if (!await validateInvoiceSessions(sb, invoice, ownerAliases(owner))) {
+      return json({ error: "INVALID_INVOICE_SESSIONS" }, 403);
     }
 
     const { data: settings, error: settingsErr } = await sb
       .from("therapist_invoice_settings")
       .select("*")
-      .eq("therapist_id", invoice.therapist_id)
+      .eq("therapist_id", owner.id)
       .single();
 
     if (settingsErr || !settings) {
       return json({ error: "INVOICE_SETTINGS_NOT_FOUND" }, 404);
     }
 
-    const { data: coachMember, error: coachErr } = await sb
-      .from("team_members")
-      .select("id, name, email")
-      .eq("id", invoice.therapist_id)
-      .single();
-
-    if (coachErr || !coachMember) {
-      return json({ error: "COACH_NOT_FOUND" }, 404);
-    }
-
-    const coachEmail = coachMember.email || null;
-    const coachName =
-      coachMember.name ||
-      settings.company_name ||
-      "Coach";
-
-    if (!invoice.client_email) {
-      return json({ error: "CLIENT_EMAIL_MISSING" }, 400);
-    }
-
+    const coachEmail = owner.email || null;
     const doc = new jsPDF("p", "mm", "a4");
 
     const lineItems = Array.isArray(invoice.line_items) ? invoice.line_items : [];
@@ -140,26 +130,12 @@ export async function POST(req) {
 
     const resend = new Resend(process.env.RESEND_API_KEY);
 
-    await resend.emails.send({
+    const result = await resend.emails.send({
       from: process.env.RESEND_FROM || "Poise <noreply@mypoise.de>",
       reply_to: coachEmail || process.env.RESEND_FROM,
-      to,
-      subject,
-      html: `
-        <div style="font-family: Arial, sans-serif; line-height: 1.5;">
-          ${String(message || "")
-            .split("\n")
-            .map((line) => `<p>${line || "&nbsp;"}</p>`)
-            .join("")}
-
-          <br/>
-
-          <p>
-            Herzliche Grüße<br/>
-            ${coachName}
-          </p>
-        </div>
-      `,
+      to: invoice.client_email.trim(),
+      subject: "Ihre Rechnung",
+      text: "Guten Tag,\n\nim Anhang erhalten Sie Ihre Rechnung.\n\nFreundliche Grüße\nPoise",
       attachments: [
         {
 filename: `Rechnung_${invoice.invoice_number || "rechnung"}.pdf`,
@@ -167,6 +143,9 @@ filename: `Rechnung_${invoice.invoice_number || "rechnung"}.pdf`,
         },
       ],
     });
+    if (!result || result.error || !result.data?.id) {
+      return json({ error: "INVOICE_SEND_FAILED" }, 502);
+    }
     return json({ ok: true });
   } catch (e) {
     return json({ error: "SERVER_ERROR", detail: "INTERNAL_ERROR" }, 500);

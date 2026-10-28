@@ -1,4 +1,5 @@
 export const dynamic = "force-dynamic";
+import { mergeRequestHealth, readRequestHealth } from "../../../lib/intakeAccess.js";
 
 import {
   json,
@@ -27,7 +28,8 @@ export async function GET(req) {
       .eq("user_id", user.id)
       .single();
 
-    if (memberErr || !member || member.active !== true) {
+    if (memberErr || !member || member.active !== true ||
+        !["admin", "therapist"].includes(member.role)) {
       return json({ error: "NO_ACCESS" }, 403);
     }
 
@@ -59,11 +61,6 @@ export async function GET(req) {
   plz_ort,
   geburtsdatum,
   beschaeftigungsgrad,
-  anliegen,
-  leidensdruck,
-  verlauf,
-  ziel,
-  diagnose,
   status,
   bevorzugte_zeit,
   wunschtherapeut,
@@ -71,10 +68,12 @@ export async function GET(req) {
   invoice_with_vat,
   admin_therapeuten,
   excluded_therapeuten,
-  terminwunsch_text,
   assigned_therapist_id,
+  care_version,
+  care_episode_id,
   booking_token,
   meeting_link_override,
+  meeting_link_care_version,
   proposals_sent_at,
   proposals_count,
   proposals_opened_at,
@@ -96,10 +95,15 @@ export async function GET(req) {
 const requestIds = (data || [])
   .map((r) => r.id)
   .filter(Boolean);
+const authorizedRequests = mergeRequestHealth(
+  data || [],
+  await readRequestHealth(sb, requestIds, member.id)
+);
+const authorizedRequestIds = authorizedRequests.map((row) => row.id);
 
 let proposalRows = [];
 
-if (requestIds.length > 0) {
+if (authorizedRequestIds.length > 0) {
   const { data: proposals, error: proposalsErr } = await sb
     .from("appointment_proposals")
     .select(`
@@ -110,7 +114,7 @@ if (requestIds.length > 0) {
       expires_at,
       created_at
     `)
-    .in("anfrage_id", requestIds)
+    .in("anfrage_id", authorizedRequestIds)
     .order("date", { ascending: true });
 
   if (proposalsErr) {
@@ -135,7 +139,7 @@ proposalRows.forEach((proposal) => {
   proposalsByRequest[requestId].push(proposal);
 });
 
-const requests = (data || []).map((r) => ({
+const requests = authorizedRequests.map((r) => ({
   ...r,
   admin_therapeuten: normalizeAdminTherapeuten(r.admin_therapeuten),
   proposal_times:

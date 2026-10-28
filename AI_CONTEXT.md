@@ -90,6 +90,39 @@ Sie ist unabhängig von Draft-Recovery-, Newsletter- und allgemeinem
 Datenschutz-Consent. Bestandsanfragen werden nicht automatisch als eingewilligt
 markiert.
 
+Lokale P0-Erweiterung auf `fix/privacy-p0-phase1` (nicht ausgerollt):
+Der vorbereitete Entwurf `20261028000000_privacy_phase1_access.sql` verbindet
+Gesundheitszugriffe mit aktivem Consent und fuer Coaches mit ausdruecklicher,
+versionierter Empfaengerfreigabe fuer die aktuelle Betreuungsperiode.
+Adminzugriffe erhalten keine Widerrufsausnahme. Die Anfrage bleibt bei
+Coachwechseln dieselbe; `care_version` und Betreuungsperioden verhindern die
+Wiederbelebung alter Freigaben bei A→B→A. Historische Session-/Invoiceowner
+und sevDesk-Verknuepfungen werden durch den Wechsel nicht geaendert.
+Eigene historische Abrechnung ist eine getrennte, minimierte Ressource.
+Inhalts-Messaging bleibt bis zur gesonderten Kommunikations-/Dispatchfreigabe
+explizit pausiert; neutrale Termin- und Rechnungsprozesse bleiben getrennt.
+Terminaktionen verwenden persistente Operationsreservierungen; unklare
+Resultate blockieren weitere Transfers bis zur bewussten Klaerung.
+Fehlendes RPC-/Schemaset fuehrt zu einem ausdruecklichen Fehler, nicht zum
+unsicheren Altpfad. Details und Rolloutgrenzen stehen in
+`docs/privacy-handover-architecture-decision.md`, Abschnitt 16.
+
+Lokaler, noch nicht ausgerollter Endloeschpfad-Kandidat:
+`app/api/requests/delete-forever/route.js` ruft nach aktiver Admin-Pruefung
+`privacy_delete_request` auf. Die vorbereitete Migration
+`20261028010000_privacy_delete_request.sql` klassifiziert bekannte
+Aufbewahrungsblocker und arbeitet transaktional; nur requestgebundene
+Kurzzeit-Recovery-Challenges werden bei erfolgreicher Anfrage-Loeschung
+mitentfernt. Consent-, Care-, Nachrichten-, Re-Engagement-, Recovery-Queue-,
+Abrechnungs- und Terminverweise loeschen nicht automatisch. Unklassifizierte
+FK-Abhaengigkeiten rollen den Vorgang zurueck. Die Migration wurde nicht
+produktiv angewendet; SQL/RLS/Trigger und 19 Lock-Barrierefaelle bestanden in
+einem netzwerkisolierten PostgreSQL-15-Wegwerfcontainer mit kuenstlichen Daten,
+der danach entfernt wurde. Das synthetische Testfixture ist kein Abbild des
+produktiven Grundschemas. Vor Produktivsetzung muessen Retention-
+Entscheidungen sowie ein gesondert freigegebener read-only Schemaabgleich
+vorliegen.
+
 ### sessions
 
 Verwaltet abrechenbare Sitzungen.
@@ -107,6 +140,25 @@ Wichtige technische Felder:
 - google_event_id
 
 Die Abrechnung basiert auf `sessions`.
+
+Sessions-INSERT: Die separate Migration
+`20261028020000_sessions_insert_lockdown.sql` wurde laut Nutzer am 28.10.2026
+manuell produktiv angewendet und auf Berechtigungsebene verifiziert
+(alle sieben Metadatenpruefungen true). Sie entfernt die offene
+INSERT-Policy und INSERT-Tabellen-/Spaltengrants
+fuer `PUBLIC`, `anon`, `authenticated`. Legitime API-Schreibwege verwenden
+`service_role` nach eigener Staff-/Booking-Autorisierung. Bestehende Daten
+und Backendrechte bleiben unveraendert; Details in `docs/security.md`.
+Die neuen echten Datenbanktests und alle 19 bisherigen P0-Parallelfaelle
+bestanden nach separater Freigabe im isolierten PostgreSQL-15-Wegwerfcontainer;
+der Container wurde entfernt. Manuelle Rolloutvorbereitung steht in
+`docs/privacy-p0-manual-rollout.md`. Kein produktiver End-to-End-Test,
+kein Deployment, keine weitere P0-Migration angewendet und kein
+Produktivzugriff durch den Agenten. Manuelle Migration spaeter kontrolliert
+mit der Migrationshistorie abstimmen, nicht automatisch wiederholen/markieren.
+Die naechste Zugriffsmigration bleibt gesperrt, solange produktiver
+Code-/Schemastand und koordinierter Rollout nicht bestaetigt sind:
+`docs/privacy-p0-phase1-rollout.md`.
 
 ### blocked_slots
 
@@ -211,6 +263,21 @@ Migration `20261012000000_coach_invoice_link_guards.sql` friert historische
 Mehrfachverknuepfungen ein und sichert neue IDs durch eindeutige DB-Claims;
 alte Rechnungen werden nicht automatisch bereinigt. Pro Coach laeuft nur eine
 Erstellung gleichzeitig; beide Quartals-Bundles bleiben getrennt.
+
+Lokale Erweiterung 2026-10-22 (noch nicht ausgerollt): Coach-Quartalsfreigaben
+bleiben freiwillig. Admins duerfen ohne aktuelle Freigabe speichern und
+bewusst neu berechnen. Vor sevDesk-Erstellung ist dann eine ausdrueckliche,
+serverseitig gepruefte und an die Draft-Version gebundene Bestaetigung noetig.
+Die vorbereitete Migration `20261022000000_coach_invoice_admin_release.sql`
+bindet Drafts an `billing_source_snapshot` und protokolliert die Entscheidung
+mit Admin, UTC-Zeitpunkt, Draft-Version und Quell-Snapshot atomar bei Reservierung.
+Alte Drafts ohne Snapshot benoetigen eine bewusste Neuberechnung; Speichern
+allein aktualisiert die Quellbindung nicht. Kein Backfill alter Verknuepfungen.
+Ohne neue Migration bleiben Schreibaktionen fail-closed.
+Der Browser-Link wird ausschliesslich aus der gespeicherten Invoice ID durch
+`getSevdeskInvoiceUrl` erzeugt; das vom Nutzer beobachtete Format ist
+`https://my.sevdesk.de/fi/edit/type/RE/id/{id}`. Ein gueltiger Link bestaetigt
+weder Coach-/Zeitraumzuordnung noch Zugriff im angemeldeten sevDesk-Konto.
 
 ## Öffentliche Website und Teamdaten
 

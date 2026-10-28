@@ -581,3 +581,120 @@ statisch auf Guards geprüft, **nicht ausgeführt**; Datenbank-Concurrency-/
 Schema-Tests, Konfiguration und erfolgreicher Vercel-Cron-Aufruf sowie ein
 kontrollierter Provider-Linktracking-Test bleiben Voraussetzung der
 gesonderten Rollout-Freigabe.
+
+## Lokale P0-Korrekturen: Consent und Coach-Wechsel
+
+Auf `fix/privacy-p0-phase1` lokal vorbereitet, **nicht produktiv aktiviert**:
+
+- Gesundheitsfelder werden in Staff-APIs zentral projiziert. Der geschuetzte
+  Reader prueft Rolle, aktuellen Owner und aktiven Consent; Coaches brauchen
+  zusaetzlich eine explizite empfaenger-/periodengebundene Freigabe. Ein
+  inzwischen entzogener Anfragezugriff entfernt auch die gesamte alte
+  Basiszeile aus der Antwort. Admins haben keine Widerrufsausnahme.
+- Neuer Empfaenger-Consent ist eine eigene ausdrueckliche Bestaetigung, kein
+  stillschweigendes `coach_id`-Backfill. Widerruf sperrt Verarbeitung und
+  loescht weder Gesundheitsdaten noch Nachweise. Der neue Notice-Text und
+  der organisatorische Widerrufsablauf sind vor Rollout zu bestaetigen.
+- Der transaktionale Transfer behaelt die Anfrage-ID, beendet alte
+  Betreuungsrechte, schliesst Conversation/Alias und protokolliert Version
+  und Idempotenzkennung. Sessionhistorie allein blockiert nicht.
+- Historische Abrechnung liefert ausschliesslich eigene Session-/Rechnungsdaten,
+  keine Live-Klientenakte oder Gesundheitsdaten. Historische Rechnungen sind
+  fuer ehemalige Coaches schreibgeschuetzt; ein erneuter Versand verwendet
+  ausschliesslich den gespeicherten Rechnungsempfaenger und aendert keine
+  Rechnungswerte oder Status. Freie Betreff-/Nachrichtentexte sind in diesem
+  neutralen Versandpfad nicht erlaubt; sonst waere er ein Messaging-Bypass.
+  Die historische Rechnungsansicht verwendet gespeicherte Positionen und
+  Summen und ist auch beim gezielten Admin-Billingaufruf schreibgeschuetzt.
+  Ein eigener Workflow fuer noch unberechnete
+  Altsessions/Rechnungskorrekturen ist nicht automatisch freigegeben.
+- Die SQL-Datei entzieht Browserrollen auch bisherige Tabellen-/Spaltengrants
+  fuer Anfrage, Sessions, Rechnungen, Slots und Proposals. Diese Daten werden
+  nur ueber autorisierte Server-APIs ausgeliefert. Privilegierte Serverrouten
+  benoetigen weiterhin eigene Actor-/Ownerpruefungen; RLS allein genuegt nicht.
+- Potenziell sensible Nachrichteninhalte bleiben explizit pausiert. Inbound
+  ruft in diesem Zustand keine Bodies ab; alte Nachrichten werden nicht
+  geloescht, automatisch weitergeleitet oder fuer den neuen Coach freigegeben.
+- Terminprovideraktionen reservieren die Anfrage vor externen Aufrufen.
+  Transfers scheitern bei konkreten Zukunftsterminen oder offenen Operationen,
+  ohne Termine zu veraendern. Fehler/Timeouts lassen Reservierungen absichtlich
+  offen; keine automatische Freigabe nach Zeitablauf. Erst den tatsaechlichen
+  Provider-/DB-Ausgang klaeren, dann separat autorisiert abschliessen.
+- Bestehende persoenliche Meeting-Overrides bleiben gespeichert, gelten aber
+  nur fuer ihre Betreuungs-Version. Alte Links/Proposals koennen nicht ohne
+  erneute aktuelle Bindung einen anderen Coach buchen.
+- Neue Betreuungs-/Consent-/Operations-FKs verhindern mit
+  `ON DELETE RESTRICT` eine unkontrollierte Mitloeschung. Der lokale
+  `delete-forever`-Kandidat ruft deshalb `privacy_delete_request` auf: Die
+  Funktion sperrt die Anfrage, blockiert bekannte Consent-, Care-, Messaging-,
+  Re-Engagement-, Recovery-, Abrechnungs- und Terminabhaengigkeiten und loescht
+  keine historischen Finanz-, Kalender- oder Kommunikationsdaten. Nur
+  requestgebundene Kurzzeit-Recovery-Challenges werden im erfolgreichen
+  Transaktionspfad mit entfernt. Unbekannte FK-Fehler rollen die gesamte
+  Transaktion zurueck. Die Route und Migration bestanden die synthetische
+  PostgreSQL-15-Abnahme im netzwerkisolierten Wegwerfcontainer; sie wurden
+  nicht produktiv angewendet. Aufbewahrungsentscheidungen bleiben
+  fachlich/rechtlich offen.
+
+Die spaeter separat freigegebene isolierte PostgreSQL-Abnahme ist in
+[privacy-p0-acceptance.md](privacy-p0-acceptance.md) dokumentiert. Sie nutzte
+eine neue netzwerklose Wegwerfinstanz und synthetische Daten; sie validiert
+nicht die produktive Supabase-Schema-/Rollen-Konfiguration. Der Messaging-
+Denial-Vertrag wurde korrigiert, der Content-Versand bleibt deaktiviert.
+Noch erforderlich: produktiver read-only Schema-/Grants-/Realtime-Abgleich,
+Altbestands- und Backup/Restore-Pruefung sowie koordinierte Migrations-/
+Deploymentfreigabe. Keine produktive Migration und keine Provideraktion
+wurden ausgefuehrt.
+
+### Sessions: gezielter INSERT-Lockdown (laut Nutzer produktiv verifiziert)
+
+Der Nutzer bestaetigt fuer Produktion aktivierte RLS sowie die permissive
+Policy `allow inserts from api` (`TO public`, `WITH CHECK (true)`) und
+INSERT-Grants fuer `anon`/`authenticated`. Dies ist ein uebermittelter Befund,
+keine durch den Agenten abgefragte Produktionskonfiguration.
+Ein Policyname beschraenkt keinen Zugriff auf Backend-APIs.
+
+Die separate, laut Nutzer am 28.10.2026 manuell produktiv angewendete
+[Migration](../supabase/migrations/20261028020000_sessions_insert_lockdown.sql)
+entfernt diese Policy und entzieht ausschliesslich INSERT auf `sessions`
+einschliesslich aller INSERT-Spaltengrants fuer `PUBLIC`, `anon` und
+`authenticated`. SELECT/UPDATE/DELETE-Rechte, RLS-Zustand, Backend-/Ownerrechte
+und bestehende Datensaetze bleiben unveraendert. Keine neue RPC, keine
+Browser-Ersatzpolicy und kein Eingriff in Termine oder Rechnungen.
+Die Korrektur ist unabhaengig vom breiteren P0-Zugriffsentwurf ausfuehrbar;
+dessen weitergehende Tabellen-/Spaltenrevokes und Care-Trigger bleiben erhalten.
+
+Legitime Session-Schreibwege bleiben serverseitig:
+
+| Schreibweg | Datenbankrolle und Berechtigungsgrenze |
+|---|---|
+| [Folgebuchung](../app/api/booking/book/route.js) | `service_role`; Booking-Token, gespeicherte Zuordnung, Care-Version/Operationsclaim. Erstgespraeche schreiben stattdessen Slots. |
+| [Einzelsitzung](../app/api/add-session/route.js), [Batch](../app/api/add-sessions-batch/route.js) | `service_role`; Bearer-Login dient nur der Identitaetspruefung, danach aktives Staffprofil, Coach-Zuordnung/Adminrolle und gespeicherter Tarif. Dashboard ruft die API statt direkter Browser-Inserts auf. |
+| [Session-Loeschung](../app/api/delete-session/route.js) | `service_role`; aktive Staff-/Ownerpruefung und gesperrter P0-RPC. |
+| [Reminderflags](../app/api/reminder/route.js) | `service_role`; versionierter Kontext/Operationsclaim vor Flag-Update. |
+| Rechnungsstellung/sevDesk | Kein zusaetzlicher Session-Schreibweg gefunden; Sessiondaten werden gelesen. Rechnungsmutationen sind von Session-INSERT getrennt. |
+
+Die [SQL-Regression](../tests/postgres/privacy-p0-session-inserts.sql)
+prueft den eigenstaendigen Lockdown bewusst **vor** dem breiteren P0-Entwurf,
+damit dessen Revokes einen Fehler nicht verdecken. Fixture bildet RLS, die
+konkrete Altpolicy und alte Tabellen-/Spaltenrechte nach. Geprueft werden
+INSERT-Denials fuer beide Browserrollen, erhaltener Backend-INSERT und
+unveraenderte historische Finanz-/Providerreferenzen. Die kombinierte
+P0-Abnahme enthaelt zusaetzliche Denials und einen erlaubten Backend-INSERT.
+Diese neuen echten DB-Tests bestanden nach separater Freigabe einmalig im
+netzwerkisolierten PostgreSQL-15-Wegwerfcontainer einschliesslich aller
+19 bisherigen P0-Lock-Barrierefaelle; der Container wurde entfernt.
+Vererbte Rechte ueber weitere Rollen und unbekannte privilegierte RPCs werden
+durch den lokalen Test nicht als produktiv ausgeschlossen behauptet.
+Der Nutzer bestaetigt sieben positive produktive Metadatenpruefungen:
+Policy entfernt, RLS aktiv, kein INSERT fuer `anon`/`authenticated`, INSERT
+fuer `service_role`/`postgres` erhalten und BYPASSRLS fuer `service_role`.
+Damit ist der Hotfix auf Berechtigungsebene verifiziert, nicht produktiv
+End-to-End-getestet. Kein Deployment und keine weiteren P0-Migrationen
+angewendet; kein Produktivzugriff durch den Agenten.
+Das [historische Runbook](privacy-p0-manual-rollout.md) nicht erneut
+ausfuehren. Manuelle Anwendung spaeter kontrolliert mit der Migrationshistorie
+abgleichen, keine automatische Wiederholung oder blinde Markierung.
+Die unsichere Policy und Browser-INSERT-Rechte bleiben geschlossen.
+Der [naechste Rollout](privacy-p0-phase1-rollout.md) ist bis zur Bestaetigung
+des produktiven Code-/Schemastands und der koordinierten Reihenfolge gesperrt.

@@ -16,7 +16,11 @@ import { teamData } from "./lib/teamData";
 import {
   DRAFT_RECOVERY_CONSENT_TEXT,
 } from "./lib/draftRecovery";
-import { HEALTH_DATA_CONSENT_TEXT } from "./lib/healthDataConsentShared";
+import {
+  HEALTH_DATA_CONSENT_TEXT,
+  HEALTH_DATA_RECIPIENT_NOTICE_VERSION,
+  healthDataRecipientNotice,
+} from "./lib/healthDataConsentShared";
 import {
   TIME_PREFERENCE_OPTIONS,
   clearCoachDependentFormFields,
@@ -1133,6 +1137,29 @@ const slotsByMonth = useMemo(() => {
   return Array.from(map.entries());
 }, [groupedSlots]);
 
+async function approveHealthRecipient(selectedMember, {
+  consentToken = healthDataConsentToken,
+  requestId = draftRequestId || anfrageId || null,
+  token = bookingToken || null,
+  version = form.care_version,
+} = {}) {
+  if (!selectedMember?.id || !selectedMember?.name) {
+    throw new Error("RECIPIENT_IDENTITY_UNAVAILABLE");
+  }
+  if (!window.confirm(healthDataRecipientNotice(selectedMember.name))) return false;
+  const response = await fetch("/api/intake-consent", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      action: "authorize-recipient", requestId, booking_token: token,
+      consentToken, coachId: selectedMember.id, expectedCareVersion: version,
+      accepted: true, noticeVersion: HEALTH_DATA_RECIPIENT_NOTICE_VERSION,
+    }),
+  });
+  if (!response.ok) throw new Error("RECIPIENT_CONSENT_UNAVAILABLE");
+  return true;
+}
+
 async function createOrUpdateDraft(selectedMember) {
   if (requestFinalizedRef.current) return false;
   if (recoveryNeeded || loadingExisting) return false;
@@ -1141,6 +1168,23 @@ async function createOrUpdateDraft(selectedMember) {
   setSavingDraft(true);
 
   try {
+    if (!(await approveHealthRecipient(selectedMember))) return false;
+    const requestId = draftRequestId || anfrageId || null;
+    if (requestId) {
+      const currentResponse = await fetch(
+        `/api/public-request?id=${encodeURIComponent(requestId)}&token=${encodeURIComponent(bookingToken || "")}`,
+        { cache: "no-store" }
+      );
+      const current = await currentResponse.json();
+      if (!currentResponse.ok || !current.request) {
+        throw new Error("REQUEST_RELOAD_FAILED");
+      }
+      setForm((prev) => ({ ...prev, care_version: current.request.care_version }));
+      if (current.request.status !== "draft") {
+        setAssignedTherapistId(current.request.assigned_therapist_id);
+        return true;
+      }
+    }
     const res = await fetch("/api/create-request-draft", {
       method: "POST",
       headers: {
@@ -1182,6 +1226,7 @@ body: JSON.stringify({
 
 setDraftRequestId(json.id);
 setBookingToken(json.booking_token);
+setForm((prev) => ({ ...prev, care_version: json.care_version }));
 setAssignedTherapistId(
   json.assigned_therapist_id || selectedMember.id
 );
@@ -1231,6 +1276,7 @@ if (!bookingToken || !form.terminISO) {
           start: form.terminISO,
           durationMin: 30,
           bookingType: "erstgespraech",
+          expectedCareVersion: form.care_version,
         }),
       });
 
@@ -1356,8 +1402,25 @@ async function grantHealthDataConsent() {
       }
 
       const data = requestData.request;
+      if (data.assigned_therapist_id) {
+        const recipient = teamMembers.find((member) =>
+          String(member.id) === String(data.assigned_therapist_id));
+        if (!(await approveHealthRecipient(recipient, {
+          consentToken: grantData.consentToken, requestId,
+          token: bookingTokenForRequest, version: data.care_version,
+        }))) {
+          const revoked = await fetch("/api/intake-consent", {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ action: "revoke", requestId,
+              booking_token: bookingTokenForRequest, consentToken: grantData.consentToken }),
+          });
+          if (!revoked.ok) throw new Error("CONSENT_REVOKE_UNCONFIRMED");
+          throw new Error("RECIPIENT_CONSENT_DECLINED");
+        }
+      }
       setForm((prev) => ({
         ...prev,
+        care_version: data.care_version,
         themen: Array.isArray(data.themen) ? data.themen : [],
         anliegen: data.anliegen || "",
         leidensdruck: data.leidensdruck || "",

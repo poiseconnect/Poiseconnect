@@ -1,6 +1,7 @@
 export const dynamic = "force-dynamic";
 
 import { google } from "googleapis";
+import { appointmentCareContext, withAppointmentOperation } from "../../lib/appointmentCare";
 import { oauthClient, getUserFromBearer, supabaseAdmin } from "../_lib/server";
 
 function json(data, status = 200) {
@@ -113,12 +114,17 @@ async function rollbackCreatedEntries({
 }
 
 export async function POST(req) {
+  return withAppointmentOperation((operation) => executePost(req, operation));
+}
+
+async function executePost(req, operation) {
   const createdSessions = [];
   const createdBlockedSlots = [];
   const createdGoogleEvents = [];
 
   let calendar = null;
   let selectedCalendarId = null;
+  let supabase;
 
   try {
     const body = await req.json();
@@ -134,7 +140,7 @@ export async function POST(req) {
       return json({ error: authError || "NO_TOKEN" }, 401);
     }
 
-    const supabase = supabaseAdmin();
+    supabase = supabaseAdmin();
     const { data: member, error: memberErr } = await supabase
       .from("team_members")
       .select("id, role, active")
@@ -329,6 +335,13 @@ export async function POST(req) {
         400
       );
     }
+
+    const care = await appointmentCareContext(supabase, anfrageId, therapist_id, {
+      expectedVersion: body.expectedCareVersion ?? body.careVersion ?? null,
+    });
+    if (care.error) return json({ error: care.error }, care.status);
+    const claim = await operation.begin(supabase, anfrageId, therapist_id, care.careVersion);
+    if (claim.error) return json({ error: claim.error }, claim.status);
 
     const trustedPrice = Number(anfrage.honorar_klient);
     if (
@@ -654,6 +667,13 @@ export async function POST(req) {
         insertedBlockedSlot.id
       );
 
+      const providerCare = await appointmentCareContext(supabase, anfrageId, therapist_id, {
+        expectedVersion: care.careVersion,
+      });
+      if (providerCare.error) {
+        throw Object.assign(new Error(providerCare.error), { appointmentCare: providerCare });
+      }
+
       /* -------------------------------
          6e. Google-Kalendertermin
              erstellen
@@ -799,10 +819,10 @@ export async function POST(req) {
 
     return json(
       {
-        error: "SERVER_ERROR",
+        error: err.appointmentCare?.error || "SERVER_ERROR",
         detail: "INTERNAL_ERROR",
       },
-      500
+      err.appointmentCare?.status || 500
     );
   }
 }

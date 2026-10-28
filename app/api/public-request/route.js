@@ -1,7 +1,7 @@
 export const dynamic = "force-dynamic";
 
 import { createClient } from "@supabase/supabase-js";
-import { findActiveHealthDataConsent } from "../../lib/healthDataConsent.js";
+import { hasHealthDataConsentToken, hashHealthDataConsentToken } from "../../lib/healthDataConsent.js";
 
 function json(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -20,6 +20,7 @@ function getSupabase() {
 
 export const PUBLIC_REQUEST_BASE_SELECT_FIELDS = [
   "id",
+  "status",
   "vorname",
   "nachname",
   "email",
@@ -31,6 +32,7 @@ export const PUBLIC_REQUEST_BASE_SELECT_FIELDS = [
   "coaching_typ",
   "wunschtherapeut",
   "assigned_therapist_id",
+  "care_version",
   "admin_therapeuten",
   "structured_time_preference",
   "bevorzugte_zeit",
@@ -71,18 +73,9 @@ export async function GET(req) {
     }
 
     const consentToken = req.headers.get("x-health-data-consent");
-    const consent = consentToken
-      ? await findActiveHealthDataConsent(supabase, consentToken, {
-          requestId: id,
-        })
-      : null;
-
-    const fields = consent
-      ? PUBLIC_REQUEST_SELECT_FIELDS
-      : PUBLIC_REQUEST_BASE_SELECT_FIELDS;
     const { data, error } = await supabase
       .from("anfragen")
-      .select(fields)
+      .select(PUBLIC_REQUEST_BASE_SELECT_FIELDS)
       .eq("id", id)
       .eq("booking_token", token)
       .single();
@@ -91,9 +84,24 @@ export async function GET(req) {
       return json({ error: "REQUEST_NOT_FOUND" }, 404);
     }
 
+    let health = null;
+    if (hasHealthDataConsentToken(consentToken)) {
+      const { data: result, error: healthError } = await supabase.rpc(
+        "privacy_read_public_health", {
+          p_request_id: id,
+          p_booking_token: token,
+          p_consent_hash: hashHealthDataConsentToken(consentToken),
+        }
+      );
+      if (healthError) {
+        console.error("HEALTH_DATA_ACCESS_UNAVAILABLE");
+        return json({ error: "HEALTH_DATA_ACCESS_UNAVAILABLE" }, 503);
+      }
+      health = result;
+    }
     return json({
-      request: data,
-      sensitiveDataConsentRequired: !consent,
+      request: { ...data, ...(health || {}) },
+      sensitiveDataConsentRequired: !health,
     });
   } catch (err) {
     console.error("PUBLIC REQUEST ERROR");

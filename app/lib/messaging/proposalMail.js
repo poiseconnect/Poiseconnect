@@ -2,7 +2,7 @@ export function createProposalMail({ to, replyAlias, clientName, coachName, link
   return {
     from: "Poise <hallo@mypoise.de>",
     to,
-    reply_to: replyAlias,
+    ...(replyAlias ? { reply_to: replyAlias } : {}),
     subject: "Deine Terminvorschläge 🤍",
     html: `
       <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #111;">

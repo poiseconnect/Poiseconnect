@@ -1,4 +1,6 @@
 import { ensureOpenConversation } from "../messaging/conversations";
+import { appointmentCareContext, beginAppointmentOperation, endAppointmentOperation } from "../appointmentCare";
+import { currentMeetingLinkOverride } from "../meetingLinkScope";
 
 function safeDateString(v) {
   if (!v) return "";
@@ -23,6 +25,7 @@ export async function confirmAppointment({
   supabase,
   requestId,
   expectedAssignedTherapistId,
+  expectedCareVersion = null,
   client,
   vorname,
 }) {
@@ -37,7 +40,9 @@ export async function confirmAppointment({
       bevorzugte_zeit,
       assigned_therapist_id,
       wunschtherapeut,
-      meeting_link_override
+      meeting_link_override,
+      care_version,
+      meeting_link_care_version
     `)
     .eq("id", requestId)
     .maybeSingle();
@@ -52,11 +57,17 @@ export async function confirmAppointment({
   ) {
     throw new Error("request_assignment_changed");
   }
+  const care = await appointmentCareContext(supabase, requestId, existing.assigned_therapist_id, {
+    expectedVersion: expectedCareVersion,
+  });
+  if (care.error) throw new Error(care.error);
 
   // Schon bestätigt → nichts doppelt schicken
   if (existing.status === "termin_bestaetigt") {
     return { alreadyConfirmed: true };
   }
+  const operation = await beginAppointmentOperation(supabase, requestId, existing.assigned_therapist_id, care.careVersion);
+  if (operation.error) throw new Error(operation.error);
 
   /* --------------------------------------------------
      2️⃣ STATUS → termin_bestaetigt
@@ -67,7 +78,9 @@ export async function confirmAppointment({
       { status: "termin_bestaetigt" },
       { returning: "minimal" }
     )
-    .eq("id", requestId);
+    .eq("id", requestId)
+    .eq("assigned_therapist_id", existing.assigned_therapist_id)
+    .eq("care_version", care.careVersion);
   if (expectedAssignedTherapistId) {
     update = update.eq("assigned_therapist_id", expectedAssignedTherapistId);
   }
@@ -102,15 +115,16 @@ export async function confirmAppointment({
     bookingSettings = bookingData || null;
   }
 
-  const therapistName =
-    (existing.wunschtherapeut || "").trim() || "dein Coach";
+  const { data: currentCoach } = await supabase.from("team_members")
+    .select("name").eq("id", existing.assigned_therapist_id).maybeSingle();
+  const therapistName = currentCoach?.name || "dein Coach";
 
   const terminText = existing.bevorzugte_zeit
     ? safeDateString(existing.bevorzugte_zeit)
     : "wird dir separat mitgeteilt";
 
   const videoLink =
-    existing.meeting_link_override ||
+    currentMeetingLinkOverride(existing) ||
     bookingSettings?.meeting_link ||
     "";
 
@@ -118,7 +132,7 @@ export async function confirmAppointment({
      4️⃣ MAIL AN KLIENT:IN
   -------------------------------------------------- */
   try {
-    await fetch("https://api.resend.com/emails", {
+    const mail = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
@@ -208,9 +222,11 @@ export async function confirmAppointment({
         `,
       }),
     });
+    if (!mail.ok) throw new Error("APPOINTMENT_OPERATION_PENDING");
   } catch {
-    console.warn("⚠️ Mail fehlgeschlagen – Status aber korrekt");
+    throw new Error("APPOINTMENT_OPERATION_PENDING");
   }
 
+  if (!(await endAppointmentOperation(operation))) throw new Error("APPOINTMENT_OPERATION_PENDING");
   return { success: true };
 }

@@ -6,6 +6,8 @@ import {
   json,
 } from "../_lib/server";
 import { Resend } from "resend";
+import { currentMeetingLinkOverride } from "../../lib/meetingLinkScope.js";
+import { appointmentCareContext, withAppointmentOperation } from "../../lib/appointmentCare.js";
 
 function escapeHtml(value) {
   return String(value || "").replace(/[&<>"']/g, (char) => ({
@@ -18,6 +20,7 @@ function escapeHtml(value) {
 }
 
 export async function POST(req) {
+  return withAppointmentOperation(async (operation) => {
   try {
     const auth = await getActiveTeamMember(req);
     if (!auth.member) return json({ error: auth.error }, auth.status);
@@ -25,7 +28,7 @@ export async function POST(req) {
       return json({ error: "NO_ACCESS" }, 403);
     }
 
-    const { requestId } = await req.json();
+    const { requestId, expectedCareVersion } = await req.json();
 
     if (!requestId) {
       return json({ error: "MISSING_REQUEST_ID" }, 400);
@@ -33,7 +36,7 @@ export async function POST(req) {
 
     const { data: anfrage, error } = await auth.supabase
       .from("anfragen")
-      .select("id, email, vorname, assigned_therapist_id, meeting_link_override")
+      .select("id, email, vorname, assigned_therapist_id, meeting_link_override, care_version, meeting_link_care_version")
       .eq("id", requestId)
       .single();
 
@@ -50,7 +53,8 @@ export async function POST(req) {
 
     let bookingSettings = null;
 
-    if (!anfrage.meeting_link_override && anfrage.assigned_therapist_id) {
+    const override = currentMeetingLinkOverride(anfrage);
+    if (!override && anfrage.assigned_therapist_id) {
       const { data, error: bookingError } = await auth.supabase
         .from("therapist_booking_settings")
         .select("meeting_link")
@@ -68,7 +72,7 @@ export async function POST(req) {
     }
 
     const videoLink =
-      anfrage.meeting_link_override ||
+      override ||
       bookingSettings?.meeting_link;
 
     if (!videoLink) {
@@ -83,6 +87,12 @@ export async function POST(req) {
     if (parsedVideoLink.protocol !== "https:") {
       return json({ error: "INVALID_VIDEO_LINK" }, 400);
     }
+    const care = await appointmentCareContext(auth.supabase, requestId,
+      anfrage.assigned_therapist_id, { expectedVersion: expectedCareVersion });
+    if (care.error) return json({ error: care.error }, care.status);
+    const claim = await operation.begin(auth.supabase, requestId,
+      anfrage.assigned_therapist_id, care.careVersion);
+    if (claim.error) return json({ error: claim.error }, claim.status);
 
     const resend = new Resend(process.env.RESEND_API_KEY);
     const safeVideoLink = escapeHtml(parsedVideoLink.toString());
@@ -134,4 +144,5 @@ const { error: updateError } = await auth.supabase
     console.error("SEND VIDEO LINK ERROR");
     return json({ error: "SERVER_ERROR", detail: "INTERNAL_ERROR" }, 500);
   }
+  });
 }

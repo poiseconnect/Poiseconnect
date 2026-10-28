@@ -24,8 +24,11 @@ export default function RechnungPage({ params, searchParams }) {
   const billingYear = searchParams?.billingYear || "";
   const billingMonth = searchParams?.billingMonth || "";
   const billingQuarter = searchParams?.billingQuarter || "";
+  const therapistId = searchParams?.therapistId || "";
 
   const [loading, setLoading] = useState(true);
+  const [historicalBillingOnly, setHistoricalBillingOnly] = useState(false);
+  const [storedInvoice, setStoredInvoice] = useState(null);
 
   // DB Daten
   const [anfrage, setAnfrage] = useState(null);
@@ -70,8 +73,6 @@ export default function RechnungPage({ params, searchParams }) {
     const [sendingInvoice, setSendingInvoice] = useState(false);
     const [sendModalOpen, setSendModalOpen] = useState(false);
   const [sendTo, setSendTo] = useState("");
-  const [sendSubject, setSendSubject] = useState("");
-  const [sendMessage, setSendMessage] = useState("");
 
   useEffect(() => {
     loadData();
@@ -92,6 +93,7 @@ const qs = new URLSearchParams({
   billingYear: String(billingYear || ""),
   billingMonth: String(billingMonth || ""),
   billingQuarter: String(billingQuarter || ""),
+  therapistId: String(therapistId || ""),
 });
 
 const res = await fetch(`/api/invoices/load?${qs.toString()}`, {      headers: {
@@ -111,6 +113,9 @@ const res = await fetch(`/api/invoices/load?${qs.toString()}`, {      headers: {
     const invSettings = json.settings || null;
     const coachData = json.coach || null;
     const invoice = json.invoice || null;
+    const historical = json.historicalBillingOnly === true;
+    setHistoricalBillingOnly(historical);
+    setStoredInvoice(invoice);
 
     setAnfrage(a);
     setSessions(invoiceSessions);
@@ -123,8 +128,8 @@ const res = await fetch(`/api/invoices/load?${qs.toString()}`, {      headers: {
 
     const now = new Date();
     setSavedInvoiceId(invoice?.id ?? null);
-    setInvoiceNumber(invoice?.invoice_number ?? "RE-" + Date.now().toString().slice(-5));
-    setInvoiceDate(invoice?.invoice_date ?? now.toISOString().slice(0, 10));
+    setInvoiceNumber(invoice?.invoice_number ?? (historical ? "" : "RE-" + Date.now().toString().slice(-5)));
+    setInvoiceDate(invoice?.invoice_date ?? (historical ? "" : now.toISOString().slice(0, 10)));
 
     const period = buildServicePeriod(invoiceSessions);
     setServicePeriod(invoice?.service_period ?? period);
@@ -213,10 +218,18 @@ const res = await fetch(`/api/invoices/load?${qs.toString()}`, {      headers: {
 const invoiceWithVat = anfrage?.invoice_with_vat === true;
 
 const vatRate = useMemo(() => {
+  if (historicalBillingOnly && storedInvoice) return Number(storedInvoice.vat_rate || 0);
   return invoiceWithVat ? Number(settings?.default_vat_rate || 20) : 0;
-}, [settings, invoiceWithVat]);
+}, [settings, invoiceWithVat, historicalBillingOnly, storedInvoice]);
   
   const lineItems = useMemo(() => {
+    if (historicalBillingOnly && storedInvoice) {
+      return (storedInvoice.line_items || []).map((item, index) => ({
+        id: item.session_id || `stored-${index}`, date: item.date,
+        description: item.description, qty: Number(item.qty ?? 1),
+        unit: Number(item.unit_price ?? 0), total: Number(item.total ?? 0),
+      }));
+    }
     return (sessions || []).map((s) => {
       const qty = Number(quantities[s.id] ?? 1);
       const unit = Number(unitPrices[s.id] ?? Number(s.price || 0));
@@ -230,9 +243,13 @@ const vatRate = useMemo(() => {
         total,
       };
     });
-  }, [sessions, descriptions, quantities, unitPrices]);
+  }, [sessions, descriptions, quantities, unitPrices, historicalBillingOnly, storedInvoice]);
 
 const totals = useMemo(() => {
+  if (historicalBillingOnly && storedInvoice) {
+    return { net: Number(storedInvoice.total_net || 0), vat: Number(storedInvoice.vat_amount || 0),
+      gross: Number(storedInvoice.total_gross || 0) };
+  }
   let net = 0;
   let vat = 0;
   let gross = 0;
@@ -254,9 +271,13 @@ const totals = useMemo(() => {
   });
 
   return { net, vat, gross };
-}, [lineItems, invoiceWithVat]);
+}, [lineItems, invoiceWithVat, historicalBillingOnly, storedInvoice]);
 
   async function saveInvoice() {
+    if (historicalBillingOnly) {
+      alert("Historische Abrechnung ist schreibgeschützt. Bitte kontaktiere Poise für Korrekturen.");
+      return;
+    }
     try {
       setSaving(true);
 
@@ -326,7 +347,10 @@ const totals = useMemo(() => {
         return;
       }
 
-      if (result?.data?.id) setSavedInvoiceId(result.data.id);
+      if (result?.data?.id) {
+        setSavedInvoiceId(result.data.id);
+        setStoredInvoice(result.data);
+      }
 
       alert("Rechnung gespeichert");
     } finally {
@@ -339,18 +363,7 @@ const totals = useMemo(() => {
       return;
     }
 
-    setSendTo(clientEmail || "");
-    setSendSubject(`Deine Rechnung ${invoiceNumber || ""}`);
-    setSendMessage(
-`Hallo ${clientName || ""},
-
-anbei erhältst du deine Rechnung.
-
-Bei Fragen melde dich gerne direkt bei uns.
-
-Herzliche Grüße
-Poise`
-    );
+    setSendTo(storedInvoice?.client_email || "");
     setSendModalOpen(true);
   }
   async function sendInvoiceToClient() {
@@ -375,8 +388,6 @@ Poise`
         body: JSON.stringify({
           invoiceId: savedInvoiceId,
           to: sendTo,
-          subject: sendSubject,
-          message: sendMessage,
         }),
       });
 
@@ -475,11 +486,18 @@ async function exportPDF() {
 
   return (
     <div style={pageBg}>
+      {historicalBillingOnly && (
+        <p role="status" style={{ maxWidth: 900, margin: "0 auto 18px" }}>
+          Historische Abrechnung: nur eigene Sitzungen und gespeicherte Rechnungen.
+          Änderungen benötigen einen gesonderten Korrekturprozess.
+          {!storedInvoice && " Für diese Auswahl liegt noch keine gespeicherte Rechnung vor."}
+        </p>
+      )}
       {/* TOP ACTIONS */}
       <div style={{ width: 900, margin: "0 auto 18px auto", display: "flex", justifyContent: "flex-end", gap: 10 }}>
         <button
           onClick={saveInvoice}
-          disabled={saving}
+          disabled={saving || historicalBillingOnly}
           style={{
             background: "#111",
             color: "#fff",
@@ -513,6 +531,7 @@ async function exportPDF() {
 
         <button
           onClick={exportPDF}
+          disabled={historicalBillingOnly && !storedInvoice}
           style={{
             background: "#fff",
             color: "#111",
@@ -529,6 +548,7 @@ async function exportPDF() {
 
       {/* PAPER */}
       <div style={paper}>
+        <fieldset disabled={historicalBillingOnly} style={{ border: 0, margin: 0, padding: 0, minWidth: 0 }}>
         {/* HEADER TOP LINE (klein) */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
           <div style={{ ...small, maxWidth: 520 }}>
@@ -776,6 +796,7 @@ async function exportPDF() {
             <div>BIC: {settings.bic || "—"}</div>
           </div>
         </div>
+        </fieldset>
                     {sendModalOpen && (
         <div
           style={{
@@ -820,32 +841,19 @@ value={coach?.email || "Keine Coach-E-Mail hinterlegt"}          disabled
               <input
                 type="email"
                 value={sendTo}
-                onChange={(e) => setSendTo(e.target.value)}
+                readOnly
                 style={{ width: "100%" }}
               />
             </div>
 
             <div style={{ marginBottom: 12 }}>
               <label>Betreff</label>
-              <input
-                type="text"
-                value={sendSubject}
-                onChange={(e) => setSendSubject(e.target.value)}
-                style={{ width: "100%" }}
-              />
+              <p>Deine Rechnung {storedInvoice?.invoice_number || ""}</p>
             </div>
 
             <div style={{ marginBottom: 16 }}>
-              <label>Persönliche Nachricht</label>
-              <textarea
-                value={sendMessage}
-                onChange={(e) => setSendMessage(e.target.value)}
-                style={{
-                  width: "100%",
-                  minHeight: 180,
-                  resize: "vertical",
-                }}
-              />
+              <p>Der Versand verwendet ausschließlich eine neutrale Rechnungsnachricht
+                und die gespeicherte Rechnung. Persönliche Nachrichten sind hier nicht möglich.</p>
             </div>
 
             <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
@@ -859,14 +867,14 @@ value={coach?.email || "Keine Coach-E-Mail hinterlegt"}          disabled
               <button
                 type="button"
                 onClick={sendInvoiceToClient}
-                disabled={sendingInvoice || !sendTo || !sendSubject}
+                disabled={sendingInvoice || !sendTo}
                 style={{
                   background: "#0B6E4F",
                   color: "#fff",
                   border: "none",
                   padding: "10px 16px",
                   borderRadius: 6,
-                  opacity: sendingInvoice || !sendTo || !sendSubject ? 0.7 : 1,
+                  opacity: sendingInvoice || !sendTo ? 0.7 : 1,
                 }}
               >
                 {sendingInvoice ? "Sende…" : "Jetzt senden"}

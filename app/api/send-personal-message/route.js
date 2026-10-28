@@ -1,8 +1,11 @@
 export const dynamic = "force-dynamic";
 
-import { Resend } from "resend";
 import { getUserFromBearer, json, supabaseAdmin } from "../_lib/server";
 import { sendCoachMessage } from "../../lib/messaging/outbound";
+import {
+  authorizeMessagingContext,
+  messagingErrorStatus,
+} from "../../lib/messaging/access";
 
 export async function POST(req) {
   try {
@@ -30,6 +33,17 @@ export async function POST(req) {
       return json({ error: "NO_ACCESS" }, 403);
     }
 
+    const access = await authorizeMessagingContext(supabase, {
+      requestId,
+      coachId: coach.id,
+    });
+    if (!access.ok) {
+      return json(
+        { error: access.error },
+        messagingErrorStatus(access.error) || 403
+      );
+    }
+
     const { data: conversation, error: conversationError } = await supabase
       .from("request_conversations")
       .select("id")
@@ -44,7 +58,6 @@ export async function POST(req) {
 
     const result = await sendCoachMessage({
       supabase,
-      resendClient: new Resend(process.env.RESEND_API_KEY),
       coachId: coach.id,
       conversationId: conversation.id,
       subject: String(subject || "").trim(),
@@ -52,7 +65,12 @@ export async function POST(req) {
       clientRequestId: null,
     });
 
-    if (!result.ok) return json({ error: result.error }, 409);
+    if (!result.ok) {
+      return json(
+        { error: result.error },
+        messagingErrorStatus(result.error) || 409
+      );
+    }
     return json({ ok: true, message: result.message });
   } catch {
     return json({ error: "MESSAGE_SEND_UNAVAILABLE" }, 500);

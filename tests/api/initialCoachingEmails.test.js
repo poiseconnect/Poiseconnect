@@ -62,6 +62,16 @@ function buildSupabase({ coachId, coachingType = "einzel", profile = {}, profile
     booking_token: "synthetic-booking-token",
   };
   const sb = {
+    rpc: async (name, args) => {
+      if (name === "privacy_save_intake") {
+        writes.push({ table: "anfragen", operation: "rpc", payload: args.p_payload });
+        return { data: { id: anfrage.id, care_version: 0 }, error: null };
+      }
+      return {
+        data: { allowed: true, careVersion: 0, coachId, operationId: args.p_operation_id },
+        error: null,
+      };
+    },
     from: (table) => {
       let operation = "select";
       let fields = "";
@@ -76,6 +86,7 @@ function buildSupabase({ coachId, coachingType = "einzel", profile = {}, profile
             text_version: "2026-10-16-v1",
             granted_at: "2026-10-16T10:00:00.000Z",
             revoked_at: null,
+            superseded_at: null,
           };
           const matches = filters.every(([key, value]) => consent[key] === value);
           return { data: matches ? consent : null, error: null };

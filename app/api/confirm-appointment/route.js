@@ -6,6 +6,8 @@ import {
   json,
 } from "../_lib/server";
 import { ensureOpenConversation } from "../../lib/messaging/conversations";
+import { appointmentCareContext, withAppointmentOperation } from "../../lib/appointmentCare";
+import { currentMeetingLinkOverride } from "../../lib/meetingLinkScope";
 
 function safeDateString(v) {
   if (!v) return "";
@@ -25,6 +27,10 @@ function safeDateString(v) {
 }
 
 export async function POST(request) {
+  return withAppointmentOperation((operation) => executePost(request, operation));
+}
+
+async function executePost(request, operation) {
   try {
     const auth = await getActiveTeamMember(request);
     if (!auth.member) return json({ error: auth.error }, auth.status);
@@ -51,6 +57,8 @@ export async function POST(request) {
         assigned_therapist_id,
         wunschtherapeut,
         meeting_link_override,
+        care_version,
+        meeting_link_care_version,
         booking_token,
         email,
         vorname
@@ -65,11 +73,17 @@ export async function POST(request) {
     if (!canAccessAssignedRequest(auth.member, existing.assigned_therapist_id)) {
       return json({ error: "NO_ACCESS" }, 403);
     }
+    const care = await appointmentCareContext(auth.supabase, requestId, existing.assigned_therapist_id, {
+      expectedVersion: body.expectedCareVersion ?? null,
+    });
+    if (care.error) return json({ error: care.error }, care.status);
 
     // ❗ Schon bestätigt → nichts tun
     if (existing.status === "termin_bestaetigt") {
       return json({ ok: true, alreadyConfirmed: true });
     }
+    const claim = await operation.begin(auth.supabase, requestId, existing.assigned_therapist_id, care.careVersion);
+    if (claim.error) return json({ error: claim.error }, claim.status);
 
     /* --------------------------------------------------
        2️⃣ STATUS → termin_bestaetigt
@@ -80,7 +94,9 @@ export async function POST(request) {
         { status: "termin_bestaetigt" },
         { returning: "minimal" }
       )
-      .eq("id", requestId);
+      .eq("id", requestId)
+      .eq("assigned_therapist_id", existing.assigned_therapist_id)
+      .eq("care_version", care.careVersion);
     if (auth.member.role === "therapist") {
       update = update.eq("assigned_therapist_id", auth.member.id);
     }
@@ -118,15 +134,17 @@ export async function POST(request) {
       }
     }
 
-    const therapistName =
-      existing.wunschtherapeut?.trim() || "dein Coach";
+    const { data: currentCoach } = await auth.supabase
+      .from("team_members").select("name")
+      .eq("id", existing.assigned_therapist_id).maybeSingle();
+    const therapistName = currentCoach?.name || "dein Coach";
 
     const terminText = existing.bevorzugte_zeit
       ? safeDateString(existing.bevorzugte_zeit)
       : "wird dir separat mitgeteilt";
 
     const videoLink =
-      existing.meeting_link_override ||
+      currentMeetingLinkOverride(existing) ||
       bookingSettings?.meeting_link ||
       "";
 const appBaseUrl = (
@@ -239,6 +257,7 @@ ${
     });
 
     if (!mailRes.ok) {
+      operation.markUnknown();
       console.warn("MAIL FAILED – STATUS IS STILL CORRECT");
     }
 

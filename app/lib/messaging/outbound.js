@@ -1,4 +1,8 @@
 import { Resend } from "resend";
+import {
+  authorizeMessagingContext,
+  getMessagingDispatchAvailability,
+} from "./access";
 
 const DEFAULT_FROM = "Poise <noreply@mypoise.de>";
 
@@ -54,6 +58,11 @@ export async function sendCoachMessage({
   text,
   clientRequestId,
 }) {
+  const access = await authorizeMessagingContext(supabase, { conversationId, coachId });
+  if (!access.ok) return { error: access.error };
+  const dispatch = getMessagingDispatchAvailability();
+  if (!dispatch.ok) return { error: dispatch.error };
+
   const { data: conversation, error: conversationError } = await supabase
     .from("request_conversations")
     .select("id, anfrage_id, therapist_id, status, reply_alias, alias_revoked_at")
@@ -148,6 +157,11 @@ export async function sendClientMessage({
   text,
   clientRequestId,
 }) {
+  const access = await authorizeMessagingContext(supabase, { requestId: anfrageId });
+  if (!access.ok) return { error: access.error };
+  const dispatch = getMessagingDispatchAvailability();
+  if (!dispatch.ok) return { error: dispatch.error };
+
   const { data: anfrage, error: requestError } = await supabase
     .from("anfragen")
     .select("id, assigned_therapist_id")

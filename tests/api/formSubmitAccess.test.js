@@ -16,6 +16,14 @@ vi.mock("../../app/lib/loadPublishedCoachingCosts.js", () => ({ loadPublishedCoa
 vi.mock("resend", () => ({ Resend: class { emails = { send: mocks.send }; } }));
 vi.mock("@supabase/supabase-js", () => ({
   createClient: () => ({
+    rpc: vi.fn(async (name, args) => {
+      expect(name).toBe("privacy_save_intake");
+      if (mocks.race) return { data: null, error: { message: "REQUEST_NOT_FOUND" } };
+      if (mocks.consent.linkFails) return { data: null, error: { message: "CONSENT_LINK_FAILED" } };
+      mocks.writes.push(args.p_payload);
+      mocks.filters.push({ operation: "rpc", filters: [["booking_token", args.p_booking_token]] });
+      return { data: { id: args.p_request_id || "new-request" }, error: null };
+    }),
     from: (table) => {
       let operation = "select";
       let payload;
@@ -83,6 +91,7 @@ describe("public request finalization access", () => {
       text_version: HEALTH_DATA_CONSENT_VERSION,
       granted_at: "2026-10-16T10:00:00.000Z",
       revoked_at: null,
+      superseded_at: null,
     };
     vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "https://supabase.example.invalid");
     vi.stubEnv("SUPABASE_SERVICE_ROLE_KEY", "synthetic-key");
@@ -106,7 +115,7 @@ describe("public request finalization access", () => {
     expect(response.status).toBe(200);
     expect(mocks.writes).toHaveLength(1);
     expect(mocks.writes[0]).toMatchObject({ email: body.email, status: "neu" });
-    expect(mocks.filters.find(({ operation }) => operation === "update").filters).toContainEqual(["booking_token", body.booking_token]);
+    expect(mocks.filters.find(({ operation }) => operation === "rpc").filters).toContainEqual(["booking_token", body.booking_token]);
   });
   it("rejects sensitive form content without a recorded active consent", async () => {
     const response = await POST(
@@ -133,9 +142,9 @@ describe("public request finalization access", () => {
     const response = await POST(request({ ...body, anfrageId: null, booking_token: null }));
     expect(response.status).toBe(200);
     expect(mocks.writes).toHaveLength(1);
-    expect(mocks.writes[0].booking_token).toMatch(/^[a-f0-9-]{36}$/);
+    expect(mocks.writes[0].booking_token).toBeUndefined();
   });
-  it("rolls back a newly created request if its consent cannot be linked", async () => {
+  it("fails closed on atomic consent-link failure without separate deletion or mail", async () => {
     mocks.consent.linkFails = true;
 
     const response = await POST(
@@ -143,8 +152,7 @@ describe("public request finalization access", () => {
     );
 
     expect(response.status).toBe(503);
-    expect(mocks.rollbacks).toHaveLength(1);
-    expect(mocks.rollbacks[0]).toContainEqual(["id", "new-request"]);
+    expect(mocks.rollbacks).toHaveLength(0);
     expect(mocks.ensure).not.toHaveBeenCalled();
     expect(mocks.send).not.toHaveBeenCalled();
   });

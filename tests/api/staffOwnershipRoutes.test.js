@@ -7,6 +7,7 @@ const state = vi.hoisted(() => ({
   sessionRow: null,
   reads: [],
   writes: [],
+  rpcCalls: [],
 }));
 
 vi.mock("../../app/api/_lib/server.js", () => ({
@@ -45,6 +46,24 @@ function makeRequest(body, method = "POST") {
 
 function createSupabase() {
   return {
+    rpc: async (name, args) => {
+      state.rpcCalls.push({ name, args });
+      if (name === "privacy_delete_care_session") {
+        state.writes.push({ table: "sessions", type: "delete" });
+        return { data: { success: true }, error: null };
+      }
+      if (name === "privacy_delete_request") {
+        return { data: { deleted: true }, error: null };
+      }
+      return {
+      data: {
+        allowed: true, careVersion: 0,
+        coachId: state.requestRow.assigned_therapist_id,
+        operationId: args.p_operation_id,
+      },
+      error: null,
+      };
+    },
     from(table) {
       const filters = [];
       let operation = "read";
@@ -54,6 +73,10 @@ function createSupabase() {
         },
         eq(column, value) {
           filters.push([column, value]);
+          return query;
+        },
+        in(column, values) {
+          filters.push([column, values]);
           return query;
         },
         order() {
@@ -99,7 +122,7 @@ function createSupabase() {
 
 function tableData(table) {
   if (table === "team_members") {
-    return { id: "coach-a", role: "therapist", active: true };
+    return { id: "coach-a", user_id: "auth-coach-a", role: "therapist", active: true };
   }
   if (table === "sessions") return state.sessionRow;
   return state.requestRow;
@@ -113,6 +136,7 @@ describe("staff ownership boundaries", () => {
   beforeEach(() => {
     state.reads = [];
     state.writes = [];
+    state.rpcCalls = [];
     state.requestRow = {
       id: "request-1",
       assigned_therapist_id: "coach-b",
@@ -121,7 +145,7 @@ describe("staff ownership boundaries", () => {
       vorname: "Test",
       wunschtherapeut: "Testcoach",
     };
-    state.sessionRow = { id: "session-1", therapist_id: "auth-coach-a" };
+    state.sessionRow = { id: "session-1", therapist_id: "auth-coach-a", anfrage_id: "request-1" };
     state.supabase = createSupabase();
     state.auth = {
       user: { id: "auth-coach-a" },
@@ -203,9 +227,10 @@ describe("staff ownership boundaries", () => {
       type: "insert",
       payload: [
         {
-          request_id: "request-1",
+          anfrage_id: "request-1",
           therapist_id: "coach-a",
-          proposed_at: "2099-10-20T10:00:00.000Z",
+          date: "2099-10-20T10:00:00.000Z",
+          expires_at: expect.any(String),
         },
       ],
     });
@@ -224,23 +249,31 @@ describe("staff ownership boundaries", () => {
       type: "update",
       payload: expect.objectContaining({
         status: "termin_neu",
-        assigned_therapist_id: "coach-a",
       }),
     });
   });
 
   it("allows an admin to permanently delete a request", async () => {
     state.auth.member = { id: "admin-1", role: "admin", active: true };
-    const response = await deleteForever(makeRequest({ requestId: "request-1" }));
+    const requestId = "11111111-1111-4111-8111-111111111111";
+    const response = await deleteForever(makeRequest({ requestId }));
 
     expect(response.status).toBe(200);
-    expect(state.writes).toContainEqual({
-      table: "anfragen",
-      type: "delete",
+    expect(state.writes).toHaveLength(0);
+    expect(state.rpcCalls).toContainEqual({
+      name: "privacy_delete_request",
+      args: { p_request_id: requestId, p_actor_id: "admin-1" },
     });
   });
 
-  it("preserves deletion of a therapist's historical session stored by auth user ID", async () => {
+  it("denies deletion of a former therapist's historical session stored by auth user ID", async () => {
+    const response = await deleteSession(makeRequest({ sessionId: "session-1" }));
+    expect(response.status).toBe(403);
+    expect(state.writes).toHaveLength(0);
+  });
+
+  it("preserves legacy-owner session deletion only while still assigned", async () => {
+    state.requestRow.assigned_therapist_id = "coach-a";
     const response = await deleteSession(makeRequest({ sessionId: "session-1" }));
     expect(response.status).toBe(200);
     expect(state.writes).toContainEqual({

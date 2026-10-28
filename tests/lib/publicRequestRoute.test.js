@@ -14,6 +14,14 @@ const CONSENT_TOKEN = "d".repeat(64);
 
 vi.mock("@supabase/supabase-js", () => ({
   createClient: () => ({
+    rpc: vi.fn(async (name, args) => {
+      expect(name).toBe("privacy_read_public_health");
+      expect(args).toEqual({ p_request_id: "anfrage-123",
+        p_booking_token: "token-uuid-123",
+        p_consent_hash: hashHealthDataConsentToken(CONSENT_TOKEN) });
+      return { data: queryConfig.consentValid ? { anliegen: queryConfig.mockData.anliegen } : null,
+        error: null };
+    }),
     from: vi.fn((table) => {
       if (table === "anfrage_health_data_consents") {
         const filters = [];
@@ -167,7 +175,8 @@ describe("public request route security fix", () => {
       email: "maria@example.invalid",
     });
     expect(json.request.booking_token).toBeUndefined();
-    expect(queryConfig.selectFields).toBe(PUBLIC_REQUEST_SELECT_FIELDS);
+    expect(queryConfig.selectFields).toBe(PUBLIC_REQUEST_BASE_SELECT_FIELDS);
+    expect(json.request.anliegen).toBe("Mehr Ruhe finden");
     expect(queryConfig.selectFields).not.toContain("*");
     expect(queryConfig.selectFields).not.toContain("booking_token");
     expect(queryConfig.eqId).toBe("anfrage-123");
@@ -208,7 +217,8 @@ describe("public request route security fix", () => {
   it("excludes health data from the default public request selection", () => {
     const fields = PUBLIC_REQUEST_BASE_SELECT_FIELDS.split(", ").map((f) => f.trim());
 
-    expect(fields).not.toContain("status");
+    expect(fields).toContain("status");
+    expect(fields).toContain("care_version");
     expect(fields).not.toContain("match_state");
     expect(fields).not.toContain("created_at");
     expect(fields).not.toContain("meeting_link_override");

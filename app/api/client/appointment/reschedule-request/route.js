@@ -1,6 +1,7 @@
 export const dynamic = "force-dynamic";
 
 import { createClient } from "@supabase/supabase-js";
+import { appointmentCareContext, withAppointmentOperation } from "../../../../lib/appointmentCare";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -15,8 +16,12 @@ function json(data, status = 200) {
 }
 
 export async function POST(req) {
+  return withAppointmentOperation((operation) => executePost(req, operation));
+}
+
+async function executePost(req, operation) {
   try {
-    const { token } = await req.json();
+    const { token, expectedCareVersion } = await req.json();
 
     if (!token) {
       return json({ error: "missing_token" }, 400);
@@ -44,6 +49,10 @@ export async function POST(req) {
     if (!request.assigned_therapist_id) {
       return json({ error: "no_therapist_assigned" }, 400);
     }
+    const care = await appointmentCareContext(supabase, request.id, request.assigned_therapist_id, {
+      link: true, expectedVersion: expectedCareVersion ?? null,
+    });
+    if (care.error) return json({ error: care.error }, care.status);
 
     // Coach laden
     const { data: coach, error: coachError } = await supabase
@@ -71,12 +80,16 @@ export async function POST(req) {
     // WICHTIG:
     // bestehenden Termin NICHT löschen.
     // Nur Änderungswunsch markieren.
+    const claim = await operation.begin(supabase, request.id, request.assigned_therapist_id, care.careVersion);
+    if (claim.error) return json({ error: claim.error }, claim.status);
     const { error: updateError } = await supabase
       .from("anfragen")
       .update({
         match_state: "reschedule_requested",
       })
-      .eq("id", request.id);
+      .eq("id", request.id)
+      .eq("assigned_therapist_id", request.assigned_therapist_id)
+      .eq("care_version", care.careVersion);
 
     if (updateError) {
       console.error("RESCHEDULE REQUEST UPDATE FAILED:", { code: updateError?.code || null });
@@ -97,7 +110,7 @@ export async function POST(req) {
         "Klient:in";
 
       try {
-        await fetch("https://api.resend.com/emails", {
+        const mail = await fetch("https://api.resend.com/emails", {
           method: "POST",
           headers: {
             Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
@@ -126,7 +139,9 @@ export async function POST(req) {
             `,
           }),
         });
+        if (!mail.ok) operation.markUnknown();
       } catch (mailError) {
+        operation.markUnknown();
         console.error("RESCHEDULE REQUEST MAIL FAILED");
       }
     }

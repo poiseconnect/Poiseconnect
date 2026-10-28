@@ -44,6 +44,36 @@ describe("Resend inbound webhook", () => {
     await expect(response.json()).resolves.toEqual({ error: "EVENT_ID_MISSING" });
   });
 
+  it("meldet den pausierten Inhaltspfad explizit statt das Event als verarbeitet zu bestätigen", async () => {
+    vi.doMock("../../app/lib/messaging/inbound", () => ({
+      verifyResendWebhook: vi.fn(() => ({
+        id: "synthetic-event-1",
+        type: "email.received",
+        data: { email_id: "synthetic-email-1" },
+      })),
+      processInboundResendEvent: vi.fn(() =>
+        Promise.resolve({ error: "MESSAGING_CONTENT_PAUSED" })
+      ),
+    }));
+    vi.doMock("../../app/api/_lib/server", () => ({
+      json: (data, status = 200) => new Response(JSON.stringify(data), {
+        status,
+        headers: { "Content-Type": "application/json" },
+      }),
+      supabaseAdmin: vi.fn(() => ({})),
+    }));
+
+    const { POST } = await import("../../app/api/webhooks/resend/route.js");
+    const response = await POST(new Request("https://app.example.invalid/api/webhooks/resend", {
+      method: "POST",
+      headers: { "svix-id": "svix-event-1" },
+      body: JSON.stringify({ type: "email.received" }),
+    }));
+
+    expect(response.status).toBe(503);
+    await expect(response.json()).resolves.toEqual({ error: "MESSAGING_CONTENT_PAUSED" });
+  });
+
   it("gibt bei gültiger Svix-Signatur das echte geparste Event zurück", () => {
     // Kein "whsec_"-Präfix: Svix akzeptiert auch reines Base64 als Testsecret.
     const secret = Buffer.from("not-a-real-secret-e2e-test-fixture", "utf8").toString("base64");

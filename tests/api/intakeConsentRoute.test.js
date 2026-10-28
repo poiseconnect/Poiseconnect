@@ -4,10 +4,12 @@ import { hashHealthDataConsentToken } from "../../app/lib/healthDataConsent.js";
 const mocks = vi.hoisted(() => ({
   consents: [],
   requests: [{ id: "request-1", booking_token: "booking-token" }],
+  rpc: vi.fn(),
 }));
 
 vi.mock("@supabase/supabase-js", () => ({
   createClient: () => ({
+    rpc: (...args) => mocks.rpc(...args),
     from(table) {
       let operation = "select";
       let payload;
@@ -109,6 +111,30 @@ describe("POST /api/intake-consent", () => {
   beforeEach(() => {
     mocks.consents = [];
     mocks.requests = [{ id: "request-1", booking_token: "booking-token" }];
+    mocks.rpc.mockReset();
+    mocks.rpc.mockImplementation(async (name, args) => {
+      if (name === "privacy_authorize_recipient") return { data: true, error: null };
+      const request = mocks.requests.find((row) =>
+        row.id === args.p_request_id && row.booking_token === args.p_booking_token);
+      if (name === "privacy_grant_intake_consent") {
+        if (args.p_request_id && !request) {
+          return { data: null, error: { message: "REQUEST_NOT_FOUND" } };
+        }
+        const row = { id: `consent-${mocks.consents.length + 1}`,
+          request_id: args.p_request_id, token_hash: args.p_token_hash,
+          text_version: "2026-10-16-v1", granted_at: "2026-10-27T10:00:00Z",
+          revoked_at: null };
+        mocks.consents.push(row);
+        return { data: row.id, error: null };
+      }
+      if (name === "privacy_revoke_intake_consent") {
+        const consent = mocks.consents.find((row) => row.token_hash === args.p_token_hash);
+        if (!consent || (consent.request_id && !request)) return { data: false, error: null };
+        consent.revoked_at = "2026-10-27T11:00:00Z";
+        return { data: true, error: null };
+      }
+      throw new Error(`Unexpected RPC ${name}`);
+    });
     vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "https://supabase.example.invalid");
     vi.stubEnv("SUPABASE_SERVICE_ROLE_KEY", "synthetic-key");
     vi.spyOn(console, "error").mockImplementation(() => {});
@@ -186,5 +212,35 @@ describe("POST /api/intake-consent", () => {
 
     expect(revokeResponse.status).toBe(404);
     expect(mocks.consents[0].revoked_at).toBeNull();
+  });
+
+  it("requires explicit versioned recipient acceptance before invoking scope RPC", async () => {
+    const response = await POST(request({ action: "authorize-recipient",
+      coachId: "coach-1", consentToken: "a".repeat(64) }));
+    expect(response.status).toBe(400);
+    expect(mocks.rpc).not.toHaveBeenCalled();
+  });
+
+  it("passes recipient identity, proof hash and expected care version without widening the original proof", async () => {
+    const response = await POST(request({ action: "authorize-recipient",
+      requestId: "request-1", booking_token: "booking-token", coachId: "coach-1",
+      consentToken: "a".repeat(64), accepted: true, expectedCareVersion: 3,
+      noticeVersion: "2026-10-28-recipient-v1" }));
+    expect(response.status).toBe(200);
+    expect(mocks.rpc).toHaveBeenCalledWith("privacy_authorize_recipient", {
+      p_request_id: "request-1", p_booking_token: "booking-token",
+      p_consent_hash: hashHealthDataConsentToken("a".repeat(64)),
+      p_coach_id: "coach-1", p_expected_version: 3,
+      p_notice_version: "2026-10-28-recipient-v1",
+    });
+    expect(mocks.consents).toHaveLength(0);
+  });
+
+  it("fails closed when the recipient-scope RPC is missing", async () => {
+    mocks.rpc.mockResolvedValue({ data: null, error: { code: "PGRST202" } });
+    const response = await POST(request({ action: "authorize-recipient",
+      coachId: "coach-1", consentToken: "a".repeat(64), accepted: true,
+      noticeVersion: "2026-10-28-recipient-v1" }));
+    expect(response.status).toBe(503);
   });
 });

@@ -45,11 +45,8 @@ describe("proposal message route", () => {
     sendClientMessage.mockReset();
   });
 
-  it("resolves the request solely from the proposal token and delegates to the existing messaging helper", async () => {
-    sendClientMessage.mockResolvedValue({
-      ok: true,
-      message: { id: "message-1", delivery_status: "forwarded" },
-    });
+  it("resolves the request solely from the proposal token and returns the explicit dispatch pause", async () => {
+    sendClientMessage.mockResolvedValue({ error: "MESSAGING_CONTENT_PAUSED" });
 
     const response = await POST(request({
       token: validToken,
@@ -59,12 +56,8 @@ describe("proposal message route", () => {
       recipient: "attacker-controlled",
     }));
 
-    expect(response.status).toBe(200);
-    await expect(response.json()).resolves.toEqual({
-      ok: true,
-      message: { id: "message-1", delivery_status: "forwarded" },
-      duplicate: false,
-    });
+    expect(response.status).toBe(503);
+    await expect(response.json()).resolves.toEqual({ error: "MESSAGING_CONTENT_PAUSED" });
     expect(sendClientMessage).toHaveBeenCalledWith(expect.objectContaining({
       anfrageId: "request-1",
       subject: "Rückmeldung zu Terminvorschlägen",

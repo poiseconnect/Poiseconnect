@@ -1,6 +1,8 @@
 export const dynamic = "force-dynamic";
 
 import { createClient } from "@supabase/supabase-js";
+import { appointmentCareContext, beginAppointmentOperation, endAppointmentOperation } from "../../../lib/appointmentCare";
+import { currentMeetingLinkOverride } from "../../../lib/meetingLinkScope";
 import { formatInViennaTime } from "../../../lib/formatAppointmentTime";
 import { sendDraftRecoveryReminders } from "../../../lib/draftRecovery";
 
@@ -62,8 +64,9 @@ async function sendMail({ to, subject, html }) {
 }
 
 async function getVideoLink(anfrage) {
-  if (anfrage.meeting_link_override?.trim()) {
-    return anfrage.meeting_link_override.trim();
+  const override = currentMeetingLinkOverride(anfrage);
+  if (override) {
+    return override;
   }
 
   if (!anfrage.assigned_therapist_id) return "";
@@ -103,6 +106,8 @@ export async function GET(req) {
         assigned_therapist_id,
         wunschtherapeut,
         meeting_link_override,
+        care_version,
+        meeting_link_care_version,
         reminder_24h_sent,
         reminder_2h_sent,
         status
@@ -128,8 +133,22 @@ export async function GET(req) {
         // Vergangene Termine ignorieren
         if (hrs <= 0) continue;
 
-        const therapistName =
-          anfrage.wunschtherapeut?.trim() || "dein Coach";
+        const care = await appointmentCareContext(
+          supabase, anfrage.id, anfrage.assigned_therapist_id
+        );
+        if (care.error) continue;
+        if (
+          !(!anfrage.reminder_24h_sent && inWindow(hrs, 23.5, 24.5)) &&
+          !(!anfrage.reminder_2h_sent && inWindow(hrs, 1.5, 2.5))
+        ) continue;
+        const operation = await beginAppointmentOperation(
+          supabase, anfrage.id, anfrage.assigned_therapist_id
+        );
+        if (operation.error) continue;
+
+        const { data: currentCoach } = await supabase.from("team_members")
+          .select("name").eq("id", anfrage.assigned_therapist_id).maybeSingle();
+        const therapistName = currentCoach?.name || "dein Coach";
 
         const terminText = safeDateString(anfrage.bevorzugte_zeit);
         const videoLink = await getVideoLink(anfrage);
@@ -196,7 +215,7 @@ export async function GET(req) {
             .eq("id", anfrage.id);
 
           if (update24Error) {
-            console.error("REMINDER 24 FLAG ERROR:", update24Error);
+            throw new Error("APPOINTMENT_OPERATION_PENDING");
           } else {
             sent24 += 1;
             logs.push({
@@ -256,7 +275,7 @@ export async function GET(req) {
             .eq("id", anfrage.id);
 
           if (update2Error) {
-            console.error("REMINDER 2H FLAG ERROR:", update2Error);
+            throw new Error("APPOINTMENT_OPERATION_PENDING");
           } else {
             sent2 += 1;
             logs.push({
@@ -265,6 +284,9 @@ export async function GET(req) {
               email: anfrage.email,
             });
           }
+        }
+        if (!(await endAppointmentOperation(operation))) {
+          return json({ error: "APPOINTMENT_OPERATION_PENDING" }, 503);
         }
       } catch (itemError) {
         console.error("REMINDER ITEM ERROR", { requestId: anfrage?.id || null, code: itemError?.code || null });

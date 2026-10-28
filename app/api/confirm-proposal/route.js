@@ -2,6 +2,8 @@ export const dynamic = "force-dynamic";
 
 import { createClient } from "@supabase/supabase-js";
 import { google } from "googleapis";
+import { appointmentCareContext, withAppointmentOperation } from "../../lib/appointmentCare";
+import { currentMeetingLinkOverride } from "../../lib/meetingLinkScope";
 import { oauthClient } from "../_lib/server";
 import { ensureOpenConversation } from "../../lib/messaging/conversations";
 
@@ -35,6 +37,10 @@ function safeDateString(v) {
 }
 
 export async function POST(req) {
+  return withAppointmentOperation((operation) => executePost(req, operation));
+}
+
+async function executePost(req, operation) {
   try {
 const { token, proposalId } = await req.json();
 
@@ -68,7 +74,7 @@ const requestId = tokenRequest.id;
 const { data: proposal, error: pError } = await supabase
   .from("appointment_proposals")
   .select(
-    "id, anfrage_id, therapist_id, date, expires_at, google_event_id"
+    "id, anfrage_id, therapist_id, date, expires_at, google_event_id, care_version"
   )
   .eq("id", proposalId)
   .single();
@@ -127,7 +133,9 @@ if (
   bevorzugte_zeit,
   assigned_therapist_id,
   wunschtherapeut,
-  meeting_link_override
+  meeting_link_override,
+  care_version,
+  meeting_link_care_version
 `)
       .eq("id", requestId)
       .single();
@@ -136,6 +144,18 @@ if (
       console.error("request_load_failed", { code: reqLoadError?.code || null });
       return json({ error: "request_not_found" }, 404);
     }
+
+const care = await appointmentCareContext(
+  supabase, requestId, existingRequest.assigned_therapist_id, {
+    link: true, expectedVersion: proposal.care_version ?? null,
+  }
+);
+if (care.error) return json({ error: care.error }, care.status);
+if (String(proposal.therapist_id) !== String(existingRequest.assigned_therapist_id)) {
+  return json({ error: "APPOINTMENT_ASSIGNMENT_CHANGED" }, 409);
+}
+const claim = await operation.begin(supabase, requestId, proposal.therapist_id, care.careVersion);
+if (claim.error) return json({ error: claim.error }, claim.status);
 
 // ------------------------------------------------
 // Prüfen, ob der Zeitraum inzwischen belegt ist
@@ -265,14 +285,13 @@ if (proposal.therapist_id) {
 // ------------------------------------------------
 const therapistName =
   coach?.name ||
-  existingRequest.wunschtherapeut?.trim() ||
   "dein Coach";
 
 const terminText =
   safeDateString(proposal.date);
 
 const videoLink =
-  existingRequest.meeting_link_override ||
+  currentMeetingLinkOverride(existingRequest) ||
   bookingSettings?.meeting_link ||
   "";
 
@@ -324,6 +343,16 @@ const timeZone =
   bookingSettings.time_zone || "Europe/Vienna";
 
 const bookedGoogleEventId = proposal.google_event_id;
+
+const providerCare = await appointmentCareContext(
+  supabase, requestId, proposal.therapist_id, {
+    link: true, expectedVersion: care.careVersion,
+  }
+);
+if (providerCare.error) {
+  await supabase.from("blocked_slots").delete().eq("id", blockedSlot.id);
+  return json({ error: providerCare.error }, providerCare.status);
+}
 
 try {
   const descriptionLines = [
@@ -396,10 +425,11 @@ const { error: updateError } = await supabase
   .from("anfragen")
   .update({
     bevorzugte_zeit: proposal.date,
-    assigned_therapist_id: proposal.therapist_id,
     status: "termin_bestaetigt",
   })
-  .eq("id", requestId);
+  .eq("id", requestId)
+  .eq("assigned_therapist_id", proposal.therapist_id)
+  .eq("care_version", care.careVersion);
 
 if (updateError) {
   console.error("request_update_failed");
@@ -476,6 +506,7 @@ const { data: otherProposals, error: otherProposalsError } =
     .neq("id", proposalId);
 
 if (otherProposalsError) {
+  operation.markUnknown();
   console.error("OTHER PROPOSALS LOAD FAILED");
 } else {
   // ----------------------------------------------
@@ -495,6 +526,7 @@ if (otherProposalsError) {
 
       console.log("UNUSED GOOGLE PROPOSAL DELETED");
     } catch {
+      operation.markUnknown();
       console.error("UNUSED GOOGLE PROPOSAL DELETE FAILED");
     }
   }
@@ -509,6 +541,7 @@ if (otherProposalsError) {
     .neq("id", proposalId);
 
   if (delError) {
+    operation.markUnknown();
     console.error("OTHER PROPOSALS DELETE FAILED");
   }
 }
@@ -524,6 +557,7 @@ const { error: selectedProposalDeleteError } =
     .eq("id", proposalId);
 
 if (selectedProposalDeleteError) {
+  operation.markUnknown();
   console.error("SELECTED PROPOSAL DELETE FAILED");
 }
     // ------------------------------------------------
@@ -615,13 +649,14 @@ if (selectedProposalDeleteError) {
         }),
       });
 
+      if (!mailRes.ok) operation.markUnknown();
       console.log("📧 RESEND STATUS:", mailRes.status);
     }
 if (coach?.email) {
 
   const hasVideoLink = Boolean(videoLink);
 
-  await fetch("https://api.resend.com/emails", {
+  const coachMailRes = await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: {
       Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
@@ -670,6 +705,7 @@ html: `
 `,
     }),
   });
+  if (!coachMailRes.ok) operation.markUnknown();
 }
     return json({ ok: true });
   } catch (e) {

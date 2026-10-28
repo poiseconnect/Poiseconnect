@@ -3,9 +3,7 @@ export const dynamic = "force-dynamic";
 import { createClient } from "@supabase/supabase-js";
 import { buildDraftRecoveryFields } from "../../lib/draftRecovery.js";
 import {
-  attachHealthDataConsent,
   findActiveHealthDataConsent,
-  removeRequestAfterConsentLinkFailure,
 } from "../../lib/healthDataConsent.js";
 
 function json(data, status = 200) {
@@ -127,85 +125,23 @@ status: "draft",
 match_state: "draft",
 };
 
-    if (anfrageId) {
-      const { data, error } = await supabase
-        .from("anfragen")
-        .update(payload)
-        .eq("id", anfrageId)
-        .eq("booking_token", booking_token)
-        .eq("status", "draft")
-        .select("id, booking_token, assigned_therapist_id")
-        .maybeSingle();
-
-      if (error) {
-        console.error("DRAFT UPDATE ERROR:", { code: error?.code || null });
-        return json({ error: "DRAFT_UPDATE_FAILED" }, 500);
-      }
-
-      if (!data) {
-        const { data: currentRequest, error: currentLoadError } = await supabase
-          .from("anfragen")
-          .select("status")
-          .eq("id", anfrageId)
-          .eq("booking_token", booking_token)
-          .maybeSingle();
-
-        if (currentLoadError) {
-          console.error("DRAFT CONFLICT STATUS LOAD ERROR:", {
-            requestId: anfrageId,
-            code: currentLoadError?.code || null,
-          });
-          return json({ error: "DRAFT_LOAD_FAILED" }, 500);
-        }
-
-        if (!currentRequest) {
-          return json({ error: "REQUEST_NOT_FOUND" }, 404);
-        }
-
-        console.warn("DRAFT UPDATE CONFLICT", {
-          route: "/api/create-request-draft",
-          requestId: anfrageId,
-          currentStatus: currentRequest.status,
-          code: "REQUEST_ALREADY_FINALIZED",
-        });
-        return json({ error: "REQUEST_ALREADY_FINALIZED" }, 409);
-      }
-
-      return json({
-        ok: true,
-        id: data.id,
-        booking_token: data.booking_token,
-        assigned_therapist_id: data.assigned_therapist_id,
-      });
-    }
-
-    const { data, error } = await supabase
-      .from("anfragen")
-      .insert({
-        ...payload,
-        booking_token: crypto.randomUUID(),
-      })
-      .select("id, booking_token, assigned_therapist_id")
-      .single();
-
-    if (error) {
-      console.error("DRAFT INSERT ERROR:", { code: error?.code || null });
-      return json({ error: "DRAFT_INSERT_FAILED" }, 500);
-    }
-
-    try {
-      const linked = await attachHealthDataConsent(supabase, consent, data.id);
-      if (!linked) {
-        throw new Error("HEALTH_DATA_CONSENT_LINK_FAILED");
-      }
-    } catch {
-      console.error("HEALTH_DATA_CONSENT_LINK_FAILED");
-      try {
-        await removeRequestAfterConsentLinkFailure(supabase, data.id);
-      } catch {
-        console.error("HEALTH_DATA_CONSENT_ROLLBACK_FAILED");
-      }
-      return json({ error: "CONSENT_UNAVAILABLE" }, 503);
+    const { data, error } = await supabase.rpc("privacy_save_intake", {
+      p_request_id: anfrageId || null,
+      p_booking_token: booking_token || null,
+      p_consent_id: consent.id,
+      p_payload: payload,
+      p_draft: true,
+    });
+    if (error || !data?.id) {
+      const conflicts = [
+        "REQUEST_ALREADY_FINALIZED", "INTAKE_RECIPIENT_CHANGE_REQUIRES_APPROVAL",
+        "RECIPIENT_CONSENT_REQUIRED", "HEALTH_DATA_CONSENT_REQUIRED",
+      ];
+      const code = error?.message;
+      console.error("DRAFT_SAVE_UNAVAILABLE", { code: error?.code || null });
+      if (code === "REQUEST_NOT_FOUND") return json({ error: code }, 404);
+      return json({ error: conflicts.includes(code) ? code : "DRAFT_SAVE_UNAVAILABLE" },
+        conflicts.includes(code) ? 409 : 503);
     }
 
     return json({
@@ -213,6 +149,7 @@ match_state: "draft",
       id: data.id,
       booking_token: data.booking_token,
       assigned_therapist_id: data.assigned_therapist_id,
+      care_version: data.care_version,
     });
   } catch (err) {
     console.error("CREATE REQUEST DRAFT ERROR");

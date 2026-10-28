@@ -5,6 +5,7 @@ const state = vi.hoisted(() => ({
   requestRow: {
     id: "request-1",
     assigned_therapist_id: "coach-a",
+    care_version: 0,
   },
   reads: [],
   writes: [],
@@ -77,6 +78,7 @@ describe("meeting link override access control", () => {
     state.requestRow = {
       id: "request-1",
       assigned_therapist_id: "coach-a",
+      care_version: 0,
     };
     state.reads = [];
     state.writes = [];
@@ -128,6 +130,7 @@ describe("meeting link override access control", () => {
     expect(state.writes).toHaveLength(1);
     expect(state.writes[0].payload).toEqual({
       meeting_link_override: "https://meet.example.invalid",
+      meeting_link_care_version: 0,
     });
     expect(state.writes[0].filters).toContainEqual(["assigned_therapist_id", "coach-a"]);
   });

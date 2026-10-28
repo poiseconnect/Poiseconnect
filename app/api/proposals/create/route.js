@@ -1,15 +1,10 @@
 export const dynamic = "force-dynamic";
 
-import { createClient } from "@supabase/supabase-js";
 import { google } from "googleapis";
-import { oauthClient } from "../../_lib/server";
+import { oauthClient, getActiveTeamMember, canAccessAssignedRequest } from "../../_lib/server";
+import { appointmentCareContext, withAppointmentOperation } from "../../../lib/appointmentCare";
 import { ensureOpenConversation } from "../../../lib/messaging/conversations";
 import { createProposalMail } from "../../../lib/messaging/proposalMail";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-);
 
 function json(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -64,7 +59,17 @@ function viennaLocalToUtc(value) {
   return new Date(utcMs).toISOString();
 }
 export async function POST(req) {
+  return withAppointmentOperation((operation) => executePost(req, operation));
+}
+
+async function executePost(req, operation) {
   try {
+    const auth = await getActiveTeamMember(req);
+    if (!auth.member) return json({ error: auth.error }, auth.status);
+    if (!["admin", "therapist"].includes(auth.member.role)) {
+      return json({ error: "NO_ACCESS" }, 403);
+    }
+    const supabase = auth.supabase;
     const body = await req.json();
     console.log("CREATE PROPOSALS REQUEST RECEIVED");
 
@@ -87,6 +92,13 @@ if (assignedRequestError || !assignedRequest || !assignedRequest.assigned_therap
 if (String(assignedRequest.assigned_therapist_id) !== String(therapist_id)) {
   return json({ error: "assignment_mismatch" }, 403);
 }
+if (!canAccessAssignedRequest(auth.member, assignedRequest.assigned_therapist_id)) {
+  return json({ error: "NO_ACCESS" }, 403);
+}
+const care = await appointmentCareContext(supabase, requestId, therapist_id, {
+  expectedVersion: body.expectedCareVersion ?? null,
+});
+if (care.error) return json({ error: care.error }, care.status);
 // ------------------------------------------------
 // POISE-GOOGLE-KONTO + KALENDER DES COACHS LADEN
 // ------------------------------------------------
@@ -164,6 +176,8 @@ const rows = proposals
     if (!rows.length) {
       return json({ error: "no_valid_dates" }, 400);
     }
+const claim = await operation.begin(supabase, requestId, therapist_id, care.careVersion);
+if (claim.error) return json({ error: claim.error }, claim.status);
 
 // ------------------------------------------------
 // ALTE VORSCHLÄGE + GOOGLE-RESERVIERUNGEN LÖSCHEN
@@ -172,7 +186,9 @@ const { data: oldProposals, error: oldProposalsError } =
   await supabase
     .from("appointment_proposals")
     .select("id, google_event_id")
-    .eq("anfrage_id", requestId);
+    .eq("anfrage_id", requestId)
+    .eq("therapist_id", therapist_id)
+    .eq("care_version", care.careVersion);
 
 if (oldProposalsError) {
   console.error(
@@ -203,6 +219,7 @@ for (const oldProposal of oldProposals || []) {
       oldProposal.google_event_id
     );
   } catch (err) {
+    operation.markUnknown();
     console.warn(
       "⚠️ OLD GOOGLE PROPOSAL DELETE FAILED:",
       oldProposal.google_event_id,
@@ -214,7 +231,9 @@ for (const oldProposal of oldProposals || []) {
 const { error: deleteOldError } = await supabase
   .from("appointment_proposals")
   .delete()
-  .eq("anfrage_id", requestId);
+  .eq("anfrage_id", requestId)
+  .eq("therapist_id", therapist_id)
+  .eq("care_version", care.careVersion);
 
 if (deleteOldError) {
   console.error(
@@ -397,7 +416,9 @@ const link =
   `${baseUrl}/confirm-proposal?token=${encodeURIComponent(
     request.booking_token
   )}`;
-    const coachName = request.wunschtherapeut || "dein Coach";
+    const { data: currentCoach } = await supabase.from("team_members")
+      .select("name").eq("id", therapist_id).maybeSingle();
+    const coachName = currentCoach?.name || "dein Coach";
 
     // ------------------------------------------------
     // MAIL SENDEN
@@ -418,6 +439,7 @@ const link =
     });
 
 if (!mailRes.ok) {
+  operation.markUnknown();
   const mailText = await mailRes.text();
   console.error("PROPOSAL MAIL ERROR:", { providerStatus: mailRes.status });
 
@@ -444,7 +466,9 @@ const { error: proposalStatusError } = await supabase
     proposals_expired_at: null,
     new_proposals_requested_at: null,
   })
-  .eq("id", requestId);
+  .eq("id", requestId)
+  .eq("assigned_therapist_id", therapist_id)
+  .eq("care_version", care.careVersion);
 
 if (proposalStatusError) {
   console.error(

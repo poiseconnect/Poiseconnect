@@ -1,9 +1,21 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const messagingAccess = vi.hoisted(() => ({
+  authorize: vi.fn(),
+  dispatch: vi.fn(),
+}));
+
+// Exercise the preserved parser/retry pipeline with synthetic authorized dispatch.
+vi.mock("../../app/lib/messaging/access.js", () => ({
+  authorizeMessagingContext: messagingAccess.authorize,
+  getMessagingDispatchAvailability: messagingAccess.dispatch,
+}));
+
 import { fetchReceivedEmail, processInboundResendEvent } from "../../app/lib/messaging/inbound.js";
 import { hashReplyToken, parseReplyAlias } from "../../app/lib/messaging/aliases.js";
 
-const event = { id: "event-1", type: "email.received", data: { email_id: "email-1" } };
 const replyAlias = "r-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa@reply.mypoise.de";
+const event = { id: "event-1", type: "email.received", data: { email_id: "email-1", to: [replyAlias] } };
 const receivedEmail = {
   to: [replyAlias],
   from: "client@example.invalid",
@@ -91,6 +103,18 @@ function setupEnvironment() {
 }
 
 describe("inbound messaging", () => {
+  beforeEach(() => {
+    messagingAccess.authorize.mockResolvedValue({
+      ok: true,
+      context: {
+        requestId: "request-1",
+        conversationId: "conversation-1",
+        careVersion: 0,
+      },
+    });
+    messagingAccess.dispatch.mockReturnValue({ ok: true });
+  });
+
   it("speichert das signierte Event im Ledger und ignoriert nicht erwartete Events", async () => {
     setupEnvironment();
     const supabase = createSupabase({ conversation: null });
@@ -115,7 +139,7 @@ describe("inbound messaging", () => {
 
     const result = await processInboundResendEvent({
       supabase,
-      event: { type: "email.received", data: { email_id: "email-1" } },
+      event: { type: "email.received", data: { email_id: "email-1", to: [replyAlias] } },
       providerEventId: "svix-event-1",
       fetchImpl,
       resendClient,
@@ -136,7 +160,10 @@ describe("inbound messaging", () => {
     setupEnvironment();
     const fetchImpl = vi.fn().mockResolvedValue({ ok: true, json: async () => receivedEmail });
 
-    await fetchReceivedEmail("email-test-1", fetchImpl);
+    await fetchReceivedEmail("email-test-1", fetchImpl, {
+      supabase: createSupabase(),
+      event,
+    });
 
     expect(fetchImpl).toHaveBeenCalledWith(
       "https://api.resend.com/emails/receiving/email-test-1",
@@ -187,7 +214,7 @@ describe("inbound messaging", () => {
     }));
   });
 
-  it("legt unbekannte Aliase als Review ohne Anfragezuordnung an", async () => {
+  it("speichert keinen Body, wenn der abgeholte Alias von den signierten Metadaten abweicht", async () => {
     setupEnvironment();
     const supabase = createSupabase({ conversation: null });
     const email = { ...receivedEmail, to: ["r-bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb@reply.mypoise.de"] };
@@ -199,15 +226,8 @@ describe("inbound messaging", () => {
       resendClient: { emails: { send: vi.fn() } },
     });
 
-    expect(result).toEqual({ ok: true, review: true });
-    expect(supabase.inserts).toContainEqual(expect.objectContaining({
-      table: "request_messages",
-      payload: expect.objectContaining({
-        conversation_id: null,
-        anfrage_id: null,
-        delivery_status: "review",
-      }),
-    }));
+    expect(result).toEqual({ error: "MESSAGING_ACCESS_DENIED" });
+    expect(supabase.inserts.some((entry) => entry.table === "request_messages")).toBe(false);
   });
 
   it.each([
@@ -222,7 +242,7 @@ describe("inbound messaging", () => {
 
     const result = await processInboundResendEvent({
       supabase,
-      event,
+      event: { ...event, data: { ...event.data, to: [alias] } },
       fetchImpl: vi.fn().mockResolvedValue({
         ok: true,
         json: async () => ({ ...receivedEmail, to: to(alias.replace("reply.mypoise.de", "REPLY.MYPOISE.DE")) }),

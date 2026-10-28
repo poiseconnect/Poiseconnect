@@ -3,6 +3,7 @@ export const dynamic = "force-dynamic";
 import { createClient } from "@supabase/supabase-js";
 import { google } from "googleapis";
 import { oauthClient } from "../../../_lib/server";
+import { appointmentCareContext, withAppointmentOperation } from "../../../../lib/appointmentCare";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -17,8 +18,12 @@ function json(data, status = 200) {
 }
 
 export async function POST(req) {
+  return withAppointmentOperation((operation) => executePost(req, operation));
+}
+
+async function executePost(req, operation) {
   try {
-    const { token } = await req.json();
+    const { token, expectedCareVersion } = await req.json();
 
     if (!token) {
       return json({ error: "missing_token" }, 400);
@@ -49,6 +54,10 @@ export async function POST(req) {
     }
 
     const therapistId = request.assigned_therapist_id;
+    const care = await appointmentCareContext(supabase, request.id, therapistId, {
+      link: true, expectedVersion: expectedCareVersion ?? null,
+    });
+    if (care.error) return json({ error: care.error }, care.status);
 
     // ------------------------------------------------
     // 2. Kommenden Termin laden
@@ -134,6 +143,8 @@ export async function POST(req) {
     // 4. Google-Kliententermin löschen
     // POISE VERFÜGBAR wird NICHT verändert
     // ------------------------------------------------
+    const claim = await operation.begin(supabase, request.id, therapistId, care.careVersion);
+    if (claim.error) return json({ error: claim.error }, claim.status);
     if (blockedSlot.google_event_id) {
       const oauth = oauthClient();
 
@@ -205,7 +216,9 @@ export async function POST(req) {
         bevorzugte_zeit: null,
         status: "termin_neu",
       })
-      .eq("id", request.id);
+      .eq("id", request.id)
+      .eq("assigned_therapist_id", therapistId)
+      .eq("care_version", care.careVersion);
 
     if (requestUpdateError) {
       console.error(
@@ -243,7 +256,7 @@ export async function POST(req) {
 
     try {
       if (request.email) {
-        await fetch("https://api.resend.com/emails", {
+        const clientMail = await fetch("https://api.resend.com/emails", {
           method: "POST",
           headers: {
             Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
@@ -268,10 +281,11 @@ export async function POST(req) {
             `,
           }),
         });
+        if (!clientMail.ok) operation.markUnknown();
       }
 
       if (coach?.email) {
-        await fetch("https://api.resend.com/emails", {
+        const coachMail = await fetch("https://api.resend.com/emails", {
           method: "POST",
           headers: {
             Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
@@ -297,8 +311,10 @@ export async function POST(req) {
             `,
           }),
         });
+        if (!coachMail.ok) operation.markUnknown();
       }
     } catch (mailError) {
+      operation.markUnknown();
       console.error("CANCEL MAIL FAILED");
     }
 

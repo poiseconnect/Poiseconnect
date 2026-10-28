@@ -6,7 +6,7 @@ import {
   supabaseAdmin,
 } from "../_lib/server";
 import { getInvalidNewClientCoachIds } from "../../lib/intakeAvailability";
-import { closeConversation } from "../../lib/messaging/conversations";
+import { transferRequestCare } from "../../lib/intakeAccess.js";
 
 export async function POST(request) {
   try {
@@ -34,7 +34,7 @@ export async function POST(request) {
       return json({ error: "INVALID_JSON" }, 400);
     }
 
-    const { requestId, excludedTherapist } = body || {};
+    const { requestId } = body || {};
 
     if (!requestId) {
       return json({ error: "MISSING_REQUEST_ID" }, 400);
@@ -66,7 +66,7 @@ export async function POST(request) {
 
     const { data: requestData, error: requestErr } = await sb
       .from("anfragen")
-      .select("id, email, vorname, excluded_therapeuten, booking_token")
+      .select("id, email, vorname, excluded_therapeuten, booking_token, assigned_therapist_id, care_version")
       .eq("id", requestId)
       .single();
 
@@ -99,27 +99,29 @@ export async function POST(request) {
       : "";
     const link = `${baseUrl}?resume=8&rid=${requestId}${tokenQuery}`;
 
-    await closeConversation({
-      supabase: sb,
-      anfrageId: requestId,
-      reason: "assignment_removed",
-    });
+    if (requestData.assigned_therapist_id) {
+      const transferred = await transferRequestCare(sb, {
+        requestId, actorId: member.id,
+        expectedVersion: body.expectedCareVersion,
+        operationId: body.operationId,
+      });
+      if (transferred.error) return json({ error: transferred.error }, transferred.status);
+    }
 
-    const { error: updateError } = await sb
+    const { data: updated, error: updateError } = await sb
       .from("anfragen")
       .update({
         status: "admin_weiterleiten",
-        wunschtherapeut: null,
-        bevorzugte_zeit: null,
-        assigned_therapist_id: null,
         admin_therapeuten: approvedCoachIds,
-        excluded_therapeuten: excludedTherapist
-          ? [excludedTherapist]
-          : [],
+        admin_coach_selection_version: requestData.care_version + (requestData.assigned_therapist_id ? 1 : 0),
       })
-      .eq("id", requestId);
+      .eq("id", requestId)
+      .is("assigned_therapist_id", null)
+      .eq("care_version", requestData.care_version + (requestData.assigned_therapist_id ? 1 : 0))
+      .select("id")
+      .maybeSingle();
 
-    if (updateError) {
+    if (updateError || !updated) {
       return json({ error: "UPDATE_FAILED", detail: "INTERNAL_ERROR" }, 500);
     }
 

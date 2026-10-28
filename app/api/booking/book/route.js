@@ -1,6 +1,8 @@
 export const dynamic = "force-dynamic";
 
 import { google } from "googleapis";
+import { appointmentCareContext, withAppointmentOperation } from "../../../lib/appointmentCare";
+import { currentMeetingLinkOverride } from "../../../lib/meetingLinkScope";
 import { Resend } from "resend";
 import {
   json,
@@ -17,6 +19,10 @@ function normalizeIso(value) {
 }
 
 export async function POST(req) {
+  return withAppointmentOperation((operation) => executePost(req, operation));
+}
+
+async function executePost(req, operation) {
   try {
     console.log("=== BOOKING POST START ===");
 
@@ -60,7 +66,9 @@ export async function POST(req) {
   assigned_therapist_id,
   status,
   booking_token,
-  meeting_link_override
+  meeting_link_override,
+  care_version,
+  meeting_link_care_version
 `)
       .eq("booking_token", token)
       .single();
@@ -79,6 +87,12 @@ export async function POST(req) {
     }
 
     const therapistId = anfrage.assigned_therapist_id;
+    const care = await appointmentCareContext(sb, anfrage.id, therapistId, {
+      link: true, expectedVersion: body.expectedCareVersion ?? null,
+    });
+    if (care.error) return json({ error: care.error }, care.status);
+    const claim = await operation.begin(sb, anfrage.id, therapistId, care.careVersion);
+    if (claim.error) return json({ error: claim.error }, claim.status);
     if (!therapistId) {
       console.log("BOOKING FAIL: NO_THERAPIST_ASSIGNED");
       return json({ error: "NO_THERAPIST_ASSIGNED" }, 400);
@@ -388,9 +402,10 @@ if (
         .update({
           bevorzugte_zeit: startISO,
           status: "termin_bestaetigt",
-          assigned_therapist_id: therapistId,
         })
-        .eq("id", anfrage.id);
+        .eq("id", anfrage.id)
+        .eq("assigned_therapist_id", therapistId)
+        .eq("care_version", care.careVersion);
 
       console.log("BOOKING REQUEST STATUS UPDATE:", { hasError: !!updateReqErr });
 
@@ -460,6 +475,10 @@ if (
 
 // 9) Eigenen Google-Termin für die Buchung erstellen
 // Der bestehende Block "POISE VERFÜGBAR" bleibt unverändert.
+const providerCare = await appointmentCareContext(sb, anfrage.id, therapistId, {
+  link: true, expectedVersion: care.careVersion,
+});
+if (providerCare.error) return json({ error: providerCare.error }, providerCare.status);
 let bookedGoogleEventId = null;
 
 try {
@@ -591,7 +610,7 @@ try {
     // 10) Mails
     try {
     const meetingLink =
-  anfrage.meeting_link_override ||
+  currentMeetingLinkOverride(anfrage) ||
   settings.meeting_link ||
   "";
       const startDate = new Date(startISO);
@@ -634,7 +653,7 @@ try {
             ? "Erstgespräch"
             : "Sitzung";
 
-        await resend.emails.send({
+        const coachDelivery = await resend.emails.send({
           from,
           to: therapistMember.email,
           subject: coachSubject,
@@ -656,6 +675,7 @@ try {
           `,
         });
 
+        if (coachDelivery?.error || !coachDelivery?.data?.id) operation.markUnknown();
         console.log("BOOKING COACH MAIL SENT");
       }
 
@@ -675,7 +695,7 @@ try {
             ? `<p><strong>Videolink:</strong> <a href="${meetingLink}">${meetingLink}</a></p>`
             : "";
 
-          await resend.emails.send({
+          const clientDelivery = await resend.emails.send({
             from,
             to: anfrage.email,
             subject: clientSubject,
@@ -698,12 +718,15 @@ try {
             `,
           });
 
+          if (clientDelivery?.error || !clientDelivery?.data?.id) operation.markUnknown();
           console.log("BOOKING CLIENT MAIL SENT");
         }
       } catch {
+        operation.markUnknown();
         console.error("BOOKING CLIENT MAIL ERROR");
       }
     } catch {
+      operation.markUnknown();
       console.error("BOOKING MAIL ERROR");
     }
 

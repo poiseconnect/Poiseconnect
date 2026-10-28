@@ -50,9 +50,25 @@ function createQuery(result) {
   return query;
 }
 
-function createSupabase({ coachResult, requestResult, conversationResult, messagesResult } = {}) {
+function createSupabase({
+  coachResult,
+  requestResult,
+  conversationResult,
+  messagesResult,
+  messagingAccess = { allowed: true },
+} = {}) {
   const queries = {};
   const sb = {
+    rpc: vi.fn(async (_name, args) => ({
+      data: {
+        allowed: messagingAccess.allowed,
+        ...(messagingAccess.reason ? { reason: messagingAccess.reason } : {}),
+        requestId: args.p_request_id || "request-1",
+        conversationId: args.p_conversation_id || null,
+        careVersion: 0,
+      },
+      error: null,
+    })),
     from: vi.fn((table) => {
       if (table === "team_members") {
         queries.team_members = createQuery(coachResult || { data: coach, error: null });
@@ -185,6 +201,38 @@ describe("messages conversations route", () => {
     const response = await GET(requestFor());
 
     expect(response.status).toBe(403);
+    expect(ensureOpenConversation).not.toHaveBeenCalled();
+  });
+
+  it("does not query message bodies or create a conversation when the RPC denies the current coach", async () => {
+    const { sb } = createSupabase({
+      messagingAccess: { allowed: false, reason: "ASSIGNMENT_NOT_CURRENT" },
+      conversationResult: { data: null, error: null },
+    });
+    supabaseAdmin.mockReturnValue(sb);
+
+    const response = await GET(requestFor());
+
+    expect(response.status).toBe(403);
+    await expect(response.json()).resolves.toEqual({ error: "MESSAGING_ACCESS_DENIED" });
+    expect(sb.from.mock.calls.some(([table]) => table === "request_messages")).toBe(false);
+    expect(ensureOpenConversation).not.toHaveBeenCalled();
+  });
+
+  it("reports the explicit messaging pause before querying conversations or message bodies", async () => {
+    const { sb } = createSupabase({
+      messagingAccess: { allowed: false, reason: "MESSAGING_CONTENT_PAUSED" },
+      conversationResult: { data: null, error: null },
+    });
+    supabaseAdmin.mockReturnValue(sb);
+
+    const response = await GET(requestFor());
+
+    expect(response.status).toBe(503);
+    await expect(response.json()).resolves.toEqual({ error: "MESSAGING_CONTENT_PAUSED" });
+    expect(sb.from.mock.calls.some(([table]) =>
+      table === "request_conversations" || table === "request_messages"
+    )).toBe(false);
     expect(ensureOpenConversation).not.toHaveBeenCalled();
   });
 });

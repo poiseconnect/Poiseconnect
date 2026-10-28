@@ -2,6 +2,7 @@ export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
 import { google } from "googleapis";
+import { appointmentCareContext, withAppointmentOperation } from "../../lib/appointmentCare";
 import {
   canAccessAssignedRequest,
   getActiveTeamMember,
@@ -28,10 +29,15 @@ function normalizeIso(value) {
 // POST: EINZELNE SITZUNG
 // -----------------------------------------
 export async function POST(req) {
+  return withAppointmentOperation((operation) => executePost(req, operation));
+}
+
+async function executePost(req, operation) {
   let insertedSessionId = null;
   let insertedBlockedSlotId = null;
   let bookedGoogleEventId = null;
   let selectedCalendarId = null;
+  let supabase;
 
   try {
     const auth = await getActiveTeamMember(req);
@@ -39,7 +45,7 @@ export async function POST(req) {
     if (!["admin", "therapist"].includes(auth.member.role)) {
       return json({ error: "NO_ACCESS" }, 403);
     }
-    const supabase = auth.supabase;
+    supabase = auth.supabase;
 
     const body = await req.json();
 
@@ -148,6 +154,12 @@ export async function POST(req) {
     }
 
     const therapist_id = anfrage.assigned_therapist_id;
+    const care = await appointmentCareContext(supabase, anfrageId, therapist_id, {
+      expectedVersion: body.expectedCareVersion ?? body.careVersion ?? null,
+    });
+    if (care.error) return json({ error: care.error }, care.status);
+    const claim = await operation.begin(supabase, anfrageId, therapist_id, care.careVersion);
+    if (claim.error) return json({ error: claim.error }, claim.status);
     const p = trustedPrice;
     const startISO = safeDate;
     const endISO = new Date(
@@ -435,6 +447,13 @@ export async function POST(req) {
     insertedBlockedSlotId =
       insertedBlockedSlot.id;
 
+    const providerCare = await appointmentCareContext(supabase, anfrageId, therapist_id, {
+      expectedVersion: care.careVersion,
+    });
+    if (providerCare.error) {
+      throw Object.assign(new Error(providerCare.error), { appointmentCare: providerCare });
+    }
+
     console.log("ADD SESSION SLOT BLOCKED");
 
     /* -----------------------------------------
@@ -692,10 +711,10 @@ export async function POST(req) {
 
     return json(
       {
-        error: "SERVER_ERROR",
+        error: err.appointmentCare?.error || "SERVER_ERROR",
         detail: "INTERNAL_ERROR",
       },
-      500
+      err.appointmentCare?.status || 500
     );
   }
 }

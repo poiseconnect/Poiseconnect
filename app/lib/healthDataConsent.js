@@ -38,6 +38,7 @@ export async function findActiveHealthDataConsent(
     .select("id, request_id, text_version, granted_at, revoked_at")
     .eq("token_hash", hashHealthDataConsentToken(token))
     .is("revoked_at", null)
+    .is("superseded_at", null)
     .maybeSingle();
 
   if (error) throw new Error("HEALTH_DATA_CONSENT_LOOKUP_FAILED");

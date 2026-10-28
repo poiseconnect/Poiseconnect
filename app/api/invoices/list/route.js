@@ -1,4 +1,5 @@
 import { getActiveTeamMember, json } from "../../_lib/server";
+import { billingOwnerIds, ownerAliases, resolveBillingOwner } from "../../_lib/billingAccess";
 
 export async function GET(req) {
   const auth = await getActiveTeamMember(req);
@@ -9,10 +10,9 @@ export async function GET(req) {
 
   const { searchParams } = new URL(req.url);
   const requestedTherapistId = searchParams.get("therapist_id");
-  const therapistId =
-    auth.member.role === "admin"
-      ? requestedTherapistId
-      : auth.member.id;
+  const ownIds = billingOwnerIds(auth.member, auth.user);
+  const therapistId = auth.member.role === "admin"
+    ? requestedTherapistId : auth.member.id;
 
   if (!therapistId) {
     return json({ error: "NO_THERAPIST_ID" }, 400);
@@ -20,15 +20,20 @@ export async function GET(req) {
   if (
     auth.member.role === "therapist" &&
     requestedTherapistId &&
-    String(requestedTherapistId) !== String(auth.member.id)
+    !ownIds.includes(String(requestedTherapistId))
   ) {
     return json({ error: "NO_ACCESS" }, 403);
   }
 
+  const ownerIds = auth.member.role === "admin"
+    ? ownerAliases(await resolveBillingOwner(auth.supabase, therapistId))
+    : ownIds;
+  if (!ownerIds.length) return json({ error: "NO_ACCESS" }, 403);
+
   const { data, error } = await auth.supabase
     .from("invoices")
     .select("*")
-    .eq("therapist_id", therapistId)
+    .in("therapist_id", ownerIds)
     .order("created_at", { ascending: false });
 
   if (error) {

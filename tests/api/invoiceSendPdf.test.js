@@ -70,6 +70,9 @@ function createMockSupabase() {
       { id: "coach-test", user_id: "user-test", role: "admin", active: true, name: "Test Coach", email: "coach@example.invalid" },
     ],
     invoices: [invoice],
+    sessions: invoice.line_items.map((item) => ({
+      id: item.session_id, anfrage_id: invoice.anfrage_id, therapist_id: invoice.therapist_id,
+    })),
     anfragen: [{ id: "request-test" }],
     therapist_invoice_settings: [
       {
@@ -88,14 +91,27 @@ function createMockSupabase() {
           return query;
         },
         eq(column, value) {
-          filters.push([column, value]);
+          filters.push((row) => row[column] === value);
           return query;
+        },
+        in(column, values) {
+          filters.push((row) => values.includes(row[column]));
+          return query;
+        },
+        async maybeSingle() {
+          return query.single();
         },
         async single() {
           const matches = (rows[table] || []).find((row) =>
-            filters.every(([column, value]) => row[column] === value)
+            filters.every((filter) => filter(row))
           );
           return { data: matches || null, error: matches ? null : new Error("Not found") };
+        },
+        then(resolve) {
+          return Promise.resolve({
+            data: (rows[table] || []).filter((row) => filters.every((filter) => filter(row))),
+            error: null,
+          }).then(resolve);
         },
       };
 
@@ -111,8 +127,6 @@ function request() {
     body: JSON.stringify({
       invoiceId: "invoice-test",
       to: "client@example.invalid",
-      subject: "Ihre Rechnung",
-      message: "Anbei die Rechnung.",
     }),
   });
 }
@@ -133,6 +147,11 @@ describe("invoice PDF email attachment", () => {
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({ ok: true });
     expect(mocks.send).toHaveBeenCalledOnce();
+    expect(mocks.send).toHaveBeenCalledWith(expect.objectContaining({
+      to: "client@example.invalid",
+      subject: "Ihre Rechnung",
+      text: "Guten Tag,\n\nim Anhang erhalten Sie Ihre Rechnung.\n\nFreundliche Grüße\nPoise",
+    }));
 
     const [{ attachments }] = mocks.send.mock.calls[0];
     expect(attachments).toHaveLength(1);
@@ -149,5 +168,12 @@ describe("invoice PDF email attachment", () => {
     expect(pdf).toContain("zzgl. Umsatzsteuer 20%");
     expect(pdf).toContain("20.00 EUR");
     expect(pdf).toContain("120.00 EUR");
+  });
+
+  it("reports a provider rejection instead of false success", async () => {
+    mocks.send.mockResolvedValue({ data: null, error: { message: "Synthetic provider failure" } });
+    const response = await POST(request());
+    expect(response.status).toBe(502);
+    expect(await response.json()).toEqual({ error: "INVOICE_SEND_FAILED" });
   });
 });

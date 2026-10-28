@@ -1,6 +1,10 @@
 import { Webhook } from "svix";
 import { hashReplyToken, parseReplyAlias } from "./aliases";
 import { getMessagingFrom, sendOutboundMail } from "./outbound";
+import {
+  authorizeMessagingContext,
+  getMessagingDispatchAvailability,
+} from "./access";
 
 const RESEND_EMAILS_URL = "https://api.resend.com/emails";
 const FORWARD_HEADER = "X-Poise-Messaging";
@@ -20,6 +24,41 @@ function getRecipientAddresses(email) {
   const rawRecipients = email?.to || email?.recipients || email?.headers?.to || [];
   const recipients = Array.isArray(rawRecipients) ? rawRecipients : [rawRecipients];
   return recipients.map(extractAddress).filter(Boolean);
+}
+
+function getEventRecipientAddresses(event) {
+  const data = event?.data || {};
+  const rawRecipients =
+    data.to || data.recipients || data.headers?.to || data.email?.to || [];
+  const recipients = Array.isArray(rawRecipients) ? rawRecipients : [rawRecipients];
+  return recipients
+    .map((recipient) =>
+      typeof recipient === "string" ? recipient : recipient?.email || recipient?.address
+    )
+    .map(extractAddress)
+    .filter(Boolean);
+}
+
+async function authorizeInboundEvent(supabase, event) {
+  let aliases;
+  try {
+    aliases = getEventRecipientAddresses(event)
+      .map((recipient) => parseReplyAlias(recipient))
+      .filter(Boolean);
+  } catch (error) {
+    if (error?.message?.startsWith("RESEND_REPLY_DOMAIN_")) {
+      return { ok: false, error: "MESSAGING_ACCESS_UNAVAILABLE" };
+    }
+    throw error;
+  }
+
+  if (aliases.length !== 1) {
+    return { ok: false, error: "MESSAGING_ACCESS_UNAVAILABLE" };
+  }
+
+  const replyTokenHash = hashReplyToken(aliases[0].replyToken);
+  const access = await authorizeMessagingContext(supabase, { replyTokenHash });
+  return access.ok ? { ...access, replyTokenHash } : access;
 }
 
 function getProviderEmailId(event) {
@@ -144,7 +183,15 @@ export function verifyResendWebhook({ rawBody, headers, secret }) {
   return JSON.parse(rawBody);
 }
 
-export async function fetchReceivedEmail(emailId, fetchImpl = fetch) {
+export async function fetchReceivedEmail(emailId, fetchImpl = fetch, authorization = null) {
+  if (!authorization?.supabase || !authorization?.event) {
+    throw new Error("MESSAGING_ACCESS_UNAVAILABLE");
+  }
+  const access = await authorizeInboundEvent(authorization.supabase, authorization.event);
+  if (!access.ok) throw new Error(access.error);
+  const dispatch = getMessagingDispatchAvailability();
+  if (!dispatch.ok) throw new Error(dispatch.error);
+
   // /emails/{id} ist der Sent-Email-Endpoint; empfangene Mails liegen unter /emails/receiving/{id}.
   const response = await fetchImpl(`${RESEND_EMAILS_URL}/receiving/${encodeURIComponent(emailId)}`, {
     headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY}` },
@@ -172,10 +219,11 @@ async function createEvent(supabase, event, eventId) {
 }
 
 async function completeEvent(supabase, eventId, processingError = null) {
-  await supabase
+  const { error } = await supabase
     .from("request_message_events")
     .update({ processed_at: new Date().toISOString(), processing_error: processingError })
     .eq("id", eventId);
+  if (error) throw new Error("EVENT_LEDGER_FAILED");
 }
 
 async function persistInboundMessage(supabase, payload) {
@@ -216,6 +264,14 @@ async function persistReviewMessage({ supabase, email, providerEmailId, provider
 
 // Erneut zugestelltes Provider-Event darf eine failed Message erneut versuchen, aber nie eine zweite Zeile anlegen.
 async function retryFailedMessage({ supabase, resendClient, message }) {
+  const access = await authorizeMessagingContext(supabase, {
+    requestId: message.anfrage_id,
+    conversationId: message.conversation_id,
+  });
+  if (!access.ok) return { error: access.error };
+  const dispatch = getMessagingDispatchAvailability();
+  if (!dispatch.ok) return { error: dispatch.error };
+
   if (message.direction === "outbound" && message.sender_role === "coach") {
     const { data: anfrage } = await supabase
       .from("anfragen")
@@ -297,6 +353,11 @@ async function retryFailedMessage({ supabase, resendClient, message }) {
 
 // Derselbe Provider-Event-Retry darf eine vorhandene failed Message erneut zustellen, niemals eine zweite Zeile anlegen.
 async function handleDuplicateEvent({ supabase, resendClient, event }) {
+  const access = await authorizeInboundEvent(supabase, event);
+  if (!access.ok) return { error: access.error };
+  const dispatch = getMessagingDispatchAvailability();
+  if (!dispatch.ok) return { error: dispatch.error };
+
   const providerEmailId = getProviderEmailId(event);
   if (!providerEmailId) return { ok: true, duplicate: true };
 
@@ -318,7 +379,10 @@ export async function processInboundResendEvent({ supabase, event, providerEvent
   if (!eventId) return { error: "EVENT_ID_MISSING" };
 
   const ledger = await createEvent(supabase, event, eventId);
-  if (ledger.duplicate) return handleDuplicateEvent({ supabase, resendClient, event });
+  if (ledger.duplicate) {
+    if (event?.type !== "email.received") return { ok: true, duplicate: true };
+    return handleDuplicateEvent({ supabase, resendClient, event });
+  }
   if (event?.type !== "email.received") {
     await completeEvent(supabase, ledger.eventId);
     return { ok: true, ignored: true };
@@ -330,12 +394,31 @@ export async function processInboundResendEvent({ supabase, event, providerEvent
     return { ok: true, review: true };
   }
 
+  const access = await authorizeInboundEvent(supabase, event);
+  if (!access.ok) {
+    await completeEvent(supabase, ledger.eventId, access.error);
+    return { error: access.error };
+  }
+  const dispatch = getMessagingDispatchAvailability();
+  if (!dispatch.ok) {
+    await completeEvent(supabase, ledger.eventId, dispatch.error);
+    return { error: dispatch.error };
+  }
+
   try {
-    const email = await fetchReceivedEmail(providerEmailId, fetchImpl);
+    const email = await fetchReceivedEmail(providerEmailId, fetchImpl, { supabase, event });
     const recipients = getRecipientAddresses(email);
     const parsedAliases = recipients
       .map((recipient) => parseReplyAlias(recipient))
       .filter(Boolean);
+
+    if (
+      parsedAliases.length !== 1 ||
+      hashReplyToken(parsedAliases[0].replyToken) !== access.replyTokenHash
+    ) {
+      await completeEvent(supabase, ledger.eventId, "ALIAS_METADATA_MISMATCH");
+      return { error: "MESSAGING_ACCESS_DENIED" };
+    }
 
     let unsafeReason = null;
     if (hasForwardLoopMarker(email)) unsafeReason = "LOOP_MARKER_DETECTED";

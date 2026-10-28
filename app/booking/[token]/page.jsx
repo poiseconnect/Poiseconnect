@@ -64,6 +64,7 @@ export default function BookingPage({ params }) {
           start: slot.start,
           durationMin,
           bookingType: durationMin <= 30 ? "erstgespraech" : "session",
+          expectedCareVersion: new URLSearchParams(window.location.search).get("careVersion"),
         }),
       });
 

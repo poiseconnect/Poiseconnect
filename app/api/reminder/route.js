@@ -3,6 +3,7 @@ export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { Resend } from "resend";
+import { appointmentCareContext, beginAppointmentOperation, endAppointmentOperation } from "../../lib/appointmentCare";
 import { formatInViennaTime } from "../../lib/formatAppointmentTime";
 
 function getSupabase() {
@@ -48,6 +49,7 @@ export async function POST(req) {
         id,
         date,
         therapist,
+        therapist_id,
         anfrage_id,
         reminder_24_sent,
         reminder_2_sent,
@@ -80,6 +82,11 @@ export async function POST(req) {
 
       if (!should2 && !should24) continue;
 
+      const care = await appointmentCareContext(supabase, s.anfrage_id, s.therapist_id);
+      if (care.error) continue;
+      const operation = await beginAppointmentOperation(supabase, s.anfrage_id, s.therapist_id);
+      if (operation.error) continue;
+
       const subject = should2
         ? "Erinnerung: Deine Poise-Sitzung in 2 Stunden"
         : "Erinnerung: Deine Poise-Sitzung morgen";
@@ -103,19 +110,28 @@ export async function POST(req) {
         </div>
       `;
 
-      await resend.emails.send({
+      const delivery = await resend.emails.send({
         from: "Poise <noreply@mypoise.de>",
         to: clientEmail,
         subject,
         html,
       });
+      if (delivery?.error || !delivery?.data?.id) {
+        return NextResponse.json({ error: "APPOINTMENT_OPERATION_PENDING" }, { status: 503 });
+      }
 
       // Mark as sent
       const patch = {};
       if (should2) patch.reminder_2_sent = true;
       if (should24) patch.reminder_24_sent = true;
 
-      await supabase.from("sessions").update(patch).eq("id", s.id);
+      const { error: flagError } = await supabase.from("sessions").update(patch).eq("id", s.id);
+      if (flagError) {
+        return NextResponse.json({ error: "APPOINTMENT_OPERATION_PENDING" }, { status: 503 });
+      }
+      if (!(await endAppointmentOperation(operation))) {
+        return NextResponse.json({ error: "APPOINTMENT_OPERATION_PENDING" }, { status: 503 });
+      }
 
       sent.push({ id: s.id, type: should2 ? "2h" : "24h", to: clientEmail });
     }

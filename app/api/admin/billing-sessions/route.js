@@ -39,7 +39,6 @@ export async function GET(req) {
           email,
           strasse_hausnr,
           plz_ort,
-          status,
           invoice_with_vat,
           beschaeftigungsgrad
         ),

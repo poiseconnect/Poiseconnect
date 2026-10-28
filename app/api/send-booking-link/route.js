@@ -1,6 +1,7 @@
 export const dynamic = "force-dynamic";
 
 import { Resend } from "resend";
+import { appointmentCareContext, withAppointmentOperation } from "../../lib/appointmentCare.js";
 import {
   canAccessAssignedRequest,
   getActiveTeamMember,
@@ -14,6 +15,7 @@ function json(data, status = 200) {
 }
 
 export async function POST(req) {
+  return withAppointmentOperation(async (operation) => {
   try {
     const auth = await getActiveTeamMember(req);
     if (!auth.member) return json({ error: auth.error }, auth.status);
@@ -21,7 +23,7 @@ export async function POST(req) {
       return json({ error: "NO_ACCESS" }, 403);
     }
 
-    const { requestId } = await req.json();
+    const { requestId, expectedCareVersion } = await req.json();
     if (!requestId) {
       return json({ error: "missing_fields" }, 400);
     }
@@ -39,7 +41,9 @@ export async function POST(req) {
     if (!requestRow.email || !requestRow.booking_token) {
       return json({ error: "MISSING_BOOKING_DATA" }, 400);
     }
-
+    const care = await appointmentCareContext(auth.supabase, requestId,
+      requestRow.assigned_therapist_id, { expectedVersion: expectedCareVersion });
+    if (care.error) return json({ error: care.error }, care.status);
     const resend = new Resend(process.env.RESEND_API_KEY);
 
     const configuredBaseUrl =
@@ -52,11 +56,14 @@ export async function POST(req) {
     const bookingUrl = new URL(
       `/booking/${encodeURIComponent(requestRow.booking_token)}`,
       baseUrl
-    ).toString();
-    const safeUrl = bookingUrl.replace(/&/g, "&amp;");
+    );
+    bookingUrl.searchParams.set("careVersion", String(care.careVersion));
+    const safeUrl = bookingUrl.toString().replace(/&/g, "&amp;");
     const safeName = String(requestRow.vorname || "").replace(/[&<>"']/g, "");
-    const safeTherapistName = String(requestRow.wunschtherapeut || "").replace(/[&<>"']/g, "");
 
+    const claim = await operation.begin(auth.supabase, requestId,
+      requestRow.assigned_therapist_id, care.careVersion);
+    if (claim.error) return json({ error: claim.error }, claim.status);
     const mailResult = await resend.emails.send({
       from: "Poise <noreply@mypoise.de>",
       to: requestRow.email,
@@ -69,11 +76,6 @@ export async function POST(req) {
         </p>
 
         <p>
-          ${
-            safeTherapistName
-              ? `Dein/e Therapeut:in: <strong>${safeTherapistName}</strong><br /><br />`
-              : ""
-          }
           <a
             href="${safeUrl}"
             style="display:inline-block;padding:12px 18px;background:#6f4f49;color:#fff;text-decoration:none;border-radius:8px;font-weight:bold;"
@@ -105,4 +107,5 @@ export async function POST(req) {
       500
     );
   }
+  });
 }

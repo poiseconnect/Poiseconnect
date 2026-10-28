@@ -5,7 +5,7 @@ import {
   json,
   supabaseAdmin,
 } from "../_lib/server";
-import { closeConversation } from "../../lib/messaging/conversations";
+import { transferRequestCare } from "../../lib/intakeAccess.js";
 
 export async function POST(request) {
   try {
@@ -46,7 +46,7 @@ export async function POST(request) {
 
     const { data: anfrage, error: anfrageErr } = await sb
       .from("anfragen")
-      .select("id, assigned_therapist_id, email, vorname, wunschtherapeut, booking_token")
+      .select("id, assigned_therapist_id, email, vorname, wunschtherapeut, booking_token, care_version")
       .eq("id", requestId)
       .single();
 
@@ -65,8 +65,6 @@ export async function POST(request) {
       return json({ error: "CLIENT_EMAIL_MISSING" }, 400);
     }
 
-    const excludedTherapist = anfrage.wunschtherapeut;
-
     const baseUrl =
       process.env.NEXT_PUBLIC_SITE_URL ||
       "https://app.mypoise.de";
@@ -76,29 +74,12 @@ export async function POST(request) {
       : "";
     const link = `${baseUrl}?resume=8&rid=${requestId}${tokenQuery}`;
 
-    await closeConversation({
-      supabase: sb,
-      anfrageId: anfrage.id,
-      reason: "assignment_removed",
+    const transferred = await transferRequestCare(sb, {
+      requestId, actorId: member.id,
+      expectedVersion: body.expectedCareVersion,
+      operationId: body.operationId,
     });
-
-    // 1️⃣ Anfrage korrekt weiterleiten
-    const { error: updateError } = await sb
-      .from("anfragen")
-      .update({
-        status: "admin_weiterleiten",
-        wunschtherapeut: null,
-        bevorzugte_zeit: null,
-        assigned_therapist_id: null,
-        excluded_therapeuten: excludedTherapist
-          ? [excludedTherapist]
-          : [],
-      })
-      .eq("id", requestId);
-
-    if (updateError) {
-      return json({ error: "UPDATE_FAILED" }, 500);
-    }
+    if (transferred.error) return json({ error: transferred.error }, transferred.status);
 
     // 2️⃣ Mail an Klient:in
     const mailRes = await fetch("https://api.resend.com/emails", {
@@ -153,6 +134,7 @@ export async function POST(request) {
 
     if (!mailRes.ok) {
       console.warn("FORWARD MAIL FAILED – DB UPDATE OK");
+      return json({ error: "FORWARD_MAIL_FAILED", transferCompleted: true }, 502);
     }
 
     return json({ ok: true });

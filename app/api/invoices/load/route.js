@@ -5,6 +5,15 @@ import {
   supabaseAdmin,
   getUserFromBearer,
 } from "../../_lib/server";
+import {
+  BILLING_REQUEST_FIELDS,
+  BILLING_SESSION_FIELDS,
+  billingOwnerIds,
+  ownsBillingRow,
+  ownerAliases,
+  resolveBillingOwner,
+  viennaBillingDate,
+} from "../../_lib/billingAccess";
 
 export async function GET(req) {
   try {
@@ -12,9 +21,11 @@ export async function GET(req) {
     if (!user) return json({ error }, 401);
 
     const url = new URL(req.url);
-    const anfrageId = url.searchParams.get("id");
+    let anfrageId = url.searchParams.get("id");
+    const invoiceId = url.searchParams.get("invoiceId");
+    const requestedTherapistId = url.searchParams.get("therapistId");
 
-    if (!anfrageId) {
+    if (!anfrageId && !invoiceId) {
       return json({ error: "MISSING_ID" }, 400);
     }
 
@@ -22,33 +33,65 @@ export async function GET(req) {
 
     const { data: member, error: memberErr } = await sb
       .from("team_members")
-      .select("id, role, active")
+      .select("id, user_id, role, active")
       .eq("user_id", user.id)
       .single();
 
-    if (memberErr || !member || member.active !== true) {
+    if (memberErr || !member || member.active !== true ||
+        !["admin", "therapist"].includes(member.role)) {
       return json({ error: "NO_ACCESS" }, 403);
     }
 
-    let anfrageQuery = sb
-      .from("anfragen")
-      .select("*")
-      .eq("id", anfrageId);
-
-    if (member.role === "therapist") {
-      anfrageQuery = anfrageQuery.eq("assigned_therapist_id", member.id);
+    const ownIds = billingOwnerIds(member, user);
+    if (member.role === "therapist" && requestedTherapistId &&
+        !ownIds.includes(requestedTherapistId)) {
+      return json({ error: "NO_ACCESS" }, 403);
+    }
+    let invoice = null;
+    if (invoiceId) {
+      const { data, error: invoiceError } = await sb.from("invoices")
+        .select("*").eq("id", invoiceId).maybeSingle();
+      if (invoiceError) return json({ error: "invoice_load_failed" }, 500);
+      if (!data || (member.role === "therapist" && !ownsBillingRow(data, ownIds)) ||
+          (anfrageId && String(data.anfrage_id) !== anfrageId)) {
+        return json({ error: "NO_ACCESS" }, 403);
+      }
+      invoice = data;
+      anfrageId = String(data.anfrage_id);
     }
 
-    const { data: anfrage, error: anfrageErr } = await anfrageQuery.single();
+    // Only the assignment is inspected until a current-care or own billing
+    // relationship is established; historical reads do not fetch live identity.
+    const { data: assignment, error: anfrageErr } = await sb.from("anfragen")
+      .select("id, assigned_therapist_id").eq("id", anfrageId).single();
 
-    if (anfrageErr || !anfrage) {
+    if (anfrageErr || !assignment) {
       return json({ error: "ANFRAGE_NOT_FOUND" }, 404);
+    }
+
+    const owner = member.role === "therapist" ? member :
+      await resolveBillingOwner(sb,
+        invoice?.therapist_id || requestedTherapistId || assignment.assigned_therapist_id);
+    const ownerIds = member.role === "therapist" ? ownIds : ownerAliases(owner);
+    if (requestedTherapistId && !ownerIds.includes(requestedTherapistId)) {
+      return json({ error: "NO_ACCESS" }, 403);
+    }
+    const currentOwner = ownerIds.includes(String(assignment.assigned_therapist_id || ""));
+    if (!invoice) {
+      const { data, error: invoiceError } = await sb.from("invoices")
+        .select("*").eq("anfrage_id", anfrageId)
+        .in("therapist_id", ownerIds)
+        .order("updated_at", { ascending: false }).limit(1).maybeSingle();
+      if (invoiceError) return json({ error: "invoice_load_failed" }, 500);
+      invoice = data || null;
     }
 
 let sessionsQuery = sb
   .from("sessions")
-  .select("*")
-  .eq("anfrage_id", anfrageId);
+  .select(BILLING_SESSION_FIELDS)
+  .eq("anfrage_id", anfrageId)
+  .in("therapist_id", ownerIds);
+if (!currentOwner) sessionsQuery = sessionsQuery.lte("date", viennaBillingDate());
 
 const billingMode = url.searchParams.get("billingMode");
 const billingYear = Number(url.searchParams.get("billingYear"));
@@ -85,14 +128,27 @@ const { data: sessions, error: sessErr } = await sessionsQuery.order("date", {
     if (sessErr) {
       return json({ error: "SESSIONS_LOAD_FAILED" }, 400);
     }
-    const therapistId =
-      anfrage.assigned_therapist_id ||
-      sessions?.[0]?.therapist_id ||
-      null;
+    if (!currentOwner && !invoice && !sessions?.length) {
+      return json({ error: "NO_ACCESS" }, 403);
+    }
+    let anfrage = {
+      id: anfrageId,
+      ...(invoice ? { invoice_with_vat: Number(invoice.vat_rate || 0) > 0 } : {}),
+    };
+    if (currentOwner) {
+      let billingQuery = sb.from("anfragen")
+        .select(BILLING_REQUEST_FIELDS).eq("id", anfrageId);
+      if (member.role === "therapist") {
+        billingQuery = billingQuery.in("assigned_therapist_id", ownIds);
+      }
+      const { data, error: billingError } = await billingQuery.single();
+      if (billingError || !data) return json({ error: "ANFRAGE_NOT_FOUND" }, 404);
+      anfrage = data;
+    }
+    const therapistId = owner?.id || null;
 
     let settings = null;
     let coach = null;
-    let invoice = null;
 
     if (therapistId) {
       const { data: invSet } = await sb
@@ -112,35 +168,13 @@ const { data: sessions, error: sessErr } = await sessionsQuery.order("date", {
       coach = coachMember || null;
     }
 
-    if (anfrageId) {
-      const { data: existingInvoice, error: invoiceError } = await sb
-        .from("invoices")
-        .select("*")
-        .eq("anfrage_id", anfrageId)
-        .order("updated_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      if (invoiceError) {
-        console.error("LOAD INVOICE ERROR:", { code: invoiceError?.code || null });
-        return json(
-          {
-            error: "invoice_load_failed",
-            detail: "INTERNAL_ERROR",
-          },
-          500
-        );
-      }
-
-      invoice = existingInvoice || null;
-    }
-
     return json({
       anfrage,
       sessions: sessions || [],
       settings,
       coach,
       invoice,
+      historicalBillingOnly: !currentOwner,
     });
   } catch (e) {
     return json({ error: "SERVER_ERROR", detail: "INTERNAL_ERROR" }, 500);

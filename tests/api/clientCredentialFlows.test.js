@@ -6,6 +6,9 @@ vi.mock("googleapis", () => ({ google: { calendar: () => ({ events: { delete: mo
 vi.mock("../../app/api/_lib/server.js", () => ({ oauthClient: () => ({ setCredentials: vi.fn() }) }));
 vi.mock("@supabase/supabase-js", () => ({
   createClient: () => ({
+    rpc: async (_name, args) => ({ data: {
+      allowed: true, careVersion: 0, coachId: "coach-1", operationId: args.p_operation_id,
+    }, error: null }),
     from: (table) => {
       const filters = [];
       let operation = "read";

@@ -1752,6 +1752,8 @@ if (action === "no_match") {
         },
         body: JSON.stringify({
           requestId: r.id,
+          expectedCareVersion: r.care_version,
+          operationId: crypto.randomUUID(),
         }),
       });
 
@@ -1814,7 +1816,6 @@ if (!oldSlot) {
     "⚠️ NEW APPOINTMENT: Kein alter Termin gefunden – Reschedule wird trotzdem gesendet",
     {
       requestId: r.id,
-      request: r,
     }
   );
 }
@@ -1824,6 +1825,7 @@ if (!oldSlot) {
       headers: await getAuthHeaders({ "Content-Type": "application/json" }),
       body: JSON.stringify({
         requestId: r.id,
+        expectedCareVersion: r.care_version,
         client: r.email,
         vorname: r.vorname,
         therapistName,
@@ -2698,6 +2700,7 @@ async function sendBookingLink(r) {
     headers: await getAuthHeaders({ "Content-Type": "application/json" }),
     body: JSON.stringify({
       requestId: r.id,
+      expectedCareVersion: r.care_version,
     }),
   });
 
@@ -2727,6 +2730,7 @@ async function sendBookingLink(r) {
     headers: await getAuthHeaders({ "Content-Type": "application/json" }),
     body: JSON.stringify({
       requestId: r.id,
+      expectedCareVersion: r.care_version,
     }),
   });
 
@@ -5023,6 +5027,7 @@ return (
   billingYear: String(billingYear || ""),
   billingMonth: String(billingMonth || ""),
   billingQuarter: String(billingQuarter || ""),
+  therapistId: String(r.therapist_id || ""),
 });
 
 window.open(
@@ -5707,6 +5712,8 @@ const calendarMode =
           body: JSON.stringify({
             requestId: r.id,
             admin_therapeuten: r.admin_therapeuten,
+            expectedCareVersion: r.care_version,
+            operationId: crypto.randomUUID(),
           }),
         });
 
@@ -6443,6 +6450,7 @@ const res = await fetch("/api/add-sessions-batch", {
   },
   body: JSON.stringify({
     anfrageId: detailsModal.id,
+    expectedCareVersion: detailsModal.care_version,
     therapist_id: myTeamMemberId,
 sessions: valid.map((s) => ({
   date: localDateTimeToISOString(s.date),
@@ -6521,6 +6529,8 @@ location.reload();
                   },
                   body: JSON.stringify({
                     anfrageId: reassignModal.id,
+                    expectedCareVersion: reassignModal.care_version,
+                    operationId: crypto.randomUUID(),
                     handoverType:
                       reassignModal._handoverAction === "reassign"
                         ? "therapist_change"
@@ -6534,7 +6544,11 @@ location.reload();
                     "COACH HANDOVER FAILED:",
                     data?.error || "UNKNOWN_ERROR"
                   );
-                  alert("Fehler bei der Rückgabe an den Admin");
+                  alert(data?.error === "FUTURE_APPOINTMENTS_REQUIRE_DECISION"
+                    ? "Es bestehen zukünftige oder laufende Termine. Bitte kläre diese separat mit dem Admin. Es wurde nichts übertragen."
+                    : data?.error === "CARE_OPERATION_IN_PROGRESS"
+                      ? "Eine Terminaktion ist noch offen. Bitte lass ihren Ausgang vor der Übergabe prüfen."
+                      : "Die Übergabe konnte nicht bestätigt werden. Bitte lade die Anfrage neu.");
                   return;
                 }
 
@@ -6912,9 +6926,10 @@ location.reload();
 
                 const res = await fetch("/api/proposals/create", {
                   method: "POST",
-                  headers: { "Content-Type": "application/json" },
+                  headers: await getAuthHeaders({ "Content-Type": "application/json" }),
                   body: JSON.stringify({
                     requestId: proposalModal.id,
+                    expectedCareVersion: proposalModal.care_version,
                     therapist_id: myTeamMemberId,
                     proposals: valid,
                   }),

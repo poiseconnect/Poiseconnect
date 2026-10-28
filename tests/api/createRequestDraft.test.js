@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
   consent: null,
   client: {
     from: (table) => mocks.current.from(table),
+    rpc: (...args) => mocks.current.rpc(...args),
   },
 }));
 
@@ -34,6 +35,31 @@ function createSupabase(initialRequest) {
     deletions,
     beforeUpdate: null,
     deleted: false,
+    rpc: vi.fn(async (name, args) => {
+      expect(name).toBe("privacy_save_intake");
+      expect(args.p_draft).toBe(true);
+      if (context.beforeUpdate) {
+        context.beforeUpdate();
+        context.beforeUpdate = null;
+      }
+      if (args.p_request_id && args.p_booking_token !== state.booking_token) {
+        return { data: null, error: { message: "REQUEST_NOT_FOUND" } };
+      }
+      if (args.p_request_id && state.status !== "draft") {
+        return { data: null, error: { message: "REQUEST_ALREADY_FINALIZED" } };
+      }
+      if (consent.linkFails) return { data: null, error: { message: "CONSENT_LINK_FAILED" } };
+      updates.push({ payload: args.p_payload, filters: [
+        ["status", "draft"], ["booking_token", args.p_booking_token],
+      ] });
+      Object.assign(state, args.p_payload);
+      if (!args.p_request_id) {
+        Object.assign(state, { id: "new-draft", booking_token: crypto.randomUUID() });
+        consent.request_id = state.id;
+      }
+      return { data: { id: state.id, booking_token: state.booking_token,
+        assigned_therapist_id: state.assigned_therapist_id, care_version: 0 }, error: null };
+    }),
     from(table) {
       if (table === "anfrage_health_data_consents") {
         let operation = "select";
@@ -196,6 +222,7 @@ describe("POST /api/create-request-draft", () => {
       text_version: HEALTH_DATA_CONSENT_VERSION,
       granted_at: "2026-10-16T10:00:00.000Z",
       revoked_at: null,
+      superseded_at: null,
     };
     mocks.current = createSupabase({
       id: REQUEST_ID,
@@ -235,7 +262,7 @@ describe("POST /api/create-request-draft", () => {
     expect(mocks.consent.request_id).toBe("new-draft");
   });
 
-  it("rolls back a newly created draft if its consent cannot be linked", async () => {
+  it("propagates an atomic save failure without a separate destructive rollback", async () => {
     mocks.consent.request_id = null;
     mocks.consent.linkFails = true;
 
@@ -244,8 +271,9 @@ describe("POST /api/create-request-draft", () => {
     );
 
     expect(response.status).toBe(503);
-    expect(mocks.current.deleted).toBe(true);
-    expect(mocks.current.deletions).toHaveLength(1);
+    expect(mocks.current.deleted).toBe(false);
+    expect(mocks.current.deletions).toHaveLength(0);
+    expect(mocks.current.rpc).toHaveBeenCalledOnce();
   });
 
   it("rejects draft writes without an active server-side health-data consent", async () => {
@@ -320,7 +348,7 @@ describe("POST /api/create-request-draft", () => {
     }
   );
 
-  it("does not overwrite a request finalized after the initial status check", async () => {
+  it("propagates the RPC conflict if finalization happened after the initial check", async () => {
     const before = { ...mocks.current.state };
     mocks.current.beforeUpdate = () => {
       mocks.current.state.status = "neu";
@@ -340,6 +368,6 @@ describe("POST /api/create-request-draft", () => {
       status: "neu",
       match_state: "pending",
     });
-    expect(mocks.current.updates).toHaveLength(1);
+    expect(mocks.current.updates).toHaveLength(0);
   });
 });

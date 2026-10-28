@@ -3,12 +3,9 @@ export const dynamic = "force-dynamic";
 import { createClient } from "@supabase/supabase-js";
 import { Resend } from "resend";
 import { teamData } from "../../lib/teamData";
-import { ensureOpenConversation } from "../../lib/messaging/conversations";
 import { loadPublishedCoachingCosts } from "../../lib/loadPublishedCoachingCosts";
 import {
-  attachHealthDataConsent,
   findActiveHealthDataConsent,
-  removeRequestAfterConsentLinkFailure,
 } from "../../lib/healthDataConsent.js";
 
 function JSONResponse(data, status = 200) {
@@ -199,69 +196,25 @@ check_datenschutz: Boolean(body.check_datenschutz),
       match_state: body.match_state || "pending",
     };
 
-    let finalRequestId = requestId;
-
-    if (requestId) {
-      const { data: updated, error: updateError } = await supabase
-        .from("anfragen")
-        .update({
-          ...payload,
-          admin_therapeuten: [],
-        })
-        .eq("id", requestId)
-        .eq("booking_token", body.booking_token)
-        .select("id")
-        .maybeSingle();
-
-      if (updateError) {
-        console.error("UPDATE ERROR:", { code: updateError?.code || null });
-        return JSONResponse({ error: "REQUEST_UPDATE_FAILED" }, 500);
-      }
-      if (!updated) return JSONResponse({ error: "REQUEST_NOT_FOUND" }, 404);
-    } else {
-      const { data: inserted, error: insertError } = await supabase
-        .from("anfragen")
-        .insert({
-          ...payload,
-          booking_token: crypto.randomUUID(),
-        })
-        .select("id")
-        .single();
-
-      if (insertError) {
-        console.error("INSERT ERROR:", { code: insertError?.code || null });
-        return JSONResponse({ error: "REQUEST_INSERT_FAILED" }, 500);
-      }
-
-      finalRequestId = inserted.id;
-    }
-
-    if (!requestId) {
-      try {
-        const linked = await attachHealthDataConsent(
-          supabase,
-          consent,
-          finalRequestId
-        );
-        if (!linked) {
-          throw new Error("HEALTH_DATA_CONSENT_LINK_FAILED");
-        }
-      } catch {
-        console.error("HEALTH_DATA_CONSENT_LINK_FAILED");
-        try {
-          await removeRequestAfterConsentLinkFailure(supabase, finalRequestId);
-        } catch {
-          console.error("HEALTH_DATA_CONSENT_ROLLBACK_FAILED");
-        }
-        return JSONResponse({ error: "CONSENT_UNAVAILABLE" }, 503);
-      }
-    }
-
-    await ensureOpenConversation({
-      supabase,
-      anfrageId: finalRequestId,
-      therapistId: assignedTherapistId,
+    const { data: saved, error: saveError } = await supabase.rpc("privacy_save_intake", {
+      p_request_id: requestId,
+      p_booking_token: body.booking_token || null,
+      p_consent_id: consent.id,
+      p_payload: { ...payload, admin_therapeuten: [] },
     });
+    if (saveError || !saved?.id) {
+      console.error("INTAKE_SAVE_UNAVAILABLE");
+      const code = saveError?.message;
+      if (code === "REQUEST_NOT_FOUND") return JSONResponse({ error: code }, 404);
+      if (["HEALTH_DATA_CONSENT_REQUIRED", "RECIPIENT_CONSENT_REQUIRED"].includes(code)) {
+        return JSONResponse({ error: code }, 403);
+      }
+      if (code === "INTAKE_RECIPIENT_CHANGE_REQUIRES_APPROVAL") {
+        return JSONResponse({ error: code }, 409);
+      }
+      return JSONResponse({ error: "INTAKE_SAVE_UNAVAILABLE" }, 503);
+    }
+    const finalRequestId = saved.id;
 
     // Mail (optional – darf DB nicht killen)
     try {
@@ -427,7 +380,7 @@ if (coachEmail) {
       console.warn("MAIL FAILED (but DB ok)");
     }
 
-    return JSONResponse({ ok: true, id: finalRequestId });
+    return JSONResponse({ ok: true, id: finalRequestId, conversationPendingConsent: true });
     } catch (err) {
     console.error("SERVER ERROR");
     return JSONResponse(

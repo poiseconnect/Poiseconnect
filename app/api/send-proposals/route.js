@@ -1,4 +1,5 @@
 export const dynamic = "force-dynamic";
+import { appointmentCareContext, withAppointmentOperation } from "../../lib/appointmentCare";
 import {
   canAccessAssignedRequest,
   getActiveTeamMember,
@@ -28,6 +29,10 @@ function safeDateString(v) {
   });
 }
 export async function POST(req) {
+  return withAppointmentOperation((operation) => executePost(req, operation));
+}
+
+async function executePost(req, operation) {
   try {
     const auth = await getActiveTeamMember(req);
     if (!auth.member) return json({ error: auth.error }, auth.status);
@@ -35,7 +40,7 @@ export async function POST(req) {
       return json({ error: "NO_ACCESS" }, 403);
     }
 
-    const { requestId, proposals } = await req.json();
+    const { requestId, proposals, expectedCareVersion } = await req.json();
 
     if (!requestId || !Array.isArray(proposals) || proposals.length === 0) {
       return json({ error: "INVALID_INPUT" }, 400);
@@ -62,12 +67,19 @@ export async function POST(req) {
     if (proposedDates.some((date) => Number.isNaN(date.getTime()))) {
       return json({ error: "INVALID_PROPOSAL_DATE" }, 400);
     }
+    const care = await appointmentCareContext(auth.supabase, requestId, request.assigned_therapist_id, {
+      expectedVersion: expectedCareVersion ?? null,
+    });
+    if (care.error) return json({ error: care.error }, care.status);
+    const claim = await operation.begin(auth.supabase, requestId, request.assigned_therapist_id, care.careVersion);
+    if (claim.error) return json({ error: claim.error }, claim.status);
 
     // Vorschläge speichern
     const inserts = proposedDates.map((date) => ({
-      request_id: requestId,
+      anfrage_id: requestId,
       therapist_id: request.assigned_therapist_id,
-      proposed_at: date.toISOString(),
+      date: date.toISOString(),
+      expires_at: new Date(Date.now() + 4 * 24 * 60 * 60 * 1000).toISOString(),
     }));
 
     const { error } = await auth.supabase
@@ -92,7 +104,7 @@ const links = inserts
         <a href="${baseUrl}/confirm-proposal?${request.booking_token
           ? `token=${encodeURIComponent(request.booking_token)}`
           : `request=${encodeURIComponent(requestId)}`}">
-          ${safeDateString(p.proposed_at)}
+          ${safeDateString(p.date)}
         </a>
       </p>`
   )
