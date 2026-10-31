@@ -207,6 +207,12 @@ Migrationszusätze (REPO):
 
 - `therapist_booking_settings`: `therapist_id`, `booking_enabled`,
   `selected_calendar_id`, `time_zone`, `meeting_link`
+- `accounting_settings`: nur produktiv nachgewiesen (PROD, Preflight
+  31.10.2026: `accounting_settings_therapist_id_fkey` → `team_members`);
+  im Anwendungscode nicht referenziert (die Accounting-API nutzt
+  `team_members` und `therapist_invoice_settings`). Von der
+  P0-Zugriffsmigration unberührt; verhindert lediglich das Löschen
+  referenzierter `team_members`-Zeilen.
 - `therapist_google_tokens`: OAuth-Tokens pro Coach (nur serverseitig)
 - `therapist_invoice_settings`: Basis `therapist_id`, `company_name`,
   `address`, `default_vat_rate`; Zusätze `20260927…`:

@@ -215,3 +215,12 @@ lokaler Konflikt** der Zugriffsmigration `20261028000000…`.
    Billing-Guards auf `invoice_with_vat`/`beschaeftigungsgrad`). Vor
    Aktivierung des sevDesk-Quartalsworkflows müssen diese Migrationen
    gesondert produktiv angewendet werden.
+8. **Eingehender FK `accounting_settings_therapist_id_fkey` →
+   `team_members` (Preflight-Zeile 20, 31.10.2026): unkritisch.** Die
+   Zugriffsmigration führt auf `team_members` weder DDL noch Revokes noch
+   DELETEs aus (nur `select … for share`-Reads und neue ausgehende FKs
+   der Care-Tabellen); auch die separate Löschmigration löscht keine
+   `team_members`-Zeilen. `accounting_settings` ist eine nur produktiv
+   vorhandene, im Code nicht referenzierte Tabelle (siehe
+   [database-schema.md](./database-schema.md)); der FK bewirkt allein,
+   dass referenzierte Teammitglieder nicht gelöscht werden können.
