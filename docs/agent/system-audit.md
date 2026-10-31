@@ -35,6 +35,10 @@ Bei Audit-Aufträgen werden mindestens diese Quellen geprüft:
 - `docs/agent/cto-workflow.md`
 - `.github/copilot-instructions.md`
 - `docs/generated/` (generierte Projekt-Mappings)
+- `docs/generated/database-schema.md`, `docs/generated/database-security.md`,
+  `docs/generated/database-dependencies.md` (manuell gepflegte
+  Datenbankreferenz; bei Datenbank-, Berechtigungs- und API-Audits zuerst
+  heranziehen)
 - `scripts/generate-project-map.mjs` (Projekt-Mapping-Generator)
 
 ## Audit-Ablauf
@@ -71,6 +75,11 @@ Prüfpunkte:
 ### 4. Datenbank-Analyse
 
 Prüfpunkte:
+- Abgleich mit der Datenbankreferenz (`database-schema.md`,
+  `database-security.md`, `database-dependencies.md`): betroffene
+  Tabellen, Policies, Trigger, RPCs und API-Routen identifizieren und die
+  Verbindlichkeitskategorien (Repository / produktiv bestätigt /
+  produktiv nicht verifiziert) respektieren
 - Tabellenverwendung und Datenmodell
 - mögliche doppelte Datenquellen
 - unsichere `single()` / `maybeSingle()`-Verwendung
@@ -329,6 +338,8 @@ absichtlich ersetzt; Coach→Klient-Rechnungsfunktionen bleiben unveraendert.
 ## Schutz generierter Dokumentation
 
 Dateien unter `docs/generated/` dürfen nicht manuell editiert werden, sofern sie durch einen vorhandenen Generator erzeugt werden. Änderungen an generierten Artefakten müssen über den zuständigen Generator oder dessen technische Quellen erfolgen.
+
+Ausnahme: `docs/generated/database-schema.md`, `docs/generated/database-security.md` und `docs/generated/database-dependencies.md` sind manuell gepflegte Datenbankreferenzen (im Header entsprechend gekennzeichnet). Sie werden von keinem Generator erzeugt und müssen bei Schema-, Rechte-, Trigger- oder RPC-Änderungen manuell im selben Arbeitsschritt aktualisiert werden.
 
 Vor Änderungen an einer generierten Datei muss der Agent:
 

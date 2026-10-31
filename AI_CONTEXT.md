@@ -55,6 +55,38 @@ Embeddings, Prompts, Beispieldaten oder externe KI-Indizes
 
 Für Beispiele ausschließlich erfundene Daten verwenden.
 
+## Datenbankreferenz
+
+Die dauerhafte, aus allen Migrationen rekonstruierte Datenbankarchitektur
+steht in drei manuell gepflegten Referenzdokumenten:
+
+- `docs/generated/database-schema.md` – Tabellen, Spalten, Typen,
+  Constraints, Foreign Keys, Migrationschronologie, Basisschema-Annahmen
+- `docs/generated/database-security.md` – Rollen, GRANTs/REVOKEs,
+  RLS-Policies, SECURITY-DEFINER-/INVOKER-Funktionen, EXECUTE-Rechte
+- `docs/generated/database-dependencies.md` – Trigger, RPC-Aufrufgraph,
+  RPC-zu-API-Zuordnung, Prozessauswirkungen, P0-Kompatibilität
+
+Verbindliche Arbeitsregeln bei Änderungen an Datenbank, API,
+Berechtigungen oder Geschäftsprozessen:
+
+1. Zuerst diese Datenbankreferenz lesen, dann erst Änderungen planen.
+2. Betroffene Tabellen, Policies, Trigger, RPCs und API-Routen anhand der
+   Referenz identifizieren und Änderungen gegen die dokumentierten
+   Abhängigkeiten prüfen (insbesondere Billing-Guards, Care-/Consent-
+   Logik und Messaging-Sperren).
+3. Die drei Kategorien strikt unterscheiden: „im Repository definiert“,
+   „produktiv bestätigt“ und „produktiv nicht verifiziert“. Der
+   GitHub-Stand ist nie automatisch der Produktionsstand; die
+   P0-Migrationen `20261028000000` und `20261028010000` sind nicht
+   produktiv angewendet, die Sessions-INSERT-Sperre `20261028020000` ist
+   es (28.10.2026, verifiziert).
+4. Nach jeder Schema-, Rechte-, Trigger- oder RPC-Änderung die drei
+   Referenzdokumente im selben Arbeitsschritt aktualisieren.
+5. Neue lesende Supabase-Abfragen nur vorschlagen, wenn eine konkrete
+   Informationslücke der Kategorie „produktiv nicht verifiziert“
+   nachgewiesen ist; niemals produktive Definitionen erfinden.
+
 ## Zentrale Tabellen
 
 ### anfragen

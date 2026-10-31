@@ -30,6 +30,7 @@ Prüfpunkte:
 - Welche Rolle spielt die Aufgabe im Gesamtprodukt (Booking, Abrechnung, Anmeldung, Kalender)?
 - Welche bestehenden Regeln und Annahmen gelten für diesen Bereich? (z. B. `POISE VERFÜGBAR`, UTC / `Europe/Vienna`, `sessions` vs. `blocked_slots`)
 - Welche Dokumentation liegt bereits vor? (`AI_CONTEXT.md`, `docs/architecture.md`, `docs/security.md`)
+- Bei Datenbank-, API-, Berechtigungs- oder Geschäftsprozessänderungen: Immer zuerst die Datenbankreferenz lesen (`docs/generated/database-schema.md`, `docs/generated/database-security.md`, `docs/generated/database-dependencies.md`) und die Kategorien „im Repository definiert“, „produktiv bestätigt“ und „produktiv nicht verifiziert“ unterscheiden.
 - Gibt es bekannte Einschränkungen oder Datenrisiken im betroffenen Bereich?
 - Wer sind die betroffenen Nutzergruppen? (Coach, Admin, Klient)
 
@@ -42,6 +43,7 @@ Ziel: Auswirkungen der Aufgabe auf Code, Daten, APIs und Workflows identifiziere
 Prüfpunkte:
 - Welche Dateien sind betroffen?
 - Welche Tabellen sind betroffen?
+- Welche Policies, Trigger, RPCs und Constraints sind betroffen? (anhand `docs/generated/database-security.md` und `docs/generated/database-dependencies.md` identifizieren; Änderungen gegen die dort dokumentierten Abhängigkeiten prüfen)
 - Welche APIs sind betroffen?
 - Welche externen Systeme sind betroffen?
 - Welche Workflows sind betroffen?
@@ -150,6 +152,7 @@ Ziel: Die Änderung im Projektkontext nachhalten.
 Prüfpunkte:
 - Wurde der technische Kontext in den bestehenden Dokumenten ergänzt, falls erforderlich?
 - Ist die Implementierung sauber in `AI_CONTEXT.md`, `docs/architecture.md` oder `docs/security.md` einzuordnen?
+- Wurden bei Schema-, Rechte-, Trigger- oder RPC-Änderungen die Datenbankreferenzen `docs/generated/database-schema.md`, `docs/generated/database-security.md` und `docs/generated/database-dependencies.md` im selben Arbeitsschritt aktualisiert (inklusive Verbindlichkeitskategorie)?
 - Wurden relevante neue Regeln oder Einschränkungen dokumentiert?
 - Sind API-Änderungen und neue Workflows dokumentiert?
 - Sind Vorbedingungen und Annahmen klar erläutert?
@@ -196,6 +199,7 @@ Der CTO-Agent beantwortet vor jeder Umsetzung automatisch:
 
 - Welche Dateien sind betroffen?
 - Welche Tabellen sind betroffen?
+- Welche Policies, Trigger und RPCs sind laut Datenbankreferenz betroffen?
 - Welche APIs sind betroffen?
 - Welche externen Systeme sind betroffen?
 - Welche Workflows sind betroffen?
@@ -206,5 +210,6 @@ Der CTO-Agent beantwortet vor jeder Umsetzung automatisch:
 - Ist ein Refactoring notwendig?
 - Welche Tests fehlen?
 - Wie sieht ein Rollback aus?
+- Fehlen produktive Informationen (Kategorie „produktiv nicht verifiziert“)? Nur dann eine gezielte lesende Supabase-Abfrage vorschlagen.
 
 Dieses Muster ist verbindlich und wird bei jeder Aufgabe wiederholt, um Transparenz und Qualität zu gewährleisten.

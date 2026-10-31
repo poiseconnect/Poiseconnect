@@ -23,9 +23,22 @@ Vor Änderungen immer zuerst lesen:
 - `docs/agent/system-audit.md`
 - `docs/generated/api-map.md`
 - `docs/generated/database-usage.md`
+- `docs/generated/database-schema.md`
+- `docs/generated/database-security.md`
+- `docs/generated/database-dependencies.md`
 - `docs/generated/calendar-map.md`
 - `docs/generated/email-map.md`
 - `docs/generated/status-map.md`
+
+Bei Änderungen an Datenbank, API, Berechtigungen oder Geschäftsprozessen
+gilt zusätzlich: zuerst die Datenbankreferenz
+(`database-schema.md`, `database-security.md`, `database-dependencies.md`)
+heranziehen, betroffene Tabellen, Policies, Trigger, RPCs und API-Routen
+identifizieren, Änderungen gegen die dokumentierten Abhängigkeiten prüfen
+und die Referenz nach der Änderung aktualisieren. Neue Supabase-Abfragen
+nur bei konkret nachgewiesenen Informationslücken vorschlagen
+(Kategorie „produktiv nicht verifiziert“); der GitHub-Stand ist nie
+automatisch der Produktionsstand.
 
 Langfristigen strategischen Produktkontext liefert `docs/strategy/product-vision.md`. Dieses Dokument ist keine technische Source-of-Truth und keine Freigabe für Architekturänderungen — es dient nur der Einordnung größerer Entscheidungen (siehe Priorität in `docs/agent/cto-workflow.md`).
 
