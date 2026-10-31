@@ -35,6 +35,19 @@ Jede Aussage in den drei Datenbankreferenzen gehört zu genau einer Kategorie:
      aktiv, die beiden alten Messaging-Policies sind vorhanden,
      `auth.uid()` und `gen_random_uuid()` existieren. Die acht P0-Spalten
      und die vier Care-Tabellen fehlen produktiv erwartungsgemäß.
+   - Kompaktpreflight vom 31.10.2026 (`scripts/privacy-p0-compat-summary.sql`):
+     alle 10 Zielrelationen `relkind=r` mit aktiver RLS; 8/8 P0-Spalten
+     frei; kritische Spaltentypen wie erwartet; keine unerwarteten
+     Fremdtrigger und keine bestehenden `privacy_*`-Funktionen auf den
+     Zielrelationen; P0-Trigger-/Policy-/Care-Namen frei;
+     Sessions-INSERT-Lockdown hält weiterhin. **`anfragen.themen`
+     existiert produktiv nicht** (Themen werden vom Formular in den
+     `anliegen`-Freitext gefaltet). **Die Billing-Trigger aus
+     `20261009…`/`20261011…` fehlen produktiv mindestens teilweise**
+     (u. a. `anfragen_coach_billing_creation_guard`); zusätzliche
+     Browser-Policies/-Rechte auf `anfragen` vorhanden (u. a.
+     `anfragen_delete_admin_only`, `anon`/`authenticated` mit SIUD) –
+     genau der Zustand, den die P0-Zugriffsmigration entzieht.
 3. **Produktiv nicht verifiziert (UNVERIFIZIERT):** Exakte DDL-Semantik der
    Basistabellen (Spaltentypen, Defaults, Constraints, Indizes, fremde
    Trigger/Policies/Views, effektive Rechte). Objektpräsenz ist bestätigt,
@@ -60,8 +73,8 @@ Produktionsstand.
 | `20261005000000_admin_reengagement_log.sql` | `anfragen_reengagement_log`, Reservierungs-RPC | REPO; produktiv nicht einzeln verifiziert |
 | `20261007000000_reengagement_function_execute_lockdown.sql` | EXECUTE-Entzug für Browserrollen | PROD (manuell angewendet, lesend verifiziert) |
 | `20261008000000_sevdesk_coach_invoice_send_state.sql` | sevDesk-Send-State auf `coach_invoices` | REPO; produktiv nicht einzeln verifiziert |
-| `20261009000000_coach_quarter_release.sql` | `coach_quarter_releases`, Snapshot-/Release-RPCs, Invalidation-Trigger | REPO; produktiv nicht einzeln verifiziert |
-| `20261011000000_coach_invoice_creation_guards.sql` | Advisory-Locks, Billing-Write-Guards, Unique-Index | REPO; produktiv nicht einzeln verifiziert |
+| `20261009000000_coach_quarter_release.sql` | `coach_quarter_releases`, Snapshot-/Release-RPCs, Invalidation-Trigger | REPO; **Preflight 31.10.2026: Trigger produktiv mind. teilweise fehlend** |
+| `20261011000000_coach_invoice_creation_guards.sql` | Advisory-Locks, Billing-Write-Guards, Unique-Index | REPO; **Preflight 31.10.2026: Trigger produktiv mind. teilweise fehlend (u. a. `anfragen_coach_billing_creation_guard`)** |
 | `20261012000000_coach_invoice_link_guards.sql` | sevDesk-Link-Claims und Link-Guard-Trigger | REPO; produktiv nicht einzeln verifiziert |
 | `20261016000000_client_link_recovery.sql` | Recovery-Tabellen und Queue-RPCs | REPO; produktiv nicht einzeln verifiziert |
 | `20261017000000_anfrage_health_data_consent.sql` | Consent-Tabelle | produktiv vorhanden (Betreiber-bestätigt) |
@@ -97,8 +110,13 @@ Führende Tabelle für Klientenanfragen, Matching und Status.
   `coaching_typ`, `structured_time_preference`, `invoice_with_vat`,
   `meeting_link_override`
 - Gesundheitsfelder (nur über P0-Payload-Whitelist zugreifbar nach Rollout):
-  `themen`, `anliegen`, `leidensdruck`, `verlauf`, `diagnose`, `ziel`,
-  `check_suizid`, `terminwunsch_text`
+  `anliegen`, `leidensdruck`, `verlauf`, `diagnose`, `ziel`,
+  `check_suizid`, `terminwunsch_text`. Die Whitelist von
+  `privacy_health_payload` nennt zusätzlich `themen`; diese Spalte
+  **existiert produktiv nicht** (PROD, Preflight 31.10.2026). Das Formular
+  faltet Themen in den `anliegen`-Freitext; `privacy_health_payload`
+  toleriert die fehlende Spalte (JSONB-Key-Filter), kein Code macht einen
+  direkten Spalten-Select auf `themen`.
 - Migrationszusätze (REPO):
   - `20260910…`: `draft_recovery_consent boolean not null default false`,
     `draft_recovery_consent_at timestamptz`,

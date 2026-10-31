@@ -200,9 +200,18 @@ lokaler Konflikt** der Zugriffsmigration `20261028000000…`.
    Zugriffsmigration sowie `anfragen_reengagement_log` und den
    Recovery-Tabellen ab; darf nie vor der Zugriffsmigration laufen und
    bleibt eigenständig zu bewerten.
-6. **Verbleibendes Risiko ist kein lokaler Konflikt:** unbekannte
-   produktive Constraints, Fremdtrigger, zusätzliche permissive Policies,
-   Views auf die fünf Tabellen und effektive Rechte (UNVERIFIZIERT) –
-   abzuklären ausschließlich über
-   `scripts/privacy-p0-schema-preflight.sql` und menschlichen Abgleich
-   (NO-GO-Kriterien in `docs/privacy-p0-phase1-rollout.md`).
+6. **Verbleibendes Risiko ist kein lokaler Konflikt:** Der
+   Kompaktpreflight vom 31.10.2026 hat produktiv bestätigt: keine
+   unerwarteten Fremdtrigger, keine `privacy_*`-Funktionen, P0-Namen
+   (Trigger/Policies/Care-Relationen) frei, kritische Spaltentypen wie
+   erwartet, Sessions-Lockdown hält. Offen bleiben nur Befunde, die der
+   Betreiber gegen die volle Preflight abgleicht (Views, eingehende FKs,
+   nicht validierte Constraints, Policy-Definitionen), gemäß
+   `docs/privacy-p0-phase1-rollout.md`.
+7. **Billing-Trigger produktiv unvollständig:** Die Trigger aus
+   `20261009…`/`20261011…` fehlen produktiv mindestens teilweise. Für die
+   P0-Zugriffsmigration bedeutungslos (keine Abhängigkeit; die P0-Trigger
+   auf `anfragen` reagieren auf `assigned_therapist_id`/`care_*`, die
+   Billing-Guards auf `invoice_with_vat`/`beschaeftigungsgrad`). Vor
+   Aktivierung des sevDesk-Quartalsworkflows müssen diese Migrationen
+   gesondert produktiv angewendet werden.

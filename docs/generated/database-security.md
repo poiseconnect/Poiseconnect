@@ -47,7 +47,14 @@ Policy/kein Grant für Browserrollen (Zugriff nur über Server-APIs).
 
 - Produktiver Ist-Zustand: RLS aktiv und Objektpräsenz bestätigt; die
   konkreten Policies/Grants der Basistabellen sind UNVERIFIZIERT – mit
-  einer Ausnahme:
+  folgenden Ausnahmen (PROD):
+- **Preflight 31.10.2026:** `anon` und `authenticated` besitzen produktiv
+  SELECT/INSERT/UPDATE/DELETE auf `anfragen` (plus weitere Policies, u. a.
+  `anfragen_delete_admin_only`). Diese Browserrechte sind genau der
+  Zustand, den die P0-Zugriffsmigration vollständig entzieht; die
+  Alt-Policies bleiben danach bestehen, werden aber ohne Grants wirkungslos
+  (inert). Keine bestehenden `privacy_*`-Funktionen, keine unerwarteten
+  Fremdtrigger auf den zehn Zielrelationen.
 - **`sessions` (PROD, 28.10.2026):** Policy „allow inserts from api“
   entfernt; INSERT-Tabellen- und Spaltenrechte für `public`, `anon`,
   `authenticated` entzogen; sieben Berechtigungsprüfungen bestanden
