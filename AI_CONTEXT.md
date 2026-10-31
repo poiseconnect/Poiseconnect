@@ -87,6 +87,12 @@ Berechtigungen oder Geschäftsprozessen:
    Informationslücke der Kategorie „produktiv nicht verifiziert“
    nachgewiesen ist; niemals produktive Definitionen erfinden.
 
+Backup und Wiederherstellung: Das verbindliche manuelle Verfahren
+(pg_dump Custom-Format, age-Verschlüsselung, Rollendump, Synology-NAS,
+isolierter Restore-Test) steht in `docs/operations/database-backup.md`.
+Es wird ausschließlich vom Betreiber ausgeführt; Agenten erzeugen niemals
+Produktionsdumps und öffnen keine Produktionsverbindungen.
+
 ## Zentrale Tabellen
 
 ### anfragen

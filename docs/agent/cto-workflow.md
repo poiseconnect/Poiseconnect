@@ -29,7 +29,7 @@ Prüfpunkte:
 - Welcher Teil der Anwendung ist betroffen? (`app/`, API-Routen, Lib, Datenbankmodelle)
 - Welche Rolle spielt die Aufgabe im Gesamtprodukt (Booking, Abrechnung, Anmeldung, Kalender)?
 - Welche bestehenden Regeln und Annahmen gelten für diesen Bereich? (z. B. `POISE VERFÜGBAR`, UTC / `Europe/Vienna`, `sessions` vs. `blocked_slots`)
-- Welche Dokumentation liegt bereits vor? (`AI_CONTEXT.md`, `docs/architecture.md`, `docs/security.md`)
+- Welche Dokumentation liegt bereits vor? (`AI_CONTEXT.md`, `docs/architecture.md`, `docs/security.md`, Betriebsverfahren unter `docs/operations/` – u. a. das Backup-/Restore-Verfahren `docs/operations/database-backup.md`, das ausschließlich der Betreiber ausführt)
 - Bei Datenbank-, API-, Berechtigungs- oder Geschäftsprozessänderungen: Immer zuerst die Datenbankreferenz lesen (`docs/generated/database-schema.md`, `docs/generated/database-security.md`, `docs/generated/database-dependencies.md`) und die Kategorien „im Repository definiert“, „produktiv bestätigt“ und „produktiv nicht verifiziert“ unterscheiden.
 - Gibt es bekannte Einschränkungen oder Datenrisiken im betroffenen Bereich?
 - Wer sind die betroffenen Nutzergruppen? (Coach, Admin, Klient)
