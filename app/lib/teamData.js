@@ -648,7 +648,7 @@ scores: {
   role: "Coach, Heilpraktikerin für Psychotherapie, Trauerbegleiterin",
   qualificationLevel: 5,
   image: "https://mypoise.de/wp-content/uploads/2024/01/202411_CG_LiliKristin_276-1300x1300.jpg",
-  video: "https://youtu.be/z7LUAXxzW7I",
+  video: "https://youtu.be/HLnklOWN56s",
   short:
     "Ich begleite dich, wenn du Verlust erlebt hast — behutsam, würdevoll und klar.",
   themes: {
