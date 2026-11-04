@@ -105,6 +105,42 @@ describe("buildMatchingOverviewRows", () => {
       "inactive",
     ]);
   });
+
+  it("applies the matching fallback rule dbScores[key] ?? fallback[key] ?? 0", () => {
+    const rows = buildMatchingOverviewRows(
+      [
+        member({
+          id: "coach-a",
+          // stress fehlt in den DB-Scores, burnout ist explizit 0
+          matching_scores: { burnout: 0, trauer: 2 },
+        }),
+        member({ id: "coach-b", matching_scores: null }),
+      ],
+      TOPICS,
+      {
+        "coach-a": { stress: 3, burnout: 5, trauer: 5 },
+        "coach-b": { stress: 1 },
+      }
+    );
+
+    // DB-Wert 0 gewinnt gegen Fallback (?? greift nur bei null/undefined)
+    expect(rows[0].scores).toEqual({ stress: 3, burnout: 0, trauer: 2 });
+    expect(rows[0].fallbackTopicKeys).toEqual(["stress"]);
+
+    // Ohne DB-Scores kommt alles aus dem Fallback
+    expect(rows[1].scores).toEqual({ stress: 1, burnout: 0, trauer: 0 });
+    expect(rows[1].fallbackTopicKeys).toEqual(["stress"]);
+  });
+
+  it("works without a fallback map (missing keys become 0)", () => {
+    const rows = buildMatchingOverviewRows(
+      [member({ matching_scores: { stress: 2 } })],
+      TOPICS
+    );
+
+    expect(rows[0].scores).toEqual({ stress: 2, burnout: 0, trauer: 0 });
+    expect(rows[0].fallbackTopicKeys).toEqual([]);
+  });
 });
 
 describe("sortOverviewRows", () => {

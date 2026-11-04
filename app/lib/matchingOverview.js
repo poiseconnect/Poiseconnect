@@ -5,6 +5,10 @@
 // Themenquelle ist ausschließlich app/lib/matchingTopics.js.
 // Verfügbarkeit nutzt ausschließlich die bestehende Logik aus
 // app/lib/intakeAvailability.js (active + available_for_intake).
+//
+// Effektive Gewichtung je Thema folgt exakt der produktiven Matching-Regel
+// aus app/page-client.jsx: dbScores[key] ?? fallbackScores[key] ?? 0
+// (statischer teamData-Fallback nur, wenn der Key in den DB-Scores fehlt).
 
 import { MATCHING_TOPICS } from "./matchingTopics";
 import { isCoachAvailableForNewClient } from "./intakeAvailability";
@@ -22,13 +26,31 @@ export function getAvailabilityStatus(member = {}) {
   return isCoachAvailableForNewClient({ member }) ? "available" : "paused";
 }
 
-export function buildMatchingOverviewRows(members = [], topics = MATCHING_TOPICS) {
+export function buildMatchingOverviewRows(
+  members = [],
+  topics = MATCHING_TOPICS,
+  fallbackScoresById = {}
+) {
   return (Array.isArray(members) ? members : [])
     .map((member) => {
       const rawScores = member?.matching_scores || {};
+      const fallbackScores =
+        fallbackScoresById?.[String(member?.id ?? "")] || {};
       const scores = {};
+      const fallbackTopicKeys = [];
+
       for (const topic of topics) {
-        scores[topic.key] = normalizeScore(rawScores[topic.key]);
+        // Exakt die Matching-Regel: dbScores[key] ?? fallbackScores[key] ?? 0
+        const effective =
+          rawScores[topic.key] ?? fallbackScores[topic.key] ?? 0;
+        scores[topic.key] = normalizeScore(effective);
+
+        if (
+          rawScores[topic.key] == null &&
+          fallbackScores[topic.key] != null
+        ) {
+          fallbackTopicKeys.push(topic.key);
+        }
       }
 
       return {
@@ -42,6 +64,7 @@ export function buildMatchingOverviewRows(members = [], topics = MATCHING_TOPICS
         availabilityStatus: getAvailabilityStatus(member),
         acceptsNewClients: isCoachAvailableForNewClient({ member }),
         scores,
+        fallbackTopicKeys,
       };
     });
 }

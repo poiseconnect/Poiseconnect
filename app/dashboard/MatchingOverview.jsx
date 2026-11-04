@@ -6,6 +6,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { MATCHING_TOPICS } from "../lib/matchingTopics";
+import { teamData } from "../lib/teamData";
 import {
   MAX_MATCHING_SCORE,
   buildMatchingOverviewRows,
@@ -13,6 +14,14 @@ import {
   sortOverviewRows,
   sortTopicCoverage,
 } from "../lib/matchingOverview";
+
+// Statischer Fallback wie in der produktiven Matching-Regel
+// (app/page-client.jsx): dbScores[key] ?? teamData-scores[key] ?? 0
+const FALLBACK_SCORES_BY_ID = Object.fromEntries(
+  teamData
+    .filter((member) => member?.id)
+    .map((member) => [String(member.id), member.scores || {}])
+);
 
 const AVAILABILITY_BADGES = {
   available: {
@@ -111,7 +120,11 @@ export default function MatchingOverview({ getAccessToken }) {
     };
   }, [getAccessToken]);
 
-  const rows = useMemo(() => buildMatchingOverviewRows(members), [members]);
+  const rows = useMemo(
+    () =>
+      buildMatchingOverviewRows(members, MATCHING_TOPICS, FALLBACK_SCORES_BY_ID),
+    [members]
+  );
 
   const sortedRows = useMemo(
     () => sortOverviewRows(rows, { sortBy, direction: sortDirection }),
@@ -184,9 +197,10 @@ export default function MatchingOverview({ getAccessToken }) {
     >
       <h2 style={{ marginTop: 0 }}>📊 Matching-Übersicht</h2>
       <p style={{ fontSize: 13, color: "#666", marginTop: 4 }}>
-        Rein lesende Ansicht: Themengewichtungen (0–{MAX_MATCHING_SCORE}) aus den
-        Coach-Profilen und aktuelle Intake-Verfügbarkeit. Änderungen sind hier
-        nicht möglich.
+        Rein lesende Ansicht: effektive Themengewichtungen (0–{MAX_MATCHING_SCORE})
+        nach der produktiven Matching-Regel (DB-Wert, sonst statischer
+        teamData-Fallback – mit&nbsp;* markiert) und aktuelle
+        Intake-Verfügbarkeit. Änderungen sind hier nicht möglich.
       </p>
 
       {/* VERFÜGBARKEIT – ZUSAMMENFASSUNG */}
@@ -407,10 +421,17 @@ export default function MatchingOverview({ getAccessToken }) {
                   </td>
                   {visibleTopics.map((topic) => {
                     const score = row.scores[topic.key] ?? 0;
+                    const isFallback = row.fallbackTopicKeys?.includes(
+                      topic.key
+                    );
                     return (
                       <td
                         key={topic.key}
-                        title={`${row.name} – ${topic.label}: ${score} / ${MAX_MATCHING_SCORE}`}
+                        title={`${row.name} – ${topic.label}: ${score} / ${MAX_MATCHING_SCORE}${
+                          isFallback
+                            ? " (statischer teamData-Fallback, kein DB-Wert)"
+                            : ""
+                        }`}
                         style={{
                           width: 54,
                           minWidth: 54,
@@ -422,6 +443,7 @@ export default function MatchingOverview({ getAccessToken }) {
                         }}
                       >
                         {score}
+                        {isFallback ? "*" : ""}
                       </td>
                     );
                   })}

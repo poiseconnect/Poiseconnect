@@ -20,6 +20,7 @@ verändern, und löst keine Schreibvorgänge aus.
 | --- | --- |
 | Themenliste | `app/lib/matchingTopics.js` (`MATCHING_TOPICS`, gemeinsame Themenquelle) |
 | Themengewichtung (0–5 je Thema) | `team_members.matching_scores` (JSONB; von Coaches über `/api/team-members/matching-scores` gepflegt) |
+| Fallback-Gewichtung | statische `scores` aus `app/lib/teamData.js` – nur wenn der Key in den DB-Scores fehlt (exakt die Matching-Regel `dbScores[key] ?? fallback[key] ?? 0` aus `app/page-client.jsx`); in der Heatmap mit `*` markiert |
 | Verfügbarkeit | `team_members.active` + `team_members.available_for_intake` über die bestehende Logik `isCoachAvailableForNewClient` (`app/lib/intakeAvailability.js`) |
 
 Es existieren keine Kapazitätszahlen; dargestellt wird deshalb der vorhandene
@@ -44,7 +45,9 @@ Mode oder freien Slots abgeleitet.
 Reine, getestete Hilfsfunktionen (kein I/O):
 
 - `buildMatchingOverviewRows` – normalisiert Scores (0–5, ungültig → 0) über
-  alle `MATCHING_TOPIC_KEYS` und ermittelt den Verfügbarkeitsstatus über
+  alle `MATCHING_TOPIC_KEYS`, wendet die produktive Fallback-Regel
+  `dbScores[key] ?? fallback[key] ?? 0` an (Fallback-Herkunft wird je Zeile in
+  `fallbackTopicKeys` ausgewiesen) und ermittelt den Verfügbarkeitsstatus über
   `isCoachAvailableForNewClient`.
 - `sortOverviewRows` – Sortierung nach Name, Verfügbarkeit oder Themen-Key.
 - `buildTopicCoverage` / `sortTopicCoverage` – je Thema: Anzahl verfügbarer
@@ -75,6 +78,16 @@ Reine, getestete Hilfsfunktionen (kein I/O):
 - `tests/api/adminMatchingOverviewRoute.test.js` – 401 ohne User, 403 für
   Nicht-Admins und inaktive Admins, erfolgreiche Antwort für Admins,
   Nachweis „nur `team_members` gelesen“ und „nur `GET` exportiert“.
+
+## Bekannte Einschränkung (vorbestehend, hier nur dokumentiert)
+
+Das Thema `mutterschaft` ist Teil von `MATCHING_TOPICS` und des
+Coach-Modals, fehlt aber in den `ALLOWED_KEYS` der Speicher-Route
+`app/api/team-members/matching-scores/route.js`. Gespeicherte DB-Scores
+enthalten diesen Key daher nicht; die Übersicht zeigt für `mutterschaft`
+den teamData-Fallback bzw. 0 – exakt so, wie das Matching ihn effektiv
+verwendet. Eine Korrektur der Speicher-Route wäre eine separate,
+bewusst freizugebende Änderung.
 
 ## Keine Auswirkungen auf
 
