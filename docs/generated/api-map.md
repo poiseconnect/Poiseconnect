@@ -61,6 +61,13 @@ Erzeugt am: 2026-10-16T23:32:17.473Z
 - Google Calendar: keine Nutzung erkannt
 - Mail-Betreffzeilen: keine erkannt
 
+## `app/api/admin/matching-overview/route.js`
+
+- Methoden: `GET`
+- Supabase-Tabellen: `team_members`
+- Google Calendar: keine Nutzung erkannt
+- Mail-Betreffzeilen: keine erkannt
+
 ## `app/api/admin/sessions/route.js`
 
 - Methoden: `GET`

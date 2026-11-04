@@ -175,6 +175,7 @@ Erzeugt am: 2026-10-16T23:32:17.489Z
 - `app/api/admin/billing-sessions/route.js`
 - `app/api/admin/booking-overview/route.js`
 - `app/api/admin/coach-billing/route.js`
+- `app/api/admin/matching-overview/route.js`
 - `app/api/booking/book/route.js`
 - `app/api/booking/settings/get/route.js`
 - `app/api/booking/settings/save/route.js`
