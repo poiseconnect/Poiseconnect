@@ -28,6 +28,7 @@ import jsPDF from "jspdf";
 import { autoTable } from "jspdf-autotable";
 import ActionMenu from "../components/ActionMenu";
 import CoachOnboardingTour from "../components/CoachOnboardingTour";
+import MatchingOverview from "./MatchingOverview";
 import { addPersonalMessageAction, canUseMessagingForRequest, matchesCoachFilter } from "./coachFilter";
 
 import { supabase } from "../lib/supabase";
@@ -167,6 +168,10 @@ const POISE_COLORS = {
     controlling: {
     base: "#B7A1F8",
     active: "#5B3CC4",
+  },
+  matching: {
+    base: "#9BD4B5",
+    active: "#0B6E4F",
   },
   beendet: {
     base: "#CBE34B",     // lime
@@ -3448,6 +3453,15 @@ return (
       color={POISE_COLORS.controlling}
     />
   )}
+  {isAdmin && (
+    <DashboardTab
+      label="Matching"
+      value="matching"
+      active={filter === "matching"}
+      onClick={setFilter}
+      color={POISE_COLORS.matching}
+    />
+  )}
   <DashboardTab
     label="Beendet"
     value="beendet"
@@ -3483,7 +3497,7 @@ return (
   />
 </div>
 
-{isAdmin && filter !== "controlling" && (
+{isAdmin && filter !== "controlling" && filter !== "matching" && (
   <div style={{ marginBottom: 16 }}>
     <select
       value={therapistFilter}
@@ -3508,6 +3522,7 @@ return (
 {filter !== "abrechnung" &&
   filter !== "controlling" &&
   filter !== "einstellungen" &&
+  filter !== "matching" &&
   sortedRequests.length === 0 && (
     <div
       style={{
@@ -3601,6 +3616,10 @@ return (
 
 
     {/* ================= EINSTELLUNGEN ================= */}
+{isAdmin && filter === "matching" && (
+  <MatchingOverview getAccessToken={getAccessToken} />
+)}
+
 {filter === "einstellungen" && (
   <section
     style={{
@@ -5323,6 +5342,7 @@ gridTemplateColumns:
   filter !== "controlling" &&
   filter !== "einstellungen" &&
   filter !== "drafts" &&
+  filter !== "matching" &&
   therapistFilteredRequests.map((r) => {
           const sessionList = sessionsByRequest[String(r.id)] || [];
 const therapistId =
