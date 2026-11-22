@@ -220,7 +220,8 @@ produktive Next.js-Teamseite; ein späteres WordPress-Plugin rendert das
 Teamverzeichnis serverseitig aus `/api/public-team-members`.
 
 Social-Landingpages in Poise Connect sind davon getrennt. Sie dienen
-Instagram-/Social-Media-Conversion und Newsletter-Anmeldung, nicht SEO.
+Instagram-/Social-Media-Conversion, nicht SEO. Die Newsletter-Anmeldung
+ist vorübergehend deaktiviert.
 Sie verwenden explizite App-Router-Routen, sind `noindex, follow` und werden
 über eine zentrale Social-Landingpage-Konfiguration gerendert. `landingTopic`
 ist dabei der feinere Content- und Interest-Key, `parentTopic` verbindet zur

@@ -85,8 +85,7 @@ den letzten bekannten Formularschritt und `draft_reminder_sent_at`. Der täglich
 Cronjob `/api/reminders/send` prüft berechtigte Drafts (>48h Inaktivität) und
 versendet genau eine neutrale Fortsetzungs-E-Mail mit sicherem Resume-Link
 (`rid` + `token`). Erst nach erfolgreichem Versand wird `draft_reminder_sent_at`
-in Supabase gesetzt. Newsletter-Consent wird weiterhin separat an Klaviyo
-übertragen und nicht als Recovery-Consent verwendet.
+in Supabase gesetzt. Dieser Consent ist keine Newsletter-Einwilligung.
 
 Der aktuelle Draft-Save erfolgt beim Auswählen eines Coaches. Dadurch ist
 `draft_last_activity_at` zunächst nur ein Checkpoint dieses bestehenden
@@ -125,8 +124,7 @@ neuen ausdrücklichen Einwilligung geladen. Ein Widerruf setzt den
 Widerrufszeitpunkt, verhindert spätere belegpflichtige Verarbeitung und löscht
 keine bestehenden Anfrageinhalte. Die Anfragetabellen werden durch die
 Migration nicht verändert; Bestandsdaten erhalten keinen automatisch gesetzten
-Consent. Klaviyo wird ausschließlich mit Newsletter-Adresse, Consent und
-freigegebenen Attribution-Feldern angesprochen.
+Consent. Newsletter-Anmeldungen über Klaviyo sind vorübergehend deaktiviert.
 
 Die Migration
 `supabase/migrations/20261017000000_anfrage_health_data_consent.sql` ist
@@ -135,16 +133,11 @@ angewendet werden. Sie wurde durch die Anwendung nicht ausgeführt.
 
 ## Klaviyo
 
-Klaviyo wird für Newsletter, Impulsserien und Segmentierung verwendet.
-Social-Landingpages übertragen Newsletter-Attribution über kontrollierte
-Properties wie `landing_page_topic`, `last_landing_page_topic`,
-`parent_matching_topic` und explizit erlaubte UTM-Felder. `source` beschreibt
-den Signup-Kontext und wird nicht als Themeninformation verwendet.
-
-Ein mehrwertiges Interessenmodell wie `poise_interests` darf erst ergänzt
-werden, wenn das bestehende Klaviyo-Profil gelesen und die Interessen sicher
-zusammengeführt werden können; die aktuelle Subscription-Job-Nutzung darf keine
-bestehenden Interessen blind überschreiben.
+Newsletter-Anmeldungen über Poise Connect sind vorübergehend deaktiviert:
+Das Anfrageformular und die Social-Landingpages bieten keine Anmeldung an;
+`POST /api/klaviyo/subscribe` antwortet mit HTTP 410 und überträgt keine Daten.
+Bestehende Kontakte und externe Klaviyo-Abläufe werden nicht verändert. Eine
+spätere Integration erfordert eine separate Datenschutz- und DOI-Prüfung.
 
 ## sevDesk
 
@@ -1220,7 +1213,7 @@ technische Referenzen, keine Abrechnungsquelle.
 | Website Public | `/api/public-team-members` | Whitelisted Website-Daten aus `team_members` und `teamData` |
 | Formular | `/api/form-team-members`, `/api/form-submit` | Profil-Overrides und Persistenz nach `anfragen` |
 | Matching/Availability | `/api/public-availability`, `/api/team-members/matching-scores` | Intake-, Booking- und Score-Daten aus `team_members` und Booking Settings |
-| Social Landingpages | `/beziehung`, `/verlustangst`, `/api/klaviyo/subscribe` | Noindex-Conversion-Seiten mit Topic-/UTM-Attribution für Klaviyo |
+| Social Landingpages | `/beziehung`, `/verlustangst` | Noindex-Seiten ohne Newsletter-Anmeldung |
 | Coach | `/api/team-members/profile`, `/api/therapist/*` | Authentifiziertes Coach-Profil, Sessions und Billing |
 | Admin | `/api/admin-forward`, `/api/admin-reengage`, `/api/dashboard/*`, `/api/requests/*` | Authentifizierte Admin- und Dashboard-Workflows |
 | Proposal | `/api/proposals/*`, `/api/confirm-proposal` | Vorschläge, Reservierungen und Bestätigung |

@@ -1,68 +1,9 @@
 "use client";
 
 import Image from "next/image";
-import { Suspense, useState } from "react";
-import { useSearchParams } from "next/navigation";
-import { SOCIAL_LANDING_SOURCE, UTM_FIELDS } from "../lib/socialLandingTopics.js";
-
-export function buildSocialLandingSubscribePayload(topic, email, searchParams) {
-  const payload = {
-    email,
-    consent: true,
-    source: SOCIAL_LANDING_SOURCE,
-    landing_page_topic: topic.landingTopic,
-    parent_matching_topic: topic.parentTopic,
-  };
-
-  for (const field of UTM_FIELDS) {
-    const value = searchParams?.get(field);
-    if (value) payload[field] = value;
-  }
-
-  return payload;
-}
+import { Suspense } from "react";
 
 function SocialLandingPageContent({ topic }) {
-  const [email, setEmail] = useState("");
-  const [submitted, setSubmitted] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const searchParams = useSearchParams();
-
-  async function handleSubmit(event) {
-    event.preventDefault();
-
-    const trimmedEmail = email.trim();
-
-    if (!trimmedEmail || loading) return;
-
-    setLoading(true);
-
-    try {
-      const response = await fetch("/api/klaviyo/subscribe", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(
-          buildSocialLandingSubscribePayload(topic, trimmedEmail, searchParams)
-        ),
-      });
-
-      if (!response.ok) {
-        throw new Error(`Newsletter signup failed: ${response.status}`);
-      }
-
-      setSubmitted(true);
-    } catch (error) {
-      console.error("Newsletter signup failed:", error);
-      alert(
-        "Die Anmeldung hat leider nicht funktioniert. Bitte versuche es noch einmal."
-      );
-    } finally {
-      setLoading(false);
-    }
-  }
-
   return (
     <>
       <main className="page">
@@ -94,44 +35,6 @@ function SocialLandingPageContent({ topic }) {
           </div>
 
           <p className="intro">{topic.intro}</p>
-
-          <div className="signupCard">
-            {!submitted ? (
-              <form onSubmit={handleSubmit}>
-                <label htmlFor="email">{topic.emailLabel}</label>
-
-                <input
-                  id="email"
-                  name="email"
-                  type="email"
-                  inputMode="email"
-                  autoComplete="email"
-                  placeholder={topic.emailPlaceholder}
-                  value={email}
-                  onChange={(event) => setEmail(event.target.value)}
-                  required
-                />
-
-                <button type="submit" disabled={loading}>
-                  {loading ? topic.loadingText : topic.cta}
-                </button>
-
-                <div className="miniTrust">
-                  {topic.trustItems.map((item) => (
-                    <span key={item}>✓ {item}</span>
-                  ))}
-                </div>
-
-                <p className="privacy">{topic.privacyText}</p>
-              </form>
-            ) : (
-              <div className="success" role="status" aria-live="polite">
-                <div className="successIcon">{topic.successIcon}</div>
-                <h2>{topic.successHeadline}</h2>
-                <p>{topic.successText}</p>
-              </div>
-            )}
-          </div>
 
           <p className="note">{topic.note}</p>
         </section>
@@ -245,102 +148,6 @@ function SocialLandingPageContent({ topic }) {
           line-height: 1.6;
         }
 
-        .signupCard {
-          padding: 26px;
-          border: 1px solid rgba(116, 88, 69, 0.13);
-          border-radius: 24px;
-          background: rgba(255, 255, 255, 0.96);
-          box-shadow: 0 18px 45px rgba(57, 43, 35, 0.1);
-          text-align: left;
-        }
-
-        label {
-          display: block;
-          margin-bottom: 8px;
-          font-size: 14px;
-          font-weight: 700;
-        }
-
-        input {
-          width: 100%;
-          padding: 17px 18px;
-          border: 1px solid #d8cec6;
-          border-radius: 14px;
-          outline: none;
-          background: #ffffff;
-          color: #2f2925;
-          font: inherit;
-          font-size: 16px;
-        }
-
-        input:focus {
-          border-color: #8c6e5b;
-          box-shadow: 0 0 0 4px rgba(140, 110, 91, 0.12);
-        }
-
-        button {
-          width: 100%;
-          margin-top: 13px;
-          padding: 17px 18px;
-          border: none;
-          border-radius: 14px;
-          background: #2f2925;
-          color: #ffffff;
-          font: inherit;
-          font-size: 16px;
-          font-weight: 800;
-          cursor: pointer;
-          box-shadow: 0 10px 24px rgba(47, 41, 37, 0.18);
-        }
-
-        button:disabled {
-          cursor: not-allowed;
-          opacity: 0.62;
-        }
-
-        .miniTrust {
-          display: flex;
-          flex-wrap: wrap;
-          justify-content: center;
-          gap: 8px 14px;
-          margin-top: 16px;
-          color: #665c55;
-          font-size: 12px;
-          font-weight: 600;
-        }
-
-        .privacy {
-          margin: 15px 0 0;
-          color: #857970;
-          font-size: 11px;
-          line-height: 1.5;
-          text-align: center;
-        }
-
-        .success {
-          padding: 6px 0;
-          text-align: center;
-        }
-
-        .successIcon {
-          margin-bottom: 10px;
-          font-size: 44px;
-        }
-
-        .success h2 {
-          margin: 0 0 10px;
-          font-family: Georgia, "Times New Roman", serif;
-          font-size: 30px;
-          font-weight: 500;
-        }
-
-        .success p {
-          margin: 0;
-          color: #6c625b;
-          font-size: 16px;
-          line-height: 1.6;
-        }
-
         .note {
           max-width: 520px;
           margin: 24px auto 0;
@@ -371,16 +178,6 @@ function SocialLandingPageContent({ topic }) {
             font-size: 17px;
           }
 
-          .signupCard {
-            padding: 22px 18px;
-            border-radius: 20px;
-          }
-
-          .miniTrust {
-            flex-direction: column;
-            align-items: center;
-            gap: 5px;
-          }
         }
       `}</style>
     </>

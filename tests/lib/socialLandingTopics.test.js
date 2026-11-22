@@ -1,22 +1,19 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { readFileSync } from "node:fs";
+import React from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 import { metadata as beziehungMetadata } from "../../app/beziehung/page.jsx";
 import { metadata as verlustangstMetadata } from "../../app/verlustangst/page.jsx";
-import { buildSocialLandingSubscribePayload } from "../../app/components/SocialLandingPage.jsx";
+import SocialLandingPage from "../../app/components/SocialLandingPage.jsx";
 import { MATCHING_TOPIC_KEYS } from "../../app/lib/matchingTopics.js";
 import {
-  SOCIAL_LANDING_SOURCE,
   getSocialLandingTopic,
   socialLandingTopics,
 } from "../../app/lib/socialLandingTopics.js";
 
-function params(values = {}) {
-  return {
-    get(key) {
-      return values[key] || null;
-    },
-  };
-}
+vi.mock("next/image", () => ({
+  default: ({ priority, ...props }) => React.createElement("img", props),
+}));
 
 describe("social landing topic config", () => {
   it("uses unique slugs", () => {
@@ -55,35 +52,19 @@ describe("social landing topic config", () => {
   });
 });
 
-describe("social landing signup payload", () => {
-  it("keeps beziehung on the controlled social source and config attribution", () => {
-    const topic = getSocialLandingTopic("beziehung");
+describe("social landing pages without newsletter signup", () => {
+  afterEach(() => vi.unstubAllGlobals());
 
-    expect(buildSocialLandingSubscribePayload(topic, "test@example.invalid", params())).toEqual({
-      email: "test@example.invalid",
-      consent: true,
-      source: SOCIAL_LANDING_SOURCE,
-      landing_page_topic: "beziehung",
-      parent_matching_topic: "partnerschaft_beziehung",
-    });
-  });
+  it.each(["beziehung", "verlustangst"])("retains %s content without an email form", (slug) => {
+    vi.stubGlobal("React", React);
+    const topic = getSocialLandingTopic(slug);
+    const markup = renderToStaticMarkup(React.createElement(SocialLandingPage, { topic }));
 
-  it("sends verlustangst landing topic and utm fields from the URL", () => {
-    const topic = getSocialLandingTopic("verlustangst");
-
-    expect(
-      buildSocialLandingSubscribePayload(
-        topic,
-        "test@example.invalid",
-        params({ utm_source: "instagram", utm_campaign: "reel-1" })
-      )
-    ).toMatchObject({
-      source: SOCIAL_LANDING_SOURCE,
-      landing_page_topic: "verlustangst",
-      parent_matching_topic: "partnerschaft_beziehung",
-      utm_source: "instagram",
-      utm_campaign: "reel-1",
-    });
+    expect(markup).toContain(topic.headline);
+    expect(markup).toContain(topic.intro);
+    expect(markup).toContain(topic.note);
+    expect(markup).not.toMatch(/<form\b|<input\b|<button\b/);
+    expect(readFileSync("app/components/SocialLandingPage.jsx", "utf8")).not.toContain("/api/klaviyo/subscribe");
   });
 });
 
