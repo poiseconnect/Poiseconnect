@@ -32,7 +32,7 @@ export const socialLandingTopics = [
     eyebrow: "Psychologische Impulse für Beziehungen",
     headline: "Impulse für mehr Nähe und Verbindung in deiner Beziehung",
     intro:
-      "Trag dich ein und erhalte von Linda psychologisch fundierte, verständliche und alltagstaugliche Impulse zu Kommunikation, Bindung und Konflikten.",
+      "Psychologisch fundierte, verständliche und alltagstaugliche Impulse zu Kommunikation, Bindung und Konflikten.",
     emailLabel: "Deine E-Mail-Adresse",
     emailPlaceholder: "deine@email.at",
     cta: "Kostenlose Beziehungsimpulse erhalten",
@@ -73,7 +73,7 @@ export const socialLandingTopics = [
     headline:
       "Warum fühlt sich die Angst, jemanden zu verlieren, manchmal so überwältigend an?",
     intro:
-      "Trag dich ein und erhalte von Linda verständliche psychologische Impulse rund um Verlustangst, Beziehungsmuster, Selbstwert und mehr Sicherheit in Beziehungen.",
+      "Verständliche psychologische Impulse rund um Verlustangst, Beziehungsmuster, Selbstwert und mehr Sicherheit in Beziehungen.",
     emailLabel: "Deine E-Mail-Adresse",
     emailPlaceholder: "deine@email.at",
     cta: "Kostenlose Impulse zu Verlustangst erhalten",

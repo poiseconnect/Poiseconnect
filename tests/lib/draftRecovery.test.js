@@ -255,7 +255,7 @@ describe("draft recovery integration boundaries", () => {
     expect(formSource).toContain("draft_recovery_consent: form.draft_recovery_consent === true");
     expect(formSource).toContain("!form.check_datenschutz ||");
     expect(formSource).not.toContain("!form.draft_recovery_consent ||");
-    expect(formSource).toContain("newsletter_consent");
+    expect(formSource).not.toContain("newsletter_consent");
   });
 
   it("does not add recovery-mail sending to the draft route or final submit", () => {
